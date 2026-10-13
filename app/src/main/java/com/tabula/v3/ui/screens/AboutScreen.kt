@@ -423,7 +423,7 @@ fun AboutScreen(
                 )
 
                 Text(
-                    text = "2026.2.9",
+                    text = "发行日期 ${BuildConfig.RELEASE_DATE}",
                     style = MaterialTheme.typography.bodySmall,
                     color = secondaryTextColor.copy(alpha = 0.8f)
                 )

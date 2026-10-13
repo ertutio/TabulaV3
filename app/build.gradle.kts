@@ -28,6 +28,7 @@ android {
         targetSdk = 36
         versionCode = 5
         versionName = "3.3.5"
+        buildConfigField("String", "RELEASE_DATE", "\"2026.10.13\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
