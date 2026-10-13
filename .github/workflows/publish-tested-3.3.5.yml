@@ -1,0 +1,71 @@
+name: Publish tested 3.3.5 APK
+
+on:
+  push:
+    branches: [publish/v3.3.5]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: publish-tested-3.3.5
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_SOURCE_SHA: a4a6591b7d0936334620181f523e969e05a6620e
+      EXPECTED_SHA256: 93d57943ccf24905c28c4e94fb29cc4a2064169f714e5ef41145cedd085c5ddd
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Check repository and existing release
+        run: |
+          test "$GITHUB_REPOSITORY" = "ertutio/TabulaV3"
+          if gh release view V3.3.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "V3.3.5 already exists; refusing to replace a published package."
+            exit 1
+          fi
+
+      - name: Download tested build artifact
+        run: |
+          gh run download 38405780774 --repo "$GITHUB_REPOSITORY" \
+            --name Tabula-Photo-Sharing-38405780774 --dir unsigned-build
+
+      - name: Restore the exact user-tested signed APK
+        run: |
+          mkdir -p release-artifacts
+          node scripts/restore-tested-apk.cjs \
+            unsigned-build/TabulaV3.3.5-unsigned.apk release-artifacts/TabulaV3.3.5.apk
+          printf '%s  %s\n' "$EXPECTED_SHA256" "TabulaV3.3.5.apk" > release-artifacts/SHA256SUMS.txt
+          cd release-artifacts
+          sha256sum -c SHA256SUMS.txt
+
+      - name: Verify version and existing signing identity
+        run: |
+          APK=release-artifacts/TabulaV3.3.5.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > badging.txt
+          grep -F "package: name='com.tabula.v3' versionCode='5' versionName='3.3.5'" badging.txt
+          if grep -q application-debuggable badging.txt; then
+            echo "Refusing to publish a debuggable APK."
+            exit 1
+          fi
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" > signature.txt
+          cat signature.txt
+          grep -F "Signer #1 certificate SHA-256 digest: d483b29a8f509b6f9d70d48f459da319a0395a59ba8cf451c155cef46f0e301b" signature.txt
+          test "$(stat -c %s "$APK")" = "28458616"
+
+      - name: Publish formal release
+        run: |
+          gh release create V3.3.5 \
+            release-artifacts/TabulaV3.3.5.apk release-artifacts/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$RELEASE_SOURCE_SHA" \
+            --title "Tabula V3.3.5" --notes-file docs/release-3.3.5.md --latest
+
