@@ -26,8 +26,9 @@ android {
         applicationId = "com.tabula.v3"
         minSdk = 31
         targetSdk = 36
-        versionCode = 4
-        versionName = "3.3.4"
+        versionCode = 5
+        versionName = "3.3.5"
+        buildConfigField("String", "RELEASE_DATE", "\"2026.10.13\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -111,3 +112,4 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
 }
+

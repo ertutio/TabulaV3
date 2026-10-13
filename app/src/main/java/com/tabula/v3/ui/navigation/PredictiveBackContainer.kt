@@ -81,7 +81,7 @@ fun PredictiveBackContainer(
         val isForward = prev != null && when {
             prev == AppScreen.DECK && currentScreen != AppScreen.DECK -> true
             prev == AppScreen.SETTINGS && currentScreen in listOf(
-                AppScreen.ABOUT, AppScreen.SUPPORT, AppScreen.STATISTICS,
+                AppScreen.ABOUT, AppScreen.STATISTICS,
                 AppScreen.VIBRATION_SOUND, AppScreen.DISPLAY_SETTINGS, AppScreen.LAB,
                 AppScreen.REMINDER_SETTINGS, AppScreen.HIDDEN_ALBUMS, 
                 AppScreen.PRIVACY_POLICY, AppScreen.TUTORIAL

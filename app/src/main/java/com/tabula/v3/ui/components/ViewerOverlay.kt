@@ -11,6 +11,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Share
+import com.tabula.v3.ui.util.rememberPhotoShareAction
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -104,6 +111,7 @@ fun ViewerOverlay(
     // 源位置信息 - 使用remember保存初始值，确保退出动画时使用正确的位置
     val initialSourceRect = remember { viewerState.sourceRect }
     val image = viewerState.image
+    val sharePhoto = rememberPhotoShareAction()
     
     // 检查源位置是否有效（宽高大于0）
     val isSourceValid = initialSourceRect.width > 0f && initialSourceRect.height > 0f
@@ -594,6 +602,16 @@ fun ViewerOverlay(
                 }
             }
         }
+        IconButton(
+            onClick = { sharePhoto(image) },
+            enabled = !isExiting && !animProgress.isRunning,
+            modifier = Modifier.align(Alignment.TopEnd)
+                .statusBarsPadding().padding(12.dp)
+                .size(48.dp).clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF2C2C2E))
+        ) {
+            Icon(Icons.Outlined.Share, contentDescription = "分享当前照片", tint = Color.White)
+        }
     }
 }
 
@@ -603,3 +621,4 @@ fun ViewerOverlay(
 private fun lerp(start: Float, end: Float, fraction: Float): Float {
     return start + (end - start) * fraction
 }
+
