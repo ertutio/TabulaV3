@@ -4,6 +4,8 @@
 
 <h1 align="center">Tabula V3 | 重拾 · 秩序</h1>
 
+> 本仓库是 [Doryoku1223/TabulaV3](https://github.com/Doryoku1223/TabulaV3) 的 fork。下文的收款码、支持者名单、作者邮箱、QQ 交流群和宣传致谢均保留自原项目，相关赞助与联系方式属于原开源作者 **Doryoku1223**。
+
 <p align="center">
   <strong>相册整理工具 / Minimalist Photo Cleaner</strong>
 </p>
@@ -21,7 +23,7 @@
 
 <div align="center">
 
-### :inbox_tray: [点击下载最新 APK (Download V3 .apk)](https://github.com/Doryoku1223/TabulaV3/releases/latest)
+### :inbox_tray: [下载原作者发布的 APK (Original Project APK)](https://github.com/Doryoku1223/TabulaV3/releases/latest)
 
 </div>
 
@@ -53,40 +55,40 @@
 
 ---
 
-## 赞助与支持 (Support)
+## 支持原开源作者 (Support the Original Author)
 
-> *如果 Tabula 对你有所帮助，欢迎请作者喝杯咖啡 ☕*
+> 以下收款码来自原项目，用于支持原开源作者 **Doryoku1223**。如果原项目对你有所帮助，可以通过这些渠道支持原作者。
 
 <table align="center" style="border:none;">
   <tr>
     <td align="center" width="50%">
-      <img src="app\src\main\res\drawable\qr_wechat.jpg" width="200" alt="微信收款码">
+      <img src="app/src/main/res/drawable/qr_wechat.jpg" width="200" alt="原作者微信收款码">
       <br>
-      <b>微信支付</b>
+      <b>原作者微信收款码</b>
     </td>
     <td align="center" width="50%">
-      <img src="app\src\main\res\drawable\qr_alipay.jpg" width="200" alt="支付宝收款码">
+      <img src="app/src/main/res/drawable/qr_alipay.jpg" width="200" alt="原作者支付宝收款码">
       <br>
-      <b>支付宝</b>
+      <b>原作者支付宝收款码</b>
     </td>
   </tr>
 </table>
 
-### 🌟 感谢支持者
+### 🌟 原项目支持者（原作者鸣谢名单）
 
-感谢以下朋友的支持（不按时间排序）：
+以下名单保留自原项目 README，是原作者对支持原项目的朋友的鸣谢（不按时间排序）：
 
 [@Summer_233](https://github.com/tanbq-code) | @WIdei | @柴郡 | @k | @辰小筱 | @Orion | @**豪 | @**藩
 
 ---
 
-## 加入我们 (Join Us)
+## 原项目联系方式与交流群 (Original Project Contact)
 
-如果您在使用过程中遇到 Bug，或对 Tabula V3 有新的功能建议，欢迎通过以下方式联系：
+以下邮箱和 QQ 交流群来自原项目，供联系原开源作者 **Doryoku1223**、参与原项目交流使用：
 
-📧 邮箱：2922147939@qq.com
+📧 原作者邮箱：2922147939@qq.com
 
-💬 QQ 交流群：1082340405
+💬 原项目 QQ 交流群：1082340405
 
 
 ---
@@ -105,17 +107,17 @@
 - 禁止将本项目或其二次创作用于任何商业用途
 - 禁止对本项目的修改版本进行收费或盈利行为
 
-如需商业合作，请通过邮箱 2922147939@qq.com 联系作者。
+如需与原项目进行商业合作，请通过原作者邮箱 2922147939@qq.com 联系原开源作者 Doryoku1223。
 
 ---
 
-## 🙏 致谢 (Acknowledgments)
+## 🙏 原项目致谢 (Original Project Acknowledgments)
 
-感谢 [果核剥壳 - 互联网的净土](https://www.ghxi.com/) 对本项目的宣传
+以下致谢保留自原项目：原作者感谢 [果核剥壳 - 互联网的净土](https://www.ghxi.com/) 对原项目的宣传。
 
 
-如有问题或建议，欢迎在 Issues 中提出，或在 Discussions 中参与讨论。
+关于原项目的问题或建议，可在 [原项目 Issues](https://github.com/Doryoku1223/TabulaV3/issues) 中反馈。
 
 ---
 
-<p align="center"> 欢迎你的加入 </p>
+<p align="center"> 欢迎了解原项目并支持原开源作者 </p>
