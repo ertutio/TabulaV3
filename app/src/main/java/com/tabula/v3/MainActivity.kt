@@ -107,6 +107,11 @@ import com.tabula.v3.ui.components.isBackdropLiquidGlassSupported
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.CancellationException
+import kotlin.coroutines.resume
+import com.tabula.v3.data.repository.BatchDeleteResult
+import com.tabula.v3.data.repository.deleteInBatches
 
 /**
  * MainActivity - Tabula 应用入口
@@ -170,8 +175,9 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.StartIntentSenderForResult()
         ) { result ->
             val success = result.resultCode == Activity.RESULT_OK
-            onDeletePermissionResult?.invoke(success)
+            val callback = onDeletePermissionResult
             onDeletePermissionResult = null
+            callback?.invoke(success)
         }
 
         setContent {
@@ -199,10 +205,19 @@ class MainActivity : ComponentActivity() {
                         preferences = preferences,
                         onThemeChange = { theme -> currentTheme = theme },
                         onRequestDeletePermission = { intentSender, callback ->
-                            onDeletePermissionResult = callback
-                            deletePermissionLauncher.launch(
-                                IntentSenderRequest.Builder(intentSender).build()
-                            )
+                            if (onDeletePermissionResult != null) {
+                                callback(false)
+                            } else {
+                                onDeletePermissionResult = callback
+                                try {
+                                    deletePermissionLauncher.launch(
+                                        IntentSenderRequest.Builder(intentSender).build()
+                                    )
+                                } catch (e: Exception) {
+                                    onDeletePermissionResult = null
+                                    throw e
+                                }
+                            }
                         },
                         liquidGlassLabEnabled = liquidGlassLabEnabled,
                         onLiquidGlassLabEnabledChange = { enabled ->
@@ -336,6 +351,7 @@ fun TabulaApp(
     // 这样已归类的照片不会再次出现在待整理列表中
     var imagesForSorting by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
     var deletedImages by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
+    var isDeletingRecycleBin by remember { mutableStateOf(false) }
     var systemBuckets by remember { mutableStateOf<List<LocalImageRepository.SystemBucket>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
@@ -420,41 +436,63 @@ fun TabulaApp(
         isLoading = false
     }
 
-    /**
-     * 执行删除操作
-     */
-    fun performDelete(image: ImageFile, onResult: (Boolean) -> Unit) {
+    fun deleteRecycleBinImages(images: List<ImageFile>) {
+        if (isDeletingRecycleBin || images.isEmpty()) return
+        val snapshot = images.toList()
+        isDeletingRecycleBin = true
         scope.launch {
-            val result = fileOperationManager.deleteImage(image.uri)
-            when (result) {
-                is FileOperationManager.DeleteResult.Success -> {
-                    val success = result.deleted.isNotEmpty()
-                    Log.d("TabulaApp", "Deleted: ${image.displayName}, success=$success")
-                    onResult(success)
-                }
-                is FileOperationManager.DeleteResult.NeedsPermission -> {
-                    onRequestDeletePermission(result.intentSender) { granted ->
-                        if (granted) {
-                            // 授权后验证实际删除结果
-                            scope.launch {
-                                val actuallyDeleted = fileOperationManager.verifyDeletion(result.pendingUris)
-                                val success = actuallyDeleted.isNotEmpty()
-                                Log.d("TabulaApp", "Delete permission granted for: ${image.displayName}, verified=$success")
-                                onResult(success)
+            try {
+                val summary = deleteInBatches(
+                    items = snapshot.map { it.uri },
+                    deleteBatch = { uris ->
+                        when (val result = fileOperationManager.deleteImages(uris)) {
+                            is FileOperationManager.DeleteResult.Success ->
+                                BatchDeleteResult.Completed(result.deleted)
+                            is FileOperationManager.DeleteResult.Error ->
+                                BatchDeleteResult.Failed(result.message, canSplit = true)
+                            is FileOperationManager.DeleteResult.NeedsPermission -> {
+                                val granted = suspendCancellableCoroutine<Boolean> { continuation ->
+                                    onRequestDeletePermission(result.intentSender) { allowed ->
+                                        if (continuation.isActive) continuation.resume(allowed)
+                                    }
+                                }
+                                if (granted) {
+                                    BatchDeleteResult.Completed(
+                                        fileOperationManager.verifyDeletion(result.pendingUris)
+                                    )
+                                } else {
+                                    BatchDeleteResult.Cancelled
+                                }
                             }
-                        } else {
-                            Log.w("TabulaApp", "Delete permission denied for: ${image.displayName}")
-                            onResult(false)
                         }
+                    },
+                    onDeleted = { uris ->
+                        val confirmed = snapshot.filter { it.uri in uris }
+                        recycleBinManager.removeAllFromRecycleBin(confirmed)
+                        val ids = confirmed.map { it.id }.toSet()
+                        deletedImages = deletedImages.filterNot { it.id in ids }
+                        allImages = allImages.filterNot { it.id in ids }
+                        imagesForSorting = imagesForSorting.filterNot { it.id in ids }
                     }
+                )
+                val message = when {
+                    summary.cancelled -> "已取消，已处理 ${summary.deleted.size} 张，剩余 ${summary.remaining.size} 张"
+                    summary.remaining.isEmpty() -> "已处理 ${summary.deleted.size} 张照片"
+                    else -> "已处理 ${summary.deleted.size} 张，${summary.remaining.size} 张未能删除，请检查照片访问权限或重试"
                 }
-                is FileOperationManager.DeleteResult.Error -> {
-                    Log.e("TabulaApp", "Delete error: ${result.message}")
-                    onResult(false)
-                }
+                summary.error?.let { Log.w("TabulaApp", "Recycle bin delete failed: $it") }
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("TabulaApp", "Recycle bin deletion failed", e)
+                Toast.makeText(context, "未能完成删除，未处理的照片已保留，请重试", Toast.LENGTH_LONG).show()
+            } finally {
+                isDeletingRecycleBin = false
             }
         }
     }
+
     
     /**
      * Batch delete
@@ -789,35 +827,13 @@ fun TabulaApp(
                 Log.d("TabulaApp", "Restored: ${image.displayName}")
             },
             onPermanentDelete = { image ->
-                performDelete(image) { success ->
-                    if (success) {
-                        deletedImages = deletedImages.toMutableList().apply { remove(image) }
-                        scope.launch {
-                            recycleBinManager.removeFromRecycleBin(image)
-                        }
-                    }
-                }
+                deleteRecycleBinImages(listOf(image))
             },
             onPermanentDeleteBatch = { images ->
-                performDeleteBatch(images) { success ->
-                    if (success) {
-                        deletedImages = deletedImages.toMutableList().apply { removeAll(images) }
-                        scope.launch {
-                            recycleBinManager.removeAllFromRecycleBin(images)
-                        }
-                    }
-                }
+                deleteRecycleBinImages(images)
             },
             onClearAll = {
-                val imagesToDelete = deletedImages
-                performDeleteBatch(imagesToDelete) { success ->
-                    if (success) {
-                        scope.launch {
-                            recycleBinManager.clearRecycleBin()
-                        }
-                        deletedImages = emptyList()
-                    }
-                }
+                deleteRecycleBinImages(deletedImages)
             },
             onNavigateBack = {
                 currentScreen = AppScreen.DECK
@@ -827,6 +843,20 @@ fun TabulaApp(
             playMotionSound = playMotionSound,
             motionSoundVolume = motionSoundVolume
         )
+        if (isDeletingRecycleBin) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = {},
+                confirmButton = {},
+                title = { Text("正在处理回收站") },
+                text = {
+                    Column {
+                        androidx.compose.material3.CircularProgressIndicator()
+                        Spacer(Modifier.height(16.dp))
+                        Text("请在系统提示中确认删除。取消系统提示可停止后续删除。")
+                    }
+                }
+            )
+        }
     }
 
     val settingsContent: @Composable () -> Unit = {
@@ -1597,3 +1627,4 @@ private fun PermissionRequestScreen(
         }
     }
 }
+
