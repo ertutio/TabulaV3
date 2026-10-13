@@ -26,10 +26,20 @@ android {
         applicationId = "com.tabula.v3"
         minSdk = 31
         targetSdk = 36
-        versionCode = 3
-        versionName = "3.3.3"
+        versionCode = 4
+        versionName = "3.3.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    val releaseKeystore = System.getenv("TABULA_KEYSTORE_FILE")
+    if (!releaseKeystore.isNullOrBlank()) {
+        signingConfigs.create("forkRelease") {
+            storeFile = file(releaseKeystore)
+            storePassword = requireNotNull(System.getenv("TABULA_STORE_PASSWORD"))
+            keyAlias = requireNotNull(System.getenv("TABULA_KEY_ALIAS"))
+            keyPassword = requireNotNull(System.getenv("TABULA_KEY_PASSWORD"))
+        }
     }
 
     buildTypes {
@@ -38,6 +48,9 @@ android {
             versionNameSuffix = "-recyclebin-test"
         }
         release {
+            if (!releaseKeystore.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("forkRelease")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
