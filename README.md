@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Android-green?style=flat-square" alt="Platform">
-  <img src="https://img.shields.io/badge/Version-3.3.3-blue?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/Version-3.3.5-blue?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/API-34%2B-orange?style=flat-square" alt="Min SDK">
 </p>
 
@@ -23,7 +23,9 @@
 
 <div align="center">
 
-### :inbox_tray: [下载原作者发布的 APK (Original Project APK)](https://github.com/Doryoku1223/TabulaV3/releases/latest)
+### :inbox_tray: [下载本 fork 的最新正式版 APK](https://github.com/ertutio/TabulaV3/releases/latest)
+
+[下载原作者发布的 APK (Original Project APK)](https://github.com/Doryoku1223/TabulaV3/releases/latest)
 
 </div>
 
@@ -37,12 +39,13 @@
 
 项目名 **Tabula** 源自拉丁语"Tabula Rasa"（白板），寓意着重新开始、回归纯净。就像给你的相册重新梳理一遍，让回忆更加清晰有序。
 
-这是一款完全免费、100% 本地处理的相册整理工具，没有广告，不联网，不上传任何数据。所有代码开源，欢迎个人学习使用。开发 Tabula 的初衷很简单：让每个人都能轻松管理自己的照片回忆，重拾生活的秩序感。
+这是一款完全免费、100% 本地处理的相册整理工具，没有广告，照片整理在本地进行，应用不会自行上传照片；主动分享时，由你选择接收应用。所有代码开源，欢迎个人学习使用。开发 Tabula 的初衷很简单：让每个人都能轻松管理自己的照片回忆，重拾生活的秩序感。
 
 ---
 
 ## 功能介绍 (Features)
 
+* **系统分享**：在卡片页或大图预览点击分享按钮，使用 Android 系统分享面板分享当前照片，返回后继续整理
 * **卡片式整理**：Tinder 风格的卡片交互，左右滑动保留、上滑删除、下滑归类，单手即可轻松操作
 * **批次管理**：每次推送 5/10/15/20/30 张照片，利用碎片时间轻松整理，拒绝焦虑
 * **智能回收站**：删除照片先进入本地回收站，支持批量恢复，给你后悔的机会
@@ -51,7 +54,7 @@
 * **专清模式**：支持图集专清跟月份专清，两种模式
 * **随机漫步**：真正随机抽取照片，带冷却期机制避免重复
 * **相似推荐**：基于时间、尺寸、大小等特征，优先推荐相似照片帮你清理连拍
-* **100% 本地处理**：所有数据存储在本地，绝不上传任何照片，隐私彻底保障
+* **本地整理**：整理数据保存在本地；仅在你主动分享并选择接收应用时，交付选中的照片
 
 ---
 
