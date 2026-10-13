@@ -86,8 +86,15 @@ class FileOperationManager(private val context: Context) {
         try {
             // Android 11+ (API 30+) 使用 createDeleteRequest
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val pendingIntent = MediaStore.createDeleteRequest(contentResolver, uris)
-                return@withContext DeleteResult.NeedsPermission(pendingIntent.intentSender, uris)
+                val uniqueUris = uris.distinct()
+                val alreadyDeleted = findAlreadyDeleted(uniqueUris)
+                val existingUris = uniqueUris.filterNot { it in alreadyDeleted }
+                if (existingUris.isEmpty()) {
+                    return@withContext DeleteResult.Success(alreadyDeleted)
+                }
+                val pendingIntent = MediaStore.createDeleteRequest(contentResolver, existingUris)
+                // Keep the original set so verification also accounts for stale recycle-bin entries.
+                return@withContext DeleteResult.NeedsPermission(pendingIntent.intentSender, uniqueUris)
             } else {
                 // Android 10 及以下直接删除，逐个尝试并记录成功的
                 val deleted = mutableSetOf<Uri>()
@@ -127,13 +134,44 @@ class FileOperationManager(private val context: Context) {
     suspend fun verifyDeletion(uris: List<Uri>): Set<Uri> = withContext(Dispatchers.IO) {
         val deleted = mutableSetOf<Uri>()
         uris.forEach { uri ->
-            if (!isUriValid(uri)) {
+            if (isConfirmedMissing(uri)) {
                 // URI 已不存在，说明删除成功
                 deleted.add(uri)
             }
         }
         Log.d(TAG, "Verified deletion: ${deleted.size}/${uris.size} URIs deleted")
         deleted
+    }
+
+    private fun findAlreadyDeleted(uris: List<Uri>): Set<Uri> {
+        // With selected-photo access, an empty query can mean hidden rather than deleted.
+        val readPermission = if (Build.VERSION.SDK_INT >= 33) {
+            android.Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            android.Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        if (context.checkSelfPermission(readPermission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return emptySet()
+        }
+        return uris.filter { isConfirmedMissing(it) }.toSet()
+    }
+
+    private fun isConfirmedMissing(uri: Uri): Boolean {
+        return try {
+            val queryArgs = android.os.Bundle().apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
+                    putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+                }
+            }
+            contentResolver.query(
+                uri, arrayOf(MediaStore.Images.Media._ID), queryArgs, null
+            )?.use { !it.moveToFirst() } ?: false
+        } catch (e: Exception) {
+            // Provider/permission failures are not evidence that a photo was deleted.
+            Log.w(TAG, "Could not verify deletion of $uri", e)
+            false
+        }
     }
 
     /**
@@ -208,3 +246,4 @@ class FileOperationManager(private val context: Context) {
         }
     }
 }
+

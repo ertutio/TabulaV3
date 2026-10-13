@@ -33,6 +33,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".recyclebin.test"
+            versionNameSuffix = "-recyclebin-test"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
