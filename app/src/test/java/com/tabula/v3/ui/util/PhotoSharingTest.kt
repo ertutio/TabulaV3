@@ -2,17 +2,28 @@ package com.tabula.v3.ui.util
 
 import android.content.Intent
 import android.net.Uri
+import android.webkit.MimeTypeMap
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.ui.components.CardShareState
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.Before
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadow.api.Shadow
+import org.robolectric.shadows.ShadowMimeTypeMap
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], manifest = Config.NONE)
 class PhotoSharingTest {
+    @Before fun registerAndroidPhotoFormats() {
+        // Robolectric's map starts empty instead of loading Android's MIME registry.
+        val mimeTypes = Shadow.extract<ShadowMimeTypeMap>(MimeTypeMap.getSingleton())
+        mimeTypes.addExtensionMimeTypeMapping("png", "image/png")
+        mimeTypes.addExtensionMimeTypeMapping("jpg", "image/jpeg")
+    }
+
     private fun photo(id: Long, name: String = "photo.jpg") = ImageFile(
         id, Uri.parse("content://media/external/images/media/$id"), name,
         0L, 100L, 100, 100, null
