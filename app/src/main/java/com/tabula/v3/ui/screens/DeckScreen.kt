@@ -112,6 +112,8 @@ import com.tabula.v3.ui.components.SwipeableCardStack
 import com.tabula.v3.ui.components.GenieEffectOverlay
 import com.tabula.v3.ui.components.rememberGenieAnimationController
 import com.tabula.v3.ui.components.TopBar
+import com.tabula.v3.ui.components.CardShareState
+import com.tabula.v3.ui.util.rememberPhotoShareAction
 import com.tabula.v3.ui.components.UndoSnackbar
 import com.tabula.v3.ui.components.ViewerOverlay
 import com.tabula.v3.ui.components.ViewerState
@@ -1709,6 +1711,8 @@ private fun DeckContent(
 ) {
     val isDarkTheme = LocalIsDarkTheme.current
     val textColor = if (isDarkTheme) Color.White else TabulaColors.CatBlack
+    val shareState = remember { CardShareState() }
+    val sharePhoto = rememberPhotoShareAction()
 
     val hasPrev = currentIndex > 0
     val hasNext = currentIndex < images.lastIndex
@@ -1749,6 +1753,8 @@ private fun DeckContent(
                 displayMode = topBarDisplayMode,
                 onTrashClick = onTrashClick,
                 onSettingsClick = onSettingsClick,
+                onShareClick = { shareState.snapshot()?.let(sharePhoto) },
+                shareEnabled = currentImage != null && shareState.isAvailable,
                 onTrashButtonBoundsChanged = { bounds ->
                     trashButtonBounds = bounds
                 },
@@ -1833,7 +1839,8 @@ private fun DeckContent(
                             fixedTagTriggerIndex = null
                             pendingFixedTagAlbum = null
                         },
-                        genieController = genieController
+                        genieController = genieController,
+                        shareState = shareState
                     )
                 }
             }
@@ -2761,3 +2768,4 @@ private fun AlbumsGrid(
         }
     }
 }
+

@@ -1,0 +1,75 @@
+name: Verify photo sharing build
+
+on:
+  push:
+    branches: [feature/photo-sharing]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: photo-sharing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install Android SDK packages
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+      - name: Check support entry was removed
+        run: |
+          if grep -R -E '支持开发者|联系作者|AppScreen.SUPPORT' app/src/main/java; then
+            echo "Old support/contact entry is still present."
+            exit 1
+          fi
+      - name: Test and build optimized release
+        run: bash ./gradlew --no-daemon --stacktrace :app:testReleaseUnitTest :app:assembleRelease
+      - name: Verify APK identity and optimization
+        run: |
+          APK=app/build/outputs/apk/release/app-release-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > badging.txt
+          grep -F "package: name='com.tabula.v3' versionCode='5' versionName='3.3.5'" badging.txt
+          test -s app/build/outputs/mapping/release/mapping.txt
+          test "$(stat -c %s "$APK")" -lt 35000000
+          mkdir -p artifacts
+          cp "$APK" artifacts/TabulaV3.3.5-unsigned.apk
+          cd artifacts
+          sha256sum TabulaV3.3.5-unsigned.apk > SHA256SUMS.txt
+      - name: Upload build for local signing
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Tabula-Photo-Sharing-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Export official Android APK signing tool
+        run: |
+          mkdir -p android-signing-tool
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" android-signing-tool/
+      - name: Upload signing tool
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-signing-tool-${{ github.run_id }}
+          path: android-signing-tool/
+          retention-days: 14
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: photo-sharing-test-reports-${{ github.run_id }}
+          path: |
+            app/build/reports/tests/testReleaseUnitTest/
+            app/build/test-results/testReleaseUnitTest/
+          if-no-files-found: ignore
+          retention-days: 14

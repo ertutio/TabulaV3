@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -184,9 +185,14 @@ fun SwipeableCardStack(
     fixedTagTriggerIndex: Int? = null,
     // 固定标签 Genie 动画完成回调
     onFixedTagAnimationComplete: (() -> Unit)? = null,
-    genieController: GenieAnimationController
+    genieController: GenieAnimationController,
+    shareState: CardShareState? = null
 ) {
-    if (images.isEmpty()) return
+    DisposableEffect(shareState) { onDispose { shareState?.clear() } }
+    if (images.isEmpty()) {
+        SideEffect { shareState?.clear() }
+        return
+    }
     
     // 根据切换样式分发到不同的实现
     if (swipeStyle == SwipeStyle.DRAW) {
@@ -216,7 +222,8 @@ fun SwipeableCardStack(
             onSwipeStart = onSwipeStart,
             fixedTagTriggerIndex = fixedTagTriggerIndex,
             onFixedTagAnimationComplete = onFixedTagAnimationComplete,
-            genieController = genieController
+            genieController = genieController,
+            shareState = shareState
         )
         return
     }
@@ -997,6 +1004,14 @@ fun SwipeableCardStack(
         }
     }
 
+    fun resolveSharePhoto(): ImageFile? {
+        return if (isDragging || isClassifyMode || isTransitioning || genieController.isAnimating ||
+                fixedTagTriggerIndex != null || dragOffsetX.isRunning || dragOffsetY.isRunning ||
+                dragScale.isRunning || dragAlpha.isRunning) null else currentImage
+    }
+    val sharingAvailable = resolveSharePhoto() != null
+    SideEffect { shareState?.update(::resolveSharePhoto, sharingAvailable) }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -1580,7 +1595,8 @@ private fun DrawModeCardStack(
     onSwipeStart: ((xRatio: Float, yRatio: Float) -> Unit)? = null,
     fixedTagTriggerIndex: Int? = null,
     onFixedTagAnimationComplete: (() -> Unit)? = null,
-    genieController: GenieAnimationController
+    genieController: GenieAnimationController,
+    shareState: CardShareState? = null
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -2519,6 +2535,15 @@ private fun DrawModeCardStack(
         }
     }
 
+    fun resolveSharePhoto(): ImageFile? {
+        return if (isDragging || isClassifyMode || isDrawTransitioning || isRecallTransitioning ||
+                drawState.returningCard != null || genieController.isAnimating || fixedTagTriggerIndex != null ||
+                centerDragOffsetX.isRunning || centerDragOffsetY.isRunning ||
+                centerDragScale.isRunning || centerDragAlpha.isRunning) null else centerCard
+    }
+    val sharingAvailable = resolveSharePhoto() != null
+    SideEffect { shareState?.update(::resolveSharePhoto, sharingAvailable) }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -3261,3 +3286,4 @@ private fun DrawModeCardStack(
         // ========== Genie Effect 覆盖层 ==========
     }
 }
+

@@ -155,7 +155,6 @@ fun SettingsScreen(
     onNavigateToVibrationSound: () -> Unit = {},
     onNavigateToDisplaySettings: () -> Unit = {},
     onNavigateToLab: () -> Unit = {},
-    onNavigateToSupport: () -> Unit = {},
     onNavigateToReminderSettings: () -> Unit = {},
     excludedAlbumCount: Int = 0,  // 已屏蔽图集数量
     hiddenAlbumCount: Int = 0,    // 已隐藏图集数量
@@ -491,8 +490,8 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // ========== 关于与支持 ==========
-            SectionHeader("关于与支持", textColor)
+            // ========== 关于 ==========
+            SectionHeader("关于", textColor)
             
             SettingsGroup(cardColor) {
                 SettingsItem(
@@ -508,20 +507,7 @@ fun SettingsScreen(
                     }
                 )
                 
-                Divider(isDarkTheme)
-                
-                SettingsItem(
-                    icon = Icons.Outlined.Favorite,
-                    iconTint = Color(0xFFFF2D55), // 粉红色
-                    title = "支持开发者",
-                    value = "",
-                    textColor = textColor,
-                    secondaryTextColor = secondaryTextColor,
-                    onClick = {
-                        HapticFeedback.lightTap(context)
-                        onNavigateToSupport()
-                    }
-                )
+
             }
             
             Spacer(modifier = Modifier.height(40.dp))
@@ -3026,3 +3012,4 @@ fun OptionItem(
         }
     }
 }
+

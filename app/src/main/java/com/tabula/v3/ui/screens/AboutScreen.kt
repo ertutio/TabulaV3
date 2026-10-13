@@ -501,7 +501,7 @@ fun AboutScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = "Tabula 完全在本地运行，不会收集、上传或共享您的任何照片和数据。您的隐私是我们的首要关注。",
+                            text = "照片整理在本地进行，Tabula 不会自行上传您的照片。只有在您主动分享并选择接收应用时，才会将选中的照片交给该应用。",
                             style = MaterialTheme.typography.bodyMedium,
                             color = secondaryTextColor,
                             lineHeight = 22.sp
@@ -511,147 +511,35 @@ fun AboutScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 联系作者卡片
+                // 原项目来源与作者鸣谢
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text("鸣谢原开源作者", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = textColor)
+                        Spacer(Modifier.height(12.dp))
                         Text(
-                            text = "联系作者",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = textColor
+                            "本应用基于 Doryoku1223 开源的 TabulaV3 项目修改。感谢原作者的开发与开源贡献。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = secondaryTextColor,
+                            lineHeight = 24.sp
                         )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // 邮箱
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                    clipboard.setPrimaryClip(
-                                        android.content.ClipData.newPlainText(
-                                            "email",
-                                            "2922147939@qq.com"
-                                        )
-                                    )
-                                }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Email,
-                                contentDescription = "邮箱",
-                                tint = textColor,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "作者邮箱",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = secondaryTextColor
-                                )
-                                Text(
-                                    text = "2922147939@qq.com",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = textColor
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // GitHub
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse("https://github.com/Doryoku1223/TabulaV3")
-                                    ).also { context.startActivity(it) }
-                                }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.MarkEmailRead,
-                                contentDescription = "GitHub",
-                                tint = textColor,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "GitHub 仓库",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = secondaryTextColor
-                                )
-                                Text(
-                                    text = "github.com/Doryoku1223/TabulaV3",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = textColor
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // QQ 交流群
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                    clipboard.setPrimaryClip(
-                                        android.content.ClipData.newPlainText(
-                                            "QQ群号",
-                                            "1082340405"
-                                        )
-                                    )
-                                }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Info,
-                                contentDescription = "QQ群",
-                                tint = textColor,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "QQ 交流群",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = secondaryTextColor
-                                )
-                                Text(
-                                    text = "1082340405",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = textColor
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // 底部提示文字
+                        Spacer(Modifier.height(12.dp))
                         Text(
-                            text = "欢迎提交 issue 来帮助改进完善 Tabula!",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = secondaryTextColor.copy(alpha = 0.8f),
-                            fontStyle = FontStyle.Italic
+                            "原开源项目：Doryoku1223/TabulaV3",
+                            color = accentColor,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                context.startActivity(android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://github.com/Doryoku1223/TabulaV3")
+                                ))
+                            }.padding(vertical = 12.dp)
                         )
+                        Text("遵循原项目开源协议，仅供非商业使用。", style = MaterialTheme.typography.bodySmall, color = secondaryTextColor)
                     }
                 }
 
@@ -899,7 +787,7 @@ private fun isNewerVersion(latest: String, current: String): Boolean {
 }
 
 private fun fetchLatestRelease(): UpdateFetchResult {
-    val url = java.net.URL("https://api.github.com/repos/Doryoku1223/TabulaV3/releases/latest")
+    val url = java.net.URL("https://api.github.com/repos/ertutio/TabulaV3/releases/latest")
     val connection = (url.openConnection() as java.net.HttpURLConnection).apply {
         connectTimeout = 6000
         readTimeout = 6000
@@ -1017,3 +905,4 @@ private fun queryDownloadStatus(downloadManager: DownloadManager, downloadId: Lo
         }
     } ?: DownloadStatus.NotFound
 }
+
