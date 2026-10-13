@@ -1,0 +1,136 @@
+name: Publish formal release
+
+on:
+  push:
+    branches: [release/v3.3.4]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: formal-release-3.3.4
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: V3.3.4
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Prevent replacing a published release or signing identity
+        run: |
+          test "$GITHUB_REPOSITORY" = "ertutio/TabulaV3"
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists. Keep its signing identity and do not regenerate it."
+            exit 1
+          fi
+          if test "$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq 'length')" != "0"; then
+            echo "A previous fork release exists. Future releases must reuse its signing key."
+            exit 1
+          fi
+
+      - name: Set up Java 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Install Android SDK packages
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Create fork release signing identity and encrypt its backup
+        run: |
+          PASSWORD="$(openssl rand -hex 32)"
+          echo "::add-mask::$PASSWORD"
+          export TABULA_STORE_PASSWORD="$PASSWORD"
+          export TABULA_KEY_PASSWORD="$PASSWORD"
+          export TABULA_KEY_ALIAS=tabula-release
+          export TABULA_KEYSTORE_FILE="$RUNNER_TEMP/tabula-release.p12"
+          keytool -genkeypair -noprompt -storetype PKCS12 \
+            -keystore "$TABULA_KEYSTORE_FILE" -alias "$TABULA_KEY_ALIAS" \
+            -storepass:env TABULA_STORE_PASSWORD -keypass:env TABULA_KEY_PASSWORD \
+            -keyalg RSA -keysize 3072 -sigalg SHA256withRSA -validity 10000 \
+            -dname "CN=Tabula fork release, OU=ertutio, O=Tabula Fork"
+          {
+            echo "TABULA_KEYSTORE_FILE=$TABULA_KEYSTORE_FILE"
+            echo "TABULA_STORE_PASSWORD=$PASSWORD"
+            echo "TABULA_KEY_PASSWORD=$PASSWORD"
+            echo "TABULA_KEY_ALIAS=$TABULA_KEY_ALIAS"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/release-signing"
+          cp "$TABULA_KEYSTORE_FILE" "$RUNNER_TEMP/release-signing/Tabula-release.p12"
+          printf 'keyAlias=tabula-release\nstorePassword=%s\nkeyPassword=%s\n' "$PASSWORD" "$PASSWORD" > "$RUNNER_TEMP/release-signing/signing.properties"
+          tar -czf "$RUNNER_TEMP/signing-backup.tar.gz" -C "$RUNNER_TEMP" release-signing
+          mkdir -p encrypted-backup
+          node scripts/encrypt-release-backup.cjs \
+            "$RUNNER_TEMP/signing-backup.tar.gz" \
+            scripts/release-backup-public.pem \
+            encrypted-backup/signing-backup.encrypted.json
+
+      - name: Save encrypted signing backup
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: encrypted-release-signing-${{ github.run_id }}
+          path: encrypted-backup/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Test and build optimized signed release
+        run: bash ./gradlew --no-daemon --stacktrace :app:testReleaseUnitTest :app:assembleRelease
+
+      - name: Verify release identity, optimization and signature
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > release-badging.txt
+          grep -F "package: name='com.tabula.v3' versionCode='4' versionName='3.3.4'" release-badging.txt
+          grep -F "application-label:'Tabula'" release-badging.txt
+          if grep -q application-debuggable release-badging.txt; then
+            echo "Refusing to publish a debuggable APK."
+            exit 1
+          fi
+          test -s app/build/outputs/mapping/release/mapping.txt
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          SIZE="$(stat -c %s "$APK")"
+          echo "Release APK size: $SIZE bytes"
+          test "$SIZE" -lt 35000000
+          mkdir -p artifacts
+          cp "$APK" artifacts/TabulaV3.3.4.apk
+          cd artifacts
+          sha256sum TabulaV3.3.4.apk > SHA256SUMS.txt
+
+      - name: Upload verified release APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Tabula-Release-3.3.4-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        run: |
+          gh release create "$RELEASE_TAG" \
+            artifacts/TabulaV3.3.4.apk artifacts/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Tabula V3.3.4" --notes-file docs/release-3.3.4.md --latest
+
+      - name: Upload test reports and optimization mapping
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-reports-${{ github.run_id }}
+          path: |
+            app/build/reports/tests/testReleaseUnitTest/
+            app/build/test-results/testReleaseUnitTest/
+            app/build/outputs/mapping/release/
+          if-no-files-found: ignore
+          retention-days: 30
