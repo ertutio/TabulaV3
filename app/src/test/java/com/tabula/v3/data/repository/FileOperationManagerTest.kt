@@ -63,7 +63,7 @@ class FileOperationManagerTest {
     }
 
     @Test fun selectedAccessEmptyQueryRemainsUnknownAfterAuthorization() = runBlocking {
-        shadowOf(context).revokePermissions(Manifest.permission.READ_MEDIA_IMAGES)
+        shadowOf(context).denyPermissions(Manifest.permission.READ_MEDIA_IMAGES)
         shadowOf(context).grantPermissions(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
         val result = manager().verifyDeletionState(listOf(uri))
         assertTrue(result.deleted.isEmpty())
@@ -75,7 +75,7 @@ class FileOperationManagerTest {
     }
 
     @Test fun permissionRevokedDuringQueryCannotConfirmMissing() = runBlocking {
-        provider.beforeReturn = { shadowOf(context).revokePermissions(Manifest.permission.READ_MEDIA_IMAGES) }
+        provider.beforeReturn = { shadowOf(context).denyPermissions(Manifest.permission.READ_MEDIA_IMAGES) }
         assertEquals(setOf(uri), manager().verifyDeletionState(listOf(uri)).unknown)
     }
 
@@ -90,7 +90,7 @@ class FileOperationManagerTest {
 
     @Test fun visiblePhotoRemainsPresentWithPartialAccess() = runBlocking {
         provider.mode = "present"
-        shadowOf(context).revokePermissions(Manifest.permission.READ_MEDIA_IMAGES)
+        shadowOf(context).denyPermissions(Manifest.permission.READ_MEDIA_IMAGES)
         assertEquals(setOf(uri), manager().verifyDeletionState(listOf(uri)).existing)
     }
 
@@ -114,5 +114,12 @@ class FileOperationManagerTest {
             createDeleteRequest = { _, _ -> throw CancellationException("Cancelled") }, volumeAvailable = { true })
         try { cancelled.deleteImages(listOf(uri)); fail("Must propagate cancellation") }
         catch (expected: CancellationException) { }
+    }
+
+    @Test fun mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing() {
+        assertFalse(canConfirmMissingOnVolume("external", true, setOf("external_primary"), setOf("removed-sd")))
+        assertTrue(canConfirmMissingOnVolume("external", true, setOf("external_primary"), emptySet()))
+        assertFalse(canConfirmMissingOnVolume("external_primary", false, emptySet(), emptySet()))
+        assertFalse(canConfirmMissingOnVolume("sd-volume", true, setOf("external_primary"), emptySet()))
     }
 }

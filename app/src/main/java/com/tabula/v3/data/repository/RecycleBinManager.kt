@@ -19,7 +19,11 @@ internal interface RecycleBinStorage {
     fun write(content: String)
 }
 
-internal class AtomicRecycleBinStorage(file: File) : RecycleBinStorage {
+internal class AtomicRecycleBinStorage(
+    file: File,
+    private val writeBytes: (java.io.FileOutputStream, ByteArray) -> Unit = { stream, bytes -> stream.write(bytes) },
+    private val commit: (AtomicFile, java.io.FileOutputStream) -> Unit = { atomic, stream -> atomic.finishWrite(stream) }
+) : RecycleBinStorage {
     private val atomic = AtomicFile(file)
     override fun read(): String? {
         if (!atomic.baseFile.exists() && !File(atomic.baseFile.path + ".bak").exists()) return null
@@ -29,9 +33,9 @@ internal class AtomicRecycleBinStorage(file: File) : RecycleBinStorage {
         val bytes = content.toByteArray(Charsets.UTF_8)
         val stream = atomic.startWrite()
         try {
-            stream.write(bytes)
+            writeBytes(stream, bytes)
             stream.fd.sync()
-            atomic.finishWrite(stream)
+            commit(atomic, stream)
         } catch (e: Exception) {
             atomic.failWrite(stream)
             throw e

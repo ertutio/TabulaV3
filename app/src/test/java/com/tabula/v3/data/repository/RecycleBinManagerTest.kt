@@ -152,4 +152,24 @@ class RecycleBinManagerTest {
         expectFailure { recreated.beginDeletion(listOf(fixturePhoto(2).uri)) }
         assertEquals(listOf(fixturePhoto(1).uri), recreated.pendingDeletionUris())
     }
+
+    @Test fun failedPartialWriteRollsBackAndSilentCommitFailureIsDetected() = runBlocking {
+        val directory = Files.createTempDirectory("tabula-rollback").toFile()
+        val file = File(directory, "records.json")
+        val healthy = RecycleBinManager(AtomicRecycleBinStorage(file), MemoryRecycleBinStorage())
+        healthy.addToRecycleBin(fixturePhoto(1))
+        val old = file.readText()
+        val partial = RecycleBinManager(AtomicRecycleBinStorage(file, writeBytes = { stream, bytes ->
+            stream.write(bytes, 0, bytes.size / 2)
+            throw IOException("Injected disk failure during write")
+        }), MemoryRecycleBinStorage())
+        expectFailure { partial.removeFromRecycleBin(fixturePhoto(1)) }
+        assertEquals(old, file.readText())
+        val uncommitted = RecycleBinManager(AtomicRecycleBinStorage(file, commit = { _, stream ->
+            stream.close() // Simulate AtomicFile logging a failed rename without throwing.
+        }), MemoryRecycleBinStorage())
+        expectFailure { uncommitted.removeFromRecycleBin(fixturePhoto(1)) }
+        assertEquals(old, file.readText())
+        assertEquals(listOf(1L), healthy.loadRecycleBin().map { it.id })
+    }
 }

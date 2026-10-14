@@ -354,6 +354,8 @@ fun TabulaApp(
     var imagesForSorting by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
     var deletedImages by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
     var isDeletingRecycleBin by remember { mutableStateOf(false) }
+    var recycleBinLoadError by remember { mutableStateOf(false) }
+    var recycleBinLoadRevision by remember { mutableIntStateOf(0) }
     var systemBuckets by remember { mutableStateOf<List<LocalImageRepository.SystemBucket>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
@@ -424,7 +426,7 @@ fun TabulaApp(
     }
 
     // A restored system request must finish before we classify its pending journal.
-    LaunchedEffect(deletionRecoveryRevision, deletePermissionInFlight) {
+    LaunchedEffect(deletionRecoveryRevision, deletePermissionInFlight, recycleBinLoadRevision) {
         if (isDeletingRecycleBin) return@LaunchedEffect
         try {
             if (!deletePermissionInFlight) {
@@ -442,14 +444,27 @@ fun TabulaApp(
             imagesForSorting = loadedData.first.imagesExcludingTabula
             systemBuckets = loadedData.first.systemBuckets
             deletedImages = loadedData.second
+            recycleBinLoadError = false
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            recycleBinLoadError = true
             Log.e("TabulaApp", "Could not load/reconcile recycle bin", e)
             Toast.makeText(context, "回收站记录未能读取或核对，原记录已保留，请重试", Toast.LENGTH_LONG).show()
         } finally {
             isLoading = false
         }
+    }
+
+    if (recycleBinLoadError) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { recycleBinLoadError = false },
+            title = { Text("回收站记录未能读取") },
+            text = { Text("无法读取或保存回收站记录。原有记录未清空，请重试。") },
+            confirmButton = {
+                Button(onClick = { recycleBinLoadError = false; recycleBinLoadRevision++ }) { Text("重试") }
+            }
+        )
     }
 
     fun deleteRecycleBinImages(images: List<ImageFile>) {

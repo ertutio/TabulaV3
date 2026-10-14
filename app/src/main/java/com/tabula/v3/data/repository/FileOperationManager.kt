@@ -31,12 +31,12 @@ class FileOperationManager(
     private val volumeAvailable: (Uri) -> Boolean = { uri ->
         val volume = uri.pathSegments.firstOrNull()
         val state = android.os.Environment.getExternalStorageState()
-        uri.authority == "media" && when (volume) {
-            "external", "external_primary" -> state == android.os.Environment.MEDIA_MOUNTED ||
-                state == android.os.Environment.MEDIA_MOUNTED_READ_ONLY
-            null, "internal" -> false
-            else -> MediaStore.getExternalVolumeNames(context).contains(volume)
-        }
+        uri.authority == "media" && canConfirmMissingOnVolume(
+            volume,
+            state == android.os.Environment.MEDIA_MOUNTED || state == android.os.Environment.MEDIA_MOUNTED_READ_ONLY,
+            MediaStore.getExternalVolumeNames(context),
+            if (volume == "external") MediaStore.getRecentExternalVolumeNames(context) else emptySet()
+        )
     }
 ) {
 
@@ -180,6 +180,7 @@ class FileOperationManager(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
                     putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+                    putBoolean(MediaStore.QUERY_ARG_INCLUDE_RECENTLY_UNMOUNTED_VOLUMES, true)
                 }
             }
             contentResolver.query(uri, arrayOf(MediaStore.Images.Media._ID), queryArgs, null)?.use {
@@ -281,3 +282,13 @@ data class DeletionVerification(val deleted: Set<Uri>, val existing: Set<Uri>, v
 
 internal fun FileOperationManager.DeleteResult.Error.asBatchFailure() =
     BatchDeleteResult.Failed(message, canSplit = kind == DeleteFailureKind.INVALID_REQUEST)
+
+internal fun canConfirmMissingOnVolume(
+    volume: String?, primaryMounted: Boolean, mounted: Set<String>, recentUnmounted: Set<String>
+): Boolean = when (volume) {
+    // "external" is a merged view; an absent row may belong to an ejected removable volume.
+    "external" -> primaryMounted && recentUnmounted.isEmpty()
+    "external_primary" -> primaryMounted
+    null, "internal" -> false
+    else -> volume in mounted
+}

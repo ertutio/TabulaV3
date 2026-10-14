@@ -139,4 +139,40 @@ class RecycleBinDeletionTest {
         assertEquals(1, manager.getRecycleBinCount())
         assertTrue(manager.pendingDeletionUris().isEmpty())
     }
+
+    @Test fun unknownPermissionResultStopsFurtherDeletionAndKeepsJournal() = runBlocking {
+        val manager = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        val photos = (1L..101L).map { fixturePhoto(it) }
+        manager.addAllToRecycleBin(photos)
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val sender = android.app.PendingIntent.getBroadcast(context, 1, android.content.Intent("test-delete"),
+            android.app.PendingIntent.FLAG_IMMUTABLE).intentSender
+        var requests = 0
+        val summary = deleteInBatches(photos.map { it.uri }, deleteBatch = { batch ->
+            deleteRecycleBinBatch(batch, manager,
+                request = { requests++; FileOperationManager.DeleteResult.NeedsPermission(sender, it) },
+                permission = { true },
+                verify = { DeletionVerification(setOf(it.first()), emptySet(), it.drop(1).toSet()) })
+        }, onDeleted = {})
+        assertEquals(1, requests)
+        assertEquals(1, summary.deleted.size)
+        assertNotNull(summary.error)
+        assertEquals(99, manager.pendingDeletionUris().size)
+        assertEquals(100, manager.getRecycleBinCount())
+    }
+
+    @Test fun systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork() = runBlocking {
+        val manager = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        val photo = fixturePhoto(1)
+        manager.addToRecycleBin(photo)
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val sender = android.app.PendingIntent.getBroadcast(context, 2, android.content.Intent("cancel-delete"),
+            android.app.PendingIntent.FLAG_IMMUTABLE).intentSender
+        val result = deleteRecycleBinBatch(listOf(photo.uri), manager,
+            request = { FileOperationManager.DeleteResult.NeedsPermission(sender, it) },
+            permission = { false }, verify = { error("Must not verify an unapproved request") })
+        assertEquals(BatchDeleteResult.Cancelled, result)
+        assertEquals(1, manager.getRecycleBinCount())
+        assertTrue(manager.pendingDeletionUris().isEmpty())
+    }
 }
