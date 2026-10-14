@@ -26,7 +26,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  paused:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'Performance baseline paused at user request'
   build:
+    if: ${{ false }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
