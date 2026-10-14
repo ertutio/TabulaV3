@@ -85,8 +85,11 @@ class RecycleBinManagerTest {
             AtomicRecycleBinStorage(File(directory, "pending.json")))
         manager.addToRecycleBin(fixturePhoto(1))
         val committed = file.readText()
-        assertTrue(File(file.path + ".new").mkdir())
-        expectFailure { manager.removeFromRecycleBin(fixturePhoto(1)) }
+        val failing = RecycleBinManager(
+            AtomicRecycleBinStorage(file, writeBytes = { _, _ -> throw IOException("Injected write failure") }),
+            AtomicRecycleBinStorage(File(directory, "pending.json"))
+        )
+        expectFailure { failing.removeFromRecycleBin(fixturePhoto(1)) }
         assertEquals(committed, file.readText())
         assertEquals(listOf(1L), manager.loadRecycleBin().map { it.id })
     }
