@@ -1,0 +1,127 @@
+name: Tabula emulator performance baseline v1
+
+on:
+  push:
+    branches: [perf/emulator-baseline-v1]
+    paths:
+      - benchmark/**
+      - .github/workflows/performance-baseline.yml
+  workflow_dispatch:
+    inputs:
+      candidate_commit:
+        description: 'Optional 40-character candidate SHA; baseline is fixed in protocol-v1.json'
+        required: false
+        default: ''
+      emulator_build:
+        description: 'Optional emulator build_id; use the frozen baseline value for reproduction'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: performance-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      BASE_COMMIT: 474129ed4d5262befc8bdab0fbd60e4df81411f2
+      CANDIDATE_COMMIT: ${{ github.event.inputs.candidate_commit }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Validate report logic
+        run: python -m unittest discover benchmark/scripts/tests -v
+      - name: Prepare fixed SDK and fixture encoder
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"
+          python -m pip install --disable-pip-version-check Pillow==10.4.0
+      - name: Build release-derived app and independent measurement APK
+        run: python benchmark/scripts/build_targets.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: TabulaPerf-v1-build
+          path: build-artifacts/
+          retention-days: 90
+
+  measure:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        session: [a, b]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PERF_SESSION: ${{ matrix.session }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: TabulaPerf-v1-build
+          path: build-artifacts/
+      - name: Enable emulator KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Measure fixed workload on a fresh Android 16 emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          avd-name: tabula-perf-v1
+          disable-animations: false
+          emulator-build: ${{ github.event.inputs.emulator_build }}
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none -timezone UTC
+          script: python benchmark/scripts/run_session.py
+      - name: Upload raw measurements and diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: TabulaPerf-v1-session-${{ matrix.session }}
+          path: out/
+          retention-days: 90
+          if-no-files-found: warn
+
+  report:
+    needs: measure
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: TabulaPerf-v1-session-*
+          path: out/
+          merge-multiple: true
+      - name: Validate both rounds and create the reference report
+        run: |
+          python benchmark/scripts/report.py out report/
+          cat report/README.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: TabulaPerf-v1-reference
+          path: report/
+          retention-days: 90
