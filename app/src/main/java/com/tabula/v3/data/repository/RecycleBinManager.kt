@@ -2,180 +2,179 @@ package com.tabula.v3.data.repository
 
 import android.content.Context
 import android.net.Uri
+import android.util.AtomicFile
 import com.tabula.v3.data.model.ImageFile
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 
-/**
- * 回收站持久化管理器
- * 
- * 将标记删除的图片信息保存到本地文件，
- * 应用重启后仍然可以访问回收站内容。
- */
-class RecycleBinManager(private val context: Context) {
-    
+internal interface RecycleBinStorage {
+    fun read(): String?
+    fun write(content: String)
+}
+
+internal class AtomicRecycleBinStorage(
+    file: File,
+    private val writeBytes: (java.io.FileOutputStream, ByteArray) -> Unit = { stream, bytes -> stream.write(bytes) },
+    private val commit: (AtomicFile, java.io.FileOutputStream) -> Unit = { atomic, stream -> atomic.finishWrite(stream) }
+) : RecycleBinStorage {
+    private val atomic = AtomicFile(file)
+    override fun read(): String? {
+        if (!atomic.baseFile.exists() && !File(atomic.baseFile.path + ".bak").exists()) return null
+        return atomic.openRead().use { it.readBytes().toString(Charsets.UTF_8) }
+    }
+    override fun write(content: String) {
+        val bytes = content.toByteArray(Charsets.UTF_8)
+        val stream = atomic.startWrite()
+        try {
+            writeBytes(stream, bytes)
+            stream.fd.sync()
+            commit(atomic, stream)
+        } catch (e: Exception) {
+            atomic.failWrite(stream)
+            throw e
+        }
+        // Android AtomicFile can log rename failures rather than throw.
+        if (read() != content) throw IOException("回收站文件提交失败")
+    }
+}
+
+class RecycleBinPersistenceException(cause: Exception) : IOException("回收站记录未能读取或保存", cause)
+
+/** All read-modify-write transactions, including migration and the recovery journal, share a lock. */
+class RecycleBinManager internal constructor(
+    private val storage: RecycleBinStorage,
+    private val pendingStorage: RecycleBinStorage
+) {
+    constructor(context: Context) : this(
+        AtomicRecycleBinStorage(File(context.filesDir, "recycle_bin.json")),
+        AtomicRecycleBinStorage(File(context.filesDir, "recycle_bin_pending.json"))
+    )
+
     companion object {
-        private const val RECYCLE_BIN_FILE = "recycle_bin.json"
-        
-        @Volatile
-        private var instance: RecycleBinManager? = null
-        
-        fun getInstance(context: Context): RecycleBinManager {
-            return instance ?: synchronized(this) {
-                instance ?: RecycleBinManager(context.applicationContext).also {
-                    instance = it
-                }
+        @Volatile private var instance: RecycleBinManager? = null
+        fun getInstance(context: Context): RecycleBinManager =
+            instance ?: synchronized(this) {
+                instance ?: RecycleBinManager(context.applicationContext).also { instance = it }
+            }
+    }
+
+    private val mutex = Mutex()
+
+    private suspend fun <T> transaction(action: () -> T): T = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            try {
+                action()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: RecycleBinPersistenceException) {
+                throw e
+            } catch (e: Exception) {
+                throw RecycleBinPersistenceException(e)
             }
         }
     }
-    
-    private val recycleBinFile: File
-        get() = File(context.filesDir, RECYCLE_BIN_FILE)
-    
-    /**
-     * 添加图片到回收站
-     */
-    suspend fun addToRecycleBin(image: ImageFile) = withContext(Dispatchers.IO) {
-        val currentItems = loadRecycleBin().toMutableList()
-        // 避免重复添加
-        if (currentItems.none { it.id == image.id }) {
-            currentItems.add(image.copy(deletedAt = System.currentTimeMillis()))
-            saveRecycleBin(currentItems)
-        }
-    }
-    
-    /**
-     * 批量添加图片到回收站
-     */
-    suspend fun addAllToRecycleBin(images: List<ImageFile>) = withContext(Dispatchers.IO) {
-        val currentItems = loadRecycleBin().toMutableList()
+
+    suspend fun addToRecycleBin(image: ImageFile) = addAllToRecycleBin(listOf(image))
+
+    suspend fun addAllToRecycleBin(images: List<ImageFile>) = transaction {
+        val items = loadUnlocked().toMutableList()
+        val ids = items.map { it.id }.toMutableSet()
         val now = System.currentTimeMillis()
-        images.forEach { image ->
-            if (currentItems.none { it.id == image.id }) {
-                currentItems.add(image.copy(deletedAt = now))
-            }
+        images.forEach { if (ids.add(it.id)) items.add(it.copy(deletedAt = now)) }
+        saveUnlocked(items)
+    }
+
+    suspend fun removeFromRecycleBin(image: ImageFile) = removeAllFromRecycleBin(listOf(image))
+
+    suspend fun removeAllFromRecycleBin(images: List<ImageFile>) = transaction {
+        val ids = images.map { it.id }.toSet()
+        saveUnlocked(loadUnlocked().filterNot { it.id in ids })
+    }
+
+    suspend fun clearRecycleBin() = transaction {
+        loadUnlocked() // A failed read must never be overwritten with an empty list.
+        saveUnlocked(emptyList())
+    }
+
+    suspend fun loadRecycleBin(): List<ImageFile> = transaction { loadUnlocked() }
+    suspend fun getRecycleBinCount(): Int = loadRecycleBin().size
+
+    suspend fun pendingDeletionUris(): List<Uri> = transaction { pendingUnlocked() }
+
+    /** Persist intent before handing any irreversible request to the system. */
+    suspend fun beginDeletion(uris: List<Uri>) = transaction {
+        loadUnlocked()
+        check(pendingUnlocked().isEmpty()) { "上次删除尚未核对" }
+        savePendingUnlocked(uris.distinct())
+    }
+
+    /** Commit the records first. If either write fails, recovery is safe to repeat. */
+    suspend fun finishDeletion(deleted: Set<Uri>, unknown: Set<Uri> = emptySet()) = transaction {
+        val pending = pendingUnlocked().toSet()
+        require(deleted.all { it in pending } && unknown.all { it in pending })
+        val items = loadUnlocked()
+        if (deleted.isNotEmpty()) saveUnlocked(items.filterNot { it.uri in deleted })
+        savePendingUnlocked(unknown.toList())
+    }
+
+    private fun pendingUnlocked(): List<Uri> {
+        val raw = pendingStorage.read() ?: return emptyList()
+        val array = JSONArray(raw)
+        return (0 until array.length()).map { Uri.parse(array.getString(it)) }.distinct()
+    }
+
+    private fun savePendingUnlocked(uris: List<Uri>) {
+        pendingStorage.write(JSONArray(uris.map { it.toString() }).toString())
+    }
+
+    private fun loadUnlocked(): List<ImageFile> {
+        val raw = storage.read() ?: return emptyList()
+        // A present but truncated/blank file is corruption, not an empty recycle bin.
+        val array = JSONArray(raw)
+        val items = (0 until array.length()).map { index ->
+            val obj = array.getJSONObject(index)
+            ImageFile(
+                id = obj.getLong("id"),
+                uri = Uri.parse(obj.getString("uri")),
+                displayName = obj.getString("displayName"),
+                dateModified = obj.getLong("dateModified"),
+                size = obj.getLong("size"),
+                width = obj.getInt("width"),
+                height = obj.getInt("height"),
+                bucketDisplayName = obj.optString("bucketDisplayName", "").ifBlank { null },
+                deletedAt = obj.optLong("deletedAt", 0L)
+            )
         }
-        saveRecycleBin(currentItems)
-    }
-    
-    /**
-     * 从回收站移除（恢复或永久删除后调用）
-     */
-    suspend fun removeFromRecycleBin(image: ImageFile) = withContext(Dispatchers.IO) {
-        val currentItems = loadRecycleBin().toMutableList()
-        currentItems.removeAll { it.id == image.id }
-        saveRecycleBin(currentItems)
-    }
-    
-    /**
-     * 批量从回收站移除
-     */
-    suspend fun removeAllFromRecycleBin(images: List<ImageFile>) = withContext(Dispatchers.IO) {
-        val currentItems = loadRecycleBin().toMutableList()
-        val idsToRemove = images.map { it.id }.toSet()
-        currentItems.removeAll { it.id in idsToRemove }
-        saveRecycleBin(currentItems)
-    }
-    
-    /**
-     * 清空回收站
-     */
-    suspend fun clearRecycleBin() = withContext(Dispatchers.IO) {
-        saveRecycleBin(emptyList())
-    }
-    
-    /**
-     * 加载回收站内容
-     */
-    suspend fun loadRecycleBin(): List<ImageFile> = withContext(Dispatchers.IO) {
-        try {
-            if (!recycleBinFile.exists()) {
-                return@withContext emptyList()
-            }
-            
-            val jsonString = recycleBinFile.readText()
-            if (jsonString.isBlank()) {
-                return@withContext emptyList()
-            }
-            
-            val jsonArray = JSONArray(jsonString)
-            val items = mutableListOf<ImageFile>()
-            var needsMigration = false
-            
-            for (i in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(i)
-                val bucket = obj.optString("bucketDisplayName", "")
-                val bucketDisplay = bucket.ifBlank { null }
-                val savedDeletedAt = obj.optLong("deletedAt", 0L)
-                if (savedDeletedAt == 0L) needsMigration = true
-                val imageFile = ImageFile(
-                    id = obj.getLong("id"),
-                    uri = Uri.parse(obj.getString("uri")),
-                    displayName = obj.getString("displayName"),
-                    dateModified = obj.getLong("dateModified"),
-                    size = obj.getLong("size"),
-                    width = obj.getInt("width"),
-                    height = obj.getInt("height"),
-                    bucketDisplayName = bucketDisplay,
-                    deletedAt = savedDeletedAt
-                )
-                items.add(imageFile)
-            }
-            
-            // 迁移旧数据：为缺少 deletedAt 的条目按插入顺序分配时间戳
-            if (needsMigration) {
-                val migrated = items.mapIndexed { index, image ->
-                    if (image.deletedAt == 0L) {
-                        // 用递增序号保持原始插入顺序，确保小于任何真实时间戳
-                        image.copy(deletedAt = (index + 1).toLong())
-                    } else {
-                        image
-                    }
-                }
-                saveRecycleBin(migrated)
-                return@withContext migrated
-            }
-            
-            items
-        } catch (e: Exception) {
-            e.printStackTrace()
-            emptyList()
+        if (items.none { it.deletedAt == 0L }) return items
+        val migrated = items.mapIndexed { index, image ->
+            if (image.deletedAt == 0L) image.copy(deletedAt = (index + 1).toLong()) else image
         }
+        saveUnlocked(migrated)
+        return migrated
     }
-    
-    /**
-     * 保存回收站内容
-     */
-    private fun saveRecycleBin(items: List<ImageFile>) {
-        try {
-            val jsonArray = JSONArray()
-            items.forEach { image ->
-                val obj = JSONObject().apply {
-                    put("id", image.id)
-                    put("uri", image.uri.toString())
-                    put("displayName", image.displayName)
-                    put("dateModified", image.dateModified)
-                    put("size", image.size)
-                    put("width", image.width)
-                    put("height", image.height)
-                    put("bucketDisplayName", image.bucketDisplayName ?: "")
-                    put("deletedAt", image.deletedAt)
-                }
-                jsonArray.put(obj)
-            }
-            recycleBinFile.writeText(jsonArray.toString())
-        } catch (e: Exception) {
-            e.printStackTrace()
+
+    private fun saveUnlocked(items: List<ImageFile>) {
+        val array = JSONArray()
+        items.forEach { image ->
+            array.put(JSONObject().apply {
+                put("id", image.id)
+                put("uri", image.uri.toString())
+                put("displayName", image.displayName)
+                put("dateModified", image.dateModified)
+                put("size", image.size)
+                put("width", image.width)
+                put("height", image.height)
+                put("bucketDisplayName", image.bucketDisplayName ?: "")
+                put("deletedAt", image.deletedAt)
+            })
         }
-    }
-    
-    /**
-     * 获取回收站数量
-     */
-    suspend fun getRecycleBinCount(): Int = withContext(Dispatchers.IO) {
-        loadRecycleBin().size
+        storage.write(array.toString())
     }
 }
