@@ -121,4 +121,51 @@ class BatchDeletionTest {
         assertEquals(1, calls)
         assertEquals(setOf(1, 2), summary.remaining)
     }
+
+    @Test fun globalFailureStopsAllLaterBatches() = runBlocking {
+        var calls = 0
+        val summary = deleteInBatches((1..10000).toList(), deleteBatch = {
+            calls++
+            BatchDeleteResult.Failed("Permission denied")
+        }, onDeleted = { fail("No records may be removed") })
+        assertEquals(1, calls)
+        assertEquals(10000, summary.remaining.size)
+        assertEquals("Permission denied", summary.error)
+    }
+
+    @Test fun globalFailureKeepsEarlierSuccessfulWork() = runBlocking {
+        var calls = 0
+        val summary = deleteInBatches((1..250).toList(), deleteBatch = {
+            calls++
+            if (calls == 1) BatchDeleteResult.Completed(it.toSet())
+            else BatchDeleteResult.Failed("Service unavailable")
+        }, onDeleted = {})
+        assertEquals(2, calls)
+        assertEquals((1..100).toSet(), summary.deleted)
+        assertEquals((101..250).toSet(), summary.remaining)
+    }
+
+    @Test fun unknownVerificationCommitsKnownResultsThenStops() = runBlocking {
+        var calls = 0
+        val committed = mutableSetOf<Int>()
+        val summary = deleteInBatches((1..250).toList(), deleteBatch = {
+            calls++
+            BatchDeleteResult.Completed(setOf(1), "Unknown results")
+        }, onDeleted = { committed.addAll(it) })
+        assertEquals(1, calls)
+        assertEquals(setOf(1), committed)
+        assertEquals(249, summary.remaining.size)
+        assertEquals("Unknown results", summary.error)
+    }
+
+    @Test fun over2000ItemsStillUseBoundedRequests() = runBlocking {
+        val sizes = mutableListOf<Int>()
+        val summary = deleteInBatches((1..2001).toList(), deleteBatch = {
+            sizes.add(it.size)
+            BatchDeleteResult.Completed(it.toSet())
+        }, onDeleted = {})
+        assertEquals(21, sizes.size)
+        assertTrue(sizes.all { it <= 100 })
+        assertTrue(summary.remaining.isEmpty())
+    }
 }

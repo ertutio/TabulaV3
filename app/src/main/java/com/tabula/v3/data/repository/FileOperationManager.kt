@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -22,7 +23,22 @@ import kotlinx.coroutines.withContext
  * - 彻底删除图片
  * - 处理 Scoped Storage 权限
  */
-class FileOperationManager(private val context: Context) {
+class FileOperationManager(
+    private val context: Context,
+    private val createDeleteRequest: (ContentResolver, List<Uri>) -> IntentSender = { resolver, uris ->
+        MediaStore.createDeleteRequest(resolver, uris).intentSender
+    },
+    private val volumeAvailable: (Uri) -> Boolean = { uri ->
+        val volume = uri.pathSegments.firstOrNull()
+        val state = android.os.Environment.getExternalStorageState()
+        uri.authority == "media" && when (volume) {
+            "external", "external_primary" -> state == android.os.Environment.MEDIA_MOUNTED ||
+                state == android.os.Environment.MEDIA_MOUNTED_READ_ONLY
+            null, "internal" -> false
+            else -> MediaStore.getExternalVolumeNames(context).contains(volume)
+        }
+    }
+) {
 
     private val contentResolver: ContentResolver = context.contentResolver
 
@@ -51,7 +67,7 @@ class FileOperationManager(private val context: Context) {
             val pendingUris: List<Uri>
         ) : DeleteResult()
         
-        data class Error(val message: String) : DeleteResult()
+        data class Error(val message: String, val kind: DeleteFailureKind = DeleteFailureKind.UNKNOWN) : DeleteResult()
     }
 
     /**
@@ -66,6 +82,8 @@ class FileOperationManager(private val context: Context) {
     suspend fun deleteImage(uri: Uri): DeleteResult = withContext(Dispatchers.IO) {
         try {
             deleteImages(listOf(uri))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to delete image: ${e.message}")
             DeleteResult.Error(e.message ?: "Unknown error")
@@ -92,9 +110,9 @@ class FileOperationManager(private val context: Context) {
                 if (existingUris.isEmpty()) {
                     return@withContext DeleteResult.Success(alreadyDeleted)
                 }
-                val pendingIntent = MediaStore.createDeleteRequest(contentResolver, existingUris)
+                val intentSender = createDeleteRequest(contentResolver, existingUris)
                 // Keep the original set so verification also accounts for stale recycle-bin entries.
-                return@withContext DeleteResult.NeedsPermission(pendingIntent.intentSender, uniqueUris)
+                return@withContext DeleteResult.NeedsPermission(intentSender, uniqueUris)
             } else {
                 // Android 10 及以下直接删除，逐个尝试并记录成功的
                 val deleted = mutableSetOf<Uri>()
@@ -110,16 +128,20 @@ class FileOperationManager(private val context: Context) {
                 }
                 return@withContext DeleteResult.Success(deleted)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: RecoverableSecurityException) {
             // 权限不足，需要用户确认
             Log.w(TAG, "RecoverableSecurityException: ${e.message}")
             return@withContext DeleteResult.NeedsPermission(e.userAction.actionIntent.intentSender, uris)
         } catch (e: SecurityException) {
             Log.e(TAG, "SecurityException: ${e.message}")
-            return@withContext DeleteResult.Error("权限不足: ${e.message}")
+            return@withContext DeleteResult.Error("权限不足: ${e.message}", DeleteFailureKind.PERMISSION)
+        } catch (e: IllegalArgumentException) {
+            return@withContext DeleteResult.Error(e.message ?: "无效的删除请求", DeleteFailureKind.INVALID_REQUEST)
         } catch (e: Exception) {
             Log.e(TAG, "Delete failed: ${e.message}")
-            return@withContext DeleteResult.Error(e.message ?: "删除失败")
+            return@withContext DeleteResult.Error(e.message ?: "删除服务不可用", DeleteFailureKind.SERVICE)
         }
     }
     
@@ -131,46 +153,47 @@ class FileOperationManager(private val context: Context) {
      * @param uris 原本要删除的 URI 列表
      * @return 已被成功删除的 URI 集合
      */
-    suspend fun verifyDeletion(uris: List<Uri>): Set<Uri> = withContext(Dispatchers.IO) {
-        val deleted = mutableSetOf<Uri>()
-        uris.forEach { uri ->
-            if (isConfirmedMissing(uri)) {
-                // URI 已不存在，说明删除成功
-                deleted.add(uri)
-            }
-        }
-        Log.d(TAG, "Verified deletion: ${deleted.size}/${uris.size} URIs deleted")
-        deleted
+    suspend fun verifyDeletion(uris: List<Uri>): Set<Uri> = verifyDeletionState(uris).deleted
+
+    suspend fun verifyDeletionState(uris: List<Uri>): DeletionVerification = withContext(Dispatchers.IO) {
+        val states = uris.distinct().associateWith { queryPresence(it) }
+        DeletionVerification(
+            states.filterValues { it == UriPresence.MISSING }.keys,
+            states.filterValues { it == UriPresence.PRESENT }.keys,
+            states.filterValues { it == UriPresence.UNKNOWN }.keys
+        )
     }
 
-    private fun findAlreadyDeleted(uris: List<Uri>): Set<Uri> {
-        // With selected-photo access, an empty query can mean hidden rather than deleted.
-        val readPermission = if (Build.VERSION.SDK_INT >= 33) {
-            android.Manifest.permission.READ_MEDIA_IMAGES
-        } else {
-            android.Manifest.permission.READ_EXTERNAL_STORAGE
-        }
-        if (context.checkSelfPermission(readPermission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            return emptySet()
-        }
-        return uris.filter { isConfirmedMissing(it) }.toSet()
+    private fun findAlreadyDeleted(uris: List<Uri>): Set<Uri> =
+        uris.filter { queryPresence(it) == UriPresence.MISSING }.toSet()
+
+    private fun hasFullReadPermission(): Boolean {
+        val permission = if (Build.VERSION.SDK_INT >= 33) android.Manifest.permission.READ_MEDIA_IMAGES
+            else android.Manifest.permission.READ_EXTERNAL_STORAGE
+        return context.checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
     }
 
-    private fun isConfirmedMissing(uri: Uri): Boolean {
+    internal fun queryPresence(uri: Uri): UriPresence {
         return try {
+            val couldConfirmMissing = hasFullReadPermission() && volumeAvailable(uri)
             val queryArgs = android.os.Bundle().apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
                     putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
                 }
             }
-            contentResolver.query(
-                uri, arrayOf(MediaStore.Images.Media._ID), queryArgs, null
-            )?.use { !it.moveToFirst() } ?: false
+            contentResolver.query(uri, arrayOf(MediaStore.Images.Media._ID), queryArgs, null)?.use {
+                when {
+                    it.moveToFirst() -> UriPresence.PRESENT
+                    couldConfirmMissing && hasFullReadPermission() && volumeAvailable(uri) -> UriPresence.MISSING
+                    else -> UriPresence.UNKNOWN
+                }
+            } ?: UriPresence.UNKNOWN
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            // Provider/permission failures are not evidence that a photo was deleted.
             Log.w(TAG, "Could not verify deletion of $uri", e)
-            false
+            UriPresence.UNKNOWN
         }
     }
 
@@ -193,6 +216,8 @@ class FileOperationManager(private val context: Context) {
                 // 旧版本直接删除
                 return@withContext deleteImage(uri)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Move to trash failed: ${e.message}")
             return@withContext DeleteResult.Error(e.message ?: "移动失败")
@@ -218,6 +243,8 @@ class FileOperationManager(private val context: Context) {
                 // 旧版本不支持
                 return@withContext DeleteResult.Error("此 Android 版本不支持恢复功能")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Restore from trash failed: ${e.message}")
             return@withContext DeleteResult.Error(e.message ?: "恢复失败")
@@ -247,3 +274,10 @@ class FileOperationManager(private val context: Context) {
     }
 }
 
+
+enum class DeleteFailureKind { PERMISSION, INVALID_REQUEST, SERVICE, UNKNOWN }
+enum class UriPresence { PRESENT, MISSING, UNKNOWN }
+data class DeletionVerification(val deleted: Set<Uri>, val existing: Set<Uri>, val unknown: Set<Uri>)
+
+internal fun FileOperationManager.DeleteResult.Error.asBatchFailure() =
+    BatchDeleteResult.Failed(message, canSplit = kind == DeleteFailureKind.INVALID_REQUEST)

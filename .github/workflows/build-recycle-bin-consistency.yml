@@ -1,0 +1,52 @@
+name: Verify recycle bin consistency
+
+on:
+  push:
+    branches: [fix/recycle-bin-error-consistency]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recycle-bin-consistency-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install Android SDK packages
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+      - name: Run all functional tests and build release
+        run: bash ./gradlew --no-daemon --stacktrace :app:testReleaseUnitTest :app:assembleRelease
+      - name: Verify package and shrinking
+        run: |
+          APK=app/build/outputs/apk/release/app-release-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > badging.txt
+          grep -F "package: name='com.tabula.v3'" badging.txt
+          test -s app/build/outputs/mapping/release/mapping.txt
+          test "$(stat -c %s "$APK")" -lt 35000000
+          mkdir -p artifacts
+          cp "$APK" artifacts/Tabula-PR5-unsigned.apk
+          cp badging.txt artifacts/
+          sha256sum "$APK" > artifacts/SHA256SUMS.txt
+      - name: Upload APK and functional test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Tabula-PR5-${{ github.sha }}
+          path: |
+            artifacts/
+            app/build/test-results/testReleaseUnitTest/
+            app/build/reports/tests/testReleaseUnitTest/
+          if-no-files-found: warn

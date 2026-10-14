@@ -2,7 +2,7 @@ package com.tabula.v3.data.repository
 
 /** A rejected request has not deleted anything and can safely be split. */
 internal sealed class BatchDeleteResult<out T> {
-    data class Completed<T>(val deleted: Set<T>) : BatchDeleteResult<T>()
+    data class Completed<T>(val deleted: Set<T>, val stopReason: String? = null) : BatchDeleteResult<T>()
     data class Failed(val message: String, val canSplit: Boolean = false) : BatchDeleteResult<Nothing>()
     data object Cancelled : BatchDeleteResult<Nothing>()
 }
@@ -26,9 +26,10 @@ internal suspend fun <T> deleteInBatches(
     val deleted = linkedSetOf<T>()
     var cancelled = false
     var error: String? = null
+    var stopped = false
 
     suspend fun process(batch: List<T>) {
-        if (cancelled) return
+        if (cancelled || stopped) return
         when (val result = deleteBatch(batch)) {
             is BatchDeleteResult.Completed -> {
                 val confirmed = result.deleted.intersect(batch.toSet())
@@ -36,6 +37,7 @@ internal suspend fun <T> deleteInBatches(
                     onDeleted(confirmed)
                     deleted.addAll(confirmed)
                 }
+                result.stopReason?.let { error = it; stopped = true }
             }
             is BatchDeleteResult.Failed -> {
                 if (result.canSplit && batch.size > 1) {
@@ -44,6 +46,7 @@ internal suspend fun <T> deleteInBatches(
                     process(batch.drop(middle))
                 } else {
                     error = result.message
+                    if (!result.canSplit) stopped = true
                 }
             }
             BatchDeleteResult.Cancelled -> cancelled = true
@@ -51,7 +54,7 @@ internal suspend fun <T> deleteInBatches(
     }
 
     for (batch in requested.chunked(batchSize)) {
-        if (cancelled) break
+        if (cancelled || stopped) break
         process(batch)
     }
     return BatchDeleteSummary(deleted, requested.toSet() - deleted, cancelled, error)
