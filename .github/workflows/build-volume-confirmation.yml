@@ -95,6 +95,7 @@ jobs:
           profile: pixel_6
           cores: 2
           ram-size: ${{ matrix.ram }}
+          disk-size: 8G
           disable-animations: true
           script: python tools/run-volume-device-probe.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
