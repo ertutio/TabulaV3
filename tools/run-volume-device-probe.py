@@ -30,12 +30,29 @@ def install(apk):
         time.sleep(5)
         adb("wait-for-device")
 
+def wait_for_primary_storage():
+    deadline = time.monotonic() + 90
+    while time.monotonic() < deadline:
+        volumes = adb("shell", "sm", "list-volumes", "all", check=False)
+        with (out / "storage-readiness.txt").open("a") as f:
+            f.write(volumes + "\n")
+        if re.search(r"emulated;0\\s+mounted\\b", volumes):
+            return
+        time.sleep(2)
+    raise RuntimeError("Emulator primary storage did not mount before device tests")
+
 def main():
     adb("wait-for-device")
     if adb("shell", "getprop ro.kernel.qemu").strip() != "1":
         raise RuntimeError("This workflow only uses newly-created emulators")
+    # These Provider tests do not exercise gesture navigation. Three-button mode
+    # avoids the emulator RegionSampling/SurfaceFlinger crash observed in logcat.
+    adb("shell", "cmd", "overlay", "enable-exclusive", "--category",
+        "com.android.internal.systemui.navbar.threebutton")
+    wait_for_primary_storage()
     install("device-apks/app-debug.apk")
     install("device-apks/app-debug-androidTest.apk")
+    wait_for_primary_storage()
     log = adb("shell", "am", "instrument", "-w", "-r",
               "-e", "class", "com.tabula.v3.data.repository.VolumeDeletionDeviceTest",
               "-e", "allowSyntheticMediaProbe", "true",

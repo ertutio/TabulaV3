@@ -96,6 +96,7 @@ jobs:
           cores: 2
           ram-size: ${{ matrix.ram }}
           disk-size: 8G
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -no-metrics
           disable-animations: true
           script: python tools/run-volume-device-probe.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
