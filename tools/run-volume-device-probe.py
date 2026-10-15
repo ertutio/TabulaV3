@@ -36,7 +36,7 @@ def wait_for_primary_storage():
         volumes = adb("shell", "sm", "list-volumes", "all", check=False)
         with (out / "storage-readiness.txt").open("a") as f:
             f.write(volumes + "\n")
-        if re.search(r"emulated;0\\s+mounted\\b", volumes):
+        if re.search(r"emulated;0\s+mounted\b", volumes):
             return
         time.sleep(2)
     raise RuntimeError("Emulator primary storage did not mount before device tests")
