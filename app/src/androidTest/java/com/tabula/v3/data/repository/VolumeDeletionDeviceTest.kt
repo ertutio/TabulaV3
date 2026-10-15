@@ -84,6 +84,12 @@ class VolumeDeletionDeviceTest {
         return Fixture(primary, ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id), id)
     }
 
+    private fun deleteOwnedFixture(image: Fixture): Int {
+        val deleted = context.contentResolver.delete(image.primary, null, null)
+        if (deleted > 0) created.remove(image.primary)
+        return deleted
+    }
+
     private fun Fixture.record() = ImageFile(id, merged, "synthetic.jpg", 1L, 100L, 32, 48, null, deletedAt = 1L)
 
     private fun isolatedManager(): RecycleBinManager {
@@ -101,7 +107,7 @@ class VolumeDeletionDeviceTest {
         val image = fixture()
         val service = verifier()
         assertEquals(setOf(image.merged), service.verifyDeletionState(listOf(image.merged)).existing)
-        assertEquals(1, context.contentResolver.delete(image.primary, null, null))
+        assertEquals(1, deleteOwnedFixture(image))
         try {
             context.contentResolver.openFileDescriptor(image.merged, "r")?.use {
                 fail("Deleted fixture must no longer be readable")
@@ -119,7 +125,7 @@ class VolumeDeletionDeviceTest {
         manager.addAllToRecycleBin(listOf(old.record(), added.record()))
         manager.beginDeletion(listOf(old.merged))
         manager.finishDeletion(emptySet(), setOf(old.merged))
-        assertEquals(1, context.contentResolver.delete(old.primary, null, null))
+        assertEquals(1, deleteOwnedFixture(old))
         val service = verifier()
         val result = reconcileRecycleBinDeletion(manager, service::verifyDeletionState)
         assertEquals(setOf(old.merged), result.deleted)
