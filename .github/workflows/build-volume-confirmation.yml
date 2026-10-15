@@ -62,7 +62,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: [36, 37]
+        include:
+          - api: 36
+            sdk: '36'
+            ram: 2048M
+          - api: 37
+            sdk: '37.0'
+            ram: 4096M
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -83,12 +89,12 @@ jobs:
       - name: Exercise actual MediaStore and old pending records
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
-          api-level: ${{ matrix.api }}
+          api-level: ${{ matrix.sdk }}
           target: google_apis
           arch: x86_64
           profile: pixel_6
           cores: 2
-          ram-size: 2048M
+          ram-size: ${{ matrix.ram }}
           disable-animations: true
           script: python tools/run-volume-device-probe.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
