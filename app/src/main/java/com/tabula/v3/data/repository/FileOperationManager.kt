@@ -284,11 +284,12 @@ internal fun FileOperationManager.DeleteResult.Error.asBatchFailure() =
     BatchDeleteResult.Failed(message, canSplit = kind == DeleteFailureKind.INVALID_REQUEST)
 
 internal fun canConfirmMissingOnVolume(
-    volume: String?, primaryMounted: Boolean, mounted: Set<String>, recentUnmounted: Set<String>
+    volume: String?, primaryMounted: Boolean, mounted: Set<String>, recentVolumes: Set<String>
 ): Boolean = when (volume) {
-    // "external" is a merged view; an absent row may belong to an ejected removable volume.
-    "external" -> primaryMounted && recentUnmounted.isEmpty()
-    "external_primary" -> primaryMounted
+    // The recent API includes currently mounted volumes too. Only the difference is unmounted.
+    // A merged URI remains ambiguous if an actually unmounted recent volume is present.
+    "external" -> primaryMounted && "external_primary" in mounted && (recentVolumes - mounted).isEmpty()
+    "external_primary" -> primaryMounted && "external_primary" in mounted
     null, "internal" -> false
     else -> volume in mounted
 }

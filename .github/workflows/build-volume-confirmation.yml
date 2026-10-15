@@ -1,0 +1,107 @@
+name: Verify deletion volume confirmation
+
+on:
+  push:
+    branches: [fix/recycle-bin-volume-confirmation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: volume-confirmation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install build SDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+      - name: Run full unit regressions and build release and device-test APKs
+        run: bash ./gradlew --no-daemon --stacktrace :app:testReleaseUnitTest :app:assembleRelease :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Verify release identity and shrinking
+        run: |
+          APK=app/build/outputs/apk/release/app-release-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > badging.txt
+          grep -F "package: name='com.tabula.v3'" badging.txt
+          test -s app/build/outputs/mapping/release/mapping.txt
+          test "$(stat -c %s "$APK")" -lt 35000000
+          mkdir -p artifacts device-apks
+          cp "$APK" artifacts/Tabula-VolumeFix-unsigned.apk
+          cp badging.txt artifacts/
+          sha256sum "$APK" > artifacts/SHA256SUMS.txt
+          cp app/build/outputs/apk/debug/app-debug.apk device-apks/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk device-apks/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: Tabula-VolumeFix-build
+          path: |
+            artifacts/
+            app/build/test-results/testReleaseUnitTest/
+            app/build/reports/tests/testReleaseUnitTest/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Tabula-VolumeFix-device-apks
+          path: device-apks/
+
+  device:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 36
+            sdk: '36'
+            ram: 2048M
+          - api: 37
+            sdk: '37.0'
+            ram: 4096M
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      API_LEVEL: ${{ matrix.api }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: Tabula-VolumeFix-device-apks
+          path: device-apks/
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Exercise actual MediaStore and old pending records
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: ${{ matrix.sdk }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: ${{ matrix.ram }}
+          disk-size: 8G
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -no-metrics
+          disable-animations: true
+          script: python tools/run-volume-device-probe.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: Tabula-VolumeFix-API${{ matrix.api }}
+          path: device-results/
+          if-no-files-found: warn

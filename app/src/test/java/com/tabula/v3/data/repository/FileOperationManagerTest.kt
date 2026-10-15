@@ -122,4 +122,37 @@ class FileOperationManagerTest {
         assertFalse(canConfirmMissingOnVolume("external_primary", false, emptySet(), emptySet()))
         assertFalse(canConfirmMissingOnVolume("sd-volume", true, setOf("external_primary"), emptySet()))
     }
+
+    private fun managerWithMountedRecentOverlap() = FileOperationManager(context,
+        createDeleteRequest = { _, _ -> error("Reconciliation must never issue another deletion") },
+        volumeAvailable = {
+            canConfirmMissingOnVolume(it.pathSegments.firstOrNull(), true,
+                setOf("external_primary"), setOf("external_primary"))
+        })
+
+    @Test fun emptyCursorWithMountedRecentOverlapIsConfirmedMissing() = runBlocking {
+        val state = managerWithMountedRecentOverlap().verifyDeletionState(listOf(uri))
+        assertEquals(setOf(uri), state.deleted)
+        assertTrue(state.unknown.isEmpty())
+    }
+
+    @Test fun oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained() = runBlocking {
+        val records = MemoryRecycleBinStorage()
+        val journal = MemoryRecycleBinStorage()
+        val manager = RecycleBinManager(records, journal)
+        val old = fixturePhoto(1)
+        val newlyAdded = fixturePhoto(2)
+        manager.addAllToRecycleBin(listOf(old, newlyAdded))
+        manager.beginDeletion(listOf(old.uri))
+        manager.finishDeletion(emptySet(), setOf(old.uri)) // Previous version left this unknown.
+        val verifier = managerWithMountedRecentOverlap()
+        val recovered = reconcileRecycleBinDeletion(manager, verifier::verifyDeletionState)
+        assertEquals(setOf(old.uri), recovered.deleted)
+        assertTrue(recovered.unknown.isEmpty())
+        assertTrue(manager.pendingDeletionUris().isEmpty())
+        assertEquals(listOf(newlyAdded.id), manager.loadRecycleBin().map { it.id })
+        provider.mode = "present"
+        assertEquals(setOf(newlyAdded.uri), verifier.verifyDeletionState(listOf(newlyAdded.uri)).existing)
+        assertTrue(reconcileRecycleBinDeletion(manager, verifier::verifyDeletionState).deleted.isEmpty())
+    }
 }
