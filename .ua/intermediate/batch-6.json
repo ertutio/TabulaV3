@@ -1,0 +1,748 @@
+{
+  "nodes": [
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "type": "file",
+      "name": "StorageScanResult.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "startLine": 1,
+      "endLine": 83,
+      "summary": "定义手机存储、图集空间、扫描时间及变化量的显示/持久化模型，图集统计仍按 bucketName 表达。",
+      "tags": [
+        "supporting-index",
+        "domain-model"
+      ],
+      "complexity": "moderate",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        83
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt:AlbumStorageInfo",
+      "type": "class",
+      "name": "AlbumStorageInfo",
+      "filePath": "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "startLine": 11,
+      "endLine": 28,
+      "summary": "AlbumStorageInfo 的声明与成员入口；文件职责：定义手机存储、图集空间、扫描时间及变化量的显示/持久化模型，图集统计仍按 bucketName 表达。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "domain-model"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        11,
+        28
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt:StorageScanResult",
+      "type": "class",
+      "name": "StorageScanResult",
+      "filePath": "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "startLine": 42,
+      "endLine": 83,
+      "summary": "StorageScanResult 的声明与成员入口；文件职责：定义手机存储、图集空间、扫描时间及变化量的显示/持久化模型，图集统计仍按 bucketName 表达。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "domain-model"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        42,
+        83
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "type": "file",
+      "name": "StorageStatsManager.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "startLine": 1,
+      "endLine": 318,
+      "summary": "查询照片并按 bucket 名汇总存储空间，通过 StateFlow 发布扫描进度与结果，并读写上次扫描快照；T03 需盘点同名图集统计键。",
+      "tags": [
+        "supporting-index",
+        "recommendation"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        318
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager",
+      "type": "class",
+      "name": "StorageStatsManager",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "startLine": 25,
+      "endLine": 318,
+      "summary": "StorageStatsManager 的声明与成员入口；文件职责：查询照片并按 bucket 名汇总存储空间，通过 StateFlow 发布扫描进度与结果，并读写上次扫描快照；T03 需盘点同名图集统计键。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "recommendation"
+      ],
+      "complexity": "complex",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        25,
+        318
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.initialize",
+      "type": "function",
+      "name": "StorageStatsManager.initialize",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "startLine": 85,
+      "endLine": 91,
+      "summary": "声明入口 StorageStatsManager.initialize；所属文件负责：查询照片并按 bucket 名汇总存储空间，通过 StateFlow 发布扫描进度与结果，并读写上次扫描快照；T03 需盘点同名图集统计键。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "recommendation"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "StorageStatsManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        85,
+        91
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.performScan",
+      "type": "function",
+      "name": "StorageStatsManager.performScan",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "startLine": 99,
+      "endLine": 211,
+      "summary": "声明入口 StorageStatsManager.performScan；所属文件负责：查询照片并按 bucket 名汇总存储空间，通过 StateFlow 发布扫描进度与结果，并读写上次扫描快照；T03 需盘点同名图集统计键。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "recommendation"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "onProgress"
+      ],
+      "owner": "StorageStatsManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        99,
+        211
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.getPhoneStorageInfo",
+      "type": "function",
+      "name": "StorageStatsManager.getPhoneStorageInfo",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "startLine": 218,
+      "endLine": 229,
+      "summary": "声明入口 StorageStatsManager.getPhoneStorageInfo；所属文件负责：查询照片并按 bucket 名汇总存储空间，通过 StateFlow 发布扫描进度与结果，并读写上次扫描快照；T03 需盘点同名图集统计键。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "recommendation"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "StorageStatsManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        218,
+        229
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.saveScanResult",
+      "type": "function",
+      "name": "StorageStatsManager.saveScanResult",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "startLine": 234,
+      "endLine": 261,
+      "summary": "声明入口 StorageStatsManager.saveScanResult；所属文件负责：查询照片并按 bucket 名汇总存储空间，通过 StateFlow 发布扫描进度与结果，并读写上次扫描快照；T03 需盘点同名图集统计键。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "recommendation"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "result"
+      ],
+      "owner": "StorageStatsManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        234,
+        261
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.loadScanResult",
+      "type": "function",
+      "name": "StorageStatsManager.loadScanResult",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "startLine": 266,
+      "endLine": 304,
+      "summary": "声明入口 StorageStatsManager.loadScanResult；所属文件负责：查询照片并按 bucket 名汇总存储空间，通过 StateFlow 发布扫描进度与结果，并读写上次扫描快照；T03 需盘点同名图集统计键。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "recommendation"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "StorageStatsManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        266,
+        304
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.clearScanResult",
+      "type": "function",
+      "name": "StorageStatsManager.clearScanResult",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "startLine": 309,
+      "endLine": 317,
+      "summary": "声明入口 StorageStatsManager.clearScanResult；所属文件负责：查询照片并按 bucket 名汇总存储空间，通过 StateFlow 发布扫描进度与结果，并读写上次扫描快照；T03 需盘点同名图集统计键。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "recommendation"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "StorageStatsManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        309,
+        317
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "type": "file",
+      "name": "StatisticsScreen.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "startLine": 1,
+      "endLine": 932,
+      "summary": "订阅 StorageStatsManager 的扫描进度和结果，显示照片及图集空间、上次扫描变化与整理统计。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        932
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:StatisticsScreen",
+      "type": "function",
+      "name": "StatisticsScreen",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "startLine": 93,
+      "endLine": 413,
+      "summary": "声明入口 StatisticsScreen；所属文件负责：订阅 StorageStatsManager 的扫描进度和结果，显示照片及图集空间、上次扫描变化与整理统计。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "complex",
+      "parameters": [
+        "onBack"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        93,
+        413
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:ScanningIndicator",
+      "type": "function",
+      "name": "ScanningIndicator",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "startLine": 418,
+      "endLine": 464,
+      "summary": "声明入口 ScanningIndicator；所属文件负责：订阅 StorageStatsManager 的扫描进度和结果，显示照片及图集空间、上次扫描变化与整理统计。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "accentColor"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        418,
+        464
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:ScanButton",
+      "type": "function",
+      "name": "ScanButton",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "startLine": 469,
+      "endLine": 526,
+      "summary": "声明入口 ScanButton；所属文件负责：订阅 StorageStatsManager 的扫描进度和结果，显示照片及图集空间、上次扫描变化与整理统计。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "isScanning",
+        "hasPreviousScan",
+        "accentColor",
+        "onClick"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        469,
+        526
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:StorageCircularChart",
+      "type": "function",
+      "name": "StorageCircularChart",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "startLine": 531,
+      "endLine": 596,
+      "summary": "声明入口 StorageCircularChart；所属文件负责：订阅 StorageStatsManager 的扫描进度和结果，显示照片及图集空间、上次扫描变化与整理统计。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "progress",
+        "isScanning",
+        "scanProgress",
+        "size",
+        "color",
+        "trackColor",
+        "isDarkTheme"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        531,
+        596
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:StorageOverviewCard",
+      "type": "function",
+      "name": "StorageOverviewCard",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "startLine": 601,
+      "endLine": 644,
+      "summary": "声明入口 StorageOverviewCard；所属文件负责：订阅 StorageStatsManager 的扫描进度和结果，显示照片及图集空间、上次扫描变化与整理统计。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "scanResult",
+        "cardColor",
+        "textColor",
+        "secondaryTextColor",
+        "accentColor",
+        "surfaceColor"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        601,
+        644
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:StorageInfoItem",
+      "type": "function",
+      "name": "StorageInfoItem",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "startLine": 649,
+      "endLine": 754,
+      "summary": "声明入口 StorageInfoItem；所属文件负责：订阅 StorageStatsManager 的扫描进度和结果，显示照片及图集空间、上次扫描变化与整理统计。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "icon",
+        "label",
+        "value",
+        "change",
+        "subValue",
+        "accentColor",
+        "textColor",
+        "secondaryTextColor",
+        "cardColor",
+        "modifier"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        649,
+        754
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:AlbumStorageRow",
+      "type": "function",
+      "name": "AlbumStorageRow",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "startLine": 759,
+      "endLine": 913,
+      "summary": "声明入口 AlbumStorageRow；所属文件负责：订阅 StorageStatsManager 的扫描进度和结果，显示照片及图集空间、上次扫描变化与整理统计。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "album",
+        "totalImageStorage",
+        "textColor",
+        "secondaryTextColor",
+        "accentColor",
+        "surfaceColor",
+        "index"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        759,
+        913
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:formatTimestamp",
+      "type": "function",
+      "name": "formatTimestamp",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "startLine": 918,
+      "endLine": 932,
+      "summary": "声明入口 formatTimestamp；所属文件负责：订阅 StorageStatsManager 的扫描进度和结果，显示照片及图集空间、上次扫描变化与整理统计。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "timestamp"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        918,
+        932
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt:AlbumStorageInfo",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt:AlbumStorageInfo",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt:StorageScanResult",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt:StorageScanResult",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.initialize",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.initialize",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.initialize",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.performScan",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.performScan",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.performScan",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.getPhoneStorageInfo",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.getPhoneStorageInfo",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.saveScanResult",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.saveScanResult",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.loadScanResult",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.loadScanResult",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.clearScanResult",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.clearScanResult",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt:StorageStatsManager.clearScanResult",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:StatisticsScreen",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:StatisticsScreen",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:ScanningIndicator",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:ScanButton",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:StorageCircularChart",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:StorageOverviewCard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:StorageInfoItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:AlbumStorageRow",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt:formatTimestamp",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    }
+  ]
+}

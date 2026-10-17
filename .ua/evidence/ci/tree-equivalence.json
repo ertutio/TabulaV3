@@ -1,0 +1,10 @@
+{
+  "repository": "ertutio/TabulaV3",
+  "master_commit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+  "run7_commit": "7cc5ddcbcfd4578bc2ecbd1f4e8dccd088053574",
+  "master_tree_sha": "120001e8b1e4809b7e942c466686a3813bbaf3c3",
+  "run7_tree_sha": "120001e8b1e4809b7e942c466686a3813bbaf3c3",
+  "exact_same_tree": true,
+  "meaning": "Identical recursive Git tree hash means all tracked file contents, including production sources, tests, workflow configuration and tools, are identical.",
+  "captured_at": "2026-10-17"
+}

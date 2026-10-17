@@ -1,0 +1,148 @@
+{
+  "total_count": 2,
+  "jobs": [
+    {
+      "id": 116230182676,
+      "run_id": 38676180550,
+      "workflow_name": "Verify deletion volume confirmation",
+      "head_branch": "fix/recycle-bin-volume-confirmation",
+      "run_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/runs/38676180550",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVGQp388AAAAbD9vXFA",
+      "head_sha": "3153303186fc672f7ff65808d6ddb177e7061ee5",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/jobs/116230182676",
+      "html_url": "https://github.com/ertutio/TabulaV3/actions/runs/38676180550/job/116230182676",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-15T03:25:20Z",
+      "started_at": "2026-10-15T03:25:23Z",
+      "completed_at": "2026-10-15T03:26:08Z",
+      "name": "build",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-15T03:25:24Z",
+          "completed_at": "2026-10-15T03:25:25Z"
+        },
+        {
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-15T03:25:25Z",
+          "completed_at": "2026-10-15T03:25:28Z"
+        },
+        {
+          "name": "Run actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-15T03:25:28Z",
+          "completed_at": "2026-10-15T03:25:42Z"
+        },
+        {
+          "name": "Install build SDK",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-15T03:25:42Z",
+          "completed_at": "2026-10-15T03:25:49Z"
+        },
+        {
+          "name": "Run full unit regressions and build release and device-test APKs",
+          "status": "completed",
+          "conclusion": "cancelled",
+          "number": 5,
+          "started_at": "2026-10-15T03:25:49Z",
+          "completed_at": "2026-10-15T03:26:05Z"
+        },
+        {
+          "name": "Verify release identity and shrinking",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 6,
+          "started_at": "2026-10-15T03:26:05Z",
+          "completed_at": "2026-10-15T03:26:05Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-15T03:26:05Z",
+          "completed_at": "2026-10-15T03:26:06Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 8,
+          "started_at": "2026-10-15T03:26:06Z",
+          "completed_at": "2026-10-15T03:26:06Z"
+        },
+        {
+          "name": "Post Run actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-10-15T03:26:06Z",
+          "completed_at": "2026-10-15T03:26:06Z"
+        },
+        {
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-10-15T03:26:06Z",
+          "completed_at": "2026-10-15T03:26:06Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-10-15T03:26:06Z",
+          "completed_at": "2026-10-15T03:26:06Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/ertutio/TabulaV3/check-runs/116230182676",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 1000000027,
+      "runner_name": "GitHub Actions 1000000027",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 116230395519,
+      "run_id": 38676180550,
+      "workflow_name": "Verify deletion volume confirmation",
+      "head_branch": "fix/recycle-bin-volume-confirmation",
+      "run_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/runs/38676180550",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVGQp388AAAAbD98Wfw",
+      "head_sha": "3153303186fc672f7ff65808d6ddb177e7061ee5",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/jobs/116230395519",
+      "html_url": "https://github.com/ertutio/TabulaV3/actions/runs/38676180550/job/116230395519",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-15T03:26:09Z",
+      "started_at": "2026-10-15T03:26:09Z",
+      "completed_at": "2026-10-15T03:26:08Z",
+      "name": "device",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/ertutio/TabulaV3/check-runs/116230395519",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    }
+  ]
+}
