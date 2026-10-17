@@ -1,0 +1,115 @@
+{
+  "nodes": [
+    {
+      "id": "pipeline:.github/workflows/build-photo-sharing.yml",
+      "type": "pipeline",
+      "name": "build-photo-sharing.yml",
+      "filePath": ".github/workflows/build-photo-sharing.yml",
+      "startLine": 1,
+      "endLine": 75,
+      "summary": "针对 feature/photo-sharing 的历史验证：Release 单测、构建、包/版本/混淆检查与 APK artifact；不是通用 PR 门禁。",
+      "tags": [
+        "ci-cd",
+        "build-system"
+      ],
+      "complexity": "moderate",
+      "language": "yaml",
+      "fileCategory": "infra",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        75
+      ]
+    },
+    {
+      "id": "pipeline:.github/workflows/build-recycle-bin-consistency.yml",
+      "type": "pipeline",
+      "name": "build-recycle-bin-consistency.yml",
+      "filePath": ".github/workflows/build-recycle-bin-consistency.yml",
+      "startLine": 1,
+      "endLine": 52,
+      "summary": "针对旧 fix/recycle-bin-error-consistency 分支的 Release 单测/构建与包/压缩检查。",
+      "tags": [
+        "ci-cd",
+        "build-system"
+      ],
+      "complexity": "moderate",
+      "language": "yaml",
+      "fileCategory": "infra",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        52
+      ]
+    },
+    {
+      "id": "pipeline:.github/workflows/build-test-apk.yml",
+      "type": "pipeline",
+      "name": "build-test-apk.yml",
+      "filePath": ".github/workflows/build-test-apk.yml",
+      "startLine": 1,
+      "endLine": 69,
+      "summary": "针对旧回收站修复分支构建带独立 applicationId 后缀的 Debug 测试 APK，并上传单测报告。",
+      "tags": [
+        "ci-cd",
+        "build-system"
+      ],
+      "complexity": "moderate",
+      "language": "yaml",
+      "fileCategory": "infra",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        69
+      ]
+    },
+    {
+      "id": "pipeline:.github/workflows/build-volume-confirmation.yml",
+      "type": "pipeline",
+      "name": "build-volume-confirmation.yml",
+      "filePath": ".github/workflows/build-volume-confirmation.yml",
+      "startLine": 1,
+      "endLine": 107,
+      "summary": "针对 fix/recycle-bin-volume-confirmation 构建 Release/Debug/instrumentation APK，并在 API36/37 模拟器执行合成 MediaStore 日志核对探针。",
+      "tags": [
+        "ci-cd",
+        "build-system"
+      ],
+      "complexity": "moderate",
+      "language": "yaml",
+      "fileCategory": "infra",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        107
+      ]
+    },
+    {
+      "id": "pipeline:.github/workflows/publish-release.yml",
+      "type": "pipeline",
+      "name": "publish-release.yml",
+      "filePath": ".github/workflows/publish-release.yml",
+      "startLine": 1,
+      "endLine": 136,
+      "summary": "固定 release/v3.3.4 的历史首次发布流程，包含已发布身份防替换、签名备份加密及 Release；后续版本应复用签名并重整入口。",
+      "tags": [
+        "ci-cd",
+        "build-system"
+      ],
+      "complexity": "moderate",
+      "language": "yaml",
+      "fileCategory": "infra",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        136
+      ]
+    }
+  ],
+  "edges": []
+}

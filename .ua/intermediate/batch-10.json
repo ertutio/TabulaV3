@@ -1,0 +1,71 @@
+{
+  "nodes": [
+    {
+      "id": "config:app/src/main/res/values/colors.xml",
+      "type": "config",
+      "name": "colors.xml",
+      "filePath": "app/src/main/res/values/colors.xml",
+      "startLine": 1,
+      "endLine": 4,
+      "summary": "定义启动器背景颜色资源。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        4
+      ]
+    },
+    {
+      "id": "config:app/src/main/res/values/strings.xml",
+      "type": "config",
+      "name": "strings.xml",
+      "filePath": "app/src/main/res/values/strings.xml",
+      "startLine": 1,
+      "endLine": 11,
+      "summary": "定义应用、小组件和长按快捷方式文案。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        11
+      ]
+    },
+    {
+      "id": "config:app/src/main/res/values/themes.xml",
+      "type": "config",
+      "name": "themes.xml",
+      "filePath": "app/src/main/res/values/themes.xml",
+      "startLine": 1,
+      "endLine": 15,
+      "summary": "配置无 ActionBar 的 Android 窗口主题、透明系统栏和显示区域。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        15
+      ]
+    }
+  ],
+  "edges": []
+}

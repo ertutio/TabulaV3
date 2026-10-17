@@ -1,0 +1,71 @@
+{
+  "nodes": [
+    {
+      "id": "config:app/src/main/res/xml/data_extraction_rules.xml",
+      "type": "config",
+      "name": "data_extraction_rules.xml",
+      "filePath": "app/src/main/res/xml/data_extraction_rules.xml",
+      "startLine": 1,
+      "endLine": 17,
+      "summary": "排除 cloud-backup 与 device-transfer 的私有记录/照片等数据域，与 Manifest 禁用备份共同生效。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        17
+      ]
+    },
+    {
+      "id": "config:app/src/main/res/xml/shortcuts.xml",
+      "type": "config",
+      "name": "shortcuts.xml",
+      "filePath": "app/src/main/res/xml/shortcuts.xml",
+      "startLine": 1,
+      "endLine": 17,
+      "summary": "定义长按入口的快速开始与添加小组件 Intent。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        17
+      ]
+    },
+    {
+      "id": "config:app/src/main/res/xml/widget_info.xml",
+      "type": "config",
+      "name": "widget_info.xml",
+      "filePath": "app/src/main/res/xml/widget_info.xml",
+      "startLine": 1,
+      "endLine": 17,
+      "summary": "配置 widget 默认布局、尺寸、更新周期和预览元数据。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        17
+      ]
+    }
+  ],
+  "edges": []
+}

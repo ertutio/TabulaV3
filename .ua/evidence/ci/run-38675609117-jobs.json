@@ -1,0 +1,305 @@
+{
+  "total_count": 3,
+  "jobs": [
+    {
+      "id": 116228393189,
+      "run_id": 38675609117,
+      "workflow_name": "Verify deletion volume confirmation",
+      "head_branch": "fix/recycle-bin-volume-confirmation",
+      "run_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/runs/38675609117",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVGQp388AAAAbD8CI5Q",
+      "head_sha": "40e4835ffbb2ac88045c5c9f30c3f9370d557d26",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/jobs/116228393189",
+      "html_url": "https://github.com/ertutio/TabulaV3/actions/runs/38675609117/job/116228393189",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-10-15T03:18:52Z",
+      "started_at": "2026-10-15T03:18:55Z",
+      "completed_at": "2026-10-15T03:19:57Z",
+      "name": "build",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-15T03:18:56Z",
+          "completed_at": "2026-10-15T03:18:59Z"
+        },
+        {
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-15T03:18:59Z",
+          "completed_at": "2026-10-15T03:19:01Z"
+        },
+        {
+          "name": "Run actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-15T03:19:01Z",
+          "completed_at": "2026-10-15T03:19:15Z"
+        },
+        {
+          "name": "Install build SDK",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-15T03:19:15Z",
+          "completed_at": "2026-10-15T03:19:22Z"
+        },
+        {
+          "name": "Run full unit regressions and build release and device-test APKs",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-15T03:19:22Z",
+          "completed_at": "2026-10-15T03:19:48Z"
+        },
+        {
+          "name": "Verify release identity and shrinking",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-15T03:19:48Z",
+          "completed_at": "2026-10-15T03:19:48Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-15T03:19:48Z",
+          "completed_at": "2026-10-15T03:19:51Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-15T03:19:51Z",
+          "completed_at": "2026-10-15T03:19:54Z"
+        },
+        {
+          "name": "Post Run actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-10-15T03:19:54Z",
+          "completed_at": "2026-10-15T03:19:54Z"
+        },
+        {
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-10-15T03:19:54Z",
+          "completed_at": "2026-10-15T03:19:54Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-10-15T03:19:54Z",
+          "completed_at": "2026-10-15T03:19:54Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/ertutio/TabulaV3/check-runs/116228393189",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 1000000024,
+      "runner_name": "GitHub Actions 1000000024",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 116228688437,
+      "run_id": 38675609117,
+      "workflow_name": "Verify deletion volume confirmation",
+      "head_branch": "fix/recycle-bin-volume-confirmation",
+      "run_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/runs/38675609117",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVGQp388AAAAbD8UKNQ",
+      "head_sha": "40e4835ffbb2ac88045c5c9f30c3f9370d557d26",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/jobs/116228688437",
+      "html_url": "https://github.com/ertutio/TabulaV3/actions/runs/38675609117/job/116228688437",
+      "status": "completed",
+      "conclusion": "failure",
+      "created_at": "2026-10-15T03:19:57Z",
+      "started_at": "2026-10-15T03:20:00Z",
+      "completed_at": "2026-10-15T03:22:29Z",
+      "name": "device (37, 37.0, 4096M)",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-15T03:20:01Z",
+          "completed_at": "2026-10-15T03:20:02Z"
+        },
+        {
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-15T03:20:02Z",
+          "completed_at": "2026-10-15T03:20:06Z"
+        },
+        {
+          "name": "Run actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-15T03:20:06Z",
+          "completed_at": "2026-10-15T03:20:09Z"
+        },
+        {
+          "name": "Enable KVM",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-15T03:20:09Z",
+          "completed_at": "2026-10-15T03:20:09Z"
+        },
+        {
+          "name": "Exercise actual MediaStore and old pending records",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 5,
+          "started_at": "2026-10-15T03:20:09Z",
+          "completed_at": "2026-10-15T03:22:24Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-15T03:22:24Z",
+          "completed_at": "2026-10-15T03:22:26Z"
+        },
+        {
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-10-15T03:22:26Z",
+          "completed_at": "2026-10-15T03:22:26Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-10-15T03:22:26Z",
+          "completed_at": "2026-10-15T03:22:26Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/ertutio/TabulaV3/check-runs/116228688437",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 1000000026,
+      "runner_name": "GitHub Actions 1000000026",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 116228688464,
+      "run_id": 38675609117,
+      "workflow_name": "Verify deletion volume confirmation",
+      "head_branch": "fix/recycle-bin-volume-confirmation",
+      "run_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/runs/38675609117",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVGQp388AAAAbD8UKUA",
+      "head_sha": "40e4835ffbb2ac88045c5c9f30c3f9370d557d26",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/jobs/116228688464",
+      "html_url": "https://github.com/ertutio/TabulaV3/actions/runs/38675609117/job/116228688464",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-10-15T03:19:57Z",
+      "started_at": "2026-10-15T03:20:00Z",
+      "completed_at": "2026-10-15T03:22:20Z",
+      "name": "device (36, 36, 2048M)",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-15T03:20:00Z",
+          "completed_at": "2026-10-15T03:20:02Z"
+        },
+        {
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-15T03:20:02Z",
+          "completed_at": "2026-10-15T03:20:04Z"
+        },
+        {
+          "name": "Run actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-15T03:20:04Z",
+          "completed_at": "2026-10-15T03:20:06Z"
+        },
+        {
+          "name": "Enable KVM",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-15T03:20:06Z",
+          "completed_at": "2026-10-15T03:20:06Z"
+        },
+        {
+          "name": "Exercise actual MediaStore and old pending records",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-15T03:20:06Z",
+          "completed_at": "2026-10-15T03:22:17Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-15T03:22:17Z",
+          "completed_at": "2026-10-15T03:22:18Z"
+        },
+        {
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-10-15T03:22:18Z",
+          "completed_at": "2026-10-15T03:22:18Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-10-15T03:22:18Z",
+          "completed_at": "2026-10-15T03:22:18Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/ertutio/TabulaV3/check-runs/116228688464",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 1000000025,
+      "runner_name": "GitHub Actions 1000000025",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    }
+  ]
+}
