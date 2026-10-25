@@ -558,25 +558,6 @@ class AlbumManager(private val context: Context) {
         imageIds.mapNotNull { imageMap[it]?.uri }
     }
 
-    /**
-     * 检查 URI 是否仍然有效
-     */
-    private fun isUriValid(uri: Uri, contentResolver: android.content.ContentResolver): Boolean {
-        return try {
-            contentResolver.query(
-                uri,
-                arrayOf(android.provider.MediaStore.Images.Media._ID),
-                null,
-                null,
-                null
-            )?.use { cursor ->
-                cursor.moveToFirst()
-            } ?: false
-        } catch (e: Exception) {
-            false
-        }
-    }
-
     // ========== 移动/复制图片到其他图集（系统相册集成版） ==========
 
     /**
@@ -586,8 +567,8 @@ class AlbumManager(private val context: Context) {
         imageIds: List<Long>,
         fromAlbumId: String,
         toAlbumId: String
-    ) = withContext(Dispatchers.IO) {
-        if (imageIds.isEmpty()) return@withContext
+    ): MoveImagesResult = withContext(Dispatchers.IO) {
+        if (imageIds.isEmpty()) return@withContext MoveImagesResult(0, 0)
         
         val targetBucket = _albums.value.find { it.name == toAlbumId }
         val targetPath = targetBucket?.systemAlbumPath
@@ -595,15 +576,30 @@ class AlbumManager(private val context: Context) {
         Log.d(TAG, "Moving ${imageIds.size} images from $fromAlbumId to $toAlbumId")
         
         val images = imageRepository.getAllImages()
+        var movedCount = 0
+        // Includes failed moves and missing IDs; this count does not assert their URIs remain readable.
+        var retainedCount = 0
         for (imageId in imageIds) {
-            val image = images.find { it.id == imageId } ?: continue
-            syncManager.moveImageToBucket(image.uri, toAlbumId, targetPath)
+            val image = images.find { it.id == imageId }
+            if (image == null) {
+                retainedCount++
+                continue
+            }
+
+            if (syncManager.moveImageToBucket(image.uri, toAlbumId, targetPath) != null) {
+                movedCount++
+            } else {
+                retainedCount++
+            }
         }
         
-        // 刷新图集列表
-        refreshAlbumsFromSystem()
+        if (movedCount > 0) {
+            // 只在有成功移动时刷新图集列表，失败项仍保留在原图集中。
+            refreshAlbumsFromSystem()
+        }
         
-        Log.d(TAG, "Moved ${imageIds.size} images to $toAlbumId")
+        Log.d(TAG, "Moved $movedCount images to $toAlbumId; retained $retainedCount at source")
+        MoveImagesResult(movedCount = movedCount, retainedCount = retainedCount)
     }
 
     /**
@@ -986,17 +982,15 @@ class AlbumManager(private val context: Context) {
     }
 
     /**
-     * 获取所有图集的待清理原图
-     * 
-     * 原图是指归类时被复制的源文件，清理后可释放空间
+     * 获取所有图集的待清理原图。
+     *
+     * 旧记录只有源 URI，没有目的副本身份或完整性证据，无法证明清理不会删掉唯一原件。
+     * 在证据模型补齐前保留全部源记录，但不把任何来源列为可清理候选。
      */
     suspend fun getCleanableUrisForAllAlbums(): CleanableUrisResult = withContext(Dispatchers.IO) {
         val sourceUris = getAllSourceImages()
-        // 验证 URI 是否仍然有效（文件是否存在）
-        val validUris = sourceUris.filter { isUriValid(it, context.contentResolver) }
-        
         CleanableUrisResult(
-            sourceUris = validUris,
+            sourceUris = emptyList(),
             orphanUris = emptyList(),
             sourceTotalCount = sourceUris.size,
             orphanTotalCount = 0
@@ -1008,11 +1002,8 @@ class AlbumManager(private val context: Context) {
      */
     suspend fun getCleanableUrisForAlbum(albumId: String): CleanableUrisResult = withContext(Dispatchers.IO) {
         val sourceUris = getSourceImagesForAlbum(albumId)
-        // 验证 URI 是否仍然有效
-        val validUris = sourceUris.filter { isUriValid(it, context.contentResolver) }
-        
         CleanableUrisResult(
-            sourceUris = validUris,
+            sourceUris = emptyList(),
             orphanUris = emptyList(),
             sourceTotalCount = sourceUris.size,
             orphanTotalCount = 0
@@ -1058,7 +1049,13 @@ class AlbumManager(private val context: Context) {
         val allUris: List<Uri> get() = sourceUris + orphanUris
         val isEmpty: Boolean get() = sourceUris.isEmpty() && orphanUris.isEmpty()
         val totalValidCount: Int get() = sourceUris.size + orphanUris.size
+        val unverifiedSourceCount: Int get() = (sourceTotalCount - sourceUris.size).coerceAtLeast(0)
     }
+
+    data class MoveImagesResult(
+        val movedCount: Int,
+        val retainedCount: Int
+    )
 
     // ========== 延迟执行归档功能（撤销核心） ==========
 

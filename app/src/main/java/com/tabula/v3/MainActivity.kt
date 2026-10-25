@@ -399,19 +399,22 @@ fun TabulaApp(
     // ========== 原图删除提醒状态 ==========
     var showSourceImageDeletionDialog by remember { mutableStateOf(false) }
     var pendingSourceImageUris by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
+    var unverifiedSourceImageCount by remember { mutableIntStateOf(0) }
     var sourceImageDeletionStrategy by remember { mutableStateOf(preferences.sourceImageDeletionStrategy) }
     
     // 监听图集模式切换，当切换到图集界面时检查是否需要提醒删除原图
     LaunchedEffect(isAlbumMode, sourceImageDeletionStrategy) {
         if (isAlbumMode) {
-            // 获取所有待删除的原图
             val cleanableResult = albumManager.getCleanableUrisForAllAlbums()
-            if (!cleanableResult.isEmpty && cleanableResult.sourceUris.isNotEmpty()) {
-                pendingSourceImageUris = cleanableResult.sourceUris
-                // 仅在开启归档提醒时弹出对话框，关闭时只更新清理按钮计数
-                if (sourceImageDeletionStrategy == SourceImageDeletionStrategy.ASK_EVERY_TIME) {
-                    showSourceImageDeletionDialog = true
-                }
+            pendingSourceImageUris = cleanableResult.sourceUris
+            unverifiedSourceImageCount = cleanableResult.unverifiedSourceCount
+            if (cleanableResult.sourceUris.isNotEmpty() &&
+                sourceImageDeletionStrategy == SourceImageDeletionStrategy.ASK_EVERY_TIME
+            ) {
+                showSourceImageDeletionDialog = true
+            } else if (cleanableResult.sourceUris.isEmpty()) {
+                // 清理候选变化后不能留下过期列表或确认框。
+                showSourceImageDeletionDialog = false
             }
         }
     }
@@ -816,17 +819,26 @@ fun TabulaApp(
                 currentScreen = AppScreen.OTHER_ALBUMS
             },
             // 原图清理
-            pendingCleanupCount = pendingSourceImageUris.size,
+            pendingCleanupCount = pendingSourceImageUris.size + unverifiedSourceImageCount,
             onCleanupSourceImages = {
                 scope.launch {
                     // 重新获取最新的待清理原图（用户可能又归类了新照片）
                     val cleanableResult = albumManager.getCleanableUrisForAllAlbums()
-                    if (!cleanableResult.isEmpty && cleanableResult.sourceUris.isNotEmpty()) {
-                        pendingSourceImageUris = cleanableResult.sourceUris
+                    pendingSourceImageUris = cleanableResult.sourceUris
+                    unverifiedSourceImageCount = cleanableResult.unverifiedSourceCount
+                    if (cleanableResult.sourceUris.isNotEmpty()) {
                         showSourceImageDeletionDialog = true
                     } else {
-                        pendingSourceImageUris = emptyList()
-                        Toast.makeText(context, "没有需要清理的原图", Toast.LENGTH_SHORT).show()
+                        showSourceImageDeletionDialog = false
+                        if (cleanableResult.unverifiedSourceCount > 0) {
+                            Toast.makeText(
+                                context,
+                                "副本尚未验证，已保留 ${cleanableResult.unverifiedSourceCount} 张原图",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            Toast.makeText(context, "没有需要清理的原图", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }
@@ -1243,7 +1255,13 @@ fun TabulaApp(
             onMoveToAlbum = { imageIds, targetAlbumId ->
                 scope.launch {
                     selectedAlbumId?.let { currentAlbumId ->
-                        albumManager.moveImagesToAlbum(imageIds, currentAlbumId, targetAlbumId)
+                        val result = albumManager.moveImagesToAlbum(imageIds, currentAlbumId, targetAlbumId)
+                        val message = if (result.retainedCount > 0) {
+                            "已移动 ${result.movedCount} 张，${result.retainedCount} 张未移动"
+                        } else {
+                            "已移动 ${result.movedCount} 张图片"
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                     }
                 }
             },
@@ -1449,11 +1467,27 @@ fun TabulaApp(
                 imageCount = pendingSourceImageUris.size,
                 onConfirm = {
                     showSourceImageDeletionDialog = false
-                    val urisToDelete = pendingSourceImageUris
-                    pendingSourceImageUris = emptyList()  // 立即清空，隐藏清理按钮
                     scope.launch {
+                        // 确认时重新读取候选，避免用过期弹窗状态删除唯一原图。
+                        val cleanableResult = albumManager.getCleanableUrisForAllAlbums()
+                        val urisToDelete = cleanableResult.sourceUris
+                        pendingSourceImageUris = urisToDelete
+                        unverifiedSourceImageCount = cleanableResult.unverifiedSourceCount
+                        if (urisToDelete.isEmpty()) {
+                            if (cleanableResult.unverifiedSourceCount > 0) {
+                                Toast.makeText(
+                                    context,
+                                    "副本尚未验证，已保留 ${cleanableResult.unverifiedSourceCount} 张原图",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } else {
+                                Toast.makeText(context, "没有需要清理的原图", Toast.LENGTH_SHORT).show()
+                            }
+                            return@launch
+                        }
+
+                        pendingSourceImageUris = emptyList()
                         Toast.makeText(context, "正在删除 ${urisToDelete.size} 张原图...", Toast.LENGTH_SHORT).show()
-                        
                         performDeleteUris(urisToDelete) { deletedUris ->
                             if (deletedUris.isNotEmpty()) {
                                 scope.launch {
@@ -1549,7 +1583,7 @@ private fun SourceImageDeletionDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "已确认照片成功复制，删除是安全的。",
+                            text = "只会删除已确认存在副本的原图；副本未验证的原图会保留。",
                             color = textColor.copy(alpha = 0.8f),
                             style = MaterialTheme.typography.bodySmall
                         )
