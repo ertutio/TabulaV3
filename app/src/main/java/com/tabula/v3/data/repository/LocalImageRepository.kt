@@ -586,3 +586,34 @@ class LocalImageRepository(private val context: Context) {
         }
     }
 }
+
+/**
+ * T02 快照投影：浏览/推荐一律由"原始媒体快照 − 软删除集合"派生。
+ *
+ * 过滤 allImages 与 imagesExcludingTabula，并按快照日期序重算各相册
+ * imageCount/coverImageId；bucket 名称与 relativePath 原样保留，
+ * 全部照片被软删除的 bucket 保留为 count=0、cover=null。
+ * 空软删除集合时原样返回快照（行为与开销零变化）。
+ */
+fun projectSnapshot(
+    snapshot: LocalImageRepository.LoadResult,
+    softDeletedIds: Set<Long>
+): LocalImageRepository.LoadResult {
+    if (softDeletedIds.isEmpty()) return snapshot
+    val allImages = snapshot.allImages.filterNot { it.id in softDeletedIds }
+    val imagesExcludingTabula = snapshot.imagesExcludingTabula.filterNot { it.id in softDeletedIds }
+    val covers = LinkedHashMap<String, Long>()
+    val counts = HashMap<String, Int>()
+    for (image in allImages) {
+        val bucket = image.bucketDisplayName ?: continue
+        counts.merge(bucket, 1, Int::plus)
+        covers.putIfAbsent(bucket, image.id)
+    }
+    val systemBuckets = snapshot.systemBuckets.map { bucket ->
+        bucket.copy(
+            imageCount = counts[bucket.name] ?: 0,
+            coverImageId = covers[bucket.name]
+        )
+    }.sortedByDescending { it.imageCount }
+    return LocalImageRepository.LoadResult(allImages, imagesExcludingTabula, systemBuckets)
+}

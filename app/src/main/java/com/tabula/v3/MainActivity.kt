@@ -67,6 +67,7 @@ import com.tabula.v3.data.preferences.ThemeMode
 import com.tabula.v3.data.preferences.TopBarDisplayMode
 import com.tabula.v3.data.repository.FileOperationManager
 import com.tabula.v3.data.repository.LocalImageRepository
+import com.tabula.v3.data.repository.projectSnapshot
 import com.tabula.v3.data.repository.RecycleBinManager
 import com.tabula.v3.data.repository.RecommendationEngine
 import com.tabula.v3.data.repository.AlbumCleanupEngine
@@ -440,8 +441,11 @@ fun TabulaApp(
             }
             val loadedData = withContext(Dispatchers.IO) {
                 val loadResult = LocalImageRepository(context).loadAllData()
-                albumManager.initialize(preloadedBuckets = loadResult.systemBuckets)
-                Pair(loadResult, recycleBinManager.loadRecycleBin())
+                val deleted = recycleBinManager.loadRecycleBin()
+                // 浏览/推荐由"快照 − 软删除集合"派生，相册计数与封面同步重算。
+                val projected = projectSnapshot(loadResult, deleted.map { it.id }.toSet())
+                albumManager.initialize(preloadedBuckets = projected.systemBuckets)
+                Pair(projected, deleted)
             }
             allImages = loadedData.first.allImages
             imagesForSorting = loadedData.first.imagesExcludingTabula
@@ -756,8 +760,9 @@ fun TabulaApp(
                         val repository = LocalImageRepository(context)
                         val refreshedData = withContext(Dispatchers.IO) {
                             val loadResult = repository.loadAllData()
-                            albumManager.refreshAlbumsFromSystem(loadResult.systemBuckets)
-                            loadResult
+                            val projected = projectSnapshot(loadResult, deletedImages.map { it.id }.toSet())
+                            albumManager.refreshAlbumsFromSystem(projected.systemBuckets)
+                            projected
                         }
                         systemBuckets = refreshedData.systemBuckets
                         allImages = refreshedData.allImages
@@ -877,6 +882,8 @@ fun TabulaApp(
                         if (!isInTabulaAlbum && imagesForSorting.none { it.id == image.id }) {
                             imagesForSorting = imagesForSorting + image
                         }
+                        // 恢复改变软删除集合，推荐派生集合同步失效（与移除路径对称）。
+                        recommendationEngine.invalidateSimilarGroupCache()
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
