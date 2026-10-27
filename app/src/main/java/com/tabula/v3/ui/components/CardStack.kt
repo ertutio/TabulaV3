@@ -51,6 +51,7 @@ import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.preferences.SwipeStyle
 import com.tabula.v3.di.PreloadingManager
 import com.tabula.v3.ui.util.HapticFeedback
+import com.tabula.v3.ui.util.ownedScaledCopyOrNull
 import com.tabula.v3.ui.util.preloadImageFeatures
 import com.tabula.v3.ui.util.rememberImageFeatures
 import kotlinx.coroutines.CoroutineStart
@@ -480,17 +481,7 @@ fun SwipeableCardStack(
                     // 从缓存获取成功，缩放到 Genie 动画需要的尺寸
                     // 注意：Bitmap.createScaledBitmap 是 CPU 密集型操作，保持在 IO 线程避免影响 UI
                     val maxSize = 250
-                    val scale = minOf(
-                        maxSize.toFloat() / cachedBitmap.width,
-                        maxSize.toFloat() / cachedBitmap.height,
-                        1f
-                    )
-                    val targetWidth = (cachedBitmap.width * scale).toInt().coerceAtLeast(50)
-                    val targetHeight = (cachedBitmap.height * scale).toInt().coerceAtLeast(50)
-                    
-                    // 创建缩放副本（不修改缓存中的原图）
-                    // 使用 filter=false 加速缩放，Genie 动画不需要高质量缩放
-                    bitmap = Bitmap.createScaledBitmap(cachedBitmap, targetWidth, targetHeight, false)
+                    bitmap = ownedScaledCopyOrNull(cachedBitmap, 250)
                 }
                 
                 // 方案2：缓存未命中，使用快速文件加载
@@ -549,16 +540,7 @@ fun SwipeableCardStack(
                 )?.bitmap
                 
                 if (cachedBitmap != null && !cachedBitmap.isRecycled) {
-                    val maxSize = 250
-                    val scale = minOf(
-                        maxSize.toFloat() / cachedBitmap.width,
-                        maxSize.toFloat() / cachedBitmap.height,
-                        1f
-                    )
-                    val targetWidth = (cachedBitmap.width * scale).toInt().coerceAtLeast(50)
-                    val targetHeight = (cachedBitmap.height * scale).toInt().coerceAtLeast(50)
-                    // 使用 filter=false 加速缩放
-                    bitmap = Bitmap.createScaledBitmap(cachedBitmap, targetWidth, targetHeight, false)
+bitmap = ownedScaledCopyOrNull(cachedBitmap, 250)
                 }
                 
                 // 方案2：缓存未命中，使用快速文件加载
@@ -2161,16 +2143,7 @@ private fun DrawModeCardStack(
                 )?.bitmap
                 
                 if (cachedBitmap != null && !cachedBitmap.isRecycled) {
-                    val maxSize = 250
-                    val scale = minOf(
-                        maxSize.toFloat() / cachedBitmap.width,
-                        maxSize.toFloat() / cachedBitmap.height,
-                        1f
-                    )
-                    val targetWidth = (cachedBitmap.width * scale).toInt().coerceAtLeast(50)
-                    val targetHeight = (cachedBitmap.height * scale).toInt().coerceAtLeast(50)
-                    // 使用 filter=false 加速缩放
-                    bitmap = Bitmap.createScaledBitmap(cachedBitmap, targetWidth, targetHeight, false)
+bitmap = ownedScaledCopyOrNull(cachedBitmap, 250)
                 }
                 
                 if (bitmap == null) {
@@ -2226,16 +2199,7 @@ private fun DrawModeCardStack(
                 )?.bitmap
                 
                 if (cachedBitmap != null && !cachedBitmap.isRecycled) {
-                    val maxSize = 250
-                    val scale = minOf(
-                        maxSize.toFloat() / cachedBitmap.width,
-                        maxSize.toFloat() / cachedBitmap.height,
-                        1f
-                    )
-                    val targetWidth = (cachedBitmap.width * scale).toInt().coerceAtLeast(50)
-                    val targetHeight = (cachedBitmap.height * scale).toInt().coerceAtLeast(50)
-                    // 使用 filter=false 加速缩放
-                    bitmap = Bitmap.createScaledBitmap(cachedBitmap, targetWidth, targetHeight, false)
+bitmap = ownedScaledCopyOrNull(cachedBitmap, 250)
                 }
                 
                 if (bitmap == null) {
