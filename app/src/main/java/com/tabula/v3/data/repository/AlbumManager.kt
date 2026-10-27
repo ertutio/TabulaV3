@@ -642,7 +642,8 @@ class AlbumManager(private val context: Context) {
     ) = withContext(Dispatchers.IO) {
         try {
             // 1. 从系统相册获取所有 bucket（优先使用预加载数据，避免重复查询）
-            val systemBuckets = preloadedBuckets ?: imageRepository.getAllBucketsWithInfo()
+            // T03：bucket 层身份为 (卷, 路径)；Album 消费者簇未迁移前在此显式按显示名合并。
+            val systemBuckets = mergeBucketsByName(preloadedBuckets ?: imageRepository.getAllBucketsWithInfo())
             val systemBucketNames = systemBuckets.map { it.name }.toSet()
             
             // 2. 加载本地元数据
