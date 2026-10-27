@@ -401,6 +401,27 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
         }
     }
 
+    /**
+     * 深度复核：身份独立 + 源与目标全文 SHA-256 一致且非空，删除源之前的最后一道闸门。
+     * 任何失败（不可读、内容不一致、长度不符、异常）都按"未验证"处理；
+     * 取消不吞——CancellationException 向上抛。
+     */
+    suspend fun verifyCopyIntegrity(sourceUri: Uri, destinationUri: Uri): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (!isIndependentExistingCopy(sourceUri, destinationUri)) return@withContext false
+            val sourceDigest = readContentDigest(sourceUri, null) ?: return@withContext false
+            if (sourceDigest.byteCount == 0L) return@withContext false
+            val destinationDigest = readContentDigest(destinationUri, sourceDigest.byteCount)
+                ?: return@withContext false
+            sameDigest(sourceDigest, destinationDigest)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Deep copy verification failed for $sourceUri -> $destinationUri", e)
+            false
+        }
+    }
+
     private suspend fun copyImageToSystemAlbum(
         imageUri: Uri,
         albumName: String,

@@ -1020,12 +1020,41 @@ class AlbumManager(private val context: Context) {
     }
 
     /**
+     * 清理确认时刻使用：对账本候选逐项做全文深度复核（源/目标 SHA-256 一致且身份独立）。
+     * 复核不过的源落回"未验证"，绝不进入删除集合。
+     */
+    suspend fun getReverifiedCleanableUrisForAllAlbums(): CleanableUrisResult = withContext(Dispatchers.IO) {
+        val sources = getAllSourceImages()
+        val ledger = copyEvidenceStore.loadAll()
+        val cleanable = mutableListOf<Uri>()
+        for (sourceUri in sources) {
+            val entry = ledger[sourceUri.toString()] ?: continue
+            val destination = try {
+                Uri.parse(entry.destinationUri)
+            } catch (e: Exception) {
+                Log.w(TAG, "Ledger destination unparsable for $sourceUri", e)
+                continue
+            }
+            if (syncManager.verifyCopyIntegrity(sourceUri, destination)) {
+                cleanable.add(sourceUri)
+            }
+        }
+        CleanableUrisResult(
+            sourceUris = cleanable,
+            orphanUris = emptyList(),
+            sourceTotalCount = sources.size,
+            orphanTotalCount = 0
+        )
+    }
+
+    /**
      * 清除已删除的原图记录
-     * 
-     * 当用户清理原图后调用，从追踪列表中移除已删除的 URI
+     *
+     * 当用户清理原图后调用，从追踪列表与证据账本中移除已删除的 URI
      */
     suspend fun clearDeletedUris(deletedUris: Set<String>) = withContext(Dispatchers.IO) {
         clearSourceImageRecords(deletedUris = deletedUris)
+        copyEvidenceStore.removeAll(deletedUris)
     }
 
     // ========== 数据类（保持兼容性） ==========

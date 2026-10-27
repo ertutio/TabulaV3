@@ -616,6 +616,16 @@ fun TabulaApp(
         )
     }
 
+    fun commitPendingArchiveWithFeedback(actionId: String) {
+        scope.launch {
+            when (albumManager.commitPendingArchive(actionId)) {
+                AlbumManager.ArchiveCommitOutcome.COPY_FAILED ->
+                    Toast.makeText(context, "归档失败，照片未复制", Toast.LENGTH_LONG).show()
+                else -> {}
+            }
+        }
+    }
+
     val deckContent: @Composable () -> Unit = {
         DeckScreen(
             // 使用 imagesForSorting（排除已归类到 Tabula 图集的照片）
@@ -663,8 +673,8 @@ fun TabulaApp(
                  scope.launch {
                      // 先提交之前的 pending action（如果有）
                      // 这样快速连续归档时，前一个会被自动提交
-                     albumManager.getLastPendingArchive()?.let { 
-                         albumManager.commitPendingArchive(it.id)
+                     albumManager.getLastPendingArchive()?.let {
+                         commitPendingArchiveWithFeedback(it.id)
                      }
                      
                      // 加入新的 pending action（不立即复制）
@@ -688,8 +698,8 @@ fun TabulaApp(
                 scope.launch {
                     try {
                         // 先提交之前的 pending action（如果有）
-                        albumManager.getLastPendingArchive()?.let { 
-                            albumManager.commitPendingArchive(it.id)
+                        albumManager.getLastPendingArchive()?.let {
+                            commitPendingArchiveWithFeedback(it.id)
                         }
                         
                         // 1. 创建图集
@@ -713,8 +723,8 @@ fun TabulaApp(
             onCommitArchive = {
                 scope.launch {
                     // Snackbar 消失时提交归档，执行真正的复制
-                    albumManager.getLastPendingArchive()?.let { 
-                        albumManager.commitPendingArchive(it.id)
+                    albumManager.getLastPendingArchive()?.let {
+                        commitPendingArchiveWithFeedback(it.id)
                     }
                 }
             },
@@ -1468,8 +1478,8 @@ fun TabulaApp(
                 onConfirm = {
                     showSourceImageDeletionDialog = false
                     scope.launch {
-                        // 确认时重新读取候选，避免用过期弹窗状态删除唯一原图。
-                        val cleanableResult = albumManager.getCleanableUrisForAllAlbums()
+                        // 确认时重新读取候选并逐项深度复核，避免用过期弹窗状态删除唯一原图。
+                        val cleanableResult = albumManager.getReverifiedCleanableUrisForAllAlbums()
                         val urisToDelete = cleanableResult.sourceUris
                         pendingSourceImageUris = urisToDelete
                         unverifiedSourceImageCount = cleanableResult.unverifiedSourceCount

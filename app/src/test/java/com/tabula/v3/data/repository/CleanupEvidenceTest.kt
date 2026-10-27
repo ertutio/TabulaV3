@@ -4,6 +4,9 @@ import android.Manifest
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -151,6 +154,73 @@ class CleanupEvidenceTest {
 
         assertTrue(result.sourceUris.isEmpty())
         assertEquals(1, result.unverifiedSourceCount)
+    }
+
+    @Test
+    fun deepVerificationPassesForContentMatchingDestination() = runBlocking {
+        seedVerifiedDestination()
+
+        val result = albumManager.getReverifiedCleanableUrisForAllAlbums()
+
+        assertEquals(listOf(sourceUri), result.sourceUris)
+        assertEquals(0, result.unverifiedSourceCount)
+    }
+
+    @Test
+    fun destinationWithSameSizeButDifferentContentIsRejected() = runBlocking {
+        seedSourceRecord()
+        val tampered = provider.addTargetCandidate("copy-source.jpg", ByteArray(257) { (it + 17).toByte() })
+        albumManager.copyEvidenceStore.put(
+            sourceUri.toString(),
+            CopyEvidenceEntry(
+                destinationUri = tampered.toString(),
+                byteCount = 257L,
+                sha256Hex = sha256Hex(sourceBytes),
+                albumId = "Target",
+                recordedAt = 1_700_000_000L
+            )
+        )
+
+        val result = albumManager.getReverifiedCleanableUrisForAllAlbums()
+
+        assertTrue(result.sourceUris.isEmpty())
+        assertEquals(1, result.unverifiedSourceCount)
+    }
+
+    @Test
+    fun unreadableDestinationFallsBackToUnverifiedWithoutCrashing() = runBlocking {
+        seedVerifiedDestination()
+        provider.returnNullTargetReadback = true
+
+        val result = albumManager.getReverifiedCleanableUrisForAllAlbums()
+
+        assertTrue(result.sourceUris.isEmpty())
+        assertEquals(1, result.unverifiedSourceCount)
+    }
+
+    @Test
+    fun clearDeletedUrisPurgesLedgerEntries() = runBlocking {
+        // Robolectric 的 AtomicFile 只保证一次落地写入；多写逻辑用内存存储验证。
+        albumManager.copyEvidenceStore = CopyEvidenceStore(MemoryCopyEvidenceStorage())
+        seedVerifiedDestination()
+
+        albumManager.clearDeletedUris(setOf(sourceUri.toString()))
+
+        assertTrue(albumManager.copyEvidenceStore.loadAll().isEmpty())
+    }
+
+    @Test
+    fun cancellationFromDeepVerificationPropagates() = runBlocking {
+        val destination = seedVerifiedDestination()
+        val syncManager = SystemAlbumSyncManager.getInstance(context)
+        val job = launch(Dispatchers.IO) {
+            cancel()
+            syncManager.verifyCopyIntegrity(sourceUri, destination)
+        }
+
+        job.join()
+
+        assertTrue(job.isCancelled)
     }
 
     private fun resetSingleton(clazz: Class<*>) {
