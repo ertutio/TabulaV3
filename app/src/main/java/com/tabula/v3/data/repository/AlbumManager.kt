@@ -136,11 +136,14 @@ class AlbumManager(private val context: Context) {
     )
 
     // ========== 系统相册同步管理器 ==========
-    
+
     private val syncManager: SystemAlbumSyncManager by lazy {
         SystemAlbumSyncManager.getInstance(context)
     }
-    
+
+    /** source→verified destination 证据账本；internal 以便测试注入故障存储。 */
+    internal var copyEvidenceStore: CopyEvidenceStore = CopyEvidenceStore(context)
+
     private val imageRepository: LocalImageRepository by lazy {
         LocalImageRepository(context)
     }
@@ -1107,45 +1110,71 @@ class AlbumManager(private val context: Context) {
     }
 
     /**
+     * 归档提交结果。
+     * COMMITTED：复制成功（可能附证据写入失败，源按未验证保留）；
+     * COPY_FAILED：已领取但复制失败，未产生任何记录；
+     * NOT_CLAIMED：action 已被提交/撤销过，属于良性重复调用，无副作用。
+     */
+    enum class ArchiveCommitOutcome { COMMITTED, COPY_FAILED, NOT_CLAIMED }
+
+    /**
      * 提交待归档操作，执行真正的复制
-     * 
+     *
      * Snackbar 超时消失时调用，表示用户确认了归档操作。
      * 此时才执行真正的图片复制。
-     * 
+     *
+     * 原子领取：同一 action 的并发/重复提交至多产生一次复制副作用。
+     *
      * @param actionId 要提交的操作 ID
-     * @return 是否成功执行
      */
-    suspend fun commitPendingArchive(actionId: String): Boolean = withContext(Dispatchers.IO) {
-        val action = pendingArchiveQueue.find { it.id == actionId }
+    suspend fun commitPendingArchive(actionId: String): ArchiveCommitOutcome = withContext(Dispatchers.IO) {
+        val action = claimPendingArchive(actionId)
         if (action == null) {
-            Log.w(TAG, "Pending archive not found: $actionId (might have been cancelled)")
-            return@withContext false
+            Log.w(TAG, "Pending archive not claimed: $actionId (might have been committed or cancelled)")
+            return@withContext ArchiveCommitOutcome.NOT_CLAIMED
         }
-        
-        // 从队列中移除
-        pendingArchiveQueue.remove(action)
-        
-        // 执行真正的复制
+
         Log.d(TAG, "Committing archive: imageId=${action.imageId} -> album='${action.albumName}'")
-        
+
         val uri = Uri.parse(action.imageUri)
-        val newUri = syncManager.addImageToSystemAlbum(uri, action.albumId)
-        
-        if (newUri != null) {
-            Log.d(TAG, "Successfully copied image to ${action.albumName}, newUri: $newUri")
-            
-            // 记录原图位置，用于后续清理
-            addSourceImageRecord(action.albumId, action.imageUri)
-            
-            // 记录使用频率（用于智能排序）
-            usageTracker.recordUsage(action.albumId)
-            
-            // 刷新图集列表以更新图片数量
-            refreshAlbumsFromSystem()
-            return@withContext true
-        } else {
-            Log.e(TAG, "Failed to copy image to ${action.albumName}")
-            return@withContext false
+        val evidence = syncManager.copyImageWithEvidence(uri, action.albumId)
+
+        if (evidence == null) {
+            Log.e(TAG, "Failed to copy image to ${action.albumName}; source retained")
+            return@withContext ArchiveCommitOutcome.COPY_FAILED
+        }
+
+        val recorded = copyEvidenceStore.put(
+            sourceUri = action.imageUri,
+            entry = CopyEvidenceEntry(
+                destinationUri = evidence.uri.toString(),
+                byteCount = evidence.byteCount,
+                sha256Hex = evidence.sha256Hex,
+                albumId = action.albumId,
+                recordedAt = System.currentTimeMillis()
+            )
+        )
+        if (!recorded) {
+            Log.w(TAG, "Copy succeeded but evidence write failed; source stays unverified: ${action.imageUri}")
+        }
+
+        // 记录原图位置，用于后续清理
+        addSourceImageRecord(action.albumId, action.imageUri)
+
+        // 记录使用频率（用于智能排序）
+        usageTracker.recordUsage(action.albumId)
+
+        // 刷新图集列表以更新图片数量
+        refreshAlbumsFromSystem()
+        return@withContext ArchiveCommitOutcome.COMMITTED
+    }
+
+    /** 在队列锁内一次性完成查找与移除，保证同一 action 只被领取一次。 */
+    private fun claimPendingArchive(actionId: String): PendingArchive? {
+        synchronized(pendingArchiveQueue) {
+            val index = pendingArchiveQueue.indexOfFirst { it.id == actionId }
+            if (index < 0) return null
+            return pendingArchiveQueue.removeAt(index)
         }
     }
 
