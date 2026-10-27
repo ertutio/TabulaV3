@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import com.tabula.v3.data.model.MediaItemKey
 import com.tabula.v3.data.model.SyncMode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -87,10 +88,9 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
         }
     }
 
-    private data class MediaStoreItemKey(val volumeName: String, val id: Long)
 
     private data class SourceCopyMetadata(
-        val key: MediaStoreItemKey,
+        val key: MediaItemKey,
         val size: Long?,
         val dateTaken: Long?,
         val dateAdded: Long?,
@@ -99,7 +99,7 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
 
     private data class ContentDigest(val byteCount: Long, val sha256: ByteArray)
 
-    private data class ExistingCopyCandidate(val uri: Uri, val key: MediaStoreItemKey)
+    private data class ExistingCopyCandidate(val uri: Uri, val key: MediaItemKey)
 
     private class OwnedCopyTargetHolder {
         private val target = AtomicReference<Uri?>(null)
@@ -388,8 +388,8 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
      */
     suspend fun isIndependentExistingCopy(sourceUri: Uri, destinationUri: Uri): Boolean = withContext(Dispatchers.IO) {
         try {
-            val sourceKey = resolveMediaStoreItemKey(sourceUri) ?: return@withContext false
-            val targetKey = resolveMediaStoreItemKey(destinationUri) ?: return@withContext false
+            val sourceKey = resolveMediaItemKey(sourceUri) ?: return@withContext false
+            val targetKey = resolveMediaItemKey(destinationUri) ?: return@withContext false
             if (targetKey == sourceKey) return@withContext false
             if (areCanonicalAliases(sourceUri, destinationUri)) return@withContext false
             true
@@ -765,7 +765,7 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
 
             // Resolve ownership before checking cancellation: insert may return a URI after
             // the caller's Job was cancelled, and a proven new row must still be rolled back.
-            val targetKey = resolveMediaStoreItemKey(targetUri!!)
+            val targetKey = resolveMediaItemKey(targetUri!!)
             if (targetKey == null) {
                 Log.w(TAG, "Inserted copy target has unknown identity; leaving it untouched: $targetUri")
                 currentCoroutineContext().ensureActive()
@@ -872,7 +872,7 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
         return null
     }
 
-    private fun resolveMediaStoreItemKey(uri: Uri): MediaStoreItemKey? {
+    private fun resolveMediaItemKey(uri: Uri): MediaItemKey? {
         val projection = arrayOf(MediaStore.Images.Media._ID, MediaStore.MediaColumns.VOLUME_NAME)
         for (queryUri in mediaStoreQueryUris(uri)) {
             try {
@@ -889,7 +889,7 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
         return null
     }
 
-    private fun mediaStoreItemKey(cursor: android.database.Cursor): MediaStoreItemKey? {
+    private fun mediaStoreItemKey(cursor: android.database.Cursor): MediaItemKey? {
         val idIndex = cursor.getColumnIndex(MediaStore.Images.Media._ID)
         val volumeIndex = cursor.getColumnIndex(MediaStore.MediaColumns.VOLUME_NAME)
         if (idIndex < 0 || volumeIndex < 0 || cursor.isNull(idIndex) || cursor.isNull(volumeIndex)) return null
@@ -897,7 +897,7 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
         val volumeName = cursor.getString(volumeIndex)?.takeIf { it.isNotBlank() } ?: return null
         // "external" is an aggregate alias, not the actual storage volume identity.
         if (id < 0L || volumeName.equals("external", ignoreCase = true)) return null
-        return MediaStoreItemKey(volumeName, id)
+        return MediaItemKey(volumeName, id)
     }
 
     private fun nullableLong(cursor: android.database.Cursor, column: String): Long? {
