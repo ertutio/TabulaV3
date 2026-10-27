@@ -65,6 +65,7 @@ import com.tabula.v3.data.preferences.SwipeStyle
 import com.tabula.v3.data.preferences.TagSelectionMode
 import com.tabula.v3.data.preferences.ThemeMode
 import com.tabula.v3.data.preferences.TopBarDisplayMode
+import com.tabula.v3.data.repository.DeletionVerification
 import com.tabula.v3.data.repository.FileOperationManager
 import com.tabula.v3.data.repository.LocalImageRepository
 import com.tabula.v3.data.repository.projectSnapshot
@@ -107,6 +108,7 @@ import com.tabula.v3.ui.util.HapticFeedback
 import com.tabula.v3.ui.theme.TabulaTheme
 import com.tabula.v3.ui.components.LocalLiquidGlassEnabled
 import com.tabula.v3.service.FluidCloudService
+import android.net.Uri
 import android.widget.Toast
 import com.tabula.v3.ui.components.isBackdropLiquidGlassSupported
 import kotlinx.coroutines.Dispatchers
@@ -117,6 +119,17 @@ import kotlinx.coroutines.CancellationException
 import kotlin.coroutines.resume
 import com.tabula.v3.data.repository.BatchDeleteResult
 import com.tabula.v3.data.repository.deleteInBatches
+
+/**
+ * T02b 恢复核验决策：未知保留在回收站，缺失清除死记录且不入图库，仅 PRESENT 继续恢复。
+ */
+enum class RestoreDecision { PROCEED_RESTORE, KEEP_UNKNOWN, DROP_MISSING }
+
+fun decideRestoreAction(uri: Uri, verification: DeletionVerification): RestoreDecision = when {
+    uri in verification.unknown -> RestoreDecision.KEEP_UNKNOWN
+    uri in verification.deleted -> RestoreDecision.DROP_MISSING
+    else -> RestoreDecision.PROCEED_RESTORE
+}
 
 /**
  * MainActivity - Tabula 应用入口
@@ -873,6 +886,24 @@ fun TabulaApp(
                             return@launch
                         }
                         if (image.uri in recovered.deleted) return@launch
+                        // T02b：普通非 pending 条目恢复前核验当前媒体状态。
+                        val verification = withContext(Dispatchers.IO) {
+                            fileOperationManager.verifyDeletionState(listOf(image.uri))
+                        }
+                        when (decideRestoreAction(image.uri, verification)) {
+                            RestoreDecision.KEEP_UNKNOWN -> {
+                                Toast.makeText(context, "照片状态尚未核对，暂不能恢复，请检查照片访问权限或存储卷后重试", Toast.LENGTH_LONG).show()
+                                return@launch
+                            }
+                            RestoreDecision.DROP_MISSING -> {
+                                // 照片已不在媒体库：清除死记录，不加入图库。
+                                recycleBinManager.removeFromRecycleBin(image)
+                                deletedImages = deletedImages.filterNot { it.id == image.id }
+                                Toast.makeText(context, "照片已不在媒体库中，已清除对应回收站记录", Toast.LENGTH_LONG).show()
+                                return@launch
+                            }
+                            RestoreDecision.PROCEED_RESTORE -> {}
+                        }
                         recycleBinManager.removeFromRecycleBin(image)
                         deletedImages = deletedImages.filterNot { it.id == image.id }
                         if (allImages.none { it.id == image.id }) allImages = allImages + image
