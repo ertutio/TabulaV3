@@ -149,6 +149,8 @@ class RecycleBinManager internal constructor(
                 width = obj.getInt("width"),
                 height = obj.getInt("height"),
                 bucketDisplayName = obj.optString("bucketDisplayName", "").ifBlank { null },
+                // 旧 JSON 无 orientation 键，按未旋转处理；新 JSON 往返保留。
+                orientation = obj.optInt("orientation", 0),
                 deletedAt = obj.optLong("deletedAt", 0L)
             )
         }
@@ -172,6 +174,7 @@ class RecycleBinManager internal constructor(
                 put("width", image.width)
                 put("height", image.height)
                 put("bucketDisplayName", image.bucketDisplayName ?: "")
+                put("orientation", image.orientation)
                 put("deletedAt", image.deletedAt)
             })
         }

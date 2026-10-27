@@ -540,7 +540,68 @@ fun TabulaApp(
         }
     }
 
-    
+    /**
+     * T02c：恢复（单条/批量共用）——单次对账、单次核验、逐项决策、共享记录事务。
+     * UNKNOWN 保留在回收站，MISSING 清除死记录且不入图库，仅 PRESENT 恢复进图库。
+     */
+    fun restoreImagesInOneTransaction(images: List<ImageFile>) {
+        if (images.isEmpty() || isDeletingRecycleBin || deletePermissionInFlight) return
+        scope.launch {
+            try {
+                val recovered = reconcileRecycleBinDeletion(recycleBinManager, fileOperationManager::verifyDeletionState)
+                removeConfirmedFromState(recovered.deleted)
+                val candidates = images.filter { it.uri !in recovered.unknown && it.uri !in recovered.deleted }
+                val verification = withContext(Dispatchers.IO) {
+                    fileOperationManager.verifyDeletionState(candidates.map { it.uri })
+                }
+                val restorable = mutableListOf<ImageFile>()
+                val missing = mutableListOf<ImageFile>()
+                var keptUnknown = images.count { it.uri in recovered.unknown }
+                candidates.forEach { image ->
+                    when (decideRestoreAction(image.uri, verification)) {
+                        RestoreDecision.PROCEED_RESTORE -> restorable += image
+                        RestoreDecision.DROP_MISSING -> missing += image
+                        RestoreDecision.KEEP_UNKNOWN -> keptUnknown++
+                    }
+                }
+                // 单一记录事务：只移除核验通过的条目；未知项原样保留。
+                if (restorable.isNotEmpty()) recycleBinManager.removeAllFromRecycleBin(restorable)
+                if (missing.isNotEmpty()) recycleBinManager.removeAllFromRecycleBin(missing)
+                val removedIds = (restorable + missing).map { it.id }.toSet()
+                deletedImages = deletedImages.filterNot { it.id in removedIds }
+                restorable.forEach { image ->
+                    if (allImages.none { it.id == image.id }) allImages = allImages + image
+                    val isInTabulaAlbum = albums.any { album ->
+                        album.systemAlbumPath?.trimEnd('/')?.substringAfterLast('/') == image.bucketDisplayName
+                    }
+                    if (!isInTabulaAlbum && imagesForSorting.none { it.id == image.id }) {
+                        imagesForSorting = imagesForSorting + image
+                    }
+                }
+                // 恢复改变软删除集合，推荐派生集合同步失效（与移除路径对称）。
+                if (restorable.isNotEmpty()) recommendationEngine.invalidateSimilarGroupCache()
+                val message = buildString {
+                    if (restorable.isNotEmpty()) append("已恢复 ${restorable.size} 张")
+                    if (missing.isNotEmpty()) append(if (isEmpty()) "${missing.size} 张已不在媒体库" else "，${missing.size} 张已不在媒体库")
+                    if (keptUnknown > 0) append(if (isEmpty()) "${keptUnknown} 张状态未核对已保留" else "，${keptUnknown} 张状态未核对已保留")
+                }
+                if (images.size > 1 && message.isNotEmpty()) {
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                } else if (missing.isNotEmpty()) {
+                    Toast.makeText(context, "照片已不在媒体库中，已清除对应回收站记录", Toast.LENGTH_LONG).show()
+                } else if (keptUnknown > 0) {
+                    Toast.makeText(context, "照片状态尚未核对，暂不能恢复，请检查照片访问权限或存储卷后重试", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("TabulaApp", "Could not restore recycle bin record", e)
+                Toast.makeText(context, "未能保存恢复记录，照片仍保留在回收站", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+
     /**
      * Batch delete
      */
@@ -877,51 +938,10 @@ fun TabulaApp(
         RecycleBinScreen(
             deletedImages = deletedImages,
             onRestore = { image ->
-                if (!isDeletingRecycleBin && !deletePermissionInFlight) scope.launch {
-                    try {
-                        val recovered = reconcileRecycleBinDeletion(recycleBinManager, fileOperationManager::verifyDeletionState)
-                        removeConfirmedFromState(recovered.deleted)
-                        if (image.uri in recovered.unknown) {
-                            Toast.makeText(context, "照片状态尚未核对，暂不能恢复，请检查照片访问权限", Toast.LENGTH_LONG).show()
-                            return@launch
-                        }
-                        if (image.uri in recovered.deleted) return@launch
-                        // T02b：普通非 pending 条目恢复前核验当前媒体状态。
-                        val verification = withContext(Dispatchers.IO) {
-                            fileOperationManager.verifyDeletionState(listOf(image.uri))
-                        }
-                        when (decideRestoreAction(image.uri, verification)) {
-                            RestoreDecision.KEEP_UNKNOWN -> {
-                                Toast.makeText(context, "照片状态尚未核对，暂不能恢复，请检查照片访问权限或存储卷后重试", Toast.LENGTH_LONG).show()
-                                return@launch
-                            }
-                            RestoreDecision.DROP_MISSING -> {
-                                // 照片已不在媒体库：清除死记录，不加入图库。
-                                recycleBinManager.removeFromRecycleBin(image)
-                                deletedImages = deletedImages.filterNot { it.id == image.id }
-                                Toast.makeText(context, "照片已不在媒体库中，已清除对应回收站记录", Toast.LENGTH_LONG).show()
-                                return@launch
-                            }
-                            RestoreDecision.PROCEED_RESTORE -> {}
-                        }
-                        recycleBinManager.removeFromRecycleBin(image)
-                        deletedImages = deletedImages.filterNot { it.id == image.id }
-                        if (allImages.none { it.id == image.id }) allImages = allImages + image
-                        val isInTabulaAlbum = albums.any { album ->
-                            album.systemAlbumPath?.trimEnd('/')?.substringAfterLast('/') == image.bucketDisplayName
-                        }
-                        if (!isInTabulaAlbum && imagesForSorting.none { it.id == image.id }) {
-                            imagesForSorting = imagesForSorting + image
-                        }
-                        // 恢复改变软删除集合，推荐派生集合同步失效（与移除路径对称）。
-                        recommendationEngine.invalidateSimilarGroupCache()
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        Log.e("TabulaApp", "Could not restore recycle bin record", e)
-                        Toast.makeText(context, "未能保存恢复记录，照片仍保留在回收站", Toast.LENGTH_LONG).show()
-                    }
-                }
+                restoreImagesInOneTransaction(listOf(image))
+            },
+            onRestoreBatch = { images ->
+                restoreImagesInOneTransaction(images)
             },
             onPermanentDelete = { image ->
                 deleteRecycleBinImages(listOf(image))

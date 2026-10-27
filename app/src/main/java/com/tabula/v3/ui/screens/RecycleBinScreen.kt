@@ -126,6 +126,7 @@ import kotlinx.coroutines.launch
 fun RecycleBinScreen(
     deletedImages: List<ImageFile>,
     onRestore: (ImageFile) -> Unit,
+    onRestoreBatch: (List<ImageFile>) -> Unit = {},
     onPermanentDelete: (ImageFile) -> Unit,
     onPermanentDeleteBatch: (List<ImageFile>) -> Unit,
     onClearAll: () -> Unit,
@@ -229,9 +230,11 @@ fun RecycleBinScreen(
                         selectedImages = emptySet()
                     },
                     onRestoreSelected = {
-                        selectedImages.forEach { id ->
-                            deletedImages.find { it.id == id }?.let { onRestore(it) }
+                        // T02c：批量恢复走单一共享事务；单条恢复也复用同一路径。
+                        val images = selectedImages.mapNotNull { id ->
+                            deletedImages.find { it.id == id }
                         }
+                        if (images.size == 1) onRestore(images.first()) else onRestoreBatch(images)
                         isSelectionMode = false
                         selectedImages = emptySet()
                     },
