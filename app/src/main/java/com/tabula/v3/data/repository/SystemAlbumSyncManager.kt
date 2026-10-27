@@ -373,7 +373,7 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
     ): Uri? = copyImageWithEvidence(imageUri, albumName, displayName)?.uri
 
     /**
-     * 复制图片并返回可核验的副本证据（目标 URI、字节数与回读 SHA-256）。
+     * 复制并返回可核验的副本证据（目标 URI、字节数与回读 SHA-256）。
      * 失败返回 null；Reused 语义下证据来自验证通过的既有候选内容。
      */
     suspend fun copyImageWithEvidence(
@@ -381,6 +381,25 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
         albumName: String,
         displayName: String? = null
     ): CopyResult? = copyImageToSystemAlbum(imageUri, albumName, displayName).toCopyResultOrNull()
+
+    /**
+     * 轻量核验：两侧媒体项身份均可解析、分属不同项目且互非别名（零字节读取）。
+     * 任何失败（行缺失、身份未知、异常）都按"不独立"处理，交由调用方保守保留源。
+     */
+    suspend fun isIndependentExistingCopy(sourceUri: Uri, destinationUri: Uri): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val sourceKey = resolveMediaStoreItemKey(sourceUri) ?: return@withContext false
+            val targetKey = resolveMediaStoreItemKey(destinationUri) ?: return@withContext false
+            if (targetKey == sourceKey) return@withContext false
+            if (areCanonicalAliases(sourceUri, destinationUri)) return@withContext false
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Lightweight copy verification failed for $sourceUri -> $destinationUri", e)
+            false
+        }
+    }
 
     private suspend fun copyImageToSystemAlbum(
         imageUri: Uri,

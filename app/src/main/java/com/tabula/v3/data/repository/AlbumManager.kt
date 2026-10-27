@@ -987,28 +987,34 @@ class AlbumManager(private val context: Context) {
     /**
      * 获取所有图集的待清理原图。
      *
-     * 旧记录只有源 URI，没有目的副本身份或完整性证据，无法证明清理不会删掉唯一原件。
-     * 在证据模型补齐前保留全部源记录，但不把任何来源列为可清理候选。
+     * 候选 = 账本中存在 source→verified destination 证据、且目标当前仍存在且与源
+     * 身份独立的源。旧记录（source_images.json）没有证据，一律按未验证保留，
+     * 不列为候选；最终删除前还有逐字节深度复核（见 getReverifiedCleanableUris*）。
      */
     suspend fun getCleanableUrisForAllAlbums(): CleanableUrisResult = withContext(Dispatchers.IO) {
-        val sourceUris = getAllSourceImages()
-        CleanableUrisResult(
-            sourceUris = emptyList(),
-            orphanUris = emptyList(),
-            sourceTotalCount = sourceUris.size,
-            orphanTotalCount = 0
-        )
+        computeCleanableUris(getAllSourceImages())
     }
 
     /**
-     * 获取指定图集的待清理原图
+     * 获取指定图集的待清理原图（口径同 [getCleanableUrisForAllAlbums]）。
      */
     suspend fun getCleanableUrisForAlbum(albumId: String): CleanableUrisResult = withContext(Dispatchers.IO) {
-        val sourceUris = getSourceImagesForAlbum(albumId)
-        CleanableUrisResult(
-            sourceUris = emptyList(),
+        computeCleanableUris(getSourceImagesForAlbum(albumId))
+    }
+
+    private suspend fun computeCleanableUris(sources: List<Uri>): CleanableUrisResult {
+        val ledger = copyEvidenceStore.loadAll()
+        val cleanable = mutableListOf<Uri>()
+        for (sourceUri in sources) {
+            val entry = ledger[sourceUri.toString()] ?: continue
+            if (syncManager.isIndependentExistingCopy(sourceUri, Uri.parse(entry.destinationUri))) {
+                cleanable.add(sourceUri)
+            }
+        }
+        return CleanableUrisResult(
+            sourceUris = cleanable,
             orphanUris = emptyList(),
-            sourceTotalCount = sourceUris.size,
+            sourceTotalCount = sources.size,
             orphanTotalCount = 0
         )
     }
