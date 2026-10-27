@@ -62,14 +62,27 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
 
     private val contentResolver: ContentResolver = context.contentResolver
 
+    /** Verifiable evidence of a copy the transaction published or proved already present. */
+    data class CopyResult(
+        val uri: Uri,
+        val byteCount: Long,
+        val sha256Hex: String
+    )
+
     private sealed class CopyOutcome {
-        data class Created(val uri: Uri) : CopyOutcome()
-        data class Reused(val uri: Uri) : CopyOutcome()
+        data class Created(val uri: Uri, val byteCount: Long, val sha256Hex: String) : CopyOutcome()
+        data class Reused(val uri: Uri, val byteCount: Long, val sha256Hex: String) : CopyOutcome()
         object Failed : CopyOutcome()
 
         fun uriOrNull(): Uri? = when (this) {
             is Created -> uri
             is Reused -> uri
+            Failed -> null
+        }
+
+        fun toCopyResultOrNull(): CopyResult? = when (this) {
+            is Created -> CopyResult(uri, byteCount, sha256Hex)
+            is Reused -> CopyResult(uri, byteCount, sha256Hex)
             Failed -> null
         }
     }
@@ -357,7 +370,17 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
         imageUri: Uri,
         albumName: String,
         displayName: String? = null
-    ): Uri? = copyImageToSystemAlbum(imageUri, albumName, displayName).uriOrNull()
+    ): Uri? = copyImageWithEvidence(imageUri, albumName, displayName)?.uri
+
+    /**
+     * 复制图片并返回可核验的副本证据（目标 URI、字节数与回读 SHA-256）。
+     * 失败返回 null；Reused 语义下证据来自验证通过的既有候选内容。
+     */
+    suspend fun copyImageWithEvidence(
+        imageUri: Uri,
+        albumName: String,
+        displayName: String? = null
+    ): CopyResult? = copyImageToSystemAlbum(imageUri, albumName, displayName).toCopyResultOrNull()
 
     private suspend fun copyImageToSystemAlbum(
         imageUri: Uri,
@@ -376,15 +399,8 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
                 val fileName = displayName ?: getFileNameFromUri(imageUri)
                     ?: "IMG_${System.currentTimeMillis()}.jpg"
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    copyImageUsingMediaStore(imageUri, albumFolder.name, fileName, ownedTarget)
-                } else {
-                    val existed = File(albumFolder, fileName).exists()
-                    val copiedUri = copyImageDirectly(imageUri, albumFolder, fileName)
-                    if (copiedUri == null) CopyOutcome.Failed
-                    else if (existed) CopyOutcome.Reused(copiedUri)
-                    else CopyOutcome.Created(copiedUri)
-                }
+                // minSdk 31 >= Q: every copy goes through the verified MediaStore transaction.
+                copyImageUsingMediaStore(imageUri, albumFolder.name, fileName, ownedTarget)
             }
             // Keep ownership until withContext has delivered its result. Cancellation while
             // dispatching the result is handled by the outer catch below.
@@ -674,7 +690,11 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
                     if (candidateDigest != null && candidateDigest.byteCount == verifiedSourceDigest.byteCount &&
                         candidateDigest.sha256.contentEquals(verifiedSourceDigest.sha256)
                     ) {
-                        return CopyOutcome.Reused(candidate.uri)
+                        return CopyOutcome.Reused(
+                            candidate.uri,
+                            verifiedSourceDigest.byteCount,
+                            verifiedSourceDigest.sha256.toSha256Hex()
+                        )
                     }
                 }
             }
@@ -755,7 +775,11 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
 
             currentCoroutineContext().ensureActive()
             Log.d(TAG, "Copied and verified image: $fileName -> $targetRelativePath (${copyDigest.byteCount} bytes)")
-            return CopyOutcome.Created(targetUri!!)
+            return CopyOutcome.Created(
+                targetUri!!,
+                readbackDigest.byteCount,
+                readbackDigest.sha256.toSha256Hex()
+            )
         } catch (e: CancellationException) {
             val hadOwnedTarget = ownedTarget.hasTarget()
             cleanupOwnedCopyTarget(ownedTarget)
@@ -979,6 +1003,8 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
     private fun sameDigest(first: ContentDigest, second: ContentDigest): Boolean =
         first.byteCount == second.byteCount && first.sha256.contentEquals(second.sha256)
 
+    private fun ByteArray.toSha256Hex(): String = joinToString("") { "%02x".format(it) }
+
     private suspend fun cleanupOwnedCopyTarget(ownedTarget: OwnedCopyTargetHolder) {
         val uri = ownedTarget.take() ?: return
         withContext(NonCancellable + Dispatchers.IO) {
@@ -992,39 +1018,6 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
             } catch (e: Exception) {
                 Log.w(TAG, "Rollback failed; the copy target may remain: $uri", e)
             }
-        }
-    }
-
-    /**
-     * 直接复制图片文件 (Android 9 及以下)
-     */
-    private fun copyImageDirectly(
-        sourceUri: Uri,
-        targetFolder: File,
-        fileName: String
-    ): Uri? {
-        try {
-            val targetFile = File(targetFolder, fileName)
-            
-            // 检查文件是否已存在，避免重复复制
-            if (targetFile.exists()) {
-                Log.d(TAG, "Image already exists, skipping: ${targetFile.absolutePath}")
-                return Uri.fromFile(targetFile)
-            }
-
-            contentResolver.openInputStream(sourceUri)?.use { input ->
-                FileOutputStream(targetFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
-
-            scanMediaFile(targetFile)
-
-            Log.d(TAG, "Copied image directly: ${targetFile.absolutePath}")
-            return Uri.fromFile(targetFile)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error copying image directly", e)
-            return null
         }
     }
 
