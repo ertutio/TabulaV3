@@ -1263,7 +1263,7 @@ fun TabulaApp(
             albums = albums,
             allImages = allImages,
             getImagesForAlbum = { albumId -> albumManager.getImageIdsForAlbum(albumId) },
-            getImageMappingsForAlbum = { albumId -> albumManager.getImageMappingsForAlbum(albumId) },
+            getAlbumImages = { albumId -> albumManager.getAlbumDetailImages(albumId) },
             onCreateAlbum = { name, color, emoji ->
                 scope.launch {
                     try {

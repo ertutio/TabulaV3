@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import com.tabula.v3.data.model.Album
+import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.model.AlbumActionType
 import com.tabula.v3.data.model.AlbumMapping
 import com.tabula.v3.data.model.PendingAlbumAction
@@ -535,11 +536,11 @@ class AlbumManager(private val context: Context) {
     }
 
     /**
-     * 获取相册内的所有图片映射信息（从系统相册读取）
+     * 获取相册详情的完整图片列表（T05：详情直接消费仓库的完整 ImageFile，
+     * 不再把查询结果压平成 (id, uri) 映射导致屏幕层逐 URI N+1 补读）。
      */
-    suspend fun getImageMappingsForAlbum(albumId: String): List<Pair<Long, String>> = withContext(Dispatchers.IO) {
-        val images = imageRepository.getImagesByBucket(albumId)
-        images.map { Pair(it.id, it.uri.toString()) }
+    suspend fun getAlbumDetailImages(albumId: String): List<ImageFile> = withContext(Dispatchers.IO) {
+        imageRepository.getImagesByBucket(albumId)
     }
 
     /**

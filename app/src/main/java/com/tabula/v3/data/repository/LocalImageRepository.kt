@@ -354,6 +354,20 @@ class LocalImageRepository(private val context: Context) {
     ): List<ImageFile> {
         val images = mutableListOf<ImageFile>()
 
+        // T03/T05：所有仓库查询路径统一携带身份字段（卷/路径）并输出毫秒时间戳。
+        val projection = arrayOf(
+            MediaStore.Images.Media._ID,
+            MediaStore.Images.Media.DISPLAY_NAME,
+            MediaStore.Images.Media.DATE_MODIFIED,
+            MediaStore.Images.Media.SIZE,
+            MediaStore.Images.Media.WIDTH,
+            MediaStore.Images.Media.HEIGHT,
+            MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
+            MediaStore.Images.Media.ORIENTATION,
+            MediaStore.Images.Media.RELATIVE_PATH,
+            MediaStore.MediaColumns.VOLUME_NAME
+        )
+
         contentResolver.query(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
             projection,
@@ -369,6 +383,8 @@ class LocalImageRepository(private val context: Context) {
             val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
             val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
             val orientationColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.ORIENTATION)
+            val relativePathColumn = cursor.getColumnIndex(MediaStore.Images.Media.RELATIVE_PATH)
+            val volumeColumn = cursor.getColumnIndex(MediaStore.MediaColumns.VOLUME_NAME)
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
@@ -376,6 +392,10 @@ class LocalImageRepository(private val context: Context) {
                     MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                     id
                 )
+                val relativePath = if (relativePathColumn >= 0) cursor.getString(relativePathColumn) else null
+                val volumeName = if (volumeColumn >= 0) {
+                    cursor.getString(volumeColumn)?.takeIf { it.isNotBlank() }
+                } else null
 
                 images.add(
                     ImageFile(
@@ -387,7 +407,9 @@ class LocalImageRepository(private val context: Context) {
                         width = cursor.getInt(widthColumn),
                         height = cursor.getInt(heightColumn),
                         bucketDisplayName = cursor.getString(bucketColumn),
-                        orientation = cursor.getInt(orientationColumn)
+                        orientation = cursor.getInt(orientationColumn),
+                        volumeName = volumeName,
+                        relativePath = relativePath
                     )
                 )
             }
