@@ -10,7 +10,7 @@
 | 已接受代码基线 | `master@8be46e424f6c39ba837f969d876b4d5d53003f97`（#11 merge commit，2026-10-28） |
 | 当前检查点 | C0：安全与一致性的当前差额 |
 | 当前代码变更 | C0.1（O1/C0-DETAIL-EMPTY-RETRY）：AlbumViewScreen 空态首载失败显示错误+重试（本文件同提交） |
-| next_action | C0/C1.1/C2 已交付并设备验证；C3（T06b）本地实现完成（d4866be，PreloadingManagerTest 7 项），设备验证 run 40751316401 进行中。绿后登记证据转 C4（T07 前台媒体同步/移动结果）。O2（API37 createAlbum scoped-storage 失败）已复现待立项修复。 |
+| next_action | **C3 检查点完成**（本地 PreloadingManagerTest 7 项 + 设备 run 40751316401 全绿）。下一就绪项：C4（T07 前台媒体同步与真实移动结果）——契约盘点：权限 NONE/PARTIAL/FULL 变化、快照竞争、推荐/专清/哈希版本失效联动（C1.1 已铺垫）、移动逐项结果枚举（CopiedButSourceRetained 未实现，并入）。 |
 | 本动作通过条件 | （C0.1 已满足本地部分）空态首载失败显示错误与重试；重试/取消语义沿用 T05 LaunchedEffect。设备/云 UI 断言待授权触发 instrumentation。 |
 | 全局阻塞 | workflow_dispatch 权限已获授权并验证（run 40717554994）；剩余外部缺口：真实多卷热拔插/他人应用媒体授权/进程死亡与断电（自有探针不能替代） |
 
@@ -89,6 +89,7 @@
 | C1.1 TC58 哈希版本 | 同 ID 改内容旧哈希失效（版本键 ver_）；旧格式条目保守重算；失败条目每轮有界重试一次并按当轮版本落盘；cleanup 同步清 ver 键 | ImageHashCacheVersionTest 6 项 + SimilarGroupDetectorVersionTest 2 项（断言不依赖解码成败，可区分旧行为） | PASS |
 | C1.1 其余消费者 | Album/元数据/偏好/统计/UI 六簇跟随按名合并 Album 的显式产品行为（盘点见上节） | C1 消费者盘点表 | accepted（有依据的不迁移决定） |
 | C2 T04-入口统一 / `review_pending` | 新增 deleteMediaUrisBatch（与 deleteRecycleBinBatch 同构：错误分类仅 INVALID_REQUEST 可拆分、授权拒绝 Cancelled、授权后逐项核验 UNKNOWN 隔离）；详情删除 performDeleteBatch 与原图清理 performDeleteUris 两入口接入 deleteInBatches（回收站入口本就是样板）；详情回调 Boolean → deleted set，UI 按"确认删除数/未能删除数"如实反馈 | MediaDeletionBatchTest 7 项（含 250 项分批、部分成功保留、取消不请求后续批、UNKNOWN stopReason、仅无效请求可拆分）；设备 run 40723464281 API37 全绿、API36 CloudCleanupUiTest 两例超时（截图显示应用停在图库、无崩溃，对话框未出现——探针单次等待）；**同 SHA 重跑 [run 40726796077](https://github.com/ertutio/TabulaV3/actions/runs/40726796077) 三 job 全绿** → 判定为模拟器时序抖动而非 C2 回归 | PASS（附两次 run 与抖动记录；建议探针加对话框重试） |
+| C3 T06b-预加载生命周期 / `review_pending` | PreloadingManager 重构：请求键含内容版本（cardMemoryCacheKey 共享函数，六处键位统一）、preloadedKeys 按键记忆（换批/内容编辑/失败自然失效）、排队与结果分离（listener 成功入集/失败移除）、按索引跟踪 Disposable 并在换批/重置/释放时取消、pause 同中心可重试、dispose() 释放自有 scope（两种 CardStack 模式接线）；CardStack 缓存读取键同步 | PreloadingManagerTest 7 项（键含版本、同索引换批不跳过、失败重试、成功不重复、暂停后同中心重试、过期 Disposable 取消、dispose 全取消）；接线静态核对 | 单测 PASS；**设备 run [40751316401](https://github.com/ertutio/TabulaV3/actions/runs/40751316401)（sha d4866be）三 job 全绿**（双设备 14 项探针） | 结果回调为编译级验证；T06a 所有权保持 |
 
 | C2-UNKNOWN-UI / blocked | UNKNOWN 提示在详情/清理真实 UI 的可见性 | 同上接线 | BLOCKED（需设备探针注入场景，与 C0-DETAIL-EMPTY-RETRY 探针同批） |
 
