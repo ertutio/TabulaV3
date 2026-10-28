@@ -119,6 +119,7 @@ import kotlinx.coroutines.CancellationException
 import kotlin.coroutines.resume
 import com.tabula.v3.data.repository.BatchDeleteResult
 import com.tabula.v3.data.repository.deleteInBatches
+import com.tabula.v3.data.repository.deleteMediaUrisBatch
 
 /**
  * T02b 恢复核验决策：未知保留在回收站，缺失清除死记录且不入图库，仅 PRESENT 继续恢复。
@@ -609,41 +610,35 @@ fun TabulaApp(
     /**
      * Batch delete
      */
-    fun performDeleteBatch(images: List<ImageFile>, onResult: (Boolean) -> Unit) {
+    fun performDeleteBatch(images: List<ImageFile>, onResult: (Set<String>) -> Unit) {
         if (images.isEmpty()) {
-            onResult(true)
+            onResult(emptySet())
             return
         }
         
         scope.launch {
-            val result = fileOperationManager.deleteImages(images.map { it.uri })
-            when (result) {
-                is FileOperationManager.DeleteResult.Success -> {
-                    val success = result.deleted.size == images.size
-                    Log.d("TabulaApp", "Deleted batch: ${result.deleted.size}/${images.size}")
-                    onResult(success)
-                }
-                is FileOperationManager.DeleteResult.NeedsPermission -> {
-                    onRequestDeletePermission(result.intentSender) { granted ->
-                        if (granted) {
-                            // 授权后验证实际删除结果
-                            scope.launch {
-                                val actuallyDeleted = fileOperationManager.verifyDeletion(result.pendingUris)
-                                val success = actuallyDeleted.size == images.size
-                                Log.d("TabulaApp", "Delete permission granted for batch: ${actuallyDeleted.size}/${images.size}")
-                                onResult(success)
+            // C2/T04：详情删除入口接入串行按项批处理（分批/取消不请求后续批/部分成功/UNKNOWN 隔离）。
+            val summary = deleteInBatches(
+                items = images.map { it.uri },
+                deleteBatch = { batch ->
+                    deleteMediaUrisBatch(
+                        batch,
+                        request = fileOperationManager::deleteImages,
+                        permission = { result ->
+                            suspendCancellableCoroutine { continuation ->
+                                onRequestDeletePermission(result.intentSender) { allowed ->
+                                    if (continuation.isActive) continuation.resume(allowed)
+                                }
                             }
-                        } else {
-                            Log.w("TabulaApp", "Delete permission denied for batch: ${images.size}")
-                            onResult(false)
-                        }
-                    }
-                }
-                is FileOperationManager.DeleteResult.Error -> {
-                    Log.e("TabulaApp", "Delete error: ${result.message}")
-                    onResult(false)
-                }
-            }
+                        },
+                        verify = fileOperationManager::verifyDeletionState
+                    )
+                },
+                onDeleted = { }
+            )
+            val deletedUris = summary.deleted.map { it.toString() }.toSet()
+            Log.d("TabulaApp", "Deleted batch: ${deletedUris.size}/${images.size}")
+            onResult(deletedUris)
         }
     }
     
@@ -660,33 +655,28 @@ fun TabulaApp(
         }
         
         scope.launch {
-            val result = fileOperationManager.deleteImages(uris)
-            when (result) {
-                is FileOperationManager.DeleteResult.Success -> {
-                    val deletedUris = result.deleted.map { it.toString() }.toSet()
-                    Log.d("TabulaApp", "Cleanup deleted: ${deletedUris.size}/${uris.size}")
-                    onResult(deletedUris)
-                }
-                is FileOperationManager.DeleteResult.NeedsPermission -> {
-                    onRequestDeletePermission(result.intentSender) { granted ->
-                        if (granted) {
-                            scope.launch {
-                                val actuallyDeleted = fileOperationManager.verifyDeletion(result.pendingUris)
-                                val deletedUris = actuallyDeleted.map { it.toString() }.toSet()
-                                Log.d("TabulaApp", "Cleanup permission granted, deleted: ${deletedUris.size}/${uris.size}")
-                                onResult(deletedUris)
+            // C2/T04：原图清理入口接入串行按项批处理（分批/取消不请求后续批/部分成功/UNKNOWN 隔离）。
+            val summary = deleteInBatches(
+                items = uris,
+                deleteBatch = { batch ->
+                    deleteMediaUrisBatch(
+                        batch,
+                        request = fileOperationManager::deleteImages,
+                        permission = { result ->
+                            suspendCancellableCoroutine { continuation ->
+                                onRequestDeletePermission(result.intentSender) { allowed ->
+                                    if (continuation.isActive) continuation.resume(allowed)
+                                }
                             }
-                        } else {
-                            Log.w("TabulaApp", "Cleanup permission denied for: ${uris.size} images")
-                            onResult(emptySet())
-                        }
-                    }
-                }
-                is FileOperationManager.DeleteResult.Error -> {
-                    Log.e("TabulaApp", "Cleanup error: ${result.message}")
-                    onResult(emptySet())
-                }
-            }
+                        },
+                        verify = fileOperationManager::verifyDeletionState
+                    )
+                },
+                onDeleted = { }
+            )
+            val deletedUris = summary.deleted.map { it.toString() }.toSet()
+            Log.d("TabulaApp", "Cleanup deleted: ${deletedUris.size}/${uris.size}")
+            onResult(deletedUris)
         }
     }
 
@@ -1348,10 +1338,10 @@ fun TabulaApp(
                 val imagesToDelete = allImages.filter { it.id in imageIds }
                 if (imagesToDelete.isNotEmpty()) {
                     // 执行永久删除操作
-                    performDeleteBatch(imagesToDelete) { success ->
-                        if (success) {
-                            // 从 allImages 中移除
-                            val deletedIds = imagesToDelete.map { it.id }.toSet()
+                    performDeleteBatch(imagesToDelete) { deletedUris ->
+                        if (deletedUris.isNotEmpty()) {
+                            // 只移除确认已删除的图片（按项结果，不用整体 Boolean）
+                            val deletedIds = imagesToDelete.filter { it.uri.toString() in deletedUris }.map { it.id }.toSet()
                             allImages = allImages.filter { it.id !in deletedIds }
                             imagesForSorting = imagesForSorting.filter { it.id !in deletedIds }
                             
@@ -1360,9 +1350,15 @@ fun TabulaApp(
                                 albumManager.refreshAlbumsFromSystem()
                             }
                             
-                            Toast.makeText(context, "已永久删除 ${imagesToDelete.size} 张图片", Toast.LENGTH_SHORT).show()
+                            val remaining = imagesToDelete.size - deletedIds.size
+                            val message = if (remaining > 0) {
+                                "已永久删除 ${deletedIds.size} 张图片，${remaining} 张未能删除"
+                            } else {
+                                "已永久删除 ${deletedIds.size} 张图片"
+                            }
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                         } else {
-                            Toast.makeText(context, "删除失败", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "删除失败或已取消", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }

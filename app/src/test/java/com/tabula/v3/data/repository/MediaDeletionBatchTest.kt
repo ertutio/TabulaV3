@@ -1,0 +1,178 @@
+package com.tabula.v3.data.repository
+
+import android.net.Uri
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], manifest = Config.NONE)
+class MediaDeletionBatchTest {
+    private fun uris(count: Int, start: Int = 1): List<Uri> =
+        (start until start + count).map { Uri.parse("content://media/external/images/media/$it") }
+
+    private fun verification(
+        deleted: Set<Uri>,
+        unknown: Set<Uri> = emptySet()
+    ): DeletionVerification = DeletionVerification(
+        deleted = deleted,
+        existing = emptySet(),
+        unknown = unknown
+    )
+
+    @Test
+    fun grantedPermissionCompletesAllVerifiedMissing() = runBlocking {
+        val batch = uris(3)
+        val result = deleteMediaUrisBatch(
+            batch,
+            request = { FileOperationManager.DeleteResult.NeedsPermission(createIntentSender(), batch) },
+            permission = { true },
+            verify = { verification(batch.toSet()) }
+        )
+
+        assertTrue(result is BatchDeleteResult.Completed)
+        assertEquals(batch.toSet(), (result as BatchDeleteResult.Completed).deleted)
+        assertNull(result.stopReason)
+    }
+
+    @Test
+    fun permissionDeniedCancelsWithoutSideEffects() = runBlocking {
+        var requestCount = 0
+        val result = deleteMediaUrisBatch(
+            uris(2),
+            request = { requestCount++; FileOperationManager.DeleteResult.NeedsPermission(createIntentSender(), emptyList()) },
+            permission = { false },
+            verify = { fail("verify must not run when permission denied"); verification(emptySet()) }
+        )
+
+        assertTrue(result is BatchDeleteResult.Cancelled)
+        assertEquals(1, requestCount)
+    }
+
+    @Test
+    fun unknownItemsAreExcludedAndReportedInStopReason() = runBlocking {
+        val batch = uris(3)
+        val unknown = setOf(batch[2])
+
+        val result = deleteMediaUrisBatch(
+            batch,
+            request = { FileOperationManager.DeleteResult.NeedsPermission(createIntentSender(), batch) },
+            permission = { true },
+            verify = { verification(batch.toSet() - unknown, unknown) }
+        )
+
+        val completed = result as BatchDeleteResult.Completed
+        assertEquals(setOf(batch[0], batch[1]), completed.deleted)
+        assertNotNull(completed.stopReason)
+    }
+
+    @Test
+    fun preRStyleSuccessReportsOnlyConfirmedItems() = runBlocking {
+        val batch = uris(3)
+        val confirmed = setOf(batch[0], batch[1])
+
+        val result = deleteMediaUrisBatch(
+            batch,
+            request = { FileOperationManager.DeleteResult.Success(confirmed) },
+            permission = { fail("permission must not run on direct-delete success"); true },
+            verify = { fail("verify must not run on direct-delete success"); verification(emptySet()) }
+        )
+
+        assertEquals(confirmed, (result as BatchDeleteResult.Completed).deleted)
+    }
+
+    @Test
+    fun onlyInvalidRequestFailuresAreSplittable() = runBlocking {
+        val invalid = deleteMediaUrisBatch(
+            uris(1),
+            request = { FileOperationManager.DeleteResult.Error("bad request", DeleteFailureKind.INVALID_REQUEST) },
+            permission = { true },
+            verify = { verification(emptySet()) }
+        )
+        val service = deleteMediaUrisBatch(
+            uris(1),
+            request = { FileOperationManager.DeleteResult.Error("service down", DeleteFailureKind.SERVICE) },
+            permission = { true },
+            verify = { verification(emptySet()) }
+        )
+
+        assertTrue((invalid as BatchDeleteResult.Failed).canSplit)
+        assertTrue(!(service as BatchDeleteResult.Failed).canSplit)
+    }
+
+    @Test
+    fun serialBatchesPreserveConfirmedItemsWhenLaterBatchFails() = runBlocking {
+        // TC17/TC19：200+ 项分批，第二批服务错误 → 已确认第一批保留，不盲目重试。
+        val all = uris(250)
+        val confirmedFirstBatch = all.take(100).toSet()
+        var requestCount = 0
+
+        val summary = deleteInBatches(
+            items = all,
+            batchSize = 100,
+            deleteBatch = { batch ->
+                requestCount++
+                if (requestCount == 1) {
+                    BatchDeleteResult.Completed(batch.toSet())
+                } else {
+                    BatchDeleteResult.Failed("service down", canSplit = false)
+                }
+            },
+            onDeleted = { }
+        )
+
+        assertEquals(2, requestCount)
+        assertEquals(confirmedFirstBatch, summary.deleted)
+        assertNotNull(summary.error)
+        assertEquals(150, summary.remaining.size)
+    }
+
+    @Test
+    fun cancelledBatchStopsRequestingFurtherBatches() = runBlocking {
+        val all = uris(250)
+        var requestCount = 0
+
+        val summary = deleteInBatches(
+            items = all,
+            batchSize = 100,
+            deleteBatch = { batch ->
+                requestCount++
+                if (requestCount == 1) {
+                    deleteMediaUrisBatch(
+                        batch,
+                        request = { FileOperationManager.DeleteResult.NeedsPermission(createIntentSender(), emptyList()) },
+                        permission = { false },
+                        verify = { verification(emptySet()) }
+                    )
+                } else {
+                    fail("must not request batches after cancellation")
+                    BatchDeleteResult.Cancelled
+                }
+            },
+            onDeleted = { }
+        )
+
+        assertEquals(1, requestCount)
+        assertTrue(summary.cancelled)
+        assertEquals(250, summary.remaining.size)
+    }
+
+    private fun createIntentSender(): android.content.IntentSender {
+        val pending = android.app.PendingIntent.getActivity(
+            RuntimeEnvironment.getApplication(),
+            0,
+            android.content.Intent("android.intent.action.VIEW"),
+            android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+        return pending.intentSender
+    }
+
+    private fun fail(message: String): Nothing = throw AssertionError(message)
+}
