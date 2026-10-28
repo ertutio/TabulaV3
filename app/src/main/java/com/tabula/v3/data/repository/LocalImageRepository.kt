@@ -280,7 +280,9 @@ class LocalImageRepository(private val context: Context) {
         val name: String,
         val imageCount: Int,
         val coverImageId: Long? = null,
-        val relativePath: String? = null
+        val relativePath: String? = null,
+        // T03 bucket 身份：(volumeName, relativePath) 才是真实身份；显示名可跨卷/跨目录重复。
+        val volumeName: String? = null
     )
 
     /**
@@ -289,13 +291,14 @@ class LocalImageRepository(private val context: Context) {
      * @return 系统相册列表（包含名称、数量、封面、路径）
      */
     suspend fun getAllBucketsWithInfo(): List<SystemBucket> = withContext(Dispatchers.IO) {
-        // 存储 bucket 信息：名称 -> (图片ID列表, 相对路径)
-        val bucketMap = mutableMapOf<String, Pair<MutableList<Long>, String?>>()
+        // bucket 身份 = (卷, 相对路径)；同名不同目录/卷保持分开（T03）。显示名随组携带。
+        val bucketMap = linkedMapOf<BucketGroupKey, BucketGroupData>()
 
         val projection = arrayOf(
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
-            MediaStore.Images.Media.RELATIVE_PATH
+            MediaStore.Images.Media.RELATIVE_PATH,
+            MediaStore.MediaColumns.VOLUME_NAME
         )
 
         contentResolver.query(
@@ -310,28 +313,33 @@ class LocalImageRepository(private val context: Context) {
                 MediaStore.Images.Media.BUCKET_DISPLAY_NAME
             )
             val pathColumn = cursor.getColumnIndex(MediaStore.Images.Media.RELATIVE_PATH)
+            val volumeColumn = cursor.getColumnIndex(MediaStore.MediaColumns.VOLUME_NAME)
 
             while (cursor.moveToNext()) {
                 val bucketName = cursor.getString(bucketColumn) ?: continue
                 val imageId = cursor.getLong(idColumn)
                 val relativePath = if (pathColumn >= 0) cursor.getString(pathColumn) else null
-                
-                val existing = bucketMap[bucketName]
-                if (existing != null) {
-                    existing.first.add(imageId)
+                val volumeName = if (volumeColumn >= 0) {
+                    cursor.getString(volumeColumn)?.takeIf { it.isNotBlank() }
+                } else null
+
+                val key = BucketGroupKey(volumeName ?: "", relativePath ?: "")
+                val group = bucketMap[key]
+                if (group != null) {
+                    group.ids.add(imageId)
                 } else {
-                    bucketMap[bucketName] = Pair(mutableListOf(imageId), relativePath)
+                    bucketMap[key] = BucketGroupData(mutableListOf(imageId), relativePath, bucketName)
                 }
             }
         }
 
-        bucketMap.map { (name, data) ->
-            val (ids, path) = data
+        bucketMap.map { (key, group) ->
             SystemBucket(
-                name = name,
-                imageCount = ids.size,
-                coverImageId = ids.firstOrNull(), // 最新的一张作为封面
-                relativePath = path?.trimEnd('/') // 移除末尾斜杠
+                name = group.displayName,
+                imageCount = group.ids.size,
+                coverImageId = group.ids.firstOrNull(), // 最新的一张作为封面
+                relativePath = group.relativePath?.trimEnd('/'), // 移除末尾斜杠
+                volumeName = key.volumeName.ifEmpty { null }
             )
         }.sortedByDescending { it.imageCount }
     }
@@ -345,6 +353,20 @@ class LocalImageRepository(private val context: Context) {
         sortOrder: SortOrder = SortOrder.DATE_MODIFIED_DESC
     ): List<ImageFile> {
         val images = mutableListOf<ImageFile>()
+
+        // T03/T05：所有仓库查询路径统一携带身份字段（卷/路径）并输出毫秒时间戳。
+        val projection = arrayOf(
+            MediaStore.Images.Media._ID,
+            MediaStore.Images.Media.DISPLAY_NAME,
+            MediaStore.Images.Media.DATE_MODIFIED,
+            MediaStore.Images.Media.SIZE,
+            MediaStore.Images.Media.WIDTH,
+            MediaStore.Images.Media.HEIGHT,
+            MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
+            MediaStore.Images.Media.ORIENTATION,
+            MediaStore.Images.Media.RELATIVE_PATH,
+            MediaStore.MediaColumns.VOLUME_NAME
+        )
 
         contentResolver.query(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -361,6 +383,8 @@ class LocalImageRepository(private val context: Context) {
             val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
             val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
             val orientationColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.ORIENTATION)
+            val relativePathColumn = cursor.getColumnIndex(MediaStore.Images.Media.RELATIVE_PATH)
+            val volumeColumn = cursor.getColumnIndex(MediaStore.MediaColumns.VOLUME_NAME)
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
@@ -368,6 +392,10 @@ class LocalImageRepository(private val context: Context) {
                     MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                     id
                 )
+                val relativePath = if (relativePathColumn >= 0) cursor.getString(relativePathColumn) else null
+                val volumeName = if (volumeColumn >= 0) {
+                    cursor.getString(volumeColumn)?.takeIf { it.isNotBlank() }
+                } else null
 
                 images.add(
                     ImageFile(
@@ -379,7 +407,9 @@ class LocalImageRepository(private val context: Context) {
                         width = cursor.getInt(widthColumn),
                         height = cursor.getInt(heightColumn),
                         bucketDisplayName = cursor.getString(bucketColumn),
-                        orientation = cursor.getInt(orientationColumn)
+                        orientation = cursor.getInt(orientationColumn),
+                        volumeName = volumeName,
+                        relativePath = relativePath
                     )
                 )
             }
@@ -480,8 +510,8 @@ class LocalImageRepository(private val context: Context) {
     ): LoadResult = withContext(Dispatchers.IO) {
         val allImages = mutableListOf<ImageFile>()
         val imagesExcludingTabula = mutableListOf<ImageFile>()
-        // bucket name -> (image IDs ordered by date desc, relativePath)
-        val bucketMap = mutableMapOf<String, Pair<MutableList<Long>, String?>>()
+        // bucket 身份 = (卷, 相对路径)；显示名随组携带（T03）
+        val bucketMap = linkedMapOf<BucketGroupKey, BucketGroupData>()
 
         val projectionWithPath = arrayOf(
             MediaStore.Images.Media._ID,
@@ -492,7 +522,8 @@ class LocalImageRepository(private val context: Context) {
             MediaStore.Images.Media.HEIGHT,
             MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
             MediaStore.Images.Media.ORIENTATION,
-            MediaStore.Images.Media.RELATIVE_PATH
+            MediaStore.Images.Media.RELATIVE_PATH,
+            MediaStore.MediaColumns.VOLUME_NAME
         )
 
         contentResolver.query(
@@ -511,6 +542,7 @@ class LocalImageRepository(private val context: Context) {
             val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
             val orientationColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.ORIENTATION)
             val relativePathColumn = cursor.getColumnIndex(MediaStore.Images.Media.RELATIVE_PATH)
+            val volumeColumn = cursor.getColumnIndex(MediaStore.MediaColumns.VOLUME_NAME)
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
@@ -522,6 +554,9 @@ class LocalImageRepository(private val context: Context) {
                 val relativePath = if (relativePathColumn >= 0) {
                     cursor.getString(relativePathColumn) ?: ""
                 } else ""
+                val volumeName = if (volumeColumn >= 0) {
+                    cursor.getString(volumeColumn)?.takeIf { it.isNotBlank() }
+                } else null
 
                 val imageFile = ImageFile(
                     id = id,
@@ -532,7 +567,9 @@ class LocalImageRepository(private val context: Context) {
                     width = cursor.getInt(widthColumn),
                     height = cursor.getInt(heightColumn),
                     bucketDisplayName = bucketDisplayName,
-                    orientation = cursor.getInt(orientationColumn)
+                    orientation = cursor.getInt(orientationColumn),
+                    volumeName = volumeName,
+                    relativePath = relativePath.ifEmpty { null }
                 )
 
                 allImages.add(imageFile)
@@ -544,26 +581,24 @@ class LocalImageRepository(private val context: Context) {
 
                 // 构建 bucket 信息（已按 date desc 排序，首个 ID 即为封面）
                 if (bucketDisplayName != null) {
-                    val existing = bucketMap[bucketDisplayName]
-                    if (existing != null) {
-                        existing.first.add(id)
+                    val key = BucketGroupKey(volumeName ?: "", relativePath)
+                    val group = bucketMap[key]
+                    if (group != null) {
+                        group.ids.add(id)
                     } else {
-                        bucketMap[bucketDisplayName] = Pair(
-                            mutableListOf(id),
-                            relativePath.trimEnd('/')
-                        )
+                        bucketMap[key] = BucketGroupData(mutableListOf(id), relativePath, bucketDisplayName)
                     }
                 }
             }
         }
 
-        val systemBuckets = bucketMap.map { (name, data) ->
-            val (ids, path) = data
+        val systemBuckets = bucketMap.map { (key, group) ->
             SystemBucket(
-                name = name,
-                imageCount = ids.size,
-                coverImageId = ids.firstOrNull(),
-                relativePath = path
+                name = group.displayName,
+                imageCount = group.ids.size,
+                coverImageId = group.ids.firstOrNull(),
+                relativePath = group.relativePath?.trimEnd('/')?.ifEmpty { null },
+                volumeName = key.volumeName.ifEmpty { null }
             )
         }.sortedByDescending { it.imageCount }
 
@@ -585,4 +620,72 @@ class LocalImageRepository(private val context: Context) {
             return "$column ${if (ascending) "ASC" else "DESC"}"
         }
     }
+}
+
+/**
+ * T02 快照投影：浏览/推荐一律由"原始媒体快照 − 软删除集合"派生。
+ *
+ * 过滤 allImages 与 imagesExcludingTabula，并按快照日期序重算各相册
+ * imageCount/coverImageId；bucket 名称与 relativePath 原样保留，
+ * 全部照片被软删除的 bucket 保留为 count=0、cover=null。
+ * 空软删除集合时原样返回快照（行为与开销零变化）。
+ */
+fun projectSnapshot(
+    snapshot: LocalImageRepository.LoadResult,
+    softDeletedIds: Set<Long>
+): LocalImageRepository.LoadResult {
+    if (softDeletedIds.isEmpty()) return snapshot
+    val allImages = snapshot.allImages.filterNot { it.id in softDeletedIds }
+    val imagesExcludingTabula = snapshot.imagesExcludingTabula.filterNot { it.id in softDeletedIds }
+    // 按真实身份 (卷, 路径) 重算 count/cover，避免同名桶互相污染；无身份信息的旧数据退化为显示名键。
+    val covers = LinkedHashMap<BucketGroupKey, Long>()
+    val counts = HashMap<BucketGroupKey, Int>()
+    for (image in allImages) {
+        val bucket = image.bucketDisplayName ?: continue
+        val key = BucketGroupKey(image.volumeName ?: "", image.relativePath?.trimEnd('/') ?: bucket)
+        counts.merge(key, 1, Int::plus)
+        covers.putIfAbsent(key, image.id)
+    }
+    val systemBuckets = snapshot.systemBuckets.map { bucket ->
+        val key = BucketGroupKey(bucket.volumeName ?: "", bucket.relativePath?.trimEnd('/') ?: bucket.name)
+        bucket.copy(
+            imageCount = counts[key] ?: 0,
+            coverImageId = covers[key]
+        )
+    }.sortedByDescending { it.imageCount }
+    return LocalImageRepository.LoadResult(allImages, imagesExcludingTabula, systemBuckets)
+}
+
+/** T03：bucket 真实身份 = (卷, 相对路径)；显示名可跨卷/跨目录重复。 */
+internal data class BucketGroupKey(val volumeName: String, val relativePath: String)
+
+internal class BucketGroupData(
+    val ids: MutableList<Long>,
+    val relativePath: String?,
+    val displayName: String
+)
+
+/**
+ * T03：Album 层消费者簇仍以显示名为身份（本函数显式合并，行为与旧版一致）。
+ * 同名桶计数求和，封面/路径/卷取日期序首个非空，结果按 imageCount 降序（与查询排序一致）。
+ * 后续迁移 Album/元数据/使用频率簇后，本函数应退役。
+ */
+fun mergeBucketsByName(
+    buckets: List<LocalImageRepository.SystemBucket>
+): List<LocalImageRepository.SystemBucket> {
+    if (buckets.size <= 1) return buckets
+    return buckets.groupBy { it.name }.flatMap { (_, group) ->
+        if (group.size == 1) {
+            listOf(group.first())
+        } else {
+            listOf(
+                group.first().copy(
+                    imageCount = group.sumOf { it.imageCount },
+                    coverImageId = group.firstNotNullOfOrNull { it.coverImageId },
+                    relativePath = group.firstNotNullOfOrNull { it.relativePath },
+                    volumeName = group.firstNotNullOfOrNull { it.volumeName }
+                )
+            )
+        }
+    }.sortedByDescending { it.imageCount }
 }

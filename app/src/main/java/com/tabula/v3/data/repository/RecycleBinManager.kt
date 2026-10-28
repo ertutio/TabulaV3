@@ -149,7 +149,11 @@ class RecycleBinManager internal constructor(
                 width = obj.getInt("width"),
                 height = obj.getInt("height"),
                 bucketDisplayName = obj.optString("bucketDisplayName", "").ifBlank { null },
-                deletedAt = obj.optLong("deletedAt", 0L)
+                // 旧 JSON 无 orientation 键，按未旋转处理；新 JSON 往返保留。
+                orientation = obj.optInt("orientation", 0),
+                deletedAt = obj.optLong("deletedAt", 0L),
+                volumeName = obj.optString("volumeName", "").ifBlank { null },
+                relativePath = obj.optString("relativePath", "").ifBlank { null }
             )
         }
         if (items.none { it.deletedAt == 0L }) return items
@@ -172,7 +176,10 @@ class RecycleBinManager internal constructor(
                 put("width", image.width)
                 put("height", image.height)
                 put("bucketDisplayName", image.bucketDisplayName ?: "")
+                put("orientation", image.orientation)
                 put("deletedAt", image.deletedAt)
+                image.volumeName?.let { put("volumeName", it) }
+                image.relativePath?.let { put("relativePath", it) }
             })
         }
         storage.write(array.toString())

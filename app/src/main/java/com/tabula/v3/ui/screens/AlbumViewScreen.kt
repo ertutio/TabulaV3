@@ -70,7 +70,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.isActive
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -130,7 +132,7 @@ fun AlbumViewScreen(
     albums: List<Album>,
     allImages: List<ImageFile>,
     getImagesForAlbum: suspend (String) -> List<Long>,
-    getImageMappingsForAlbum: (suspend (String) -> List<Pair<Long, String>>)? = null,
+    getAlbumImages: (suspend (String) -> List<ImageFile>)? = null,
     onCreateAlbum: (name: String, color: Long?, emoji: String?) -> Unit,
     onUpdateAlbum: (Album) -> Unit,
     onDeleteAlbum: (String) -> Unit,
@@ -151,7 +153,6 @@ fun AlbumViewScreen(
 ) {
     val isDarkTheme = LocalIsDarkTheme.current
     val context = LocalContext.current
-    val contentResolver = context.contentResolver
 
     val backgroundColor = if (isDarkTheme) Color.Black else Color(0xFFF2F2F7)
     val textColor = if (isDarkTheme) Color.White else Color(0xFF1C1C1E)
@@ -166,14 +167,14 @@ fun AlbumViewScreen(
     var editingAlbum by remember { mutableStateOf<Album?>(null) }
     var viewerState by remember { mutableStateOf<SwipeableViewerState?>(null) }
     var albumImages by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
+    // T05：加载失败有明确状态；失败时保留旧列表，可重试。
+    var albumLoadError by remember { mutableStateOf(false) }
+    var albumLoadRevision by remember { mutableIntStateOf(0) }
     
     // 渐进式加载状态
     var isLoadingMore by remember { mutableStateOf(false) }
     var hasMoreImages by remember { mutableStateOf(true) }
     
-    // 使用 Map 优化查找，将 O(n) 降为 O(1)
-    val imageMap = remember(allImages) { allImages.associateBy { it.id } }
-
     // 响应 allImages 变化：当图片被删除时，自动从 albumImages 中移除
     // 这解决了在图集中删除图片后不能实时刷新的问题
     LaunchedEffect(allImages) {
@@ -190,54 +191,31 @@ fun AlbumViewScreen(
     }
     
     // 加载图片逻辑 - 优化版：渐进式加载 + Map 查找 + 协程取消检查
-    LaunchedEffect(currentAlbum?.id) {
+    LaunchedEffect(currentAlbum?.id, albumLoadRevision) {
         if (currentAlbum != null) {
             // 重置加载状态
             hasMoreImages = true
-            
-            if (getImageMappingsForAlbum != null) {
-                // 使用新的加载方式：支持已清理原图的图片
-                val mappings = getImageMappingsForAlbum(currentAlbum.id)
-                
-                // 协程取消检查：如果在获取 mappings 后协程已被取消，直接返回
-                if (!isActive) return@LaunchedEffect
-                
-                // 使用 Map 进行 O(1) 查找，而非 O(n) 的 find
-                // 收集需要从 MediaStore 查询的 URI（不在 imageMap 中的）
-                val foundImages = mutableListOf<ImageFile>()
-                val missingUris = mutableListOf<android.net.Uri>()
-                
-                for ((imageId, imageUri) in mappings) {
-                    val image = imageMap[imageId]
-                    if (image != null) {
-                        foundImages.add(image)
-                    } else {
-                        missingUris.add(android.net.Uri.parse(imageUri))
-                    }
-                }
-                
-                // 批量查询缺失的图片（限制批量大小避免 ANR）
-                val batchSize = 50
-                val queriedImages = mutableListOf<ImageFile>()
-                for (i in missingUris.indices step batchSize) {
-                    // 协程取消检查：在每个批次前检查，避免已取消的协程继续执行耗时操作
+            albumLoadError = false
+            try {
+                if (getAlbumImages != null) {
+                    // T05：详情直接消费仓库返回的完整 ImageFile——查询结果即最终结果，
+                    // 不再压平成 (id, uri) 映射后逐 URI 补读（旧实现的 N+1 来源）。
+                    val images = getAlbumImages(currentAlbum.id)
+
+                    // 协程取消检查：切相册或重建后旧结果不覆盖新页面
                     if (!isActive) return@LaunchedEffect
-                    
-                    val batch = missingUris.subList(i, minOf(i + batchSize, missingUris.size))
-                    batch.mapNotNull { uri ->
-                        queryImageFromUri(contentResolver, uri)
-                    }.let { queriedImages.addAll(it) }
+
+                    albumImages = images
+                } else {
+                    // 兼容旧的加载方式 - 也使用 Set 优化
+                    val imageIds = getImagesForAlbum(currentAlbum.id).toSet()
+                    albumImages = allImages.filter { it.id in imageIds }
                 }
-                
-                // 协程取消检查：在更新状态前检查，避免更新已无效的状态
-                if (!isActive) return@LaunchedEffect
-                
-                // 合并结果并去重
-                albumImages = (foundImages + queriedImages).distinctBy { it.id }
-            } else {
-                // 兼容旧的加载方式 - 也使用 Set 优化
-                val imageIds = getImagesForAlbum(currentAlbum.id).toSet()
-                albumImages = allImages.filter { it.id in imageIds }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // 失败保留旧列表，置错误状态供 UI 提示与重试。
+                if (isActive) albumLoadError = true
             }
         } else {
             albumImages = emptyList()
@@ -269,6 +247,8 @@ fun AlbumViewScreen(
                 images = albumImages,
                 textColor = textColor,
                 secondaryTextColor = secondaryTextColor,
+                loadError = albumLoadError,
+                onLoadRetry = { albumLoadRevision++ },
                 isDarkTheme = isDarkTheme,
                 showHdrBadges = showHdrBadges,
                 showMotionBadges = showMotionBadges,
@@ -351,6 +331,8 @@ private fun AlbumContentView(
     images: List<ImageFile>,
     textColor: Color,
     secondaryTextColor: Color,
+    loadError: Boolean = false,
+    onLoadRetry: () -> Unit = {},
     isDarkTheme: Boolean,
     showHdrBadges: Boolean = false,
     showMotionBadges: Boolean = false,
@@ -826,6 +808,30 @@ private fun AlbumContentView(
                 }
             }
         } else {
+            // T05：加载失败给出明确状态与重试入口（保留旧列表不清空）。
+            if (loadError) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "图集加载失败，当前显示为上次结果",
+                        color = textColor.copy(alpha = 0.8f),
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        text = "重试",
+                        color = textColor,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.clickable { onLoadRetry() }
+                    )
+                }
+            }
+
             // 照片网格 - 使用 WindowInsets 获取导航栏高度，让内容沉浸到导航栏下方
             val navBarInsets = WindowInsets.navigationBars
             val navBarHeight = with(LocalDensity.current) { navBarInsets.getBottom(this).toDp() }
@@ -1635,49 +1641,3 @@ private fun AlbumPickerDialog(
  * 通过 URI 从 MediaStore 查询图片信息
  * 用于加载已清理原图后同步到系统相册的图片
  */
-private fun queryImageFromUri(
-    contentResolver: android.content.ContentResolver,
-    uri: android.net.Uri
-): ImageFile? {
-    return try {
-        val projection = arrayOf(
-            android.provider.MediaStore.Images.Media._ID,
-            android.provider.MediaStore.Images.Media.DISPLAY_NAME,
-            android.provider.MediaStore.Images.Media.DATE_MODIFIED,
-            android.provider.MediaStore.Images.Media.SIZE,
-            android.provider.MediaStore.Images.Media.WIDTH,
-            android.provider.MediaStore.Images.Media.HEIGHT,
-            android.provider.MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
-            android.provider.MediaStore.Images.Media.ORIENTATION
-        )
-        
-        contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val id = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media._ID))
-                val displayName = cursor.getString(cursor.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.DISPLAY_NAME)) ?: "Unknown"
-                val dateModified = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.DATE_MODIFIED))
-                val size = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.SIZE))
-                val width = cursor.getInt(cursor.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.WIDTH))
-                val height = cursor.getInt(cursor.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.HEIGHT))
-                val bucketName = cursor.getString(cursor.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.BUCKET_DISPLAY_NAME))
-                val orientation = cursor.getInt(cursor.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.ORIENTATION))
-                
-                ImageFile(
-                    id = id,
-                    uri = uri,
-                    displayName = displayName,
-                    dateModified = dateModified,
-                    size = size,
-                    width = width,
-                    height = height,
-                    bucketDisplayName = bucketName,
-                    orientation = orientation
-                )
-            } else null
-        }
-    } catch (e: Exception) {
-        android.util.Log.w("AlbumViewScreen", "Failed to query image from URI: $uri", e)
-        null
-    }
-}
-
