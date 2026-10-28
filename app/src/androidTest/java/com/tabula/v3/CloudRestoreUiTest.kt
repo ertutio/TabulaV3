@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Intent
+import android.util.Log
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Rect
@@ -46,6 +47,22 @@ class CloudRestoreUiTest {
         assertEquals(PackageManager.PERMISSION_GRANTED, ctx.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES))
         AppPreferences(ctx).apply { hasCompletedOnboarding = true; hasAcknowledgedDisclaimer = true }
     }
+    // Fixtures are created under the primary Pictures volume; use its item URI
+    // when directly deleting our own synthetic media, matching the existing device probe.
+    private fun primaryItem(uri: Uri): Uri = ContentUris.withAppendedId(
+        MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), ContentUris.parseId(uri)
+    )
+    private fun present(uri: Uri): Boolean = requireNotNull(
+        ctx.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns._ID), null, null, null)
+    ) { "MediaStore query returned null: $uri" }.use { it.moveToFirst() }
+    private fun logMediaIdentity(uri: Uri, stage: String) {
+        val owner = try {
+            ctx.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.OWNER_PACKAGE_NAME), null, null, null)?.use {
+                if (it.moveToFirst()) it.getString(0) else "missing"
+            } ?: "query-null"
+        } catch (e: Exception) { "query-error:${e.javaClass.simpleName}:${e.message}" }
+        Log.i("CloudMediaIdentity", "stage=$stage package=${ctx.packageName} opPackage=${ctx.opPackageName} uid=${android.os.Process.myUid()} uri=$uri owner=$owner")
+    }
     private fun photo(path: String): ImageFile {
         val name = "cloud-" + UUID.randomUUID() + ".jpg"
         val uri = requireNotNull(ctx.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -57,19 +74,44 @@ class CloudRestoreUiTest {
             }))
         val image = ImageFile(ContentUris.parseId(uri), uri, name, System.currentTimeMillis(), 1L, 32, 32, path)
         photos += image
+        logMediaIdentity(uri, "insert-pending")
         val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
         try {
             bitmap.eraseColor(name.hashCode() or -0x1000000)
             ctx.contentResolver.openOutputStream(uri)!!.use { check(bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it)) }
         } finally { bitmap.recycle() }
         check(ctx.contentResolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null) == 1)
+        logMediaIdentity(uri, "insert-published")
         return image
     }
     private fun find(node: AccessibilityNodeInfo?, text: String): AccessibilityNodeInfo? {
         if (node == null) return null
-        if (node.text?.toString()?.contains(text) == true || node.contentDescription?.toString()?.contains(text) == true) return node
+        if (node.isVisibleToUser && (node.text?.toString()?.contains(text) == true || node.contentDescription?.toString()?.contains(text) == true)) return node
         for (i in 0 until node.childCount) find(node.getChild(i), text)?.let { return it }
         return null
+    }
+    private fun captureUiFailure(label: String) {
+        fun dump(node: AccessibilityNodeInfo?, depth: Int) {
+            if (node == null || depth > 30) return
+            val r = Rect(); node.getBoundsInScreen(r)
+            Log.e("CloudUiFailure", "${" ".repeat(depth)}pkg=${node.packageName} text=${node.text} desc=${node.contentDescription} bounds=$r clickable=${node.isClickable}")
+            for (i in 0 until node.childCount) dump(node.getChild(i), depth + 1)
+        }
+        try {
+            Log.e("CloudUiFailure", "Timed out waiting for: $label")
+            Log.e("CloudUiFailure", "active root")
+            dump(ins.uiAutomation.rootInActiveWindow, 0)
+            ins.uiAutomation.windows.forEach { window ->
+                Log.e("CloudUiFailure", "window type=${window.type} active=${window.isActive} focused=${window.isFocused}")
+                dump(window.root, 0)
+            }
+            val dir = requireNotNull(ctx.getExternalFilesDir(null)).resolve("cloud-ui-failures")
+            check(dir.mkdirs() || dir.isDirectory)
+            ins.uiAutomation.takeScreenshot()?.let { bitmap ->
+                try { dir.resolve("${UUID.randomUUID()}.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+                finally { bitmap.recycle() }
+            }
+        } catch (e: Exception) { Log.e("CloudUiFailure", "Could not capture UI evidence", e) }
     }
     private fun waitFor(text: String): AccessibilityNodeInfo {
         val end = SystemClock.uptimeMillis() + 20000
@@ -77,6 +119,7 @@ class CloudRestoreUiTest {
             find(ins.uiAutomation.rootInActiveWindow, text)?.let { return it }
             SystemClock.sleep(100)
         }
+        captureUiFailure(text)
         error("UI element not found: $text")
     }
     private fun gesture(text: String, long: Boolean = false) {
@@ -139,6 +182,13 @@ class CloudRestoreUiTest {
             check(current.isDestroyed) { "Activity did not finish" }
         }
         trash.removeAllFromRecycleBin(photos)
-        photos.forEach { try { ctx.contentResolver.delete(it.uri, null, null) } catch (_: Exception) {} }
+        photos.forEach { image ->
+            val uri = image.uri
+            if (present(uri)) {
+                logMediaIdentity(uri, "cleanup-before")
+                assertEquals("fixture delete must succeed: $uri", 1, ctx.contentResolver.delete(primaryItem(uri), null, null))
+                assertFalse("fixture must be gone: $uri", present(uri))
+            }
+        }
     }
 }
