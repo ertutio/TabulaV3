@@ -75,12 +75,12 @@
 | C0-T02-SNAPSHOT | 原快照−软删除派生浏览/计数/封面；空集合原样 | ProjectSnapshotTest 6 项 | PASS |
 | C0-T02-RELOAD | 加载/刷新/恢复路径接线后重载一致 | 接线静态核对 + run 40717554994 CloudRestoreUiTest（恢复后相册无手动刷新即更新，走投影加载） | PASS |
 | C0-T02-RESTORE3S | 普通项恢复前 PRESENT/MISSING/UNKNOWN 核验，未知保留缺失不入图库 | RestoreDecisionTest 3 项；run 40717554994 CloudRestoreUiTest 单张恢复真实 UI | PASS |
-| C0-T02-RESTORE-UNKNOWN-UI | UNKNOWN/缺失恢复在真实 UI 的保留与提示分支 | 决策逻辑 PASS，设备未注入该场景 | BLOCKED（需新增探针用例） |
+| C0-T02-RESTORE-UNKNOWN-UI | UNKNOWN 恢复保留记录、反馈可见、解除注入后重试成功 | run 40746123075 双设备 CloudRestoreUiTest.restoreKeepsUnknownEntriesWithFeedback 通过（FileOperationManager debug UNKNOWN 注入；Toast 文本已在 run 40732503499 日志捕获） | PASS |
 | C0-T02-ORIENT | orientation 新旧 JSON 往返、旧格式加载再保存不丢 | RecycleBinSerializationTest 3 项 | PASS |
 | C0-T02-BATCH | 批量恢复单事务、未知保留、部分失败状态可见 | RecycleBinSerializationTest.batchRemove…；run 40717554994 CloudRestoreUiTest.batchRestoreUpdatesAlbum…（真实批量恢复 UI） | PASS |
 | C0-T05-MODEL | 详情直连完整 ImageFile、无映射 N+1 | queryImages 直连（结构性）；AlbumDetailImagesTest | PASS |
 | C0-T05-MS | DATE_MODIFIED 全仓库毫秒一致 | AlbumDetailImagesTest（秒→毫秒断言）；queryImageFromUri 已删除 | PASS |
-| C0-DETAIL-EMPTY-RETRY | 首次空态失败错误/重试可见；重试成功显示真实图片；切图集不覆盖 | e30ab1c：空态 AlbumLoadErrorRow（静态核对）+ compile/单测；现有探针无该场景用例 | PARTIAL（待新增设备探针用例） |
+| C0-DETAIL-EMPTY-RETRY | 详情加载失败错误/重试可见；解除注入后重试成功 | run [40746123075](https://github.com/ertutio/TabulaV3/actions/runs/40746123075)（sha e13fcea）双设备 CloudCleanupUiTest.albumDetailLoadFailureShowsBannerAndRetryRecovers 通过（debug 注入接缝 AppPreferences.debugForceAlbumLoadFailure；空相册分支因 API37 createAlbum scoped-storage 失败（O2 证据）改走非空相册路径，空态分支保留静态断言） | PASS（空态分支静态） |
 | C0-T11A-CACHE | 忙碌/快速模式/失败阴性不入缓存；版本/开关失效；阳性恒缓存 | ImageFeatureCacheStoreTest 7 项 | PASS |
 | C0-T11A-DETECT | 快速模式阴性 definitive=false；无失败动态阴性 definitive=true | ImageFeatureDefinitiveTest 2 项 | PASS |
 | C0-T11A-RETRY | 必要重试与取消不落缓存 | 卡片重入重试/取消语义为结构行为，无显式断言 | PARTIAL |
@@ -96,7 +96,7 @@
 | 编号 | 类型与当前事实 | 最小下一步 | 影响 |
 | --- | --- | --- | --- |
 | O1 | 已修复（本地）：AlbumContentView 空态分支在 loadError 时显示 AlbumLoadErrorRow（错误+重试），非空分支沿用 T05 横幅；静态核对该分支此前确被空态遮盖。 | 设备/云 UI 断言 BLOCKED：build-volume-confirmation.yml push 仅匹配旧分支、workflow_dispatch 需 workflow 权限（gh token 无）。 | C0/T05；重试成功显示真实图片、切图集不覆盖两项待真实 UI。 |
-| O2 | 先前 API37 createBucket 占位删除出现权限错误，直接方法/调用和权限声明在旧基线与当时头相同；未在基线模拟器复现。 | 合成媒体最小复现、记录 URI/权限与身份，必要时对照基线后决定局部修复。 | 旧路径兼容观察，不冒称新增回归或已解决。 |
+| O2 | **已复现并记录**：run 40735652083 中 API37 `createAlbum` 抛"无法创建图集文件夹，请检查存储权限"（scoped storage 下 File.mkdirs 失败；API36 同路径成功）。与先前 createBucket 观察一致：生产 createAlbum 在 API30+ 依赖直通文件系统路径。 | 立项修复：改走 MediaStore contributed-media 建目录（与 photo() 夹具同法），需单独 PR 与双设备验证。 | 图集创建在 API30+ 真机的可用性；探针空相册分支因此改走非空路径。 |
 | O3 | 真实多卷、其他应用媒体、进程死亡/取消/持久失败的所有组级规格尚未逐例证实。 | 明确 fixture/设备/授权，先做可控测试，真实设备缺口单独列明。 | 自有媒体探针通过不能替代这些要求。 |
 | O4 | 性能 PR6 仍 draft，旧 paused run 不能证明有效基线；没有冻结性能数字。 | 验证工具成功/失败 fixture，获实际授权后按版本协议测量。 | C5/C6 的性能结论门槛。 |
 
