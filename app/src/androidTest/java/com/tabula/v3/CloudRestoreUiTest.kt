@@ -189,6 +189,8 @@ class CloudRestoreUiTest {
         }
         // 核心断言：UNKNOWN 条目记录保留、不冒充成功
         assertEquals(2, trash.loadRecycleBin().size)
+        shell("input keyevent 4") // 退出照片查看器，回到回收站列表
+        SystemClock.sleep(1000)
         waitFor("2 项待处理")
 
         // 解除注入后恢复成功

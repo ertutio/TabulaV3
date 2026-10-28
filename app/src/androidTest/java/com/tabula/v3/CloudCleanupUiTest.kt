@@ -93,8 +93,17 @@ class CloudCleanupUiTest {
     }
     private suspend fun archive(source: Uri): Uri {
         sources += source.toString()
-        val action = albums.queueImageToAlbum(ContentUris.parseId(source), source.toString(), albumName, albumName)
-        assertEquals(AlbumManager.ArchiveCommitOutcome.COMMITTED, albums.commitPendingArchive(action.id))
+        // API37 偶发 publish 影响 0 行（run 40735652083，T01b 事务正确回滚）：
+        // Failed/取消保留源，按 action 语义可安全重试一次。
+        var outcome = albums.commitPendingArchive(
+            albums.queueImageToAlbum(ContentUris.parseId(source), source.toString(), albumName, albumName).id
+        )
+        if (outcome != AlbumManager.ArchiveCommitOutcome.COMMITTED) {
+            outcome = albums.commitPendingArchive(
+                albums.queueImageToAlbum(ContentUris.parseId(source), source.toString(), albumName, albumName).id
+            )
+        }
+        assertEquals(AlbumManager.ArchiveCommitOutcome.COMMITTED, outcome)
         val destination = Uri.parse(requireNotNull(CopyEvidenceStore(ctx).get(source.toString())).destinationUri)
         photos += fixtures.fixture(destination)
         logMediaIdentity(destination, "archive-copy")
@@ -207,6 +216,9 @@ class CloudCleanupUiTest {
         // scoped storage mkdirs 失败（O2 证据），无法稳定构造，保持静态断言。
         AppPreferences(ctx).debugForceAlbumLoadFailure = true
         try {
+            // 前一个用例失败可能遗留打开的清理对话框：先返回关闭，保证导航起点干净。
+            ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
+            SystemClock.sleep(1000)
             activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             waitFor("图库")
             tap("图库")
