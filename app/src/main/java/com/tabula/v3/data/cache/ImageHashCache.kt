@@ -21,6 +21,7 @@ class ImageHashCache(context: Context) {
         private const val PREFS_NAME = "tabula_image_hash_cache"
         private const val PREFIX_HASH = "hash_"
         private const val PREFIX_STATUS = "status_"
+        private const val PREFIX_VERSION = "ver_"
         
         // 状态常量
         const val STATUS_SUCCESS = 0
@@ -67,14 +68,11 @@ class ImageHashCache(context: Context) {
      * @param imageId 图片 ID
      * @return CachedHash，如果未缓存则返回 null
      */
-    fun getHash(imageId: Long): CachedHash? {
+    fun getHash(imageId: Long, contentVersion: Long? = null): CachedHash? {
         val hashKey = "$PREFIX_HASH$imageId"
         val statusKey = "$PREFIX_STATUS$imageId"
-        
-        // 检查是否存在缓存
-        if (!prefs.contains(hashKey)) {
-            return null
-        }
+        if (!prefs.contains(hashKey)) return null
+        if (contentVersion != null && !isVersionCurrent(imageId, contentVersion)) return null
         
         val hashValue = prefs.getLong(hashKey, NO_HASH_MARKER)
         val status = prefs.getInt(statusKey, STATUS_FAILED)
@@ -89,7 +87,7 @@ class ImageHashCache(context: Context) {
      * @param imageIds 图片 ID 列表
      * @return Map<imageId, CachedHash>，未缓存的图片不包含在结果中
      */
-    fun getHashesBatch(imageIds: List<Long>): Map<Long, CachedHash> {
+    fun getHashesBatch(imageIds: List<Long>, contentVersions: Map<Long, Long>? = null): Map<Long, CachedHash> {
         if (imageIds.isEmpty()) return emptyMap()
         
         val result = mutableMapOf<Long, CachedHash>()
@@ -105,6 +103,7 @@ class ImageHashCache(context: Context) {
             val status = allEntries[statusKey] as? Int
             
             if (hashValue != null) {
+                if (contentVersions != null && !isVersionCurrent(imageId, contentVersions[imageId])) continue
                 val hash = if (hashValue == NO_HASH_MARKER) null else hashValue
                 result[imageId] = CachedHash(hash, status ?: STATUS_FAILED)
             }
@@ -119,7 +118,7 @@ class ImageHashCache(context: Context) {
      * @param imageId 图片 ID
      * @param result 计算结果
      */
-    fun saveHash(imageId: Long, result: PerceptualHash.HashResult) {
+    fun saveHash(imageId: Long, result: PerceptualHash.HashResult, contentVersion: Long? = null) {
         val hashKey = "$PREFIX_HASH$imageId"
         val statusKey = "$PREFIX_STATUS$imageId"
         
@@ -135,7 +134,9 @@ class ImageHashCache(context: Context) {
                 editor.putInt(statusKey, STATUS_FAILED)
             }
         }
-        
+        if (contentVersion != null) {
+            editor.putLong("$PREFIX_VERSION$imageId", contentVersion)
+        }
         editor.apply()
     }
     
@@ -144,7 +145,7 @@ class ImageHashCache(context: Context) {
      * 
      * @param results Map<imageId, HashResult>
      */
-    fun saveHashesBatch(results: Map<Long, PerceptualHash.HashResult>) {
+    fun saveHashesBatch(results: Map<Long, PerceptualHash.HashResult>, contentVersions: Map<Long, Long>? = null) {
         if (results.isEmpty()) return
         
         val editor = prefs.edit()
@@ -163,6 +164,7 @@ class ImageHashCache(context: Context) {
                     editor.putInt(statusKey, STATUS_FAILED)
                 }
             }
+            contentVersions?.get(imageId)?.let { editor.putLong("$PREFIX_VERSION$imageId", it) }
         }
         
         editor.apply()
@@ -192,6 +194,7 @@ class ImageHashCache(context: Context) {
             if (cachedId !in validImageIds) {
                 editor.remove("$PREFIX_HASH$cachedId")
                 editor.remove("$PREFIX_STATUS$cachedId")
+                editor.remove("$PREFIX_VERSION$cachedId")
                 cleanupCount++
             }
         }
@@ -202,6 +205,13 @@ class ImageHashCache(context: Context) {
         }
     }
     
+    /** 版本化读取：无 ver 键的旧条目按过期处理（保守重算，TC58）。 */
+    private fun isVersionCurrent(imageId: Long, contentVersion: Long?): Boolean {
+        if (contentVersion == null) return true
+        if (!prefs.contains("$PREFIX_VERSION$imageId")) return false
+        return prefs.getLong("$PREFIX_VERSION$imageId", Long.MIN_VALUE) == contentVersion
+    }
+
     /**
      * 获取缓存统计信息（用于调试）
      */

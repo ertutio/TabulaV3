@@ -10,9 +10,9 @@
 | 已接受代码基线 | `master@8be46e424f6c39ba837f969d876b4d5d53003f97`（#11 merge commit，2026-10-28） |
 | 当前检查点 | C0：安全与一致性的当前差额 |
 | 当前代码变更 | C0.1（O1/C0-DETAIL-EMPTY-RETRY）：AlbumViewScreen 空态首载失败显示错误+重试（本文件同提交） |
-| next_action | C0 本地可补项已完成（TC57-REBUILD → PASS；其余 PARTIAL 为接线级，设备断言 BLOCKED）。转入 C1 首簇：盘点 Album/图集元数据（albums_metadata.json 按 name 键）的读写者，设计 (volume, relativePath) 键迁移与兼容读取，实施 C1.1 并登记证据。 |
+| next_action | C1.1 已交付（哈希版本化 + 失败有界重试，TC58 断言 PASS）。下一就绪项：C2（T04 统一删除入口）接口准备——枚举三类删除入口的按项结果改造点；或 C3（T06b 预加载请求身份+Disposable，注意 card_ 缓存键与 ImageCard 共享需同步改）。真实设备断言（C0 PARTIAL 项、云 UI）保持 BLOCKED，待 workflow_dispatch 授权。 |
 | 本动作通过条件 | （C0.1 已满足本地部分）空态首载失败显示错误与重试；重试/取消语义沿用 T05 LaunchedEffect。设备/云 UI 断言待授权触发 instrumentation。 |
-| 全局阻塞 | 当前无已确认阻断全部实现的条件；CI/测量/真机权限以执行环境及当次用户授权为准 |
+| 全局阻塞 | 设备/云 UI 断言需 workflow_dispatch 权限（gh token 无 workflow scope）；CI/测量/真机权限以执行环境及当次用户授权为准 |
 
 以上 master 是代码基线记录，不要求恢复到旧提交。计划 PR 合并或其他工作使 master 前进后，先比较受影响输入并更新游标，避免把已合并工作回退。
 
@@ -84,6 +84,8 @@
 | C0-T11A-RETRY | 必要重试与取消不落缓存 | 卡片重入重试/取消语义为结构行为，无显式断言 | PARTIAL |
 | C0-TC56-MOVE | 移动回退不删源；更新 0 行/异常/preQ/取消不复制 | MoveSourceSafetyTest 8 项 | PASS |
 | C0-TC56-RESULT | 移动逐项返回 Moved/CopiedButSourceRetained/NeedsPermission/Failed | 结果枚举未实现（现返回 Uri?/null） | MISSING（属 T07/C4） |
+| C1.1 TC58 哈希版本 | 同 ID 改内容旧哈希失效（版本键 ver_）；旧格式条目保守重算；失败条目每轮有界重试一次并按当轮版本落盘；cleanup 同步清 ver 键 | ImageHashCacheVersionTest 6 项 + SimilarGroupDetectorVersionTest 2 项（断言不依赖解码成败，可区分旧行为） | PASS |
+| C1.1 其余消费者 | Album/元数据/偏好/统计/UI 六簇跟随按名合并 Album 的显式产品行为（盘点见上节） | C1 消费者盘点表 | accepted（有依据的不迁移决定） |
 
 ## 观察与证据缺口
 

@@ -224,14 +224,16 @@ class SimilarGroupDetector(
         if (images.isEmpty()) return@withContext emptyMap()
         
         val imageIds = images.map { it.id }
+        // TC58/C1.1：内容版本（DATE_MODIFIED 毫秒）参与缓存有效性。
+        val contentVersions = images.associate { it.id to it.dateModified }
         
-        // Step 1: 批量查询已缓存的哈希
-        val cached = hashCache.getHashesBatch(imageIds)
+        // Step 1: 批量查询已缓存的哈希（版本过期视为未缓存）
+        val cached = hashCache.getHashesBatch(imageIds, contentVersions)
         
-        // Step 2: 找出需要计算的图片（未缓存的）
+        // Step 2: 需要计算：未缓存/版本过期/此前失败（有界重试：每轮一次）
         val needCompute = images.filter { img ->
             val cachedHash = cached[img.id]
-            cachedHash == null  // 未缓存才需要计算，失败的不重试
+            cachedHash == null || cachedHash.isFailed
         }
         
         android.util.Log.d(TAG, "Need to compute hash for ${needCompute.size} images")
@@ -261,8 +263,8 @@ class SimilarGroupDetector(
                     }
                 }
                 
-                // Step 4: 批量保存新计算的哈希
-                hashCache.saveHashesBatch(newResults)
+                // Step 4: 批量保存新计算的哈希（附内容版本）
+                hashCache.saveHashesBatch(newResults, contentVersions)
             } catch (e: CancellationException) {
                 // 协程取消时重新抛出，让上层正确处理
                 android.util.Log.d(TAG, "Hash computation cancelled")
