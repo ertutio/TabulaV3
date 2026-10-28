@@ -98,10 +98,14 @@ class CloudCleanupUiTest {
         var outcome = albums.commitPendingArchive(
             albums.queueImageToAlbum(ContentUris.parseId(source), source.toString(), albumName, albumName).id
         )
-        if (outcome != AlbumManager.ArchiveCommitOutcome.COMMITTED) {
+        var retries = 0
+        while (outcome != AlbumManager.ArchiveCommitOutcome.COMMITTED && retries < 2) {
+            // publish 0 行在部分模拟器会话内连续出现：等待 MediaStore 稳定后有界重试。
+            SystemClock.sleep(2000)
             outcome = albums.commitPendingArchive(
                 albums.queueImageToAlbum(ContentUris.parseId(source), source.toString(), albumName, albumName).id
             )
+            retries++
         }
         assertEquals(AlbumManager.ArchiveCommitOutcome.COMMITTED, outcome)
         val destination = Uri.parse(requireNotNull(CopyEvidenceStore(ctx).get(source.toString())).destinationUri)
@@ -217,13 +221,25 @@ class CloudCleanupUiTest {
         AppPreferences(ctx).debugForceAlbumLoadFailure = true
         try {
             // 前一个用例失败可能遗留打开的清理对话框：先返回关闭，保证导航起点干净。
-            ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
-            SystemClock.sleep(1000)
-            activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            waitFor("图库")
-            tap("图库")
-            tap(albumName)
-            waitFor("图集加载失败，当前显示为上次结果")
+            // 前序用例可能遗留对话框/相册视图：有界重试导航到目标相册详情。
+            var navigated = false
+            repeat(3) { attempt ->
+                if (!navigated) {
+                    ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
+                    SystemClock.sleep(1500)
+                    activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    try {
+                        waitFor("图库")
+                        tap("图库")
+                        tap(albumName)
+                        waitFor("图集加载失败，当前显示为上次结果")
+                        navigated = true
+                    } catch (e: IllegalStateException) {
+                        captureUiFailure("albumDetail navigation attempt $attempt")
+                        if (attempt == 2) throw e
+                    }
+                }
+            }
             waitFor("重试")
         } finally {
             AppPreferences(ctx).debugForceAlbumLoadFailure = false
