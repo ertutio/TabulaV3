@@ -10,7 +10,7 @@
 | 已接受代码基线 | `master@8be46e424f6c39ba837f969d876b4d5d53003f97`（#11 merge commit，2026-10-28） |
 | 当前检查点 | C0：安全与一致性的当前差额 |
 | 当前代码变更 | C0.1（O1/C0-DETAIL-EMPTY-RETRY）：AlbumViewScreen 空态首载失败显示错误+重试（本文件同提交） |
-| next_action | C0 完成（设备证据 run 40717554994 落盘，PARTIAL 仅剩 DETAIL-EMPTY-RETRY 待新增探针用例）。C1.1 已交付。下一就绪项二选一：C2（T04）——已盘点三入口：回收站已用 deleteInBatches 按项语义，详情删除 performDeleteBatch 与原图清理 performDeleteUris 仍为整体 Boolean，需逐入口接入 BatchDeleteResult（仅无效请求可拆分、UNKNOWN 隔离）；C3（T06b）——预加载请求键含 URI/版本/选项（card_ 键与 ImageCard 共享须同步改）+ Disposable/scope 生命周期。 |
+| next_action | C2 完成（设备证据两次 run 记录在案，含一次 API36 抖动与同 SHA 重跑全绿）。下一就绪项：①为 C0-DETAIL-EMPTY-RETRY / C0-T02-RESTORE-UNKNOWN-UI / 探针对话框重试补设备探针用例（androidTest，可一并关闭 C0 剩余）；②C3（T06b 预加载请求身份 + Disposable 生命周期，card_ 键与 ImageCard 同步改）。 |
 | 本动作通过条件 | （C0.1 已满足本地部分）空态首载失败显示错误与重试；重试/取消语义沿用 T05 LaunchedEffect。设备/云 UI 断言待授权触发 instrumentation。 |
 | 全局阻塞 | workflow_dispatch 权限已获授权并验证（run 40717554994）；剩余外部缺口：真实多卷热拔插/他人应用媒体授权/进程死亡与断电（自有探针不能替代） |
 
@@ -88,6 +88,8 @@
 | C0-TC56-RESULT | 移动逐项返回 Moved/CopiedButSourceRetained/NeedsPermission/Failed | 结果枚举未实现（现返回 Uri?/null） | MISSING（属 T07/C4） |
 | C1.1 TC58 哈希版本 | 同 ID 改内容旧哈希失效（版本键 ver_）；旧格式条目保守重算；失败条目每轮有界重试一次并按当轮版本落盘；cleanup 同步清 ver 键 | ImageHashCacheVersionTest 6 项 + SimilarGroupDetectorVersionTest 2 项（断言不依赖解码成败，可区分旧行为） | PASS |
 | C1.1 其余消费者 | Album/元数据/偏好/统计/UI 六簇跟随按名合并 Album 的显式产品行为（盘点见上节） | C1 消费者盘点表 | accepted（有依据的不迁移决定） |
+| C2 T04-入口统一 / `review_pending` | 新增 deleteMediaUrisBatch（与 deleteRecycleBinBatch 同构：错误分类仅 INVALID_REQUEST 可拆分、授权拒绝 Cancelled、授权后逐项核验 UNKNOWN 隔离）；详情删除 performDeleteBatch 与原图清理 performDeleteUris 两入口接入 deleteInBatches（回收站入口本就是样板）；详情回调 Boolean → deleted set，UI 按"确认删除数/未能删除数"如实反馈 | MediaDeletionBatchTest 7 项（含 250 项分批、部分成功保留、取消不请求后续批、UNKNOWN stopReason、仅无效请求可拆分）；设备 run 40723464281 API37 全绿、API36 CloudCleanupUiTest 两例超时（截图显示应用停在图库、无崩溃，对话框未出现——探针单次等待）；**同 SHA 重跑 [run 40726796077](https://github.com/ertutio/TabulaV3/actions/runs/40726796077) 三 job 全绿** → 判定为模拟器时序抖动而非 C2 回归 | PASS（附两次 run 与抖动记录；建议探针加对话框重试） |
+| C2-UNKNOWN-UI / blocked | UNKNOWN 提示在详情/清理真实 UI 的可见性 | 同上接线 | BLOCKED（需设备探针注入场景，与 C0-DETAIL-EMPTY-RETRY 探针同批） |
 
 ## 观察与证据缺口
 
