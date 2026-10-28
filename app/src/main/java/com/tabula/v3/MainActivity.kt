@@ -413,6 +413,7 @@ fun TabulaApp(
     // ========== 原图删除提醒状态 ==========
     var showSourceImageDeletionDialog by remember { mutableStateOf(false) }
     var pendingSourceImageUris by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
+    var dialogSourceImageUris by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
     var unverifiedSourceImageCount by remember { mutableIntStateOf(0) }
     var sourceImageDeletionStrategy by remember { mutableStateOf(preferences.sourceImageDeletionStrategy) }
     
@@ -425,6 +426,7 @@ fun TabulaApp(
             if (cleanableResult.sourceUris.isNotEmpty() &&
                 sourceImageDeletionStrategy == SourceImageDeletionStrategy.ASK_EVERY_TIME
             ) {
+                dialogSourceImageUris = cleanableResult.sourceUris.toList()
                 showSourceImageDeletionDialog = true
             } else if (cleanableResult.sourceUris.isEmpty()) {
                 // 清理候选变化后不能留下过期列表或确认框。
@@ -443,7 +445,7 @@ fun TabulaApp(
     }
 
     // A restored system request must finish before we classify its pending journal.
-    LaunchedEffect(deletionRecoveryRevision, deletePermissionInFlight, recycleBinLoadRevision) {
+    LaunchedEffect(deletionRecoveryRevision, deletePermissionInFlight, recycleBinLoadRevision, isDeletingRecycleBin) {
         if (isDeletingRecycleBin) return@LaunchedEffect
         try {
             if (!deletePermissionInFlight) {
@@ -580,6 +582,8 @@ fun TabulaApp(
                 }
                 // 恢复改变软删除集合，推荐派生集合同步失效（与移除路径对称）。
                 if (restorable.isNotEmpty()) recommendationEngine.invalidateSimilarGroupCache()
+                // 重新查询媒体与持久回收站，统一刷新照片、相册数量和封面。
+                if (restorable.isNotEmpty()) recycleBinLoadRevision++
                 val message = buildString {
                     if (restorable.isNotEmpty()) append("已恢复 ${restorable.size} 张")
                     if (missing.isNotEmpty()) append(if (isEmpty()) "${missing.size} 张已不在媒体库" else "，${missing.size} 张已不在媒体库")
@@ -916,6 +920,7 @@ fun TabulaApp(
                     pendingSourceImageUris = cleanableResult.sourceUris
                     unverifiedSourceImageCount = cleanableResult.unverifiedSourceCount
                     if (cleanableResult.sourceUris.isNotEmpty()) {
+                        dialogSourceImageUris = cleanableResult.sourceUris.toList()
                         showSourceImageDeletionDialog = true
                     } else {
                         showSourceImageDeletionDialog = false
@@ -1532,13 +1537,15 @@ fun TabulaApp(
         // ========== 原图删除提醒对话框 ==========
         if (showSourceImageDeletionDialog) {
             SourceImageDeletionDialog(
-                imageCount = pendingSourceImageUris.size,
+                imageCount = dialogSourceImageUris.size,
                 onConfirm = {
+                    // 只允许删除用户在弹窗中确认的候选；新出现的候选留待下次确认。
+                    val confirmedUris = dialogSourceImageUris.toSet()
                     showSourceImageDeletionDialog = false
                     scope.launch {
-                        // 确认时重新读取候选并逐项深度复核，避免用过期弹窗状态删除唯一原图。
+                        // 仍对候选逐项深度复核，并限制到弹窗确认时的集合。
                         val cleanableResult = albumManager.getReverifiedCleanableUrisForAllAlbums()
-                        val urisToDelete = cleanableResult.sourceUris
+                        val urisToDelete = cleanableResult.sourceUris.filter { it in confirmedUris }
                         pendingSourceImageUris = urisToDelete
                         unverifiedSourceImageCount = cleanableResult.unverifiedSourceCount
                         if (urisToDelete.isEmpty()) {
