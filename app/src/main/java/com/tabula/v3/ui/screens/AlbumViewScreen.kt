@@ -326,6 +326,34 @@ fun AlbumViewScreen(
  * 相册内容视图
  */
 @Composable
+private fun AlbumLoadErrorRow(
+    text: String,
+    textColor: Color,
+    onRetry: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = text,
+            color = textColor.copy(alpha = 0.8f),
+            fontSize = 13.sp
+        )
+        Text(
+            text = "重试",
+            color = textColor,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.clickable { onRetry() }
+        )
+    }
+}
+
+@Composable
 private fun AlbumContentView(
     album: Album,
     images: List<ImageFile>,
@@ -744,13 +772,24 @@ private fun AlbumContentView(
 
         // 只有当 imageCount 也为 0 时才显示空状态，避免加载期间闪烁
         if (images.isEmpty() && album.imageCount == 0) {
-            // 空状态 - TaTa 占领相册
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
+            // C0-DETAIL-EMPTY-RETRY：首次加载失败且列表为空时，错误与重试必须可见，
+            // 不能被友好空态遮盖。
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (loadError) {
+                    AlbumLoadErrorRow(
+                        text = "图集加载失败，未能获取照片",
+                        textColor = textColor,
+                        onRetry = onLoadRetry
+                    )
+                }
+                // 空状态 - TaTa 占领相册
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f)
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     // TaTa 图片
                     AsyncImage(
@@ -807,29 +846,15 @@ private fun AlbumContentView(
                     )
                 }
             }
+            }
         } else {
             // T05：加载失败给出明确状态与重试入口（保留旧列表不清空）。
             if (loadError) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "图集加载失败，当前显示为上次结果",
-                        color = textColor.copy(alpha = 0.8f),
-                        fontSize = 13.sp
-                    )
-                    Text(
-                        text = "重试",
-                        color = textColor,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.clickable { onLoadRetry() }
-                    )
-                }
+                AlbumLoadErrorRow(
+                    text = "图集加载失败，当前显示为上次结果",
+                    textColor = textColor,
+                    onRetry = onLoadRetry
+                )
             }
 
             // 照片网格 - 使用 WindowInsets 获取导航栏高度，让内容沉浸到导航栏下方

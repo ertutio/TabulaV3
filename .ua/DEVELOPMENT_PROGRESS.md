@@ -6,12 +6,12 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| 总任务状态 | `ready`：计划已准备；后续实现由使用者启动 |
+| 总任务状态 | `in_progress`：C0 执行中（2026-10-28 会话续接） |
 | 已接受代码基线 | `master@8be46e424f6c39ba837f969d876b4d5d53003f97`（#11 merge commit，2026-10-28） |
 | 当前检查点 | C0：安全与一致性的当前差额 |
-| 当前代码变更 | 本计划 PR 仅有文档，未启动新的产品实现 |
-| next_action | 核对实际 master/工作分支与本表；定位 AlbumViewScreen 首次查询失败、列表为空时的错误/重试显示路径，取得可区分当前行为的证据，再局部修复和验收。若当前源码已经满足，记录对应证据，继续 C0 其他差额或 C1，保留原有实现。 |
-| 本动作通过条件 | 初次失败可见错误与重试；重试成功显示真实结果；切图集/取消不被旧结果覆盖。证据关联 T05 / TC23–TC26 范围，逐条登记实际断言。 |
+| 当前代码变更 | C0.1（O1/C0-DETAIL-EMPTY-RETRY）：AlbumViewScreen 空态首载失败显示错误+重试（本文件同提交） |
+| next_action | C0.2：对照 TC01–TC12、TC23–TC26、TC48–TC50、TC56/TC57 与现有测试类（MediaStoreCopySafetyTest、CopyEvidenceStoreTest、ArchiveCommitEvidenceTest、CleanupEvidenceTest、RecycleBinSerializationTest、ProjectSnapshotTest、RestoreDecisionTest、AlbumDetailImagesTest、ImageFeatureCacheStoreTest、ImageFeatureDefinitiveTest、OwnedBitmapsTest），在保存点表逐条登记"已覆盖断言/缺失断言"差额；缺失且本地可补的补回归，设备/云专属的标 BLOCKED（无 workflow_dispatch 权限）。 |
+| 本动作通过条件 | （C0.1 已满足本地部分）空态首载失败显示错误与重试；重试/取消语义沿用 T05 LaunchedEffect。设备/云 UI 断言待授权触发 instrumentation。 |
 | 全局阻塞 | 当前无已确认阻断全部实现的条件；CI/测量/真机权限以执行环境及当次用户授权为准 |
 
 以上 master 是代码基线记录，不要求恢复到旧提交。计划 PR 合并或其他工作使 master 前进后，先比较受影响输入并更新游标，避免把已合并工作回退。
@@ -60,7 +60,7 @@
 
 | 编号 | 类型与当前事实 | 最小下一步 | 影响 |
 | --- | --- | --- | --- |
-| O1 | 相册首次加载异常时，空列表分支可能不显示错误/重试；已静态观察，未完成该入口设备验证。 | 先复现 UI 状态，覆盖失败→重试成功及切换取消，再修有证据的缺口。 | C0/T05；不重新实现详情完整模型。 |
+| O1 | 已修复（本地）：AlbumContentView 空态分支在 loadError 时显示 AlbumLoadErrorRow（错误+重试），非空分支沿用 T05 横幅；静态核对该分支此前确被空态遮盖。 | 设备/云 UI 断言 BLOCKED：build-volume-confirmation.yml push 仅匹配旧分支、workflow_dispatch 需 workflow 权限（gh token 无）。 | C0/T05；重试成功显示真实图片、切图集不覆盖两项待真实 UI。 |
 | O2 | 先前 API37 createBucket 占位删除出现权限错误，直接方法/调用和权限声明在旧基线与当时头相同；未在基线模拟器复现。 | 合成媒体最小复现、记录 URI/权限与身份，必要时对照基线后决定局部修复。 | 旧路径兼容观察，不冒称新增回归或已解决。 |
 | O3 | 真实多卷、其他应用媒体、进程死亡/取消/持久失败的所有组级规格尚未逐例证实。 | 明确 fixture/设备/授权，先做可控测试，真实设备缺口单独列明。 | 自有媒体探针通过不能替代这些要求。 |
 | O4 | 性能 PR6 仍 draft，旧 paused run 不能证明有效基线；没有冻结性能数字。 | 验证工具成功/失败 fixture，获实际授权后按版本协议测量。 | C5/C6 的性能结论门槛。 |
@@ -72,5 +72,6 @@
 | 子项 / 状态 | 行为与改动提交 | 分支 / PR / 父 PR | 验收断言与实际证据 | 未完成 / 阻塞 / next_action |
 | --- | --- | --- | --- | --- |
 | 计划初始化 / ready | 仅重构执行文档，代码基线见上 | 由本计划 PR 的真实链接及 SHA 补录，不预写不存在的编号 | 文档链接、原 T/TC 范围、连续执行循环与依赖静态核对 | 启动实现后更新游标，执行 C0 的具体动作。 |
+| C0.1 C0-DETAIL-EMPTY-RETRY / `review_pending`（本地实现完成） | AlbumViewScreen：空态分支顶部 loadError 时显示错误+重试（新增私有 AlbumLoadErrorRow，非空分支复用）；重试经既有 albumLoadRevision，取消不覆盖沿用 T05 | 本分支 docs/continuous-development-2026-10-28 独立提交（SHA 见 git log） | 静态断言：空态分支 loadError 渲染横幅（源码核对本提交）；`:app:compileReleaseKotlin` BUILD SUCCESSFUL；`testReleaseUnitTest` 176 项 1 失败=基线既有 atomicReadRestoresLegacyBackup（未改动基线同样失败） | 设备 UI 断言 BLOCKED（CI 触发权限）；重试成功路径与切图集覆盖待真实 UI；next C0.2 差额表 |
 
 每条验证至少记录：case ID 与断言、源码 SHA/相关输入、命令或 run URL、环境/fixture、实际结果（含失败/跳过/缓存）、报告位置。每条阻塞记录：所缺条件、累计失败与假设、已试结果、需要谁做什么、解除条件、可继续的独立项。收到评审意见后更新原子项，不另起一个无法对账的任务名。
