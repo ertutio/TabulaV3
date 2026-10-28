@@ -15,7 +15,15 @@ case "${API_LEVEL:?API_LEVEL must identify the workflow device}" in
 esac
 adb shell getprop ro.build.version.sdk | tr -d '\r' | grep -Fx "$API_LEVEL"
 status=0
+# 预期逐例计数（新增场景须同步声明）：CloudCleanupUiTest 3 例
+# （laterCandidate / invalidatedCopy / albumDetailEmptyRetry），
+# CloudRestoreUiTest 3 例（singleRestore / batchRestore / restoreKeepsUnknown）。
 for class in CloudCleanupUiTest CloudRestoreUiTest; do
+  case "$class" in
+    CloudCleanupUiTest) expected_tests=3 ;;
+    CloudRestoreUiTest) expected_tests=3 ;;
+    *) expected_tests=2 ;;
+  esac
   dir="device-results/$class"
   mkdir -p "$dir"
   if ! adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '\r' | grep -Fx Success; then
@@ -42,7 +50,7 @@ for class in CloudCleanupUiTest CloudRestoreUiTest; do
     echo "Device state or log check failed for $class" >&2
     status=1
   fi
-  if ! grep -Eq '^OK \(2 tests\)' "$output"; then
+  if ! grep -Eq "^OK \(${expected_tests} tests\)" "$output"; then
     echo "Expected two passing tests in $class" >&2
     status=1
   fi

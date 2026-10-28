@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.BuildConfig
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.CardStyleMode
 import com.tabula.v3.data.preferences.SourceImageDeletionStrategy
@@ -1258,7 +1259,13 @@ fun TabulaApp(
             albums = albums,
             allImages = allImages,
             getImagesForAlbum = { albumId -> albumManager.getImageIdsForAlbum(albumId) },
-            getAlbumImages = { albumId -> albumManager.getAlbumDetailImages(albumId) },
+            getAlbumImages = { albumId ->
+                // C0-DETAIL-EMPTY-RETRY 探针接缝（仅 debug 构建）：强制详情加载失败。
+                if (BuildConfig.DEBUG && preferences.debugForceAlbumLoadFailure) {
+                    throw java.io.IOException("probe: forced album load failure")
+                }
+                albumManager.getAlbumDetailImages(albumId)
+            },
             onCreateAlbum = { name, color, emoji ->
                 scope.launch {
                     try {

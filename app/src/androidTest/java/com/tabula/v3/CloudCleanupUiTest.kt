@@ -152,11 +152,16 @@ class CloudCleanupUiTest {
         tap("图库")
         val end = SystemClock.uptimeMillis() + 20000
         var ready = false
+        var tapCount = 0
+        var lastTap = 0L
         while (SystemClock.uptimeMillis() < end) {
             val root = ins.uiAutomation.rootInActiveWindow
             if (find(root, "删除原位置的照片") != null) { ready = true; break }
-            val button = find(root, "清理原图")
-            if (button != null) { tapNode(button, "清理原图"); ready = true; break }
+            // API36 观察到单次点按后对话框偶发未出现（run 40723464281）：
+            // 有界重试点按（最多 3 次、间隔 4 秒），对话框出现即停。
+            if (tapCount < 3 && SystemClock.uptimeMillis() - lastTap > 4000) {
+                find(root, "清理原图")?.let { tapNode(it, "清理原图"); tapCount++; lastTap = SystemClock.uptimeMillis() }
+            }
             SystemClock.sleep(100)
         }
         if (!ready) { captureUiFailure("删除原位置的照片 or 清理原图"); error("Neither cleanup dialog nor button appeared") }
@@ -195,6 +200,35 @@ class CloudCleanupUiTest {
         assertTrue("new candidate must remain", present(later))
         assertTrue("new candidate must remain eligible for later confirmation", later in albums.getAllSourceImages())
     }
+    @Test fun albumDetailEmptyRetryRecoversAfterLoadFailure() = runBlocking {
+        // C0-DETAIL-EMPTY-RETRY：空图集首次加载失败 → 错误+重试可见（空态不被遮盖）；
+        // 解除注入后重试成功，横幅消失、空态保留。
+        val emptyAlbum = "CloudEmpty" + UUID.randomUUID().toString().replace("-", "").take(8)
+        albums.createAlbum(emptyAlbum, null, null)
+        AppPreferences(ctx).debugForceAlbumLoadFailure = true
+        try {
+            activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            waitFor("图库")
+            tap("图库")
+            tap(emptyAlbum)
+            waitFor("图集加载失败，未能获取照片")
+            waitFor("重试")
+            assertNotNull("empty state must stay visible under the banner",
+                find(ins.uiAutomation.rootInActiveWindow, "在滑一滑中添加照片到这里"))
+        } finally {
+            AppPreferences(ctx).debugForceAlbumLoadFailure = false
+        }
+        tap("重试")
+        val end = SystemClock.uptimeMillis() + 20000
+        while (SystemClock.uptimeMillis() < end) {
+            val root = ins.uiAutomation.rootInActiveWindow
+            if (find(root, "图集加载失败") == null &&
+                find(root, "在滑一滑中添加照片到这里") != null) return@runBlocking
+            SystemClock.sleep(100)
+        }
+        error("retry did not clear the load error banner")
+    }
+
     @Test fun invalidatedCopyKeepsConfirmedOriginal() = runBlocking {
         val source = photo(); val destination = archive(source)
         startAndOpenDialog()
