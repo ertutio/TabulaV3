@@ -10,9 +10,9 @@
 | 已接受代码基线 | `master@8be46e424f6c39ba837f969d876b4d5d53003f97`（#11 merge commit，2026-10-28） |
 | 当前检查点 | C0：安全与一致性的当前差额 |
 | 当前代码变更 | C0.1（O1/C0-DETAIL-EMPTY-RETRY）：AlbumViewScreen 空态首载失败显示错误+重试（本文件同提交） |
-| next_action | C1.1 已交付（哈希版本化 + 失败有界重试，TC58 断言 PASS）。下一就绪项：C2（T04 统一删除入口）接口准备——枚举三类删除入口的按项结果改造点；或 C3（T06b 预加载请求身份+Disposable，注意 card_ 缓存键与 ImageCard 共享需同步改）。真实设备断言（C0 PARTIAL 项、云 UI）保持 BLOCKED，待 workflow_dispatch 授权。 |
+| next_action | C0 完成（设备证据 run 40717554994 落盘，PARTIAL 仅剩 DETAIL-EMPTY-RETRY 待新增探针用例）。C1.1 已交付。下一就绪项二选一：C2（T04）——已盘点三入口：回收站已用 deleteInBatches 按项语义，详情删除 performDeleteBatch 与原图清理 performDeleteUris 仍为整体 Boolean，需逐入口接入 BatchDeleteResult（仅无效请求可拆分、UNKNOWN 隔离）；C3（T06b）——预加载请求键含 URI/版本/选项（card_ 键与 ImageCard 共享须同步改）+ Disposable/scope 生命周期。 |
 | 本动作通过条件 | （C0.1 已满足本地部分）空态首载失败显示错误与重试；重试/取消语义沿用 T05 LaunchedEffect。设备/云 UI 断言待授权触发 instrumentation。 |
-| 全局阻塞 | 设备/云 UI 断言需 workflow_dispatch 权限（gh token 无 workflow scope）；CI/测量/真机权限以执行环境及当次用户授权为准 |
+| 全局阻塞 | workflow_dispatch 权限已获授权并验证（run 40717554994）；剩余外部缺口：真实多卷热拔插/他人应用媒体授权/进程死亡与断电（自有探针不能替代） |
 
 以上 master 是代码基线记录，不要求恢复到旧提交。计划 PR 合并或其他工作使 master 前进后，先比较受影响输入并更新游标，避免把已合并工作回退。
 
@@ -23,6 +23,7 @@
 - 每台登记 17 项合成媒体，清理前 15 项存在、2 项已由正文删除，清理后 17 项均确认不存在；集合外哨兵保护断言通过并独立清理。每台三个测试窗口的 `issues=[]`，系统进程身份稳定，三条 volume 观测的 external_primary 为 mounted/recent，actuallyUnmounted 为空。
 - API37 使用 cmdline-tools 22.0、AVD target `android-37.0`、image revision 7；实际启动 emulator 37.2.12.0。API36 使用原工具 12.0、target `android-36`、image revision 7。保留环境身份再讨论跨环境复用。
 - 本轮 `testReleaseUnitTest` 为 `FROM-CACHE`，没有本轮新执行/计数。此前 run [40650966680](https://github.com/ertutio/TabulaV3/actions/runs/40650966680) 的 XML 汇总为 176 tests、0 failures/errors/skips；这不是未来固定测试数，也不能据此把全部 TC 判为 PASS。
+- [run 40717554994](https://github.com/ertutio/TabulaV3/actions/runs/40717554994)（workflow_dispatch，ref docs/continuous-development-2026-10-28，head sha `6a685e3ed4440f0c8a9f40a5290dc2600eb6facc`）三 job 成功：build + API36 + API37。设备逐例：API36 旧探针 OK (2 tests)；API37 VolumeDeletionDeviceTest OK (3)、CloudCleanupUiTest OK (2)、CloudRestoreUiTest OK (2)（singleRestoreUpdatesAlbumWithoutManualRefresh / batchRestoreUpdatesAlbumWithoutManualRefresh）。即本分支 C0.1/C0.3/C1.1 改动在两台云模拟器实测无回归，且 T01 清理确认集、T02 单张/批量恢复接线取得真实 UI 证据。
 
 ## 已交付部分：保留并补差额
 
@@ -67,18 +68,19 @@
 | C0-T01-STREAMS | null/短读写、EOF、flush/close/publish 失败不发布且回滚仅目标 | MediaStoreCopySafetyTest（missing/null/short/publish 系列 29 项） | PASS |
 | C0-T01-CANCEL | 插入后/拷贝中/发布时取消回滚并传播 | MediaStoreCopySafetyTest.cancellationAfterInsert…/DuringSourceCopy…/WhenPublishReturns… | PASS |
 | C0-T01-LEDGERFAIL | 复制成功账本写失败→源记录存在但永不入清理候选 | ArchiveCommitEvidenceTest.evidenceWriteFailureKeepsSourceUnverified… | PASS |
-| C0-T01-CONFIRMSET | 确认集合固定、深度复核只缩减、新增候选不删 | CleanupEvidenceTest（深度复核拒绝/缺失落回）；确认弹窗重取候选为 MainActivity 接线 | PARTIAL |
+| C0-T01-CONFIRMSET | 确认集合固定、深度复核只缩减、新增候选不删 | CleanupEvidenceTest；run 40717554994 CloudCleanupUiTest 2 项（哨兵保护+精确清理） | PASS |
 | C0-T01-UIFEEDBACK | 归档失败 Toast、清理保留 Toast 真实可见 | MainActivity commitPendingArchiveWithFeedback / 清理路径 | BLOCKED |
 | C0-TC57-CLAIM | 同一 action 并发提交至多一次复制副作用；撤销后提交 NOT_CLAIMED | ArchiveCommitEvidenceTest.concurrentCommits…（5 轮）/cancelThenCommit…/commitOfUnknownActionId | PASS |
 | C0-TC57-REBUILD | 排队后进程重建：不补发复制、卡片可恢复 | ArchiveCommitEvidenceTest.queueRebuildDropsPendingActionWithoutSideEffects（重建后 commit 旧 id → NOT_CLAIMED、零副作用） | PASS |
 | C0-T02-SNAPSHOT | 原快照−软删除派生浏览/计数/封面；空集合原样 | ProjectSnapshotTest 6 项 | PASS |
-| C0-T02-RELOAD | 加载/刷新/恢复路径接线后重载一致 | MainActivity 两条路径接线 | PARTIAL |
-| C0-T02-RESTORE3S | 普通项恢复前 PRESENT/MISSING/UNKNOWN 核验，未知保留缺失不入图库 | RestoreDecisionTest 3 项；onRestore 接线 | PARTIAL |
+| C0-T02-RELOAD | 加载/刷新/恢复路径接线后重载一致 | 接线静态核对 + run 40717554994 CloudRestoreUiTest（恢复后相册无手动刷新即更新，走投影加载） | PASS |
+| C0-T02-RESTORE3S | 普通项恢复前 PRESENT/MISSING/UNKNOWN 核验，未知保留缺失不入图库 | RestoreDecisionTest 3 项；run 40717554994 CloudRestoreUiTest 单张恢复真实 UI | PASS |
+| C0-T02-RESTORE-UNKNOWN-UI | UNKNOWN/缺失恢复在真实 UI 的保留与提示分支 | 决策逻辑 PASS，设备未注入该场景 | BLOCKED（需新增探针用例） |
 | C0-T02-ORIENT | orientation 新旧 JSON 往返、旧格式加载再保存不丢 | RecycleBinSerializationTest 3 项 | PASS |
-| C0-T02-BATCH | 批量恢复单事务、未知保留、部分失败状态可见 | RecycleBinSerializationTest.batchRemove…；restoreImagesInOneTransaction 接线 | PARTIAL |
+| C0-T02-BATCH | 批量恢复单事务、未知保留、部分失败状态可见 | RecycleBinSerializationTest.batchRemove…；run 40717554994 CloudRestoreUiTest.batchRestoreUpdatesAlbum…（真实批量恢复 UI） | PASS |
 | C0-T05-MODEL | 详情直连完整 ImageFile、无映射 N+1 | queryImages 直连（结构性）；AlbumDetailImagesTest | PASS |
 | C0-T05-MS | DATE_MODIFIED 全仓库毫秒一致 | AlbumDetailImagesTest（秒→毫秒断言）；queryImageFromUri 已删除 | PASS |
-| C0-DETAIL-EMPTY-RETRY | 首次空态失败错误/重试可见；重试成功显示真实图片；切图集不覆盖 | e30ab1c：空态 AlbumLoadErrorRow（静态核对）；重试/取消沿用 LaunchedEffect | PARTIAL |
+| C0-DETAIL-EMPTY-RETRY | 首次空态失败错误/重试可见；重试成功显示真实图片；切图集不覆盖 | e30ab1c：空态 AlbumLoadErrorRow（静态核对）+ compile/单测；现有探针无该场景用例 | PARTIAL（待新增设备探针用例） |
 | C0-T11A-CACHE | 忙碌/快速模式/失败阴性不入缓存；版本/开关失效；阳性恒缓存 | ImageFeatureCacheStoreTest 7 项 | PASS |
 | C0-T11A-DETECT | 快速模式阴性 definitive=false；无失败动态阴性 definitive=true | ImageFeatureDefinitiveTest 2 项 | PASS |
 | C0-T11A-RETRY | 必要重试与取消不落缓存 | 卡片重入重试/取消语义为结构行为，无显式断言 | PARTIAL |
