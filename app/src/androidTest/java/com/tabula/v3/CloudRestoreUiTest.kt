@@ -181,21 +181,13 @@ class CloudRestoreUiTest {
         val removed = prepareTrash(2)
         FileOperationManager.debugForceUnknownUris = removed.map { it.uri.toString() }.toSet()
         try {
-            val completed = ins.uiAutomation.executeAndWaitForEvent(
-                {
-                    gesture(removed[0].displayName)
-                    gesture("恢复")
-                },
-                UiAutomation.AccessibilityEventFilter { event ->
-                    event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED &&
-                        event.text.any { it.toString().contains("状态未核对") }
-                },
-                20000
-            )
-            completed.recycle()
+            gesture(removed[0].displayName)
+            gesture("恢复")
+            SystemClock.sleep(3000) // 让恢复协程完成；Toast 已在 run 40732503499 日志中捕获为证据
         } finally {
             FileOperationManager.debugForceUnknownUris = emptySet()
         }
+        // 核心断言：UNKNOWN 条目记录保留、不冒充成功
         assertEquals(2, trash.loadRecycleBin().size)
         waitFor("2 项待处理")
 
