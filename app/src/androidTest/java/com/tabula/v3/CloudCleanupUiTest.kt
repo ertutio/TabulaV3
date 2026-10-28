@@ -35,8 +35,8 @@ import java.util.UUID
 class CloudCleanupUiTest {
     private val ins get() = InstrumentationRegistry.getInstrumentation()
     private val ctx get() = ins.targetContext
-    private data class Fixture(val uri: Uri, val volume: String, val id: Long, val name: String, val path: String)
-    private val photos = mutableListOf<Fixture>()
+    private val fixtures get() = CloudFixtureCleanup(ctx, ins)
+    private val photos = mutableListOf<CloudFixtureCleanup.Fixture>()
     private val sources = mutableSetOf<String>()
     private val albums get() = AlbumManager.getInstance(ctx)
     private var activity: android.app.Activity? = null
@@ -80,7 +80,7 @@ class CloudCleanupUiTest {
                 put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/$path/")
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }))
-        if (register) photos += fixture(item)
+        if (register) photos += fixtures.fixture(item)
         logMediaIdentity(item, "insert-pending")
         val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
         try {
@@ -96,56 +96,13 @@ class CloudCleanupUiTest {
         val action = albums.queueImageToAlbum(ContentUris.parseId(source), source.toString(), albumName, albumName)
         assertEquals(AlbumManager.ArchiveCommitOutcome.COMMITTED, albums.commitPendingArchive(action.id))
         val destination = Uri.parse(requireNotNull(CopyEvidenceStore(ctx).get(source.toString())).destinationUri)
-        photos += fixture(destination)
+        photos += fixtures.fixture(destination)
         logMediaIdentity(destination, "archive-copy")
         return destination
     }
     private fun present(uri: Uri): Boolean = requireNotNull(
         ctx.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns._ID), null, null, null)
     ) { "MediaStore query returned null: $uri" }.use { it.moveToFirst() }
-    private fun fixture(uri: Uri): Fixture {
-        val columns = arrayOf(MediaStore.MediaColumns.VOLUME_NAME, MediaStore.MediaColumns._ID,
-            MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.RELATIVE_PATH)
-        return requireNotNull(ctx.contentResolver.query(uri, columns, null, null, null)) { "Null fixture metadata: $uri" }.use { cursor ->
-            check(cursor.count == 1 && cursor.moveToFirst()) { "Expected one fixture metadata row: $uri" }
-            Fixture(uri, requireNotNull(cursor.getString(0)), cursor.getLong(1),
-                requireNotNull(cursor.getString(2)), requireNotNull(cursor.getString(3)))
-        }.also {
-            check(it.volume == MediaStore.VOLUME_EXTERNAL_PRIMARY && it.id == ContentUris.parseId(uri))
-            Log.i("CloudFixtureCleanup", "registered volume=${it.volume} id=${it.id} name=${it.name} path=${it.path}")
-        }
-    }
-    private fun quote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
-    private fun content(command: String): String {
-        val output = shell("$command 2>&1; code=\$?; printf '\\n__TABULA_EXIT=%s\\n' \$code")
-        val match = Regex("(?s)^(.*)\\n__TABULA_EXIT=(\\d+)\\s*$").matchEntire(output)
-            ?: error("Missing shell exit status: $output")
-        val result = match.groupValues[1].trim()
-        check(match.groupValues[2] == "0" && !Regex("(?i)exception|\\berror\\b|permission denial").containsMatchIn(result)) {
-            "Shell content failed: $output"
-        }
-        return result
-    }
-    private fun queryFixture(f: Fixture): Boolean {
-        val item = ContentUris.withAppendedId(MediaStore.Images.Media.getContentUri(f.volume), f.id)
-        val result = content("content query --uri ${quote(item.toString())} --projection _id:_display_name:relative_path:volume_name")
-        if (result == "No result found.") return false
-        val expected = "Row: 0 _id=${f.id}, _display_name=${f.name}, relative_path=${f.path}, volume_name=${f.volume}"
-        check(result == expected) { "Unexpected fixture query for $item: $result" }
-        return true
-    }
-    private fun removeFixture(f: Fixture) {
-        val item = ContentUris.withAppendedId(MediaStore.Images.Media.getContentUri(f.volume), f.id)
-        val before = queryFixture(f)
-        Log.i("CloudFixtureCleanup", "before=$before uri=$item name=${f.name} path=${f.path}")
-        if (before) {
-            val where = "_id=${f.id} AND _display_name='${f.name.replace("'", "''")}' AND relative_path='${f.path.replace("'", "''")}' AND volume_name='${f.volume.replace("'", "''")}'"
-            content("content delete --uri ${quote(item.toString())} --where ${quote(where)}")
-        }
-        check(!queryFixture(f)) { "Fixture remains in shell query: $item" }
-        check(!present(f.uri)) { "Fixture remains in app query: ${f.uri}" }
-        Log.i("CloudFixtureCleanup", "after=false uri=$item")
-    }
     private fun captureUiFailure(label: String) {
         fun dump(node: AccessibilityNodeInfo?, depth: Int) {
             if (node == null || depth > 30) return
@@ -263,12 +220,12 @@ class CloudCleanupUiTest {
             awaitCondition("activity destruction") { current.isDestroyed }
         }
         try { albums.clearDeletedUris(sources) } catch (e: Throwable) { errors += e }
-        var sentinel: Fixture? = null
-        attempt { sentinel = fixture(photo("CloudSafetySentinel", register = false)) }
-        photos.forEach { f -> attempt { removeFixture(f) } }
+        var sentinel: CloudFixtureCleanup.Fixture? = null
+        attempt { sentinel = fixtures.fixture(photo("CloudSafetySentinel", register = false)) }
+        photos.forEach { f -> attempt { fixtures.removeFixture(f) } }
         sentinel?.let { f ->
-            attempt { check(queryFixture(f) && present(f.uri)) { "Unrelated sentinel was removed" } }
-            attempt { removeFixture(f) }
+            attempt { check(fixtures.queryFixture(f) && present(f.uri)) { "Unrelated sentinel was removed" } }
+            attempt { fixtures.removeFixture(f) }
         }
         if (errors.isNotEmpty()) {
             val failure = AssertionError("Fixture cleanup failed (${errors.size} errors)")

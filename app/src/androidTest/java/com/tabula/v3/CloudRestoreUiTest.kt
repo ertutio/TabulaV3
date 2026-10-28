@@ -33,6 +33,9 @@ class CloudRestoreUiTest {
     private val ins get() = InstrumentationRegistry.getInstrumentation()
     private val ctx get() = ins.targetContext
     private val photos = mutableListOf<ImageFile>()
+    private val fixtureRows = mutableListOf<CloudFixtureCleanup.Fixture>()
+    private val fixtures get() = CloudFixtureCleanup(ctx, ins)
+    private var probeAllowed = false
     private val bucket = "CloudRestore" + UUID.randomUUID().toString().replace("-", "").take(10)
     private val albums get() = AlbumManager.getInstance(ctx)
     private val trash get() = RecycleBinManager.getInstance(ctx)
@@ -43,6 +46,7 @@ class CloudRestoreUiTest {
     @Before fun setup() {
         check(InstrumentationRegistry.getArguments().getString("allowSyntheticMediaProbe") == "true")
         check(Build.HARDWARE == "ranchu" || Build.HARDWARE == "goldfish")
+        probeAllowed = true
         shell("pm grant ${ctx.packageName} ${Manifest.permission.READ_MEDIA_IMAGES}")
         assertEquals(PackageManager.PERMISSION_GRANTED, ctx.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES))
         AppPreferences(ctx).apply { hasCompletedOnboarding = true; hasAcknowledgedDisclaimer = true }
@@ -63,7 +67,7 @@ class CloudRestoreUiTest {
         } catch (e: Exception) { "query-error:${e.javaClass.simpleName}:${e.message}" }
         Log.i("CloudMediaIdentity", "stage=$stage package=${ctx.packageName} opPackage=${ctx.opPackageName} uid=${android.os.Process.myUid()} uri=$uri owner=$owner")
     }
-    private fun photo(path: String): ImageFile {
+    private fun photo(path: String, register: Boolean = true): ImageFile {
         val name = "cloud-" + UUID.randomUUID() + ".jpg"
         val uri = requireNotNull(ctx.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
             ContentValues().apply {
@@ -73,7 +77,10 @@ class CloudRestoreUiTest {
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }))
         val image = ImageFile(ContentUris.parseId(uri), uri, name, System.currentTimeMillis(), 1L, 32, 32, path)
-        photos += image
+        if (register) {
+            photos += image
+            fixtureRows += fixtures.fixture(uri)
+        }
         logMediaIdentity(uri, "insert-pending")
         val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
         try {
@@ -174,6 +181,7 @@ class CloudRestoreUiTest {
         assertUiAlbum(2)
     }
     @After fun cleanup() = runBlocking {
+        if (!probeAllowed) return@runBlocking
         activity?.let { current ->
             ins.runOnMainSync { current.finish() }
             ins.waitForIdleSync()
@@ -181,14 +189,20 @@ class CloudRestoreUiTest {
             while (!current.isDestroyed && SystemClock.uptimeMillis() < end) SystemClock.sleep(100)
             check(current.isDestroyed) { "Activity did not finish" }
         }
-        trash.removeAllFromRecycleBin(photos)
-        photos.forEach { image ->
-            val uri = image.uri
-            if (present(uri)) {
-                logMediaIdentity(uri, "cleanup-before")
-                assertEquals("fixture delete must succeed: $uri", 1, ctx.contentResolver.delete(primaryItem(uri), null, null))
-                assertFalse("fixture must be gone: $uri", present(uri))
-            }
+        val errors = mutableListOf<Throwable>()
+        fun attempt(block: () -> Unit) { try { block() } catch (e: Throwable) { errors += e } }
+        try { trash.removeAllFromRecycleBin(photos) } catch (e: Throwable) { errors += e }
+        var sentinel: CloudFixtureCleanup.Fixture? = null
+        attempt { sentinel = fixtures.fixture(photo("CloudSafetySentinel", register = false).uri) }
+        fixtureRows.forEach { f -> attempt { fixtures.removeFixture(f) } }
+        sentinel?.let { f ->
+            attempt { check(fixtures.queryFixture(f) && present(f.uri)) { "Unrelated sentinel was removed" } }
+            attempt { fixtures.removeFixture(f) }
+        }
+        if (errors.isNotEmpty()) {
+            val failure = AssertionError("Fixture cleanup failed (${errors.size} errors)")
+            errors.forEach { failure.addSuppressed(it) }
+            throw failure
         }
     }
 }
