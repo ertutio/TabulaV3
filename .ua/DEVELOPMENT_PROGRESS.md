@@ -94,6 +94,20 @@
 | O3 | 真实多卷、其他应用媒体、进程死亡/取消/持久失败的所有组级规格尚未逐例证实。 | 明确 fixture/设备/授权，先做可控测试，真实设备缺口单独列明。 | 自有媒体探针通过不能替代这些要求。 |
 | O4 | 性能 PR6 仍 draft，旧 paused run 不能证明有效基线；没有冻结性能数字。 | 验证工具成功/失败 fixture，获实际授权后按版本协议测量。 | C5/C6 的性能结论门槛。 |
 
+## C1 消费者盘点（2026-10-28，基线 6293c16）
+
+| 簇 | 当前键 | 读写者 | 身份缺口 | 迁移建议 |
+| --- | --- | --- | --- | --- |
+| albums_metadata.json | 显示名 name（颜色/排序/隐藏/屏蔽/createdAt） | AlbumManager.loadMetadata/saveMetadata；refreshAlbumsFromSystem 消费 | 同名桶共享一行——与 Album 层显式按名合并一致；桶拆分后元数据无法区分同名桶 | 保持 name 键为"合并 Album 身份"的产品行为；如未来拆分再迁移；记录该决定 |
+| AlbumUsageTracker | albumId=name（使用频率+手动排序锁） | refreshAlbumsFromSystem 排序；Deck/AlbumView 写入 | 同上，随合并 Album | 同上 |
+| AppPreferences 冷却/专清 | albumId=name | 专清/随机漫步冷却与进度 | 同上；清理进度关联 bucket 内容而非身份 | 同上；TC58 相关注册到哈希簇 |
+| ImageHashCache | mediaId → 感知哈希，**无内容版本** | SimilarGroupDetector/RecommendationEngine/专清 | F20/TC58：同 ID 改内容旧哈希不失效；暂时不可读无重算边界 | **C1 首个迁移簇**：键加 DATE_MODIFIED 版本，读取失败按有界策略重算，不覆盖无关冷却/进度 |
+| RecommendationEngine | 内存 similar-group 缓存（按 id） | invalidateSimilarGroupCache 钩子已接移除/恢复/刷新 | 内容编辑不失效（TC58 编辑场景） | 随 ImageHashCache 版本化一并接入失效 |
+| StorageStatsManager | bucket 统计 | 图集清理页面 | 同名桶合并统计 | 随 Album 层合并保持；拆分时再议 |
+| UI 选择/持久进度 | albumId=name（selectedAlbumId、pendingArchive.albumId 等） | MainActivity/DeckScreen/AlbumViewScreen | 与合并 Album 一致 | 随合并 Album 保持 |
+
+结论：Album/元数据/偏好/统计/UI 六簇跟随"按名合并 Album"的显式产品行为（不迁移即为有依据决定）；**ImageHashCache+RecommendationEngine 是 C1.1 首个真实迁移簇**（TC58/F20 直接缺口）。
+
 ## 保存点格式
 
 继续在此表追加或更新当前子行；详细日志放现有 CI artifact/测试报告，避免把全部日志塞进上下文。
