@@ -24,6 +24,11 @@ for class in CloudCleanupUiTest CloudRestoreUiTest; do
     continue
   fi
   output="$dir/instrumentation.txt"
+  if ! python3 tools/run-volume-device-probe.py window before "$class"; then
+    echo "Failed to capture device state before $class" >&2
+    status=1
+    continue
+  fi
   if timeout 300s adb shell am instrument -w -r \
     -e allowSyntheticMediaProbe true \
     -e class "com.tabula.v3.${class}" \
@@ -31,6 +36,10 @@ for class in CloudCleanupUiTest CloudRestoreUiTest; do
     :
   else
     echo "Instrumentation failed or timed out for $class" >&2
+    status=1
+  fi
+  if ! python3 tools/run-volume-device-probe.py window after "$class"; then
+    echo "Device state or log check failed for $class" >&2
     status=1
   fi
   if ! grep -Eq '^OK \(2 tests\)' "$output"; then
