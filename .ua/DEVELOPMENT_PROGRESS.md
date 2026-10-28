@@ -10,7 +10,7 @@
 | 已接受代码基线 | `master@8be46e424f6c39ba837f969d876b4d5d53003f97`（#11 merge commit，2026-10-28） |
 | 当前检查点 | C0：安全与一致性的当前差额 |
 | 当前代码变更 | C0.1（O1/C0-DETAIL-EMPTY-RETRY）：AlbumViewScreen 空态首载失败显示错误+重试（本文件同提交） |
-| next_action | C0.2：对照 TC01–TC12、TC23–TC26、TC48–TC50、TC56/TC57 与现有测试类（MediaStoreCopySafetyTest、CopyEvidenceStoreTest、ArchiveCommitEvidenceTest、CleanupEvidenceTest、RecycleBinSerializationTest、ProjectSnapshotTest、RestoreDecisionTest、AlbumDetailImagesTest、ImageFeatureCacheStoreTest、ImageFeatureDefinitiveTest、OwnedBitmapsTest），在保存点表逐条登记"已覆盖断言/缺失断言"差额；缺失且本地可补的补回归，设备/云专属的标 BLOCKED（无 workflow_dispatch 权限）。 |
+| next_action | C0 本地可补项已完成（TC57-REBUILD → PASS；其余 PARTIAL 为接线级，设备断言 BLOCKED）。转入 C1 首簇：盘点 Album/图集元数据（albums_metadata.json 按 name 键）的读写者，设计 (volume, relativePath) 键迁移与兼容读取，实施 C1.1 并登记证据。 |
 | 本动作通过条件 | （C0.1 已满足本地部分）空态首载失败显示错误与重试；重试/取消语义沿用 T05 LaunchedEffect。设备/云 UI 断言待授权触发 instrumentation。 |
 | 全局阻塞 | 当前无已确认阻断全部实现的条件；CI/测量/真机权限以执行环境及当次用户授权为准 |
 
@@ -55,6 +55,35 @@
 | C7：T12/T13 最终交付 | ready（覆盖清单） | 可先补验收映射；依赖升级、覆盖安装、最终评审及发布各按其前置/授权推进。 |
 
 `ready（准备）`只允许执行写明的准备范围，不表示可提前完成依赖尚未满足的接入。一个子项被阻塞时保持精确边界，转到下一独立就绪项。
+
+## C0 差额登记（对照 docs/acceptance.md 组级矩阵）
+
+状态 = PASS（断言有单测/持久证据）/ PARTIAL（逻辑在但仅静态/编译级）/ BLOCKED（需设备/云/权限）/ MISSING（未实现）。基线：本分支 e30ab1c；testReleaseUnitTest 176 项 1 失败（基线既有 RecycleBinManagerTest.atomicReadRestoresLegacyBackup）。
+
+| case | 断言 | 证据入口 | 状态 |
+| --- | --- | --- | --- |
+| C0-T01-SAMEALIAS | 同源/别名不产生可删源证据（插入即拒、拒写拒删源） | MediaStoreCopySafetyTest.insertedUriEqualToSourceIsRejected…/…Aliases… | PASS |
+| C0-T01-CONTENT | 同名同大小不同内容不产生证据、不删源 | MediaStoreCopySafetyTest.sameNameAndSizeButDifferentContentIsNotReused；CleanupEvidenceTest.destinationWithSameSizeButDifferentContentIsRejected | PASS |
+| C0-T01-STREAMS | null/短读写、EOF、flush/close/publish 失败不发布且回滚仅目标 | MediaStoreCopySafetyTest（missing/null/short/publish 系列 29 项） | PASS |
+| C0-T01-CANCEL | 插入后/拷贝中/发布时取消回滚并传播 | MediaStoreCopySafetyTest.cancellationAfterInsert…/DuringSourceCopy…/WhenPublishReturns… | PASS |
+| C0-T01-LEDGERFAIL | 复制成功账本写失败→源记录存在但永不入清理候选 | ArchiveCommitEvidenceTest.evidenceWriteFailureKeepsSourceUnverified… | PASS |
+| C0-T01-CONFIRMSET | 确认集合固定、深度复核只缩减、新增候选不删 | CleanupEvidenceTest（深度复核拒绝/缺失落回）；确认弹窗重取候选为 MainActivity 接线 | PARTIAL |
+| C0-T01-UIFEEDBACK | 归档失败 Toast、清理保留 Toast 真实可见 | MainActivity commitPendingArchiveWithFeedback / 清理路径 | BLOCKED |
+| C0-TC57-CLAIM | 同一 action 并发提交至多一次复制副作用；撤销后提交 NOT_CLAIMED | ArchiveCommitEvidenceTest.concurrentCommits…（5 轮）/cancelThenCommit…/commitOfUnknownActionId | PASS |
+| C0-TC57-REBUILD | 排队后进程重建：不补发复制、卡片可恢复 | ArchiveCommitEvidenceTest.queueRebuildDropsPendingActionWithoutSideEffects（重建后 commit 旧 id → NOT_CLAIMED、零副作用） | PASS |
+| C0-T02-SNAPSHOT | 原快照−软删除派生浏览/计数/封面；空集合原样 | ProjectSnapshotTest 6 项 | PASS |
+| C0-T02-RELOAD | 加载/刷新/恢复路径接线后重载一致 | MainActivity 两条路径接线 | PARTIAL |
+| C0-T02-RESTORE3S | 普通项恢复前 PRESENT/MISSING/UNKNOWN 核验，未知保留缺失不入图库 | RestoreDecisionTest 3 项；onRestore 接线 | PARTIAL |
+| C0-T02-ORIENT | orientation 新旧 JSON 往返、旧格式加载再保存不丢 | RecycleBinSerializationTest 3 项 | PASS |
+| C0-T02-BATCH | 批量恢复单事务、未知保留、部分失败状态可见 | RecycleBinSerializationTest.batchRemove…；restoreImagesInOneTransaction 接线 | PARTIAL |
+| C0-T05-MODEL | 详情直连完整 ImageFile、无映射 N+1 | queryImages 直连（结构性）；AlbumDetailImagesTest | PASS |
+| C0-T05-MS | DATE_MODIFIED 全仓库毫秒一致 | AlbumDetailImagesTest（秒→毫秒断言）；queryImageFromUri 已删除 | PASS |
+| C0-DETAIL-EMPTY-RETRY | 首次空态失败错误/重试可见；重试成功显示真实图片；切图集不覆盖 | e30ab1c：空态 AlbumLoadErrorRow（静态核对）；重试/取消沿用 LaunchedEffect | PARTIAL |
+| C0-T11A-CACHE | 忙碌/快速模式/失败阴性不入缓存；版本/开关失效；阳性恒缓存 | ImageFeatureCacheStoreTest 7 项 | PASS |
+| C0-T11A-DETECT | 快速模式阴性 definitive=false；无失败动态阴性 definitive=true | ImageFeatureDefinitiveTest 2 项 | PASS |
+| C0-T11A-RETRY | 必要重试与取消不落缓存 | 卡片重入重试/取消语义为结构行为，无显式断言 | PARTIAL |
+| C0-TC56-MOVE | 移动回退不删源；更新 0 行/异常/preQ/取消不复制 | MoveSourceSafetyTest 8 项 | PASS |
+| C0-TC56-RESULT | 移动逐项返回 Moved/CopiedButSourceRetained/NeedsPermission/Failed | 结果枚举未实现（现返回 Uri?/null） | MISSING（属 T07/C4） |
 
 ## 观察与证据缺口
 
