@@ -221,7 +221,10 @@ class CloudCleanupUiTest {
         AppPreferences(ctx).debugForceAlbumLoadFailure = true
         try {
             // 前一个用例失败可能遗留打开的清理对话框：先返回关闭，保证导航起点干净。
-            // 前序用例可能遗留对话框/相册视图：有界重试导航到目标相册详情。
+            // 前序用例的清理可能耗尽卡片可见照片（deck 进入 empty 态，模式切换不渲染）：
+        // 先补一张新照片保证导航起点有内容。
+        photo()
+        // 前序用例可能遗留对话框/相册视图：有界重试导航到目标相册详情。
             var navigated = false
             repeat(3) { attempt ->
                 if (!navigated) {
