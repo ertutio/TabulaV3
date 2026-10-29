@@ -28,6 +28,51 @@ class MediaDeletionBatchTest {
     )
 
     @Test
+    fun partialUnknownSurvivesSummaryAndProducesActionableFeedback() = runBlocking {
+        val batch = uris(3)
+        val summary = deleteInBatches(batch, deleteBatch = { current ->
+            deleteMediaUrisBatch(current,
+                request = { FileOperationManager.DeleteResult.NeedsPermission(createIntentSender(), current) },
+                permission = { true },
+                verify = { verification(setOf(batch[0]), setOf(batch[1])) })
+        }, onDeleted = {})
+        assertEquals(setOf(batch[0]), summary.deleted)
+        assertEquals(setOf(batch[1], batch[2]), summary.remaining)
+        assertTrue(mediaDeletionMessage(summary, "原图").contains("2 张尚未确认删除"))
+        assertTrue(mediaDeletionMessage(summary, "原图").contains("无法确认删除结果"))
+    }
+
+    @Test
+    fun unknownStopsLaterBatchesAndDeliversConfirmedIncrementally() = runBlocking {
+        val items = uris(5)
+        val requested = mutableListOf<List<Uri>>()
+        val delivered = mutableListOf<Set<Uri>>()
+        val summary = deleteInBatches(items, batchSize = 2, deleteBatch = { batch ->
+            requested += batch
+            deleteMediaUrisBatch(batch,
+                request = { FileOperationManager.DeleteResult.NeedsPermission(createIntentSender(), batch) },
+                permission = { true },
+                verify = {
+                    if (batch.first() == items[0]) verification(batch.toSet())
+                    else verification(setOf(items[2]), setOf(items[3]))
+                })
+        }, onDeleted = { delivered += it })
+        assertEquals(listOf(items.take(2), items.subList(2, 4)), requested)
+        assertEquals(listOf(items.take(2).toSet(), setOf(items[2])), delivered)
+        assertEquals(items.take(3).toSet(), summary.deleted)
+        assertEquals(items.drop(3).toSet(), summary.remaining)
+        assertTrue(mediaDeletionMessage(summary, "原图").contains("含未处理项"))
+    }
+
+    @Test
+    fun cancelledSummaryReportsCancelledAndRetainsAll() {
+        val batch = uris(2)
+        val summary = BatchDeleteSummary(emptySet<Uri>(), batch.toSet(), true, null)
+        assertTrue(mediaDeletionMessage(summary, "图片").contains("操作已取消"))
+        assertEquals(batch.toSet(), summary.remaining)
+    }
+
+    @Test
     fun grantedPermissionCompletesAllVerifiedMissing() = runBlocking {
         val batch = uris(3)
         val result = deleteMediaUrisBatch(

@@ -34,3 +34,15 @@ internal suspend fun deleteMediaUrisBatch(
         }
     }
 }
+
+/** 汇报已确认结果，同时保留取消/未知/失败的原因。 */
+internal fun mediaDeletionMessage(summary: BatchDeleteSummary<Uri>, label: String): String {
+    val done = "已确认删除 ${summary.deleted.size} 张$label"
+    val remaining = if (summary.remaining.isEmpty()) "" else "，${summary.remaining.size} 张尚未确认删除（含未处理项）"
+    val reason = when {
+        summary.cancelled -> "；操作已取消"
+        summary.error != null -> "；${summary.error}"
+        else -> ""
+    }
+    return done + remaining + reason
+}

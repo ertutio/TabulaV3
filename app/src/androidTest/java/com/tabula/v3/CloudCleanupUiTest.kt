@@ -21,6 +21,7 @@ import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.repository.AlbumManager
 import com.tabula.v3.data.repository.CopyEvidenceStore
+import com.tabula.v3.data.repository.FileOperationManager
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -259,6 +260,40 @@ class CloudCleanupUiTest {
         }
         captureUiFailure("banner still visible after retry")
         error("retry did not clear the load error banner")
+    }
+
+    @Test fun unknownDeleteVerificationKeepsSourceRecordAndReportsReason() = runBlocking {
+        val source = photo(); archive(source)
+        startAndOpenDialog()
+        assertTrue(source in albums.getAllSourceImages())
+        FileOperationManager.debugForceUnknownUris = setOf(source.toString())
+        val permissionFailure = java.util.concurrent.atomic.AtomicReference<Throwable?>()
+        val permissionThread = Thread {
+            try { awaitCondition("physical source deletion") { !present(source) } }
+            catch (e: Throwable) { permissionFailure.set(e) }
+        }
+        try {
+            val event = ins.uiAutomation.executeAndWaitForEvent(
+                { permissionThread.start(); tap("删除原图") },
+                UiAutomation.AccessibilityEventFilter { event ->
+                    event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED &&
+                        event.text.any { text -> text.toString().contains("尚未确认删除") &&
+                            text.toString().contains("无法确认删除结果") }
+                }, 30000
+            )
+            event.recycle()
+            permissionThread.join(25000)
+            assertFalse("permission handling must finish", permissionThread.isAlive)
+            permissionFailure.get()?.let { throw AssertionError("system delete did not finish", it) }
+            // The real system delete occurred. UNKNOWN is injected only into the subsequent
+            // verification; retaining the record is conservative, not evidence the file exists.
+            assertFalse("system actually deleted the fixture", present(source))
+            assertTrue("unknown source record must remain for later reconciliation", source in albums.getAllSourceImages())
+        } finally {
+            FileOperationManager.debugForceUnknownUris = emptySet()
+            permissionThread.interrupt()
+            permissionThread.join(25000)
+        }
     }
 
     @Test fun invalidatedCopyKeepsConfirmedOriginal() = runBlocking {

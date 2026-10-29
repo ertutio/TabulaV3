@@ -1,20 +1,28 @@
 # 持续开发进度与续接记录
 
-本文件记录事实和下一动作；执行规则见[总计划](DEVELOPMENT_ROADMAP.md)，验收规格见[验收约定](../docs/acceptance.md)。每次提交保存点、开 PR、测试结束或被迫中断时更新已有行，不另建一套每轮报告。
+本文件记录事实和下一动作；执行规则见[总计划](DEVELOPMENT_ROADMAP.md)，验收规格见[验收约定](../docs/acceptance.md)。历史条目保留原记录，当前状态以本节与下表为准；旧的 PASS、accepted 或关闭不表示整个 T 组完成。
 
 ## 当前游标
 
 | 字段 | 当前值 |
 | --- | --- |
-| 总任务状态 | `in_progress`：C0 执行中（2026-10-28 会话续接） |
-| 已接受代码基线 | `master@8be46e424f6c39ba837f969d876b4d5d53003f97`（#11 merge commit，2026-10-28） |
-| 当前检查点 | C0：安全与一致性的当前差额 |
-| 当前代码变更 | C0.1（O1/C0-DETAIL-EMPTY-RETRY）：AlbumViewScreen 空态首载失败显示错误+重试（本文件同提交） |
-| next_action | **C3 检查点完成**（本地 PreloadingManagerTest 7 项 + 设备 run 40751316401 全绿）。下一就绪项：C4（T07 前台媒体同步与真实移动结果）——契约盘点：权限 NONE/PARTIAL/FULL 变化、快照竞争、推荐/专清/哈希版本失效联动（C1.1 已铺垫）、移动逐项结果枚举（CopiedButSourceRetained 未实现，并入）。 |
-| 本动作通过条件 | （C0.1 已满足本地部分）空态首载失败显示错误与重试；重试/取消语义沿用 T05 LaunchedEffect。设备/云 UI 断言待授权触发 instrumentation。 |
-| 全局阻塞 | workflow_dispatch 权限已获授权并验证（run 40717554994）；剩余外部缺口：真实多卷热拔插/他人应用媒体授权/进程死亡与断电（自有探针不能替代） |
+| 总任务状态 | `in_progress` |
+| 已接受代码基线 | `master@6adf988bb5ac08cf0d34eeeddbd5417f99e2d8a2`，子 PR [#13](https://github.com/ertutio/TabulaV3/pull/13) |
+| 验证输入及运行 | `efc2f51af425fe9934ceed4ac7400c1794ef9dfd`，云运行 [40815236361](https://github.com/ertutio/TabulaV3/actions/runs/40815236361)；单测实际执行 `211`；逐设备结果见运行工件 |
+| 当前检查点 | C0–C3 各有局部改进；各组仍 `PARTIAL`，详见下表 |
+| next_action | 按 C0 首次空相册失败与重试后图片显示补可控设备断言；并继续 C1 身份消费者及推荐缓存失效盘点。C2/C3 缺口按下表另行验证。 |
+| 尚未验证 | 真实跨卷与其他应用媒体、进程死亡和持久化失败；不得以合成探针代替。 |
 
-以上 master 是代码基线记录，不要求恢复到旧提交。计划 PR 合并或其他工作使 master 前进后，先比较受影响输入并更新游标，避免把已合并工作回退。
+## 本次合入的局部范围与剩余工作
+
+| 检查点 | 本次局部边界 | 未完成、不得标为整组 PASS |
+| --- | --- | --- |
+| C0 | 空态错误与重试显示、恢复和副本安全的局部修正及已有证据 | 详情设备错误探针是非空相册；首次空态失败、重试后真实图片显示仍需断言；其他 T01/T02/T05/T11a 差额仍按验收规格逐项核对。 |
+| C1.1 | 哈希内容版本与失败重试的局部改进 | 六簇并非完整身份迁移，跨卷身份消费者仍待核验；RecommendationEngine 的五分钟组缓存及内容变更失效仍待改进和验证。 |
+| C2 | 详情和清理入口逐批处理；仅确认项同步、UNKNOWN 停止后续请求并反馈未确认/未处理项 | 设备注入覆盖删除后 UNKNOWN 和源记录保留，不证明被系统删除的源文件仍存在；真实部分 UNKNOWN 与两入口完整 UI、进程死亡后恢复及持久失败仍待验证。本次有限 NonCancellable 落地不构成崩溃恢复日志。 |
+| C3 | 请求身份包含 URI、内容版本与实际解码选项；窗口淘汰、失败重试和过期回调隔离 | 本次单测及设备运行仅证明实际执行的夹具；两种 CardStack 模式的真实预热、取消和重入仍需专用设备断言，不能用通用设备绿灯替代。 |
+
+以下历史记录保存当时的测试结果和设计意见；冲突处以上表为准。历史头 SHA 的运行只证明对应输入、设备和实际执行夹具。
 
 ## 已接受的证据
 
@@ -40,7 +48,7 @@
 | T06a | OwnedBitmaps.kt、OwnedBitmapsTest，既定 CardStack 调用点。 | 预加载请求身份、Disposable/scope、动画/替换/取消/退出的完整生命周期。 |
 | T11a | ImageFeatureDetector、ImageFeatureCacheStore、ImageFeatureState；ImageFeatureDefinitiveTest、ImageFeatureCacheStoreTest。 | 必要重试/取消等组级断言；T11b single-flight、有界缓存与测量尚未因此完成。 |
 
-## 就绪与待办队列
+## 历史就绪与待办队列（状态以当前游标为准）
 
 子项状态使用 `ready / in_progress / verifying / review_pending / blocked / accepted`；总任务另使用 `ready / in_progress / awaiting_human / complete`，其中 `awaiting_human` 表示实现已保存但尚需具体人工评审、设备或决策。只有实现、相关断言、证据和必要评审均满足才标子项 `accepted`。一组可用多个子行拆分，以 `C1.1` 等稳定编号续接。
 
@@ -57,7 +65,7 @@
 
 `ready（准备）`只允许执行写明的准备范围，不表示可提前完成依赖尚未满足的接入。一个子项被阻塞时保持精确边界，转到下一独立就绪项。
 
-## C0 差额登记（对照 docs/acceptance.md 组级矩阵）
+## 历史 C0 差额登记（状态以当前游标为准，对照 docs/acceptance.md 组级矩阵）
 
 状态 = PASS（断言有单测/持久证据）/ PARTIAL（逻辑在但仅静态/编译级）/ BLOCKED（需设备/云/权限）/ MISSING（未实现）。基线：本分支 e30ab1c；testReleaseUnitTest 176 项 1 失败（基线既有 RecycleBinManagerTest.atomicReadRestoresLegacyBackup）。
 
@@ -80,14 +88,14 @@
 | C0-T02-BATCH | 批量恢复单事务、未知保留、部分失败状态可见 | RecycleBinSerializationTest.batchRemove…；run 40717554994 CloudRestoreUiTest.batchRestoreUpdatesAlbum…（真实批量恢复 UI） | PASS |
 | C0-T05-MODEL | 详情直连完整 ImageFile、无映射 N+1 | queryImages 直连（结构性）；AlbumDetailImagesTest | PASS |
 | C0-T05-MS | DATE_MODIFIED 全仓库毫秒一致 | AlbumDetailImagesTest（秒→毫秒断言）；queryImageFromUri 已删除 | PASS |
-| C0-DETAIL-EMPTY-RETRY | 详情加载失败错误/重试可见；解除注入后重试成功 | run [40746123075](https://github.com/ertutio/TabulaV3/actions/runs/40746123075)（sha e13fcea）双设备 CloudCleanupUiTest.albumDetailLoadFailureShowsBannerAndRetryRecovers 通过（debug 注入接缝 AppPreferences.debugForceAlbumLoadFailure；空相册分支因 API37 createAlbum scoped-storage 失败（O2 证据）改走非空相册路径，空态分支保留静态断言） | PASS（空态分支静态） |
+| C0-DETAIL-EMPTY-RETRY | 详情加载失败错误/重试可见；解除注入后重试成功 | run [40746123075](https://github.com/ertutio/TabulaV3/actions/runs/40746123075)（sha e13fcea）双设备 CloudCleanupUiTest.albumDetailLoadFailureShowsBannerAndRetryRecovers 通过（debug 注入接缝 AppPreferences.debugForceAlbumLoadFailure；空相册分支因 API37 createAlbum scoped-storage 失败（O2 证据）改走非空相册路径，空态分支保留静态断言） | PARTIAL（非空路径设备通过；空态分支仅静态） |
 | C0-T11A-CACHE | 忙碌/快速模式/失败阴性不入缓存；版本/开关失效；阳性恒缓存 | ImageFeatureCacheStoreTest 7 项 | PASS |
 | C0-T11A-DETECT | 快速模式阴性 definitive=false；无失败动态阴性 definitive=true | ImageFeatureDefinitiveTest 2 项 | PASS |
 | C0-T11A-RETRY | 必要重试与取消不落缓存 | 卡片重入重试/取消语义为结构行为，无显式断言 | PARTIAL |
 | C0-TC56-MOVE | 移动回退不删源；更新 0 行/异常/preQ/取消不复制 | MoveSourceSafetyTest 8 项 | PASS |
 | C0-TC56-RESULT | 移动逐项返回 Moved/CopiedButSourceRetained/NeedsPermission/Failed | 结果枚举未实现（现返回 Uri?/null） | MISSING（属 T07/C4） |
 | C1.1 TC58 哈希版本 | 同 ID 改内容旧哈希失效（版本键 ver_）；旧格式条目保守重算；失败条目每轮有界重试一次并按当轮版本落盘；cleanup 同步清 ver 键 | ImageHashCacheVersionTest 6 项 + SimilarGroupDetectorVersionTest 2 项（断言不依赖解码成败，可区分旧行为） | PASS |
-| C1.1 其余消费者 | Album/元数据/偏好/统计/UI 六簇跟随按名合并 Album 的显式产品行为（盘点见上节） | C1 消费者盘点表 | accepted（有依据的不迁移决定） |
+| C1.1 其余消费者 | Album/元数据/偏好/统计/UI 六簇的旧键盘点 | C1 消费者盘点表 | PARTIAL（旧的不迁移决定不代表跨卷身份迁移完成） |
 | C2 T04-入口统一 / `review_pending` | 新增 deleteMediaUrisBatch（与 deleteRecycleBinBatch 同构：错误分类仅 INVALID_REQUEST 可拆分、授权拒绝 Cancelled、授权后逐项核验 UNKNOWN 隔离）；详情删除 performDeleteBatch 与原图清理 performDeleteUris 两入口接入 deleteInBatches（回收站入口本就是样板）；详情回调 Boolean → deleted set，UI 按"确认删除数/未能删除数"如实反馈 | MediaDeletionBatchTest 7 项（含 250 项分批、部分成功保留、取消不请求后续批、UNKNOWN stopReason、仅无效请求可拆分）；设备 run 40723464281 API37 全绿、API36 CloudCleanupUiTest 两例超时（截图显示应用停在图库、无崩溃，对话框未出现——探针单次等待）；**同 SHA 重跑 [run 40726796077](https://github.com/ertutio/TabulaV3/actions/runs/40726796077) 三 job 全绿** → 判定为模拟器时序抖动而非 C2 回归 | PASS（附两次 run 与抖动记录；建议探针加对话框重试） |
 | C3 T06b-预加载生命周期 / `review_pending` | PreloadingManager 重构：请求键含内容版本（cardMemoryCacheKey 共享函数，六处键位统一）、preloadedKeys 按键记忆（换批/内容编辑/失败自然失效）、排队与结果分离（listener 成功入集/失败移除）、按索引跟踪 Disposable 并在换批/重置/释放时取消、pause 同中心可重试、dispose() 释放自有 scope（两种 CardStack 模式接线）；CardStack 缓存读取键同步 | PreloadingManagerTest 7 项（键含版本、同索引换批不跳过、失败重试、成功不重复、暂停后同中心重试、过期 Disposable 取消、dispose 全取消）；接线静态核对 | 单测 PASS；**设备 run [40751316401](https://github.com/ertutio/TabulaV3/actions/runs/40751316401)（sha d4866be）三 job 全绿**（双设备 14 项探针） | 结果回调为编译级验证；T06a 所有权保持 |
 

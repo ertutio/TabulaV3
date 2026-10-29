@@ -117,10 +117,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlin.coroutines.resume
 import com.tabula.v3.data.repository.BatchDeleteResult
 import com.tabula.v3.data.repository.deleteInBatches
 import com.tabula.v3.data.repository.deleteMediaUrisBatch
+import com.tabula.v3.data.repository.BatchDeleteSummary
+import com.tabula.v3.data.repository.mediaDeletionMessage
 
 /**
  * T02b 恢复核验决策：未知保留在回收站，缺失清除死记录且不入图库，仅 PRESENT 继续恢复。
@@ -611,9 +614,9 @@ fun TabulaApp(
     /**
      * Batch delete
      */
-    fun performDeleteBatch(images: List<ImageFile>, onResult: (Set<String>) -> Unit) {
+    fun performDeleteBatch(images: List<ImageFile>, onResult: (BatchDeleteSummary<android.net.Uri>) -> Unit) {
         if (images.isEmpty()) {
-            onResult(emptySet())
+            onResult(BatchDeleteSummary(emptySet(), emptySet(), false, null))
             return
         }
         
@@ -635,11 +638,17 @@ fun TabulaApp(
                         verify = fileOperationManager::verifyDeletionState
                     )
                 },
-                onDeleted = { }
+                onDeleted = { confirmed ->
+                    withContext(NonCancellable) {
+                        val keys = confirmed.map { it.toString() }.toSet()
+                        allImages = allImages.filter { it.uri.toString() !in keys }
+                        imagesForSorting = imagesForSorting.filter { it.uri.toString() !in keys }
+                    }
+                }
             )
             val deletedUris = summary.deleted.map { it.toString() }.toSet()
             Log.d("TabulaApp", "Deleted batch: ${deletedUris.size}/${images.size}")
-            onResult(deletedUris)
+            onResult(summary)
         }
     }
     
@@ -649,9 +658,9 @@ fun TabulaApp(
      * @param uris 待删除的 URI 列表
      * @param onResult 回调，返回成功删除的 URI 列表
      */
-    fun performDeleteUris(uris: List<android.net.Uri>, onResult: (Set<String>) -> Unit) {
+    fun performDeleteUris(uris: List<android.net.Uri>, onResult: (BatchDeleteSummary<android.net.Uri>) -> Unit) {
         if (uris.isEmpty()) {
-            onResult(emptySet())
+            onResult(BatchDeleteSummary(emptySet(), emptySet(), false, null))
             return
         }
         
@@ -673,11 +682,19 @@ fun TabulaApp(
                         verify = fileOperationManager::verifyDeletionState
                     )
                 },
-                onDeleted = { }
+                onDeleted = { confirmed ->
+                    withContext(NonCancellable) {
+                        val keys = confirmed.map { it.toString() }.toSet()
+                        albumManager.clearDeletedUris(keys)
+                        allImages = allImages.filter { it.uri.toString() !in keys }
+                        imagesForSorting = imagesForSorting.filter { it.uri.toString() !in keys }
+                        pendingSourceImageUris = pendingSourceImageUris.filter { it !in confirmed }
+                    }
+                }
             )
             val deletedUris = summary.deleted.map { it.toString() }.toSet()
             Log.d("TabulaApp", "Cleanup deleted: ${deletedUris.size}/${uris.size}")
-            onResult(deletedUris)
+            onResult(summary)
         }
     }
 
@@ -1345,28 +1362,11 @@ fun TabulaApp(
                 val imagesToDelete = allImages.filter { it.id in imageIds }
                 if (imagesToDelete.isNotEmpty()) {
                     // 执行永久删除操作
-                    performDeleteBatch(imagesToDelete) { deletedUris ->
-                        if (deletedUris.isNotEmpty()) {
-                            // 只移除确认已删除的图片（按项结果，不用整体 Boolean）
-                            val deletedIds = imagesToDelete.filter { it.uri.toString() in deletedUris }.map { it.id }.toSet()
-                            allImages = allImages.filter { it.id !in deletedIds }
-                            imagesForSorting = imagesForSorting.filter { it.id !in deletedIds }
-                            
-                            // 刷新图集信息（更新 imageCount 等，确保与系统相册同步）
-                            scope.launch {
-                                albumManager.refreshAlbumsFromSystem()
-                            }
-                            
-                            val remaining = imagesToDelete.size - deletedIds.size
-                            val message = if (remaining > 0) {
-                                "已永久删除 ${deletedIds.size} 张图片，${remaining} 张未能删除"
-                            } else {
-                                "已永久删除 ${deletedIds.size} 张图片"
-                            }
-                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                        } else {
-                            Toast.makeText(context, "删除失败或已取消", Toast.LENGTH_SHORT).show()
+                    performDeleteBatch(imagesToDelete) { summary ->
+                        if (summary.deleted.isNotEmpty()) {
+                            scope.launch { albumManager.refreshAlbumsFromSystem() }
                         }
+                        Toast.makeText(context, mediaDeletionMessage(summary, "图片"), Toast.LENGTH_LONG).show()
                     }
                 }
             }
@@ -1564,26 +1564,11 @@ fun TabulaApp(
                             return@launch
                         }
 
-                        pendingSourceImageUris = emptyList()
+                        pendingSourceImageUris = urisToDelete
                         Toast.makeText(context, "正在删除 ${urisToDelete.size} 张原图...", Toast.LENGTH_SHORT).show()
-                        performDeleteUris(urisToDelete) { deletedUris ->
-                            if (deletedUris.isNotEmpty()) {
-                                scope.launch {
-                                    albumManager.clearDeletedUris(deletedUris)
-                                    allImages = allImages.filter { img -> 
-                                        !deletedUris.contains(img.uri.toString())
-                                    }
-                                    // 同时从待整理列表中移除
-                                    imagesForSorting = imagesForSorting.filter { img ->
-                                        !deletedUris.contains(img.uri.toString())
-                                    }
-                                }
-                                Toast.makeText(context, "已删除 ${deletedUris.size} 张原图", Toast.LENGTH_SHORT).show()
-                            } else {
-                                // 删除失败或取消，恢复待清理列表
-                                pendingSourceImageUris = urisToDelete
-                                Toast.makeText(context, "删除失败或已取消", Toast.LENGTH_SHORT).show()
-                            }
+                        performDeleteUris(urisToDelete) { summary ->
+                            pendingSourceImageUris = urisToDelete.filter { it in summary.remaining }
+                            Toast.makeText(context, mediaDeletionMessage(summary, "原图"), Toast.LENGTH_LONG).show()
                         }
                     }
                 },
