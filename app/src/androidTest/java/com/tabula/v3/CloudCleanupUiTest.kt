@@ -44,7 +44,7 @@ class CloudCleanupUiTest {
     private var activity: android.app.Activity? = null
     private var probeAllowed = false
     private val albumName = "CloudProbe" + UUID.randomUUID().toString().replace("-", "").take(10)
-    private var emptyAlbumForCleanup: String? = null
+    private val metadataAlbumsForCleanup = mutableListOf<String>()
 
     private fun shell(command: String): String = ins.uiAutomation.executeShellCommand(command).use { p ->
         FileInputStream(p.fileDescriptor).use { it.readBytes().toString(Charsets.UTF_8) }
@@ -55,7 +55,11 @@ class CloudCleanupUiTest {
         probeAllowed = true
         shell("pm grant ${ctx.packageName} ${Manifest.permission.READ_MEDIA_IMAGES}")
         assertEquals(PackageManager.PERMISSION_GRANTED, ctx.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES))
-        AppPreferences(ctx).apply { hasCompletedOnboarding = true; hasAcknowledgedDisclaimer = true }
+        AppPreferences(ctx).apply {
+            hasCompletedOnboarding = true; hasAcknowledgedDisclaimer = true
+            // 前序用例崩溃可能遗留慢加载接缝：每个用例前复位。
+            debugAlbumLoadDelayMs = 0L
+        }
         photo("Tabula/$albumName")
         albums.initialize()
         assertTrue("fixture bucket must be discovered", albums.albums.value.any { it.name == albumName && it.systemAlbumPath?.trimEnd('/') == "Pictures/Tabula/$albumName" })
@@ -277,7 +281,7 @@ class CloudCleanupUiTest {
         // refreshAlbumsFromSystem 会把仅存在于元数据的图集恢复为 imageCount=0 的空图集，
         // 与 createAlbum 成功后的持久化形态一致（仅元数据、无系统 bucket）。
         val emptyAlbumName = "CloudEmpty" + UUID.randomUUID().toString().replace("-", "").take(10)
-        emptyAlbumForCleanup = emptyAlbumName
+        metadataAlbumsForCleanup += emptyAlbumName
         albums.updateAlbum(Album(id = emptyAlbumName, name = emptyAlbumName))
         assertTrue(
             "metadata-only album must surface as empty album",
@@ -318,6 +322,58 @@ class CloudCleanupUiTest {
         waitFor(photoName)
         assertNull("empty-state error row must be gone after retry",
             find(ins.uiAutomation.rootInActiveWindow, "图集加载失败，未能获取照片"))
+    }
+
+    @Test fun albumDetailSlowLoadSwitchShowsNewAlbumContentAndCancelIsSafe() = runBlocking {
+        // C0/T05 切图集/取消：debug 接缝在详情查询完成后延迟返回，制造可控慢加载窗口。
+        // 1) 加载中返回：不崩溃、图库可达（取消的加载不得污染导航栈或相册状态）；
+        // 2) 重开相册：慢加载完成后真实照片出现（被取消的首查不影响重试）；
+        // 3) 切到另一图集：新页只显示新图集内容，旧图集照片不覆盖新页面。
+        val switchAlbumName = "CloudSwitch" + UUID.randomUUID().toString().replace("-", "").take(10)
+        metadataAlbumsForCleanup += switchAlbumName
+        albums.updateAlbum(Album(id = switchAlbumName, name = switchAlbumName))
+        val switchPhoto = photo("Tabula/$switchAlbumName")
+        val switchPhotoName = displayNameOf(switchPhoto)
+        val basePhoto = photo("Tabula/$albumName")
+        val basePhotoName = displayNameOf(basePhoto)
+        AppPreferences(ctx).debugAlbumLoadDelayMs = 4000L
+        try {
+            photo()
+            var navigated = false
+            repeat(3) { attempt ->
+                if (!navigated) {
+                    ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
+                    SystemClock.sleep(1500)
+                    activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    try {
+                        waitFor("图库")
+                        tap("图库")
+                        tap(albumName)
+                        waitFor("返回")
+                        navigated = true
+                    } catch (e: IllegalStateException) {
+                        captureUiFailure("slow-load navigation attempt $attempt")
+                        if (attempt == 2) throw e
+                    }
+                }
+            }
+            // 1) 取消路径：仍在 4 秒延迟窗口内返回。
+            SystemClock.sleep(1500)
+            ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
+            waitFor(albumName)
+            // 2) 重开：被取消的首查之后，慢加载正常完成并显示真实照片。
+            tap(albumName)
+            waitFor(basePhotoName, timeout = 20000)
+            ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
+            waitFor(albumName)
+            // 3) 切换：新页显示新图集照片，旧图集照片不得出现在新页面。
+            tap(switchAlbumName)
+            waitFor(switchPhotoName, timeout = 20000)
+            assertNull("previous album photo must not leak into the switched page",
+                find(ins.uiAutomation.rootInActiveWindow, basePhotoName))
+        } finally {
+            AppPreferences(ctx).debugAlbumLoadDelayMs = 0L
+        }
     }
 
     @Test fun unknownDeleteVerificationKeepsSourceRecordAndReportsReason() = runBlocking {
@@ -379,7 +435,7 @@ class CloudCleanupUiTest {
             awaitCondition("activity destruction") { current.isDestroyed }
         }
         try { albums.clearDeletedUris(sources) } catch (e: Throwable) { errors += e }
-        emptyAlbumForCleanup?.let { name ->
+        metadataAlbumsForCleanup.forEach { name ->
             try { albums.deleteAlbum(name) } catch (e: Throwable) { errors += e }
         }
         var sentinel: CloudFixtureCleanup.Fixture? = null

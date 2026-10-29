@@ -15,14 +15,15 @@ case "${API_LEVEL:?API_LEVEL must identify the workflow device}" in
 esac
 adb shell getprop ro.build.version.sdk | tr -d '\r' | grep -Fx "$API_LEVEL"
 status=0
-# 预期逐例计数（新增场景须同步声明）：CloudCleanupUiTest 5 例
+# 预期逐例计数（新增场景须同步声明）：CloudCleanupUiTest 6 例
 # （laterCandidate / invalidatedCopy / albumDetailLoadFailureShowsBannerAndRetryRecovers（非空相册） /
 #  albumDetailEmptyAlbumLoadFailureShowsErrorAndRetryShowsRealImage（空相册，元数据构造绕开 O2） /
+#  albumDetailSlowLoadSwitchShowsNewAlbumContentAndCancelIsSafe（切图集/取消，debug 慢加载接缝） /
 #  unknownDeleteVerificationKeepsSourceRecordAndReportsReason），
 # CloudRestoreUiTest 3 例（singleRestore / batchRestore / restoreKeepsUnknown）。
 for class in CloudCleanupUiTest CloudRestoreUiTest; do
   case "$class" in
-    CloudCleanupUiTest) expected_tests=5 ;;
+    CloudCleanupUiTest) expected_tests=6 ;;
     CloudRestoreUiTest) expected_tests=3 ;;
     *) expected_tests=2 ;;
   esac
