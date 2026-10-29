@@ -380,7 +380,7 @@ class CloudCleanupUiTest {
         }
         try { albums.clearDeletedUris(sources) } catch (e: Throwable) { errors += e }
         emptyAlbumForCleanup?.let { name ->
-            attempt { albums.deleteAlbum(name) }
+            try { albums.deleteAlbum(name) } catch (e: Throwable) { errors += e }
         }
         var sentinel: CloudFixtureCleanup.Fixture? = null
         attempt { sentinel = fixtures.fixture(photo("CloudSafetySentinel", register = false)) }
