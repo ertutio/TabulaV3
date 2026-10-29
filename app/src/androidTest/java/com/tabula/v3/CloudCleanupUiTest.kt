@@ -173,6 +173,17 @@ class CloudCleanupUiTest {
         shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
     }
     private fun tap(label: String) = tapNode(waitFor(label), label)
+    // 预测性返回动画期间背景层（图库）已组合：waitFor 会立即命中。
+    // 返回后必须等详情真正关闭（"返回"消失）再点按，否则点按落在过渡层被吞。
+    private fun waitUntilGone(label: String, timeout: Long = 10000) {
+        val end = SystemClock.uptimeMillis() + timeout
+        while (SystemClock.uptimeMillis() < end) {
+            if (find(ins.uiAutomation.rootInActiveWindow, label) == null) return
+            SystemClock.sleep(100)
+        }
+        captureUiFailure("still visible: $label")
+        error("UI element still present: $label")
+    }
     private fun startAndOpenDialog() {
         activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         tap("图库")
@@ -360,11 +371,13 @@ class CloudCleanupUiTest {
             // 1) 取消路径：仍在 4 秒延迟窗口内返回。
             SystemClock.sleep(1500)
             ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
+            waitUntilGone("返回")
             waitFor(albumName)
             // 2) 重开：被取消的首查之后，慢加载正常完成并显示真实照片。
             tap(albumName)
             waitFor(basePhotoName, timeout = 20000)
             ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
+            waitUntilGone("返回")
             waitFor(albumName)
             // 3) 切换：新页显示新图集照片，旧图集照片不得出现在新页面。
             tap(switchAlbumName)
