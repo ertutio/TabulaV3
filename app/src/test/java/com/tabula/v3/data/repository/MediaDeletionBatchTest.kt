@@ -43,6 +43,28 @@ class MediaDeletionBatchTest {
     }
 
     @Test
+    fun unknownStopsLaterBatchesAndDeliversConfirmedIncrementally() = runBlocking {
+        val items = uris(5)
+        val requested = mutableListOf<List<Uri>>()
+        val delivered = mutableListOf<Set<Uri>>()
+        val summary = deleteInBatches(items, batchSize = 2, deleteBatch = { batch ->
+            requested += batch
+            deleteMediaUrisBatch(batch,
+                request = { FileOperationManager.DeleteResult.NeedsPermission(createIntentSender(), batch) },
+                permission = { true },
+                verify = {
+                    if (batch.first() == items[0]) verification(batch.toSet())
+                    else verification(setOf(items[2]), setOf(items[3]))
+                })
+        }, onDeleted = { delivered += it })
+        assertEquals(listOf(items.take(2), items.subList(2, 4)), requested)
+        assertEquals(listOf(items.take(2).toSet(), setOf(items[2])), delivered)
+        assertEquals(items.take(3).toSet(), summary.deleted)
+        assertEquals(items.drop(3).toSet(), summary.remaining)
+        assertTrue(mediaDeletionMessage(summary, "原图").contains("含未处理项"))
+    }
+
+    @Test
     fun cancelledSummaryReportsCancelledAndRetainsAll() {
         val batch = uris(2)
         val summary = BatchDeleteSummary(emptySet<Uri>(), batch.toSet(), true, null)

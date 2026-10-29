@@ -123,18 +123,46 @@ class PreloadingManagerTest {
     }
 
     @Test
-    fun pauseAllowsSameCenterRetryAfterResume() = runBlocking {
+    fun pauseAllowsSameCenterRetryAfterResume() {
         manager.preloadAround(images(3), 1, cardSize)
         awaitEnqueued(3)
-
+        fakeLoader.enqueued.toList().forEach { fakeLoader.fail(it) }
         manager.pause()
-        manager.preloadAround(images(3), 1, cardSize) // 暂停中：防抖任务取消，不排队
-        manager.resume()
-        manager.preloadAround(images(3), 1, cardSize) // 同中心可重试（T06b）
-        Thread.sleep(300)
-
+        manager.preloadAround(images(3), 1, cardSize)
+        Thread.sleep(250)
         assertEquals(3, fakeLoader.enqueued.size)
-        Unit
+        manager.resume()
+        manager.preloadAround(images(3), 1, cardSize)
+        awaitEnqueued(6)
+        assertEquals(6, fakeLoader.enqueued.size)
+    }
+
+    @Test
+    fun resetIgnoresLateCallbackWhenSameMediaIsReentered() {
+        manager.preloadAround(images(1), 0, cardSize)
+        awaitEnqueued(1)
+        val old = fakeLoader.enqueued.first()
+        manager.reset()
+        manager.preloadAround(images(1), 0, cardSize)
+        awaitEnqueued(2)
+        val current = fakeLoader.enqueued.last()
+        fakeLoader.succeed(old)
+        fakeLoader.fail(current)
+        manager.preloadAround(images(1), 0, cardSize)
+        awaitEnqueued(3)
+    }
+
+    @Test
+    fun disposeIgnoresLateCallbackAndPreventsReentry() {
+        manager.preloadAround(images(1), 0, cardSize)
+        awaitEnqueued(1)
+        val old = fakeLoader.enqueued.first()
+        manager.dispose()
+        fakeLoader.succeed(old)
+        manager.preloadAround(images(1), 0, cardSize)
+        Thread.sleep(250)
+        assertEquals(1, fakeLoader.enqueued.size)
+        assertTrue(fakeLoader.disposables.first().isDisposed)
     }
 
     @Test

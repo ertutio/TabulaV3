@@ -84,6 +84,7 @@ class PreloadingManager(
         }
     }
 
+    // cardSize 为兼容调用方保留；沿用固定 720px 上限，身份键记录实际解码尺寸。
     private fun loadSize(image: ImageFile): Size = if (!image.hasDimensionInfo) {
         Size(540, 720)
     } else if (image.aspectRatio < 1f) {

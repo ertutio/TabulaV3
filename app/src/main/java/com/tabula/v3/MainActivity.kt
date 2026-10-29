@@ -117,6 +117,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlin.coroutines.resume
 import com.tabula.v3.data.repository.BatchDeleteResult
 import com.tabula.v3.data.repository.deleteInBatches
@@ -637,7 +638,13 @@ fun TabulaApp(
                         verify = fileOperationManager::verifyDeletionState
                     )
                 },
-                onDeleted = { }
+                onDeleted = { confirmed ->
+                    withContext(NonCancellable) {
+                        val keys = confirmed.map { it.toString() }.toSet()
+                        allImages = allImages.filter { it.uri.toString() !in keys }
+                        imagesForSorting = imagesForSorting.filter { it.uri.toString() !in keys }
+                    }
+                }
             )
             val deletedUris = summary.deleted.map { it.toString() }.toSet()
             Log.d("TabulaApp", "Deleted batch: ${deletedUris.size}/${images.size}")
@@ -675,7 +682,15 @@ fun TabulaApp(
                         verify = fileOperationManager::verifyDeletionState
                     )
                 },
-                onDeleted = { }
+                onDeleted = { confirmed ->
+                    withContext(NonCancellable) {
+                        val keys = confirmed.map { it.toString() }.toSet()
+                        albumManager.clearDeletedUris(keys)
+                        allImages = allImages.filter { it.uri.toString() !in keys }
+                        imagesForSorting = imagesForSorting.filter { it.uri.toString() !in keys }
+                        pendingSourceImageUris = pendingSourceImageUris.filter { it !in confirmed }
+                    }
+                }
             )
             val deletedUris = summary.deleted.map { it.toString() }.toSet()
             Log.d("TabulaApp", "Cleanup deleted: ${deletedUris.size}/${uris.size}")
@@ -1348,17 +1363,8 @@ fun TabulaApp(
                 if (imagesToDelete.isNotEmpty()) {
                     // 执行永久删除操作
                     performDeleteBatch(imagesToDelete) { summary ->
-                        val deletedUris = summary.deleted.map { it.toString() }.toSet()
-                        if (deletedUris.isNotEmpty()) {
-                            // 只移除确认已删除的图片（按项结果，不用整体 Boolean）
-                            allImages = allImages.filter { it.uri.toString() !in deletedUris }
-                            imagesForSorting = imagesForSorting.filter { it.uri.toString() !in deletedUris }
-                            
-                            // 刷新图集信息（更新 imageCount 等，确保与系统相册同步）
-                            scope.launch {
-                                albumManager.refreshAlbumsFromSystem()
-                            }
-                            
+                        if (summary.deleted.isNotEmpty()) {
+                            scope.launch { albumManager.refreshAlbumsFromSystem() }
                         }
                         Toast.makeText(context, mediaDeletionMessage(summary, "图片"), Toast.LENGTH_LONG).show()
                     }
@@ -1558,23 +1564,10 @@ fun TabulaApp(
                             return@launch
                         }
 
-                        pendingSourceImageUris = emptyList()
+                        pendingSourceImageUris = urisToDelete
                         Toast.makeText(context, "正在删除 ${urisToDelete.size} 张原图...", Toast.LENGTH_SHORT).show()
                         performDeleteUris(urisToDelete) { summary ->
-                            val deletedUris = summary.deleted.map { it.toString() }.toSet()
                             pendingSourceImageUris = urisToDelete.filter { it in summary.remaining }
-                            if (deletedUris.isNotEmpty()) {
-                                scope.launch {
-                                    albumManager.clearDeletedUris(deletedUris)
-                                    allImages = allImages.filter { img -> 
-                                        !deletedUris.contains(img.uri.toString())
-                                    }
-                                    // 同时从待整理列表中移除
-                                    imagesForSorting = imagesForSorting.filter { img ->
-                                        !deletedUris.contains(img.uri.toString())
-                                    }
-                                }
-                            }
                             Toast.makeText(context, mediaDeletionMessage(summary, "原图"), Toast.LENGTH_LONG).show()
                         }
                     }
