@@ -32,10 +32,8 @@ class RecommendationEngine(
     private val similarGroupDetector = SimilarGroupDetector(context, hashCache)
     private val albumManager = AlbumManager.getInstance(context)
     
-    // 缓存检测到的相似组（避免重复检测）
-    private var cachedSimilarGroups: List<SimilarGroup>? = null
-    private var cacheTimestamp: Long = 0L
-    private val CACHE_VALIDITY_MS = 5 * 60 * 1000L  // 缓存有效期 5 分钟
+    // 缓存检测到的相似组（避免重复检测）；TC58：同 ID 改内容或成员增删随指纹失效。
+    private val similarGroupsCache = SimilarGroupsCache()
     
     /**
      * 根据当前推荐模式获取一批照片
@@ -142,8 +140,7 @@ class RecommendationEngine(
      * 当图片列表发生变化时调用（如删除图片后）
      */
     fun invalidateSimilarGroupCache() {
-        cachedSimilarGroups = null
-        cacheTimestamp = 0L
+        similarGroupsCache.invalidate()
     }
     
     /**
@@ -262,21 +259,15 @@ class RecommendationEngine(
      */
     private suspend fun getOrDetectSimilarGroups(allImages: List<ImageFile>): List<SimilarGroup> {
         val now = System.currentTimeMillis()
-        
-        // 检查缓存是否有效
-        val cached = cachedSimilarGroups
-        if (cached != null && now - cacheTimestamp < CACHE_VALIDITY_MS) {
-            return cached
-        }
-        
+
+        // TTL 内且输入身份+内容指纹未变才复用；同 ID 改内容/成员增删触发重算。
+        similarGroupsCache.lookup(allImages, now)?.let { return it }
+
         // 重新检测
         android.util.Log.d(TAG, "Detecting similar groups...")
         val groups = similarGroupDetector.detectSimilarGroups(allImages)
-        
-        // 更新缓存
-        cachedSimilarGroups = groups
-        cacheTimestamp = now
-        
+        similarGroupsCache.store(groups, allImages, now)
+
         android.util.Log.d(TAG, "Detected ${groups.size} similar groups")
         return groups
     }
