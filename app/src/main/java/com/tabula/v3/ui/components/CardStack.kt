@@ -50,6 +50,7 @@ import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.preferences.SwipeStyle
 import com.tabula.v3.di.PreloadingManager
+import com.tabula.v3.di.cardMemoryCacheKey
 import com.tabula.v3.ui.util.HapticFeedback
 import com.tabula.v3.ui.util.ownedScaledCopyOrNull
 import com.tabula.v3.ui.util.preloadImageFeatures
@@ -342,6 +343,7 @@ fun SwipeableCardStack(
     // 预加载当前索引前后的图片，加快卡片显示速度
     // 优化：减少预加载范围（从 3 降到 1），减少内存压力
     val preloadingManager = remember { PreloadingManager(context, preloadRange = 1) }
+    DisposableEffect(Unit) { onDispose { preloadingManager.dispose() } }
     
     LaunchedEffect(currentIndex, images) {
         // 预加载当前索引周围的图片
@@ -472,7 +474,7 @@ fun SwipeableCardStack(
                 var bitmap: Bitmap? = null
                 
                 // 方案1：尝试从 Coil 内存缓存获取（在 IO 线程安全访问）
-                val cacheKey = "card_${currentImg.id}"
+                val cacheKey = cardMemoryCacheKey(currentImg)
                 val cachedBitmap = context.imageLoader.memoryCache?.get(
                     coil.memory.MemoryCache.Key(cacheKey)
                 )?.bitmap
@@ -534,7 +536,7 @@ fun SwipeableCardStack(
                 var bitmap: Bitmap? = null
                 
                 // 方案1：尝试从 Coil 内存缓存获取
-                val cacheKey = "card_${currentImg.id}"
+                val cacheKey = cardMemoryCacheKey(currentImg)
                 val cachedBitmap = context.imageLoader.memoryCache?.get(
                     coil.memory.MemoryCache.Key(cacheKey)
                 )?.bitmap
@@ -1766,6 +1768,7 @@ private fun DrawModeCardStack(
     
     // 图片预加载 - 扩大范围确保流畅
     val preloadingManager = remember { PreloadingManager(context, preloadRange = 5) }
+    DisposableEffect(Unit) { onDispose { preloadingManager.dispose() } }
     LaunchedEffect(drawState.currentIndex, images) {
         preloadingManager.preloadAround(
             images = images,
@@ -2137,7 +2140,7 @@ private fun DrawModeCardStack(
         preloadGenieJob = scope.launch(Dispatchers.IO) {
             try {
                 var bitmap: Bitmap? = null
-                val cacheKey = "card_${currentImg.id}"
+                val cacheKey = cardMemoryCacheKey(currentImg)
                 val cachedBitmap = context.imageLoader.memoryCache?.get(
                     MemoryCache.Key(cacheKey)
                 )?.bitmap
@@ -2193,7 +2196,7 @@ bitmap = ownedScaledCopyOrNull(cachedBitmap, 250)
         preloadDeleteJob = scope.launch(Dispatchers.IO) {
             try {
                 var bitmap: Bitmap? = null
-                val cacheKey = "card_${currentImg.id}"
+                val cacheKey = cardMemoryCacheKey(currentImg)
                 val cachedBitmap = context.imageLoader.memoryCache?.get(
                     MemoryCache.Key(cacheKey)
                 )?.bitmap

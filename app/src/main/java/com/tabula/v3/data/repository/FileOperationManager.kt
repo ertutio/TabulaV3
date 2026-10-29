@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.content.ContentResolver
 import android.content.Context
+import com.tabula.v3.BuildConfig
 import android.content.IntentSender
 import android.net.Uri
 import android.os.Build
@@ -43,6 +44,10 @@ class FileOperationManager(
     private val contentResolver: ContentResolver = context.contentResolver
 
     companion object {
+        /** 仅 BuildConfig.DEBUG 探针使用：这些 URI（字符串形式）将被核验为 UNKNOWN。 */
+        @Volatile
+        var debugForceUnknownUris: Set<String> = emptySet()
+
         private const val TAG = "FileOperationManager"
         const val REQUEST_DELETE_PERMISSION = 1001
     }
@@ -156,6 +161,21 @@ class FileOperationManager(
     suspend fun verifyDeletion(uris: List<Uri>): Set<Uri> = verifyDeletionState(uris).deleted
 
     suspend fun verifyDeletionState(uris: List<Uri>): DeletionVerification = withContext(Dispatchers.IO) {
+        // C0/T04 探针接缝（仅 debug 构建生效）：强制指定 URI 核验为 UNKNOWN，
+        // 用于设备验证恢复路径的未知保留与反馈分支。
+        if (BuildConfig.DEBUG && debugForceUnknownUris.isNotEmpty()) {
+            val forced = uris.filter { it.toString() in debugForceUnknownUris }.toSet()
+            if (forced.isNotEmpty()) {
+                val rest = uris.filter { it.toString() !in debugForceUnknownUris }
+                val base = if (rest.isEmpty()) DeletionVerification(emptySet(), emptySet(), emptySet())
+                else verifyDeletionState(rest)
+                return@withContext DeletionVerification(
+                    deleted = base.deleted,
+                    existing = base.existing,
+                    unknown = base.unknown + forced
+                )
+            }
+        }
         val states = uris.distinct().associateWith { queryPresence(it) }
         DeletionVerification(
             states.filterValues { it == UriPresence.MISSING }.keys,

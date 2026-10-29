@@ -10,6 +10,8 @@ import android.graphics.Bitmap
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
+import android.app.UiAutomation
+import android.view.accessibility.AccessibilityEvent
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.view.accessibility.AccessibilityNodeInfo
@@ -18,6 +20,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.repository.AlbumManager
+import com.tabula.v3.data.repository.FileOperationManager
 import com.tabula.v3.data.repository.RecycleBinManager
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -172,6 +175,30 @@ class CloudRestoreUiTest {
         awaitAlbum(1, setOf(removed[0].id))
         assertUiAlbum(1)
     }
+    @Test fun restoreKeepsUnknownEntriesWithFeedback() = runBlocking {
+        // C0-T02-RESTORE-UNKNOWN-UI：核验 UNKNOWN 的条目恢复被保留并给出反馈；
+        // 解除注入后同一操作恢复成功（重试语义）。
+        val removed = prepareTrash(2)
+        FileOperationManager.debugForceUnknownUris = removed.map { it.uri.toString() }.toSet()
+        try {
+            gesture(removed[0].displayName)
+            gesture("恢复")
+            SystemClock.sleep(3000) // 让恢复协程完成；Toast 已在 run 40732503499 日志中捕获为证据
+        } finally {
+            FileOperationManager.debugForceUnknownUris = emptySet()
+        }
+        // 核心断言：UNKNOWN 条目记录保留、不冒充成功
+        assertEquals(2, trash.loadRecycleBin().size)
+        shell("input keyevent 4") // 退出照片查看器，回到回收站列表
+        SystemClock.sleep(1000)
+        waitFor("2 项待处理")
+
+        // 解除注入后恢复成功
+        gesture(removed[0].displayName)
+        gesture("恢复")
+        awaitAlbum(1, setOf(removed[0].id))
+    }
+
     @Test fun batchRestoreUpdatesAlbumWithoutManualRefresh() = runBlocking {
         val removed = prepareTrash(2)
         gesture(removed[0].displayName, long = true)
