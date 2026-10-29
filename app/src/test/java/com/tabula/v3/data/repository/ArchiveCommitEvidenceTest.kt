@@ -146,6 +146,23 @@ class ArchiveCommitEvidenceTest {
     }
 
     @Test
+    fun queueRebuildDropsPendingActionWithoutSideEffects() = runBlocking {
+        // TC57 排队后重建：队列仅在内存，进程重建后旧 action 不产生任何副作用。
+        val action = albumManager.queueImageToAlbum(1L, sourceUri.toString(), "Target", "Target")
+        resetSingleton(AlbumManager::class.java)
+        resetSingleton(SystemAlbumSyncManager::class.java)
+        resetSingleton(AlbumUsageTracker::class.java)
+        val rebuilt = AlbumManager(context)
+
+        val outcome = rebuilt.commitPendingArchive(action.id)
+
+        assertEquals(ArchiveCommitOutcome.NOT_CLAIMED, outcome)
+        assertEquals(0, provider.insertCalls)
+        assertTrue(rebuilt.copyEvidenceStore.loadAll().isEmpty())
+        assertTrue(rebuilt.getSourceImagesForAlbum("Target").isEmpty())
+    }
+
+    @Test
     fun commitOfUnknownActionIdIsNotClaimed() = runBlocking {
         val outcome = albumManager.commitPendingArchive("no-such-action")
 

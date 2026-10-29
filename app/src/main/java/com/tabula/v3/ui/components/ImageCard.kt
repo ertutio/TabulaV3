@@ -22,6 +22,7 @@ import coil.request.ImageRequest
 import coil.size.Size
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.di.CoilSetup
+import com.tabula.v3.di.cardMemoryCacheKey
 
 /**
  * 图片卡片组件
@@ -81,7 +82,7 @@ fun ImageCard(
     }
     
     // 使用稳定的缓存键，基于图片 ID
-    val cacheKey = remember(imageFile.id) { "card_${imageFile.id}" }
+    val cacheKey = remember(imageFile.id, imageFile.dateModified) { cardMemoryCacheKey(imageFile) }
 
     Box(
         modifier = modifier
