@@ -8,17 +8,17 @@
 | --- | --- |
 | 总任务状态 | `in_progress` |
 | 已接受代码基线 | `master@6adf988bb5ac08cf0d34eeeddbd5417f99e2d8a2`，子 PR [#13](https://github.com/ertutio/TabulaV3/pull/13) |
-| 验证输入及运行 | `efc2f51af425fe9934ceed4ac7400c1794ef9dfd`，云运行 [40815236361](https://github.com/ertutio/TabulaV3/actions/runs/40815236361)；单测实际执行 `211`；逐设备结果见运行工件 |
+| 验证输入及运行 | 基线 `efc2f51…` 云运行 [40815236361](https://github.com/ertutio/TabulaV3/actions/runs/40815236361)（211 单测）；本检查点三项待评审证据：PR #14 head `a9c5962` run [40910570752](https://github.com/ertutio/TabulaV3/actions/runs/40910570752)、PR #15 head `5bb7ff0` run [40908964501](https://github.com/ertutio/TabulaV3/actions/runs/40908964501)、PR #16 head `d15f52f` run [40910286445](https://github.com/ertutio/TabulaV3/actions/runs/40910286445)，三 run build+API36+API37 全绿，逐设备计数见保存点表 |
 | 当前检查点 | C0–C3 各有局部改进；各组仍 `PARTIAL`，详见下表 |
-| next_action | 按 C0 首次空相册失败与重试后图片显示补可控设备断言；并继续 C1 身份消费者及推荐缓存失效盘点。C2/C3 缺口按下表另行验证。 |
+| next_action | C0 空相册首次失败+重试显示真实图片、C1.1 推荐缓存内容版本失效、C0-T11A-RETRY 取消断言均已交付（PR #14/#15/#16，等待评审/合并）。继续 C0 剩余差额：切图集/取消后旧结果不覆盖的真实 UI 断言、C0-T01-UIFEEDBACK 归档失败 Toast 设备证据、O2 createAlbum 修复立项；随后 C1 跨卷身份消费者核验（TC13–TC16）。 |
 | 尚未验证 | 真实跨卷与其他应用媒体、进程死亡和持久化失败；不得以合成探针代替。 |
 
 ## 本次合入的局部范围与剩余工作
 
 | 检查点 | 本次局部边界 | 未完成、不得标为整组 PASS |
 | --- | --- | --- |
-| C0 | 空态错误与重试显示、恢复和副本安全的局部修正及已有证据 | 详情设备错误探针是非空相册；首次空态失败、重试后真实图片显示仍需断言；其他 T01/T02/T05/T11a 差额仍按验收规格逐项核对。 |
-| C1.1 | 哈希内容版本与失败重试的局部改进 | 六簇并非完整身份迁移，跨卷身份消费者仍待核验；RecommendationEngine 的五分钟组缓存及内容变更失效仍待改进和验证。 |
+| C0 | 空态错误与重试显示、恢复和副本安全的局部修正及已有证据；空相册首次失败+重试显示真实照片已补可控设备断言（PR #14，元数据空图集构造绕开 O2）；T11a 取消不落缓存已补显式断言（PR #16） | 切图集/取消后旧结果不覆盖新页面仍待真实 UI 断言；C0-T01-UIFEEDBACK 归档失败 Toast 设备证据；其他 T01/T02/T05/T11a 差额仍按验收规格逐项核对。 |
+| C1.1 | 哈希内容版本与失败重试的局部改进；RecommendationEngine 五分钟组缓存已接入身份+内容指纹失效（PR #15，同 ID 改内容/成员增删在 TTL 内即时失效） | 六簇并非完整身份迁移，跨卷身份消费者仍待核验；TC13–TC16 断言待逐项对账。 |
 | C2 | 详情和清理入口逐批处理；仅确认项同步、UNKNOWN 停止后续请求并反馈未确认/未处理项 | 设备注入覆盖删除后 UNKNOWN 和源记录保留，不证明被系统删除的源文件仍存在；真实部分 UNKNOWN 与两入口完整 UI、进程死亡后恢复及持久失败仍待验证。本次有限 NonCancellable 落地不构成崩溃恢复日志。 |
 | C3 | 请求身份包含 URI、内容版本与实际解码选项；窗口淘汰、失败重试和过期回调隔离 | 本次单测及设备运行仅证明实际执行的夹具；两种 CardStack 模式的真实预热、取消和重入仍需专用设备断言，不能用通用设备绿灯替代。 |
 
@@ -88,10 +88,10 @@
 | C0-T02-BATCH | 批量恢复单事务、未知保留、部分失败状态可见 | RecycleBinSerializationTest.batchRemove…；run 40717554994 CloudRestoreUiTest.batchRestoreUpdatesAlbum…（真实批量恢复 UI） | PASS |
 | C0-T05-MODEL | 详情直连完整 ImageFile、无映射 N+1 | queryImages 直连（结构性）；AlbumDetailImagesTest | PASS |
 | C0-T05-MS | DATE_MODIFIED 全仓库毫秒一致 | AlbumDetailImagesTest（秒→毫秒断言）；queryImageFromUri 已删除 | PASS |
-| C0-DETAIL-EMPTY-RETRY | 详情加载失败错误/重试可见；解除注入后重试成功 | run [40746123075](https://github.com/ertutio/TabulaV3/actions/runs/40746123075)（sha e13fcea）双设备 CloudCleanupUiTest.albumDetailLoadFailureShowsBannerAndRetryRecovers 通过（debug 注入接缝 AppPreferences.debugForceAlbumLoadFailure；空相册分支因 API37 createAlbum scoped-storage 失败（O2 证据）改走非空相册路径，空态分支保留静态断言） | PARTIAL（非空路径设备通过；空态分支仅静态） |
+| C0-DETAIL-EMPTY-RETRY | 详情加载失败错误/重试可见；解除注入后重试成功 | 非空路径：run [40746123075](https://github.com/ertutio/TabulaV3/actions/runs/40746123075)（sha e13fcea）；空态分支：PR #14 新增 albumDetailEmptyAlbumLoadFailureShowsErrorAndRetryShowsRealImage，run [40910570752](https://github.com/ertutio/TabulaV3/actions/runs/40910570752)（sha a9c5962）双设备通过（元数据空图集构造绕开 O2；断言空态专属文案+重试、解除注入后插入真实照片重试渲染其 displayName） | PASS（断言即"错误/重试可见+重试后真实图片显示"；切图集后旧结果不覆盖仍属 O1 待办） |
 | C0-T11A-CACHE | 忙碌/快速模式/失败阴性不入缓存；版本/开关失效；阳性恒缓存 | ImageFeatureCacheStoreTest 7 项 | PASS |
 | C0-T11A-DETECT | 快速模式阴性 definitive=false；无失败动态阴性 definitive=true | ImageFeatureDefinitiveTest 2 项 | PASS |
-| C0-T11A-RETRY | 必要重试与取消不落缓存 | 卡片重入重试/取消语义为结构行为，无显式断言 | PARTIAL |
+| C0-T11A-RETRY | 必要重试与取消不落缓存 | PR #16：PreloadImageFeaturesCancellationTest 2 项（取消中断检测不落缓存，阻断流+latch 确定性；未取消的 definitive 结果照常入缓存）；Composable 重入重试接线仍为结构核对（单元源集无 Compose 测试依赖，未新增） | PARTIAL（取消半已显式断言；重入接线待真实 UI 或引入 Compose 测试设施） |
 | C0-TC56-MOVE | 移动回退不删源；更新 0 行/异常/preQ/取消不复制 | MoveSourceSafetyTest 8 项 | PASS |
 | C0-TC56-RESULT | 移动逐项返回 Moved/CopiedButSourceRetained/NeedsPermission/Failed | 结果枚举未实现（现返回 Uri?/null） | MISSING（属 T07/C4） |
 | C1.1 TC58 哈希版本 | 同 ID 改内容旧哈希失效（版本键 ver_）；旧格式条目保守重算；失败条目每轮有界重试一次并按当轮版本落盘；cleanup 同步清 ver 键 | ImageHashCacheVersionTest 6 项 + SimilarGroupDetectorVersionTest 2 项（断言不依赖解码成败，可区分旧行为） | PASS |
@@ -105,7 +105,7 @@
 
 | 编号 | 类型与当前事实 | 最小下一步 | 影响 |
 | --- | --- | --- | --- |
-| O1 | 已修复（本地）：AlbumContentView 空态分支在 loadError 时显示 AlbumLoadErrorRow（错误+重试），非空分支沿用 T05 横幅；静态核对该分支此前确被空态遮盖。 | 设备/云 UI 断言 BLOCKED：build-volume-confirmation.yml push 仅匹配旧分支、workflow_dispatch 需 workflow 权限（gh token 无）。 | C0/T05；重试成功显示真实图片、切图集不覆盖两项待真实 UI。 |
+| O1 | 部分完成（2026-10-29）：空态首次失败、重试后真实图片显示已取得双设备 UI 证据（PR #14 run 40910570752，空相册以元数据构造绕开 createAlbum/O2）；workflow_dispatch 触发权限此前记录已过时——gh 当前可正常 dispatch build-volume-confirmation.yml。 | 设备/云 UI 断言：剩余"切图集/取消后旧结果不覆盖新页面"两项待真实 UI 断言；C0-T01-UIFEEDBACK 归档失败 Toast 同批推进。 | C0/T05；重试成功显示真实图片已闭环，切图集不覆盖待真实 UI。 |
 | O2 | **已复现并记录**：run 40735652083 中 API37 `createAlbum` 抛"无法创建图集文件夹，请检查存储权限"（scoped storage 下 File.mkdirs 失败；API36 同路径成功）。与先前 createBucket 观察一致：生产 createAlbum 在 API30+ 依赖直通文件系统路径。 | 立项修复：改走 MediaStore contributed-media 建目录（与 photo() 夹具同法），需单独 PR 与双设备验证。 | 图集创建在 API30+ 真机的可用性；探针空相册分支因此改走非空路径。 |
 | O3 | 真实多卷、其他应用媒体、进程死亡/取消/持久失败的所有组级规格尚未逐例证实。 | 明确 fixture/设备/授权，先做可控测试，真实设备缺口单独列明。 | 自有媒体探针通过不能替代这些要求。 |
 | O4 | 性能 PR6 仍 draft，旧 paused run 不能证明有效基线；没有冻结性能数字。 | 验证工具成功/失败 fixture，获实际授权后按版本协议测量。 | C5/C6 的性能结论门槛。 |
@@ -132,5 +132,8 @@
 | --- | --- | --- | --- | --- |
 | 计划初始化 / ready | 仅重构执行文档，代码基线见上 | 由本计划 PR 的真实链接及 SHA 补录，不预写不存在的编号 | 文档链接、原 T/TC 范围、连续执行循环与依赖静态核对 | 启动实现后更新游标，执行 C0 的具体动作。 |
 | C0.1 C0-DETAIL-EMPTY-RETRY / `review_pending`（本地实现完成） | AlbumViewScreen：空态分支顶部 loadError 时显示错误+重试（新增私有 AlbumLoadErrorRow，非空分支复用）；重试经既有 albumLoadRevision，取消不覆盖沿用 T05 | 本分支 docs/continuous-development-2026-10-28 独立提交（SHA 见 git log） | 静态断言：空态分支 loadError 渲染横幅（源码核对本提交）；`:app:compileReleaseKotlin` BUILD SUCCESSFUL；`testReleaseUnitTest` 176 项 1 失败=基线既有 atomicReadRestoresLegacyBackup（未改动基线同样失败） | 设备 UI 断言 BLOCKED（CI 触发权限）；重试成功路径与切图集覆盖待真实 UI；next C0.2 差额表 |
+| C0.2 空相册首次失败+重试显示真实照片 / `review_pending` | CloudCleanupUiTest 新增 albumDetailEmptyAlbumLoadFailureShowsErrorAndRetryShowsRealImage：空图集经 `AlbumManager.updateAlbum` 仅元数据构造（refreshAlbumsFromSystem 步骤 4 恢复为 imageCount=0，绕开 O2 createAlbum）；注入后断言空态专属文案「图集加载失败，未能获取照片」+重试；解除注入并向该图集路径插入真实合成照片后重试，断言照片 displayName（网格项 contentDescription）出现、空态错误行消失 | [test/empty-album-retry-device-2026-10-29](https://github.com/ertutio/TabulaV3/tree/test/empty-album-retry-device-2026-10-29) → [PR #14](https://github.com/ertutio/TabulaV3/pull/14)（基于 master@6adf988，head a9c5962） | run [40910570752](https://github.com/ertutio/TabulaV3/actions/runs/40910570752)（head a9c5962）build+API36+API37 全绿：双设备 VolumeDeletion OK(3)、CloudCleanupUiTest OK(5)（含新用例）、CloudRestoreUiTest OK(3)；run-cloud-ui-probe.sh 逐例预期同步声明为 5。首两轮失败已诊断：40904171420→suspend 调用编译错（02577be 修复）；40907190309→用例数预期未声明（双设备测试实际全过，a9c5962 补声明）；40910570752 首轮 API36 模拟器在 5 例全过后掉线（device offline，基础设施），`--failed` 重跑全绿 | 切图集/取消后旧结果不覆盖待真实 UI；O2 createAlbum 生产修复另立项（建议改走 MediaStore contributed-media，需单独 PR 与双设备验证） |
+| C1.2 推荐相似组缓存内容版本失效 / `review_pending` | RecommendationEngine 三字段内存缓存抽为 SimilarGroupsCache：命中=TTL 内且输入列表身份+内容指纹（成员 (id,dateModified,size) 排序折叠、顺序不敏感）不变；同 ID 改内容/成员增删在 TTL 内即时失效；invalidateSimilarGroupCache 钩子与组冷却不变；SimilarGroupDetector/哈希缓存零改动 | [fix/recommendation-cache-content-invalidation-2026-10-29](https://github.com/ertutio/TabulaV3/tree/fix/recommendation-cache-content-invalidation-2026-10-29) → [PR #15](https://github.com/ertutio/TabulaV3/pull/15)（基于 master@6adf988，head 5bb7ff0） | SimilarGroupsCacheTest 7 项（TTL 命中复用实例、顺序不敏感、内容编辑/大小变化/成员增删未命中、TTL 过期、显式失效）；RecommendationEngineContentInvalidationTest 2 项（Robolectric 真实 JPEG 编解码+流 supplier：TTL 内内容编辑后不得返回旧组——该断言在旧实现下实际失败过；未变化输入复用缓存实例）；本地 testReleaseUnitTest 220 项 1 失败=atomicReadRestoresLegacyBackup（干净 master 复现，Windows 本地环境差异，CI 绿）；run [40908964501](https://github.com/ertutio/TabulaV3/actions/runs/40908964501)（head 5bb7ff0）build+API36+API37 全绿（API36 首轮模拟器完成 3+4+3 全过后崩溃，重跑全绿） | TC13–TC16 同名跨路径/卷、编辑与可读性恢复、旧数据迁移断言待逐项对账；引擎级区分断言覆盖编辑场景，跨卷身份消费者核验为下一 C1 边界 |
+| C0.3 T11A-RETRY 取消不落缓存 / `review_pending` | PreloadImageFeaturesCancellationTest：取消中的 preload（首条流阻塞+latch 确定性控制）不落 ImageFeatureCacheStore（putIfReliable 因 withContext 取消检查不执行）；对照：未取消经 motion 路径的 definitive 结果照常入缓存（HDR 重型检测在 Robolectric 抛异常→正确产生不可信阴性） | [test/feature-preload-cancel-2026-10-29](https://github.com/ertutio/TabulaV3/tree/test/feature-preload-cancel-2026-10-29) → [PR #16](https://github.com/ertutio/TabulaV3/pull/16)（基于 master@6adf988，head d15f52f） | 本地 2/2 通过；run [40910286445](https://github.com/ertutio/TabulaV3/actions/runs/40910286445)（head d15f52f）build+API36+API37 全绿（双设备 3+4+3） | Composable 重入重试接线保持结构核对（单元源集无 Compose 测试依赖，不为此新增）；真实 HDR 增益图路径与卡片重入重试待真实 UI |
 
 每条验证至少记录：case ID 与断言、源码 SHA/相关输入、命令或 run URL、环境/fixture、实际结果（含失败/跳过/缓存）、报告位置。每条阻塞记录：所缺条件、累计失败与假设、已试结果、需要谁做什么、解除条件、可继续的独立项。收到评审意见后更新原子项，不另起一个无法对账的任务名。
