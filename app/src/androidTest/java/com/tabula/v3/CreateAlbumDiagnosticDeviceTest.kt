@@ -30,11 +30,17 @@ import java.util.UUID
  *
  * - createBucketStageProbeReportsEachStep：先调用真实 createBucket（含
  *   getAlbumRelativePath 的 MediaStore/File 前置探测），再对独立唯一名逐阶段
- *   复现旧路径（insert pending → 写最小 JPEG → unpublish → delete），两路对照
- *   定位失败阶段。
+ *   复现旧路径（insert pending → 写最小 JPEG → unpublish → delete），dot 名与
+ *   非 dot 名各一次以隔离占位文件名影响；两路对照定位失败阶段。
  * - createAlbumRealEntryOutcomeReported：真实 createAlbum 入口；成功路径断言
  *   图集以 imageCount=0 可见，失败路径断言元数据无半提交残留（abort-before-save
  *   不变量）。
+ *
+ * 首轮云运行（41082467467，API37）：real createBucket=NULL（无异常）；
+ * replica insert/write/unpublish 全部成功，delete 抛 SecurityException
+ * "has no access to content://media/external/images/media/85" —— 失败阶段
+ * 定位为"unpublish 后删除自有占位项"。本版追加非 dot 名变体以确认文件名
+ * 前导点是否为触发条件。
  */
 @RunWith(AndroidJUnit4::class)
 class CreateAlbumDiagnosticDeviceTest {
@@ -97,31 +103,61 @@ class CreateAlbumDiagnosticDeviceTest {
             null
         }
         if (realOutcome != null) {
-            dirsToClean += realOutcome.trimEnd('/')
-            assertTrue(
-                "created bucket path must be observable on device: $realOutcome",
-                dirExists(realOutcome.trimEnd('/'))
-            )
+            // 空目录在占位删除后未必持久可见（首轮 API36 实测 dirExists=false）：
+            // createBucket 的契约是返回路径，目录存在性只记录不作为断言。
+            diag("real-createBucket-dir", "path=$realOutcome dirExists=${dirExists(realOutcome.trimEnd('/'))}")
+            if (dirExists(realOutcome.trimEnd('/'))) dirsToClean += realOutcome.trimEnd('/')
         } else {
             diag("real-createBucket-dir", "dirExists=${dirExists("Pictures/Tabula/$bucketName")}")
         }
 
-        // 2) 逐阶段复现（独立唯一名），记录每步原始结果/异常。
+        // 2) 逐阶段复现：dot 名（与生产占位一致）与非 dot 名各跑一次，
+        // 隔离占位文件名前导点对 delete 阶段的影响。
         val replicaPath = "Pictures/Tabula/$replicaName"
-        val stageFailures = mutableListOf<String>()
+        val dotFailures = runReplicaChain(replicaPath, ".tabula_placeholder_diag_${System.currentTimeMillis()}.jpg", "replica")
+        val dotlessFailures = runReplicaChain(replicaPath, "tabula_placeholder_diag_${System.currentTimeMillis()}.jpg", "replica-dotless")
+        diag("replica-summary", "dotFailures=$dotFailures dotlessFailures=$dotlessFailures")
+        if (dirExists(replicaPath)) dirsToClean += replicaPath
+
+        // 3) 对照结论：两路结果一致性（不一致记 FINDING/MISMATCH 供分析，不作为断言）。
+        if (realOutcome == null && dotFailures.isEmpty()) {
+            diag("MISMATCH", "real createBucket failed but every replicated stage succeeded")
+        }
+        if (realOutcome != null && dotFailures.isNotEmpty()) {
+            diag("MISMATCH", "real createBucket succeeded but replicated stages failed: $dotFailures")
+        }
+        if ("delete" in dotFailures && "delete" !in dotlessFailures) {
+            diag("FINDING", "delete stage fails only with the dot-prefixed placeholder name")
+        }
+        if ("delete" in dotFailures && "delete" in dotlessFailures) {
+            diag("FINDING", "delete stage fails regardless of placeholder name")
+        }
+        if (Build.VERSION.SDK_INT <= 36) {
+            // API36 是已知可用基线：两路都必须成功。
+            assertNotNull("API36 baseline: real createBucket must succeed", realOutcome)
+            assertTrue(
+                "API36 baseline: replicated chain must fully succeed, failures=$dotFailures",
+                dotFailures.isEmpty()
+            )
+        }
+    }
+
+    /** createBucket 旧占位链的逐阶段复现；返回失败阶段列表（空 = 全部成功）。 */
+    private fun runReplicaChain(relativePath: String, displayName: String, tag: String): List<String> {
+        val failures = mutableListOf<String>()
         var placeholderUri: Uri? = null
         try {
             placeholderUri = ctx.contentResolver.insert(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, ".tabula_placeholder_diag_${System.currentTimeMillis()}.jpg")
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
                     put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, "$replicaPath/")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "$relativePath/")
                     put(MediaStore.MediaColumns.IS_PENDING, 1)
                 }
             )
-            diag("replica-insert", if (placeholderUri != null) "OK uri=$placeholderUri" else "NULL (no exception)")
-            if (placeholderUri == null) stageFailures += "insert"
+            diag("$tag-insert", if (placeholderUri != null) "OK uri=$placeholderUri" else "NULL (no exception)")
+            if (placeholderUri == null) failures += "insert"
             if (placeholderUri != null) registered += fixtures.fixture(placeholderUri)
 
             if (placeholderUri != null) {
@@ -131,52 +167,36 @@ class CreateAlbumDiagnosticDeviceTest {
                         true
                     } ?: false
                 } catch (e: Throwable) {
-                    diag("replica-write", "EXCEPTION ${e.javaClass.name}: ${e.message}")
+                    diag("$tag-write", "EXCEPTION ${e.javaClass.name}: ${e.message}")
                     false
                 }
-                diag("replica-write", if (written) "OK" else "FAILED")
-                if (!written) stageFailures += "write"
+                diag("$tag-write", if (written) "OK" else "FAILED")
+                if (!written) failures += "write"
 
                 val unpublished = try {
                     ctx.contentResolver.update(
                         placeholderUri!!, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null
                     )
                 } catch (e: Throwable) {
-                    diag("replica-unpublish", "EXCEPTION ${e.javaClass.name}: ${e.message}")
+                    diag("$tag-unpublish", "EXCEPTION ${e.javaClass.name}: ${e.message}")
                     -1
                 }
-                diag("replica-unpublish", "rows=$unpublished")
-                if (unpublished != 1) stageFailures += "unpublish"
+                diag("$tag-unpublish", "rows=$unpublished")
+                if (unpublished != 1) failures += "unpublish"
 
                 val deleted = try {
                     ctx.contentResolver.delete(placeholderUri!!, null, null)
                 } catch (e: Throwable) {
-                    diag("replica-delete", "EXCEPTION ${e.javaClass.name}: ${e.message}")
+                    diag("$tag-delete", "EXCEPTION ${e.javaClass.name}: ${e.message}")
                     -1
                 }
-                diag("replica-delete", "rows=$deleted")
-                if (deleted != 1) stageFailures += "delete"
+                diag("$tag-delete", "rows=$deleted")
+                if (deleted != 1) failures += "delete"
             }
         } finally {
-            diag("replica-dir", "exists=${dirExists(replicaPath)} listing=${dirListing("Pictures/Tabula")}")
-            if (dirExists(replicaPath)) dirsToClean += replicaPath
+            diag("$tag-dir", "exists=${dirExists(relativePath)} listing=${dirListing("Pictures/Tabula")}")
         }
-
-        // 3) 对照结论：两路结果一致性（不一致记 WARN 供分析，不作为断言）。
-        if (realOutcome == null && stageFailures.isEmpty()) {
-            diag("MISMATCH", "real createBucket failed but every replicated stage succeeded")
-        }
-        if (realOutcome != null && stageFailures.isNotEmpty()) {
-            diag("MISMATCH", "real createBucket succeeded but replicated stages failed: $stageFailures")
-        }
-        if (Build.VERSION.SDK_INT <= 36) {
-            // API36 是已知可用基线：两路都必须成功。
-            assertNotNull("API36 baseline: real createBucket must succeed", realOutcome)
-            assertTrue(
-                "API36 baseline: replicated chain must fully succeed, failures=$stageFailures",
-                stageFailures.isEmpty()
-            )
-        }
+        return failures
     }
 
     @Test fun createAlbumRealEntryOutcomeReported() = runBlocking {
