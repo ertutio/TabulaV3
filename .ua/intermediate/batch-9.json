@@ -1,0 +1,137 @@
+{
+  "nodes": [
+    {
+      "id": "config:app/src/main/res/drawable/fluid_cloud_background.xml",
+      "type": "config",
+      "name": "fluid_cloud_background.xml",
+      "filePath": "app/src/main/res/drawable/fluid_cloud_background.xml",
+      "startLine": 1,
+      "endLine": 11,
+      "summary": "定义流体云通知布局的黑色圆角背景。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        11
+      ]
+    },
+    {
+      "id": "config:app/src/main/res/drawable/ic_launcher_background.xml",
+      "type": "config",
+      "name": "ic_launcher_background.xml",
+      "filePath": "app/src/main/res/drawable/ic_launcher_background.xml",
+      "startLine": 1,
+      "endLine": 10,
+      "summary": "定义启动器图标背景矢量。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        10
+      ]
+    },
+    {
+      "id": "config:app/src/main/res/drawable/ic_launcher_foreground.xml",
+      "type": "config",
+      "name": "ic_launcher_foreground.xml",
+      "filePath": "app/src/main/res/drawable/ic_launcher_foreground.xml",
+      "startLine": 1,
+      "endLine": 33,
+      "summary": "定义启动器前景图标矢量路径。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        33
+      ]
+    },
+    {
+      "id": "config:app/src/main/res/drawable/ic_quick_start.xml",
+      "type": "config",
+      "name": "ic_quick_start.xml",
+      "filePath": "app/src/main/res/drawable/ic_quick_start.xml",
+      "startLine": 1,
+      "endLine": 11,
+      "summary": "定义桌面快速整理入口使用的矢量图标。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        11
+      ]
+    },
+    {
+      "id": "config:app/src/main/res/drawable/ic_widget_shortcut.xml",
+      "type": "config",
+      "name": "ic_widget_shortcut.xml",
+      "filePath": "app/src/main/res/drawable/ic_widget_shortcut.xml",
+      "startLine": 1,
+      "endLine": 11,
+      "summary": "定义添加小组件快捷方式图标。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        11
+      ]
+    },
+    {
+      "id": "config:app/src/main/res/drawable/widget_background.xml",
+      "type": "config",
+      "name": "widget_background.xml",
+      "filePath": "app/src/main/res/drawable/widget_background.xml",
+      "startLine": 1,
+      "endLine": 19,
+      "summary": "定义 widget 的渐变圆角背景与描边。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        19
+      ]
+    }
+  ],
+  "edges": []
+}

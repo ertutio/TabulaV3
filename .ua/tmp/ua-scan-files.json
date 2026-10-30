@@ -1,0 +1,906 @@
+{
+  "scriptCompleted": true,
+  "contentDigest": "83d6d989a5b3208b2a707e7cef5790d9c0602c22397a0354754054a14ed695f1",
+  "files": [
+    {
+      "path": ".github/workflows/build-photo-sharing.yml",
+      "language": "yaml",
+      "sizeLines": 75,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/build-recycle-bin-consistency.yml",
+      "language": "yaml",
+      "sizeLines": 52,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/build-test-apk.yml",
+      "language": "yaml",
+      "sizeLines": 69,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/build-volume-confirmation.yml",
+      "language": "yaml",
+      "sizeLines": 107,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/publish-release.yml",
+      "language": "yaml",
+      "sizeLines": 136,
+      "fileCategory": "infra"
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "sizeLines": 126,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "app/build.gradle.kts",
+      "language": "kotlin",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/proguard-rules.pro",
+      "language": "pro",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/release/output-metadata.json",
+      "language": "json",
+      "sizeLines": 36,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/androidTest/java/com/tabula/v3/data/repository/VolumeDeletionDeviceTest.kt",
+      "language": "kotlin",
+      "sizeLines": 159,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/debug/res/values/strings.xml",
+      "language": "xml",
+      "sizeLines": 4,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/debug/res/xml/shortcuts.xml",
+      "language": "xml",
+      "sizeLines": 17,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/AndroidManifest.xml",
+      "language": "xml",
+      "sizeLines": 76,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "language": "kotlin",
+      "sizeLines": 1659,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+      "language": "kotlin",
+      "sizeLines": 20,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt",
+      "language": "kotlin",
+      "sizeLines": 244,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "language": "kotlin",
+      "sizeLines": 76,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/AlbumMapping.kt",
+      "language": "kotlin",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/AlbumUsage.kt",
+      "language": "kotlin",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/ImageFeatures.kt",
+      "language": "kotlin",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "language": "kotlin",
+      "sizeLines": 95,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "language": "kotlin",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+      "language": "kotlin",
+      "sizeLines": 1181,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+      "language": "kotlin",
+      "sizeLines": 662,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumManager.kt",
+      "language": "kotlin",
+      "sizeLines": 1191,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumUsageTracker.kt",
+      "language": "kotlin",
+      "sizeLines": 400,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/BatchDeletion.kt",
+      "language": "kotlin",
+      "sizeLines": 61,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "language": "kotlin",
+      "sizeLines": 295,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/ImageFeatureDetector.kt",
+      "language": "kotlin",
+      "sizeLines": 476,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+      "language": "kotlin",
+      "sizeLines": 588,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/PerceptualHash.kt",
+      "language": "kotlin",
+      "sizeLines": 266,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt",
+      "language": "kotlin",
+      "sizeLines": 298,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinDeletion.kt",
+      "language": "kotlin",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "language": "kotlin",
+      "sizeLines": 180,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/SimilarGroupDetector.kt",
+      "language": "kotlin",
+      "sizeLines": 619,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "language": "kotlin",
+      "sizeLines": 318,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/SystemAlbumSyncManager.kt",
+      "language": "kotlin",
+      "sizeLines": 1214,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "language": "kotlin",
+      "sizeLines": 158,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/di/PreloadingManager.kt",
+      "language": "kotlin",
+      "sizeLines": 213,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "language": "kotlin",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "language": "kotlin",
+      "sizeLines": 35,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/service/FluidCloudService.kt",
+      "language": "kotlin",
+      "sizeLines": 239,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumChips.kt",
+      "language": "kotlin",
+      "sizeLines": 242,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt",
+      "language": "kotlin",
+      "sizeLines": 1068,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumDialogs.kt",
+      "language": "kotlin",
+      "sizeLines": 564,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumDropTarget.kt",
+      "language": "kotlin",
+      "sizeLines": 300,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt",
+      "language": "kotlin",
+      "sizeLines": 355,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/BackdropLiquidGlass.kt",
+      "language": "kotlin",
+      "sizeLines": 217,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/BatchCompletionScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 398,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt",
+      "language": "kotlin",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/CardStack.kt",
+      "language": "kotlin",
+      "sizeLines": 3289,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt",
+      "language": "kotlin",
+      "sizeLines": 1581,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt",
+      "language": "kotlin",
+      "sizeLines": 336,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/DrawCardState.kt",
+      "language": "kotlin",
+      "sizeLines": 170,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/FixedTagBar.kt",
+      "language": "kotlin",
+      "sizeLines": 264,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/GenieEffect.kt",
+      "language": "kotlin",
+      "sizeLines": 1145,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/GenieTargetUtils.kt",
+      "language": "kotlin",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/GlassBottomSheet.kt",
+      "language": "kotlin",
+      "sizeLines": 249,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt",
+      "language": "kotlin",
+      "sizeLines": 293,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/Glassmorphism.kt",
+      "language": "kotlin",
+      "sizeLines": 318,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+      "language": "kotlin",
+      "sizeLines": 160,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/LiquidGlass.kt",
+      "language": "kotlin",
+      "sizeLines": 268,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/LiquidGlassV2.kt",
+      "language": "kotlin",
+      "sizeLines": 529,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/MediaBadges.kt",
+      "language": "kotlin",
+      "sizeLines": 42,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+      "language": "kotlin",
+      "sizeLines": 208,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "language": "kotlin",
+      "sizeLines": 161,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "language": "kotlin",
+      "sizeLines": 532,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/PhysicalLiquidGlass.kt",
+      "language": "kotlin",
+      "sizeLines": 1389,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/RealLiquidGlass.kt",
+      "language": "kotlin",
+      "sizeLines": 462,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "language": "kotlin",
+      "sizeLines": 739,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/TagPosition.kt",
+      "language": "kotlin",
+      "sizeLines": 8,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/TopBar.kt",
+      "language": "kotlin",
+      "sizeLines": 429,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/UndoSnackbar.kt",
+      "language": "kotlin",
+      "sizeLines": 175,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "language": "kotlin",
+      "sizeLines": 624,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+      "language": "kotlin",
+      "sizeLines": 242,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/quickaction/SafeAreaCompat.kt",
+      "language": "kotlin",
+      "sizeLines": 98,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+      "language": "kotlin",
+      "sizeLines": 272,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 908,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 1309,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 1683,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 2771,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 323,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 503,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 255,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 1032,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 254,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 1456,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 3015,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 932,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 317,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "language": "kotlin",
+      "sizeLines": 1175,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/theme/Theme.kt",
+      "language": "kotlin",
+      "sizeLines": 237,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/theme/Type.kt",
+      "language": "kotlin",
+      "sizeLines": 101,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/AlbumCleanupImageResolver.kt",
+      "language": "kotlin",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/ContextExtensions.kt",
+      "language": "kotlin",
+      "sizeLines": 14,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "language": "kotlin",
+      "sizeLines": 317,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "language": "kotlin",
+      "sizeLines": 209,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/ImageFeatureState.kt",
+      "language": "kotlin",
+      "sizeLines": 101,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/PhotoSharing.kt",
+      "language": "kotlin",
+      "sizeLines": 79,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/SelectionUtils.kt",
+      "language": "kotlin",
+      "sizeLines": 14,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/StringDragSelectState.kt",
+      "language": "kotlin",
+      "sizeLines": 189,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/widget/TabulaWidgetProvider.kt",
+      "language": "kotlin",
+      "sizeLines": 140,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/res/drawable/fluid_cloud_background.xml",
+      "language": "xml",
+      "sizeLines": 11,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_launcher_background.xml",
+      "language": "xml",
+      "sizeLines": 10,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_launcher_foreground.xml",
+      "language": "xml",
+      "sizeLines": 33,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_quick_start.xml",
+      "language": "xml",
+      "sizeLines": 11,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_widget_shortcut.xml",
+      "language": "xml",
+      "sizeLines": 11,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/drawable/widget_background.xml",
+      "language": "xml",
+      "sizeLines": 19,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/layout/fluid_cloud_layout.xml",
+      "language": "xml",
+      "sizeLines": 47,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/layout/widget_tabula.xml",
+      "language": "xml",
+      "sizeLines": 66,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "language": "xml",
+      "sizeLines": 4,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "language": "xml",
+      "sizeLines": 4,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/raw/liquidglass_effect.agsl",
+      "language": "agsl",
+      "sizeLines": 136,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/main/res/values/colors.xml",
+      "language": "xml",
+      "sizeLines": 4,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/values/strings.xml",
+      "language": "xml",
+      "sizeLines": 11,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/values/themes.xml",
+      "language": "xml",
+      "sizeLines": 15,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/xml/data_extraction_rules.xml",
+      "language": "xml",
+      "sizeLines": 17,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/xml/shortcuts.xml",
+      "language": "xml",
+      "sizeLines": 17,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/main/res/xml/widget_info.xml",
+      "language": "xml",
+      "sizeLines": 17,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "language": "kotlin",
+      "sizeLines": 171,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "language": "kotlin",
+      "sizeLines": 158,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "language": "kotlin",
+      "sizeLines": 178,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinManagerTest.kt",
+      "language": "kotlin",
+      "sizeLines": 178,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "language": "kotlin",
+      "sizeLines": 36,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "language": "kotlin",
+      "sizeLines": 69,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "language": "kotlin",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "language": "kotlin",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "language": "kotlin",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/components/MonthInfoBuilderTest.kt",
+      "language": "kotlin",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/AlbumCleanupImageResolverTest.kt",
+      "language": "kotlin",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/PhotoSharingTest.kt",
+      "language": "kotlin",
+      "sizeLines": 93,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "language": "kotlin",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "language": "kotlin",
+      "sizeLines": 60,
+      "fileCategory": "code"
+    },
+    {
+      "path": "build.gradle.kts",
+      "language": "kotlin",
+      "sizeLines": 6,
+      "fileCategory": "code"
+    },
+    {
+      "path": "docs/release-3.3.4.md",
+      "language": "markdown",
+      "sizeLines": 14,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "gradle.properties",
+      "language": "properties",
+      "sizeLines": 15,
+      "fileCategory": "config"
+    },
+    {
+      "path": "gradle/libs.versions.toml",
+      "language": "toml",
+      "sizeLines": 59,
+      "fileCategory": "config"
+    },
+    {
+      "path": "gradle/wrapper/gradle-wrapper.properties",
+      "language": "properties",
+      "sizeLines": 7,
+      "fileCategory": "config"
+    },
+    {
+      "path": "gradlew",
+      "language": "unknown",
+      "sizeLines": 182,
+      "fileCategory": "code"
+    },
+    {
+      "path": "gradlew.bat",
+      "language": "batch",
+      "sizeLines": 92,
+      "fileCategory": "script"
+    },
+    {
+      "path": "scripts/encrypt-release-backup.cjs",
+      "language": "javascript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "scripts/release-backup-public.pem",
+      "language": "pem",
+      "sizeLines": 11,
+      "fileCategory": "code"
+    },
+    {
+      "path": "settings.gradle.kts",
+      "language": "kotlin",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tools/run-volume-device-probe.py",
+      "language": "python",
+      "sizeLines": 89,
+      "fileCategory": "code"
+    }
+  ],
+  "totalFiles": 145,
+  "filteredByIgnore": 19,
+  "estimatedComplexity": "moderate",
+  "failures": [],
+  "stats": {
+    "filesScanned": 145,
+    "byCategory": {
+      "infra": 5,
+      "docs": 2,
+      "code": 114,
+      "config": 23,
+      "script": 1
+    },
+    "byLanguage": {
+      "yaml": 5,
+      "markdown": 2,
+      "kotlin": 108,
+      "pro": 1,
+      "json": 1,
+      "xml": 19,
+      "agsl": 1,
+      "properties": 2,
+      "toml": 1,
+      "unknown": 1,
+      "batch": 1,
+      "javascript": 1,
+      "pem": 1,
+      "python": 1
+    }
+  }
+}

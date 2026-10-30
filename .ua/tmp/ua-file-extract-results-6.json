@@ -1,0 +1,2427 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "filesUnreadable": [],
+  "analysisOutcomes": {
+    "structure": {
+      "succeeded": 3,
+      "failed": 0
+    },
+    "callGraph": {
+      "succeeded": 3,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "results": [
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 83,
+      "nonEmptyLines": 77,
+      "classes": [
+        {
+          "name": "AlbumStorageInfo",
+          "startLine": 11,
+          "endLine": 28,
+          "methods": [],
+          "properties": [
+            "bucketName",
+            "storageSize",
+            "imageCount",
+            "previousStorageSize",
+            "storageChange",
+            "hasChange"
+          ]
+        },
+        {
+          "name": "StorageScanResult",
+          "startLine": 42,
+          "endLine": 83,
+          "methods": [],
+          "properties": [
+            "totalPhoneStorage",
+            "usedPhoneStorage",
+            "totalImageStorage",
+            "albumStorageList",
+            "scanTimestamp",
+            "previousTotalImageStorage",
+            "imageStorageRatio",
+            "totalStorageChange",
+            "hasTotalChange"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "storageChange",
+          "line": 20,
+          "isDefault": false
+        },
+        {
+          "name": "hasChange",
+          "line": 26,
+          "isDefault": false
+        },
+        {
+          "name": "AlbumStorageInfo",
+          "line": 11,
+          "isDefault": false
+        },
+        {
+          "name": "imageStorageRatio",
+          "line": 53,
+          "isDefault": false
+        },
+        {
+          "name": "totalStorageChange",
+          "line": 61,
+          "isDefault": false
+        },
+        {
+          "name": "hasTotalChange",
+          "line": 67,
+          "isDefault": false
+        },
+        {
+          "name": "StorageScanResult",
+          "line": 42,
+          "isDefault": false
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 7,
+        "functionCount": 0,
+        "classCount": 2
+      }
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 318,
+      "nonEmptyLines": 273,
+      "functions": [
+        {
+          "name": "initialize",
+          "startLine": 85,
+          "endLine": 91,
+          "params": []
+        },
+        {
+          "name": "performScan",
+          "startLine": 99,
+          "endLine": 211,
+          "params": [
+            "onProgress"
+          ]
+        },
+        {
+          "name": "getPhoneStorageInfo",
+          "startLine": 218,
+          "endLine": 229,
+          "params": []
+        },
+        {
+          "name": "saveScanResult",
+          "startLine": 234,
+          "endLine": 261,
+          "params": [
+            "result"
+          ]
+        },
+        {
+          "name": "loadScanResult",
+          "startLine": 266,
+          "endLine": 304,
+          "params": []
+        },
+        {
+          "name": "clearScanResult",
+          "startLine": 309,
+          "endLine": 317,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "StorageStatsManager",
+          "startLine": 25,
+          "endLine": 318,
+          "methods": [
+            "initialize",
+            "performScan",
+            "getPhoneStorageInfo",
+            "saveScanResult",
+            "loadScanResult",
+            "clearScanResult"
+          ],
+          "properties": [
+            "context",
+            "imageRepository",
+            "scanResultFile",
+            "_scanResult",
+            "scanResult",
+            "_isScanning",
+            "isScanning"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "scanResult",
+          "line": 76,
+          "isDefault": false
+        },
+        {
+          "name": "isScanning",
+          "line": 80,
+          "isDefault": false
+        },
+        {
+          "name": "initialize",
+          "line": 85,
+          "isDefault": false
+        },
+        {
+          "name": "performScan",
+          "line": 99,
+          "isDefault": false
+        },
+        {
+          "name": "clearScanResult",
+          "line": 309,
+          "isDefault": false
+        },
+        {
+          "name": "StorageStatsManager",
+          "line": 25,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "getInstance",
+          "callee": "synchronized",
+          "lineNumber": 35
+        },
+        {
+          "caller": "getInstance",
+          "callee": "also",
+          "lineNumber": 36
+        },
+        {
+          "caller": "getInstance",
+          "callee": "StorageStatsManager",
+          "lineNumber": 36
+        },
+        {
+          "caller": "formatBytes",
+          "callee": "format",
+          "lineNumber": 48
+        },
+        {
+          "caller": "formatBytes",
+          "callee": "format",
+          "lineNumber": 49
+        },
+        {
+          "caller": "formatBytes",
+          "callee": "format",
+          "lineNumber": 50
+        },
+        {
+          "caller": "formatBytesShort",
+          "callee": "format",
+          "lineNumber": 60
+        },
+        {
+          "caller": "formatBytesShort",
+          "callee": "format",
+          "lineNumber": 61
+        },
+        {
+          "caller": "formatBytesShort",
+          "callee": "format",
+          "lineNumber": 62
+        },
+        {
+          "caller": "initialize",
+          "callee": "withContext",
+          "lineNumber": 85
+        },
+        {
+          "caller": "initialize",
+          "callee": "loadScanResult",
+          "lineNumber": 86
+        },
+        {
+          "caller": "initialize",
+          "callee": "d",
+          "lineNumber": 89
+        },
+        {
+          "caller": "performScan",
+          "callee": "withContext",
+          "lineNumber": 101
+        },
+        {
+          "caller": "performScan",
+          "callee": "w",
+          "lineNumber": 104
+        },
+        {
+          "caller": "performScan",
+          "callee": "currentTimeMillis",
+          "lineNumber": 109
+        },
+        {
+          "caller": "performScan",
+          "callee": "launch",
+          "lineNumber": 116
+        },
+        {
+          "caller": "performScan",
+          "callee": "MainScope",
+          "lineNumber": 116
+        },
+        {
+          "caller": "performScan",
+          "callee": "invoke",
+          "lineNumber": 117
+        },
+        {
+          "caller": "updateProgress",
+          "callee": "safeProgress",
+          "lineNumber": 123
+        },
+        {
+          "caller": "updateProgress",
+          "callee": "delay",
+          "lineNumber": 125
+        },
+        {
+          "caller": "performScan",
+          "callee": "updateProgress",
+          "lineNumber": 131
+        },
+        {
+          "caller": "performScan",
+          "callee": "getPhoneStorageInfo",
+          "lineNumber": 134
+        },
+        {
+          "caller": "performScan",
+          "callee": "updateProgress",
+          "lineNumber": 135
+        },
+        {
+          "caller": "performScan",
+          "callee": "getAllImages",
+          "lineNumber": 138
+        },
+        {
+          "caller": "performScan",
+          "callee": "updateProgress",
+          "lineNumber": 139
+        },
+        {
+          "caller": "performScan",
+          "callee": "sumOf",
+          "lineNumber": 142
+        },
+        {
+          "caller": "performScan",
+          "callee": "updateProgress",
+          "lineNumber": 143
+        },
+        {
+          "caller": "performScan",
+          "callee": "groupBy",
+          "lineNumber": 146
+        },
+        {
+          "caller": "performScan",
+          "callee": "coerceAtLeast",
+          "lineNumber": 147
+        },
+        {
+          "caller": "performScan",
+          "callee": "associateBy",
+          "lineNumber": 151
+        },
+        {
+          "caller": "performScan",
+          "callee": "sortedByDescending",
+          "lineNumber": 154
+        },
+        {
+          "caller": "performScan",
+          "callee": "map",
+          "lineNumber": 154
+        },
+        {
+          "caller": "performScan",
+          "callee": "sumOf",
+          "lineNumber": 155
+        },
+        {
+          "caller": "performScan",
+          "callee": "updateProgress",
+          "lineNumber": 161
+        },
+        {
+          "caller": "performScan",
+          "callee": "AlbumStorageInfo",
+          "lineNumber": 164
+        },
+        {
+          "caller": "performScan",
+          "callee": "updateProgress",
+          "lineNumber": 172
+        },
+        {
+          "caller": "performScan",
+          "callee": "StorageScanResult",
+          "lineNumber": 175
+        },
+        {
+          "caller": "performScan",
+          "callee": "currentTimeMillis",
+          "lineNumber": 180
+        },
+        {
+          "caller": "performScan",
+          "callee": "saveScanResult",
+          "lineNumber": 187
+        },
+        {
+          "caller": "performScan",
+          "callee": "currentTimeMillis",
+          "lineNumber": 190
+        },
+        {
+          "caller": "performScan",
+          "callee": "updateProgress",
+          "lineNumber": 194
+        },
+        {
+          "caller": "performScan",
+          "callee": "updateProgress",
+          "lineNumber": 195
+        },
+        {
+          "caller": "performScan",
+          "callee": "delay",
+          "lineNumber": 196
+        },
+        {
+          "caller": "performScan",
+          "callee": "updateProgress",
+          "lineNumber": 199
+        },
+        {
+          "caller": "performScan",
+          "callee": "delay",
+          "lineNumber": 202
+        },
+        {
+          "caller": "performScan",
+          "callee": "d",
+          "lineNumber": 206
+        },
+        {
+          "caller": "performScan",
+          "callee": "formatBytes",
+          "lineNumber": 206
+        },
+        {
+          "caller": "getPhoneStorageInfo",
+          "callee": "StatFs",
+          "lineNumber": 220
+        },
+        {
+          "caller": "getPhoneStorageInfo",
+          "callee": "getExternalStorageDirectory",
+          "lineNumber": 220
+        },
+        {
+          "caller": "getPhoneStorageInfo",
+          "callee": "Pair",
+          "lineNumber": 224
+        },
+        {
+          "caller": "getPhoneStorageInfo",
+          "callee": "e",
+          "lineNumber": 226
+        },
+        {
+          "caller": "getPhoneStorageInfo",
+          "callee": "Pair",
+          "lineNumber": 227
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "JSONArray",
+          "lineNumber": 236
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "forEach",
+          "lineNumber": 237
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "apply",
+          "lineNumber": 238
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "JSONObject",
+          "lineNumber": 238
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "put",
+          "lineNumber": 239
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "put",
+          "lineNumber": 240
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "put",
+          "lineNumber": 241
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "let",
+          "lineNumber": 242
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "put",
+          "lineNumber": 242
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "put",
+          "lineNumber": 244
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "apply",
+          "lineNumber": 247
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "JSONObject",
+          "lineNumber": 247
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "put",
+          "lineNumber": 248
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "put",
+          "lineNumber": 249
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "put",
+          "lineNumber": 250
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "put",
+          "lineNumber": 251
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "put",
+          "lineNumber": 252
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "let",
+          "lineNumber": 253
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "put",
+          "lineNumber": 253
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "writeText",
+          "lineNumber": 256
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "toString",
+          "lineNumber": 256
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "d",
+          "lineNumber": 257
+        },
+        {
+          "caller": "saveScanResult",
+          "callee": "e",
+          "lineNumber": 259
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "exists",
+          "lineNumber": 268
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "readText",
+          "lineNumber": 270
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "isBlank",
+          "lineNumber": 271
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "JSONObject",
+          "lineNumber": 273
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "getJSONArray",
+          "lineNumber": 275
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "mutableListOf",
+          "lineNumber": 276
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "length",
+          "lineNumber": 278
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "getJSONObject",
+          "lineNumber": 279
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "add",
+          "lineNumber": 280
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "AlbumStorageInfo",
+          "lineNumber": 281
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "getString",
+          "lineNumber": 282
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "getLong",
+          "lineNumber": 283
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "getInt",
+          "lineNumber": 284
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "takeIf",
+          "lineNumber": 285
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "optLong",
+          "lineNumber": 285
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "StorageScanResult",
+          "lineNumber": 291
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "getLong",
+          "lineNumber": 292
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "getLong",
+          "lineNumber": 293
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "getLong",
+          "lineNumber": 294
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "getLong",
+          "lineNumber": 296
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "takeIf",
+          "lineNumber": 297
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "optLong",
+          "lineNumber": 297
+        },
+        {
+          "caller": "loadScanResult",
+          "callee": "e",
+          "lineNumber": 301
+        },
+        {
+          "caller": "clearScanResult",
+          "callee": "delete",
+          "lineNumber": 311
+        },
+        {
+          "caller": "clearScanResult",
+          "callee": "d",
+          "lineNumber": 313
+        },
+        {
+          "caller": "clearScanResult",
+          "callee": "e",
+          "lineNumber": 315
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 6,
+        "functionCount": 6,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 932,
+      "nonEmptyLines": 870,
+      "functions": [
+        {
+          "name": "StatisticsScreen",
+          "startLine": 93,
+          "endLine": 413,
+          "params": [
+            "onBack"
+          ]
+        },
+        {
+          "name": "ScanningIndicator",
+          "startLine": 418,
+          "endLine": 464,
+          "params": [
+            "accentColor"
+          ]
+        },
+        {
+          "name": "ScanButton",
+          "startLine": 469,
+          "endLine": 526,
+          "params": [
+            "isScanning",
+            "hasPreviousScan",
+            "accentColor",
+            "onClick"
+          ]
+        },
+        {
+          "name": "StorageCircularChart",
+          "startLine": 531,
+          "endLine": 596,
+          "params": [
+            "progress",
+            "isScanning",
+            "scanProgress",
+            "size",
+            "color",
+            "trackColor",
+            "isDarkTheme"
+          ]
+        },
+        {
+          "name": "StorageOverviewCard",
+          "startLine": 601,
+          "endLine": 644,
+          "params": [
+            "scanResult",
+            "cardColor",
+            "textColor",
+            "secondaryTextColor",
+            "accentColor",
+            "surfaceColor"
+          ]
+        },
+        {
+          "name": "StorageInfoItem",
+          "startLine": 649,
+          "endLine": 754,
+          "params": [
+            "icon",
+            "label",
+            "value",
+            "change",
+            "subValue",
+            "accentColor",
+            "textColor",
+            "secondaryTextColor",
+            "cardColor",
+            "modifier"
+          ]
+        },
+        {
+          "name": "AlbumStorageRow",
+          "startLine": 759,
+          "endLine": 913,
+          "params": [
+            "album",
+            "totalImageStorage",
+            "textColor",
+            "secondaryTextColor",
+            "accentColor",
+            "surfaceColor",
+            "index"
+          ]
+        },
+        {
+          "name": "formatTimestamp",
+          "startLine": 918,
+          "endLine": 932,
+          "params": [
+            "timestamp"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "StatisticsScreen",
+          "line": 93,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "StatisticsScreen",
+          "callee": "rememberCoroutineScope",
+          "lineNumber": 99
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "remember",
+          "lineNumber": 102
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "getInstance",
+          "lineNumber": 102
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "collectAsState",
+          "lineNumber": 103
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "collectAsState",
+          "lineNumber": 104
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "remember",
+          "lineNumber": 107
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "mutableFloatStateOf",
+          "lineNumber": 107
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "remember",
+          "lineNumber": 110
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Animatable",
+          "lineNumber": 110
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "LaunchedEffect",
+          "lineNumber": 113
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "coerceIn",
+          "lineNumber": 117
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "toInt",
+          "lineNumber": 117
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "animateTo",
+          "lineNumber": 119
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "tween",
+          "lineNumber": 121
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "LaunchedEffect",
+          "lineNumber": 130
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "snapTo",
+          "lineNumber": 133
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "LaunchedEffect",
+          "lineNumber": 138
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "initialize",
+          "lineNumber": 139
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Color",
+          "lineNumber": 143
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Color",
+          "lineNumber": 144
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Color",
+          "lineNumber": 146
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Color",
+          "lineNumber": 146
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Color",
+          "lineNumber": 148
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Color",
+          "lineNumber": 148
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "remember",
+          "lineNumber": 151
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Animatable",
+          "lineNumber": 151
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "LaunchedEffect",
+          "lineNumber": 153
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "delay",
+          "lineNumber": 156
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "animateTo",
+          "lineNumber": 158
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "spring",
+          "lineNumber": 160
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "LaunchedEffect",
+          "lineNumber": 169
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "snapTo",
+          "lineNumber": 171
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Column",
+          "lineNumber": 177
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "statusBarsPadding",
+          "lineNumber": 178
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "background",
+          "lineNumber": 178
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "fillMaxSize",
+          "lineNumber": 178
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Box",
+          "lineNumber": 184
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "padding",
+          "lineNumber": 185
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "fillMaxWidth",
+          "lineNumber": 185
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "IconButton",
+          "lineNumber": 189
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "lightTap",
+          "lineNumber": 191
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "onBack",
+          "lineNumber": 192
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "align",
+          "lineNumber": 194
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Icon",
+          "lineNumber": 196
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Text",
+          "lineNumber": 203
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "copy",
+          "lineNumber": 205
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "align",
+          "lineNumber": 210
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "LazyColumn",
+          "lineNumber": 214
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "padding",
+          "lineNumber": 215
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "fillMaxSize",
+          "lineNumber": 215
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "spacedBy",
+          "lineNumber": 219
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "item",
+          "lineNumber": 222
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Box",
+          "lineNumber": 223
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "padding",
+          "lineNumber": 224
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "background",
+          "lineNumber": 224
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "clip",
+          "lineNumber": 224
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "fillMaxWidth",
+          "lineNumber": 224
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "RoundedCornerShape",
+          "lineNumber": 226
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Column",
+          "lineNumber": 231
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Box",
+          "lineNumber": 233
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "size",
+          "lineNumber": 235
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "StorageCircularChart",
+          "lineNumber": 237
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Column",
+          "lineNumber": 248
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "padding",
+          "lineNumber": 250
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "ScanningIndicator",
+          "lineNumber": 253
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Text",
+          "lineNumber": 255
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "toInt",
+          "lineNumber": 256
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "copy",
+          "lineNumber": 257
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Spacer",
+          "lineNumber": 263
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "height",
+          "lineNumber": 263
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Text",
+          "lineNumber": 264
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "formatBytes",
+          "lineNumber": 265
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Text",
+          "lineNumber": 270
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Icon",
+          "lineNumber": 277
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "copy",
+          "lineNumber": 280
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "size",
+          "lineNumber": 281
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Spacer",
+          "lineNumber": 283
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "height",
+          "lineNumber": 283
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Text",
+          "lineNumber": 284
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "copy",
+          "lineNumber": 286
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Spacer",
+          "lineNumber": 291
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "height",
+          "lineNumber": 291
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Text",
+          "lineNumber": 292
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Spacer",
+          "lineNumber": 302
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "height",
+          "lineNumber": 302
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "ScanButton",
+          "lineNumber": 305
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "mediumTap",
+          "lineNumber": 310
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "launch",
+          "lineNumber": 311
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "performScan",
+          "lineNumber": 312
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "AnimatedVisibility",
+          "lineNumber": 320
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "fadeIn",
+          "lineNumber": 322
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "tween",
+          "lineNumber": 322
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "fadeOut",
+          "lineNumber": 323
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "tween",
+          "lineNumber": 323
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Column",
+          "lineNumber": 325
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Spacer",
+          "lineNumber": 326
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "height",
+          "lineNumber": 326
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Text",
+          "lineNumber": 327
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "formatTimestamp",
+          "lineNumber": 328
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "copy",
+          "lineNumber": 330
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "item",
+          "lineNumber": 340
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "StorageOverviewCard",
+          "lineNumber": 341
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "isNotEmpty",
+          "lineNumber": 353
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "item",
+          "lineNumber": 354
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Row",
+          "lineNumber": 355
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "padding",
+          "lineNumber": 356
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "fillMaxWidth",
+          "lineNumber": 356
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Text",
+          "lineNumber": 362
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "copy",
+          "lineNumber": 364
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Text",
+          "lineNumber": 369
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "item",
+          "lineNumber": 378
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Column",
+          "lineNumber": 379
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "background",
+          "lineNumber": 380
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "clip",
+          "lineNumber": 380
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "fillMaxWidth",
+          "lineNumber": 380
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "RoundedCornerShape",
+          "lineNumber": 382
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "forEachIndexed",
+          "lineNumber": 385
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "AlbumStorageRow",
+          "lineNumber": 386
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "GlassDivider",
+          "lineNumber": 397
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "item",
+          "lineNumber": 408
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "Spacer",
+          "lineNumber": 409
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "navigationBarsPadding",
+          "lineNumber": 409
+        },
+        {
+          "caller": "StatisticsScreen",
+          "callee": "height",
+          "lineNumber": 409
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "rememberInfiniteTransition",
+          "lineNumber": 420
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "animateFloat",
+          "lineNumber": 423
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "infiniteRepeatable",
+          "lineNumber": 426
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "tween",
+          "lineNumber": 427
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "animateFloat",
+          "lineNumber": 434
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "infiniteRepeatable",
+          "lineNumber": 437
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "tween",
+          "lineNumber": 438
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "Column",
+          "lineNumber": 444
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "Icon",
+          "lineNumber": 447
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "alpha",
+          "lineNumber": 451
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "scale",
+          "lineNumber": 451
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "size",
+          "lineNumber": 451
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "Spacer",
+          "lineNumber": 456
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "height",
+          "lineNumber": 456
+        },
+        {
+          "caller": "ScanningIndicator",
+          "callee": "Text",
+          "lineNumber": 457
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "rememberInfiniteTransition",
+          "lineNumber": 476
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "animateFloat",
+          "lineNumber": 479
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "infiniteRepeatable",
+          "lineNumber": 482
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "tween",
+          "lineNumber": 483
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "Button",
+          "lineNumber": 489
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "onClick",
+          "lineNumber": 490
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "buttonColors",
+          "lineNumber": 492
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "copy",
+          "lineNumber": 493
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "copy",
+          "lineNumber": 495
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "RoundedCornerShape",
+          "lineNumber": 498
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "height",
+          "lineNumber": 499
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "fillMaxWidth",
+          "lineNumber": 499
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "Row",
+          "lineNumber": 503
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "Icon",
+          "lineNumber": 507
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "then",
+          "lineNumber": 510
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "size",
+          "lineNumber": 510
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "rotate",
+          "lineNumber": 512
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "Spacer",
+          "lineNumber": 514
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "width",
+          "lineNumber": 514
+        },
+        {
+          "caller": "ScanButton",
+          "callee": "Text",
+          "lineNumber": 515
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "with",
+          "lineNumber": 541
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "toPx",
+          "lineNumber": 541
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "rememberInfiniteTransition",
+          "lineNumber": 543
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "animateFloat",
+          "lineNumber": 546
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "infiniteRepeatable",
+          "lineNumber": 549
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "tween",
+          "lineNumber": 550
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "listOf",
+          "lineNumber": 557
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "copy",
+          "lineNumber": 559
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "copy",
+          "lineNumber": 560
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "Canvas",
+          "lineNumber": 563
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "then",
+          "lineNumber": 564
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "size",
+          "lineNumber": 564
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "rotate",
+          "lineNumber": 566
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "drawArc",
+          "lineNumber": 569
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "Stroke",
+          "lineNumber": 574
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "drawArc",
+          "lineNumber": 587
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "sweepGradient",
+          "lineNumber": 588
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "coerceAtMost",
+          "lineNumber": 590
+        },
+        {
+          "caller": "StorageCircularChart",
+          "callee": "Stroke",
+          "lineNumber": 592
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "Row",
+          "lineNumber": 610
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "height",
+          "lineNumber": 611
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "fillMaxWidth",
+          "lineNumber": 611
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "spacedBy",
+          "lineNumber": 614
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "StorageInfoItem",
+          "lineNumber": 616
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "formatBytesShort",
+          "lineNumber": 619
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "fillMaxHeight",
+          "lineNumber": 625
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "weight",
+          "lineNumber": 625
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "StorageInfoItem",
+          "lineNumber": 630
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "formatBytesShort",
+          "lineNumber": 633
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "formatBytesShort",
+          "lineNumber": 634
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "Color",
+          "lineNumber": 635
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "fillMaxHeight",
+          "lineNumber": 639
+        },
+        {
+          "caller": "StorageOverviewCard",
+          "callee": "weight",
+          "lineNumber": 639
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Column",
+          "lineNumber": 662
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "padding",
+          "lineNumber": 663
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "background",
+          "lineNumber": 663
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "clip",
+          "lineNumber": 663
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "RoundedCornerShape",
+          "lineNumber": 664
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Row",
+          "lineNumber": 670
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Box",
+          "lineNumber": 671
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "background",
+          "lineNumber": 672
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "clip",
+          "lineNumber": 672
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "size",
+          "lineNumber": 672
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "RoundedCornerShape",
+          "lineNumber": 674
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "copy",
+          "lineNumber": 675
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Icon",
+          "lineNumber": 678
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "size",
+          "lineNumber": 682
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Spacer",
+          "lineNumber": 685
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "width",
+          "lineNumber": 685
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Text",
+          "lineNumber": 686
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Spacer",
+          "lineNumber": 694
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "height",
+          "lineNumber": 694
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Column",
+          "lineNumber": 697
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Text",
+          "lineNumber": 698
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "copy",
+          "lineNumber": 700
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Spacer",
+          "lineNumber": 706
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "height",
+          "lineNumber": 706
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Row",
+          "lineNumber": 711
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "padding",
+          "lineNumber": 713
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "background",
+          "lineNumber": 713
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "clip",
+          "lineNumber": 713
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "RoundedCornerShape",
+          "lineNumber": 714
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "copy",
+          "lineNumber": 716
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Color",
+          "lineNumber": 716
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "copy",
+          "lineNumber": 717
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Color",
+          "lineNumber": 717
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Icon",
+          "lineNumber": 721
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Color",
+          "lineNumber": 727
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Color",
+          "lineNumber": 727
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "size",
+          "lineNumber": 728
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Spacer",
+          "lineNumber": 730
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "width",
+          "lineNumber": 730
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Text",
+          "lineNumber": 731
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "formatBytesShort",
+          "lineNumber": 732
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "abs",
+          "lineNumber": 732
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Color",
+          "lineNumber": 734
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Color",
+          "lineNumber": 734
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Text",
+          "lineNumber": 739
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "copy",
+          "lineNumber": 742
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "Text",
+          "lineNumber": 746
+        },
+        {
+          "caller": "StorageInfoItem",
+          "callee": "copy",
+          "lineNumber": 749
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "coerceIn",
+          "lineNumber": 770
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "toFloat",
+          "lineNumber": 770
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "animateFloatAsState",
+          "lineNumber": 774
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "spring",
+          "lineNumber": 776
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Color",
+          "lineNumber": 786
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Color",
+          "lineNumber": 787
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Row",
+          "lineNumber": 791
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "padding",
+          "lineNumber": 792
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "fillMaxWidth",
+          "lineNumber": 792
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Box",
+          "lineNumber": 798
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "background",
+          "lineNumber": 799
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "clip",
+          "lineNumber": 799
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "size",
+          "lineNumber": 799
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "RoundedCornerShape",
+          "lineNumber": 801
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "copy",
+          "lineNumber": 802
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Icon",
+          "lineNumber": 805
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "size",
+          "lineNumber": 809
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Spacer",
+          "lineNumber": 813
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "width",
+          "lineNumber": 813
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Column",
+          "lineNumber": 816
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "weight",
+          "lineNumber": 816
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Text",
+          "lineNumber": 817
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "copy",
+          "lineNumber": 819
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Spacer",
+          "lineNumber": 827
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "height",
+          "lineNumber": 827
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Box",
+          "lineNumber": 830
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "background",
+          "lineNumber": 831
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "clip",
+          "lineNumber": 831
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "height",
+          "lineNumber": 831
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "fillMaxWidth",
+          "lineNumber": 831
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "RoundedCornerShape",
+          "lineNumber": 834
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "coerceAtLeast",
+          "lineNumber": 838
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Box",
+          "lineNumber": 839
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "background",
+          "lineNumber": 840
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "clip",
+          "lineNumber": 840
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "height",
+          "lineNumber": 840
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "fillMaxWidth",
+          "lineNumber": 840
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "RoundedCornerShape",
+          "lineNumber": 843
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Spacer",
+          "lineNumber": 848
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "height",
+          "lineNumber": 848
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Row",
+          "lineNumber": 850
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Text",
+          "lineNumber": 851
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Text",
+          "lineNumber": 856
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "format",
+          "lineNumber": 857
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "copy",
+          "lineNumber": 859
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Spacer",
+          "lineNumber": 864
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "width",
+          "lineNumber": 864
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Column",
+          "lineNumber": 867
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Row",
+          "lineNumber": 868
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Text",
+          "lineNumber": 869
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "formatBytesShort",
+          "lineNumber": 870
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "copy",
+          "lineNumber": 871
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "abs",
+          "lineNumber": 882
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Spacer",
+          "lineNumber": 883
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "height",
+          "lineNumber": 883
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Row",
+          "lineNumber": 884
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "padding",
+          "lineNumber": 886
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "background",
+          "lineNumber": 886
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "clip",
+          "lineNumber": 886
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "RoundedCornerShape",
+          "lineNumber": 887
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "copy",
+          "lineNumber": 889
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Color",
+          "lineNumber": 889
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "copy",
+          "lineNumber": 890
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Color",
+          "lineNumber": 890
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Icon",
+          "lineNumber": 894
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Color",
+          "lineNumber": 900
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Color",
+          "lineNumber": 900
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "size",
+          "lineNumber": 901
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Spacer",
+          "lineNumber": 903
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "width",
+          "lineNumber": 903
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Text",
+          "lineNumber": 904
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "formatBytesShort",
+          "lineNumber": 905
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Color",
+          "lineNumber": 907
+        },
+        {
+          "caller": "AlbumStorageRow",
+          "callee": "Color",
+          "lineNumber": 907
+        },
+        {
+          "caller": "formatTimestamp",
+          "callee": "currentTimeMillis",
+          "lineNumber": 919
+        },
+        {
+          "caller": "formatTimestamp",
+          "callee": "SimpleDateFormat",
+          "lineNumber": 928
+        },
+        {
+          "caller": "formatTimestamp",
+          "callee": "getDefault",
+          "lineNumber": 928
+        },
+        {
+          "caller": "formatTimestamp",
+          "callee": "format",
+          "lineNumber": 929
+        },
+        {
+          "caller": "formatTimestamp",
+          "callee": "Date",
+          "lineNumber": 929
+        }
+      ],
+      "metrics": {
+        "importCount": 4,
+        "exportCount": 1,
+        "functionCount": 8,
+        "classCount": 0
+      }
+    }
+  ]
+}

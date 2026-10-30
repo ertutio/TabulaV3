@@ -1,0 +1,5 @@
+{
+  "sha": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+  "message": "修复回收站删除核验错误并增加 Android 16/17 回归 (#7)\n\n正确区分已挂载和近期未挂载存储卷，恢复已删除照片旧记录的核验，同时保留权限与存储不可用时的保护。\n\n验证：75 项 Release 单元测试通过，Android 16 与 Android 17 模拟器各 3 项实际 MediaStore 回归通过。用户已确认 ColorOS 17 真机修复有效并授权合并。",
+  "html_url": "https://github.com/ertutio/TabulaV3/commit/d2038b8e0dc8c99fbdf2c754e88dec0a8078a725"
+}

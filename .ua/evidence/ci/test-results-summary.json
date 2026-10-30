@@ -1,0 +1,154 @@
+{
+  "sourceRunId": 38676233496,
+  "sourceCommit": "7cc5ddcbcfd4578bc2ecbd1f4e8dccd088053574",
+  "releaseUnitTests": {
+    "xmlDirectory": "work\\TabulaV3-volume-fix\\delivery-build\\app\\build\\test-results\\testReleaseUnitTest",
+    "xmlFiles": 14,
+    "tests": 75,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "files": [
+      {
+        "file": "TEST-com.tabula.v3.data.repository.BatchDeletionTest.xml",
+        "sha256": "5fb0405b914c123e0c835756bf4c9c93924c19513130e06235c8ef9bd94b53af",
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-com.tabula.v3.data.repository.FileOperationManagerTest.xml",
+        "sha256": "f52a75d8edab62c13315fce9d94b359d0b6450f2600b76ed0254e3eb29ed4480",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-com.tabula.v3.data.repository.RecycleBinDeletionTest.xml",
+        "sha256": "085f92e6dc0e113406e2c60f7dcd6c2fa05140b713fdb9277a69471ccf5d2fcc",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-com.tabula.v3.data.repository.RecycleBinManagerTest.xml",
+        "sha256": "745b89b5563b0c24631b3c033c9b90698b5c15100f952f077c210727b50e9fb1",
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-com.tabula.v3.data.repository.VolumeConfirmationRuleTest.xml",
+        "sha256": "b5af219fef60572431633657afc6a3b93463121b0ed2f144c9c772f2d5b00916",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-com.tabula.v3.permission.DeletePermissionActivityRecoveryTest.xml",
+        "sha256": "1532f70ea9ea1e658f91b13ebd24a4a9822033783ef131cb0642355e10516c61",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-com.tabula.v3.permission.DeletePermissionSessionTest.xml",
+        "sha256": "89018964b1d239099a4e87587c0dfd4cc84fa0a2cb70b08f7658e106d83552d4",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-com.tabula.v3.permission.MediaPermissionPolicyTest.xml",
+        "sha256": "8e08e4f7cbc188009816115c47a01f16c17b3a1d27c9b8e9ac3afaa93a0d0b40",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-com.tabula.v3.ui.components.GenieTargetUtilsTest.xml",
+        "sha256": "80d45cf4f2bb5b37f3064dd06c73827d75fc4bea0269007fcf37c469e960af8e",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-com.tabula.v3.ui.components.MonthInfoBuilderTest.xml",
+        "sha256": "44156298f43d4714aadb1fb239f4500f6b60bbac2bdcab8371673f41f2ab13fd",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-com.tabula.v3.ui.util.AlbumCleanupImageResolverTest.xml",
+        "sha256": "14c5b65aed079a79af7fe2eb85ff03039c1723ac904b9c5e36425d80621a81c6",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-com.tabula.v3.ui.util.PhotoSharingTest.xml",
+        "sha256": "84dfb8cfc8642453bc64aaedfccec37f122938f39afc6fb212398da09c380082",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-com.tabula.v3.ui.util.SelectionUtilsTest.xml",
+        "sha256": "e4d5bfc400170e4b2adea991d60677b937013fc36e9a4d9777676bec157a1642",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "file": "TEST-com.tabula.v3.ui.util.StringDragSelectStateTest.xml",
+        "sha256": "84d9ebe3768594be8bc86d57c32cdb7e3c4b3c8a5fadef7c7c5e819bb1c97ce7",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "deviceInstrumentation": [
+    {
+      "api": "36",
+      "sourceCommit": "7cc5ddcbcfd4578bc2ecbd1f4e8dccd088053574",
+      "testedPackage": "com.tabula.v3.recyclebin.test",
+      "scope": "owned synthetic JPEGs; real MediaStore queries and journal reconciliation",
+      "instrumentationSummary": "OK (3 tests)",
+      "tests": 3,
+      "logSha256": "8f0d5981a8dfb57a54081d0219c296933d9b52c0fef88bee156e2a6c510abaf2",
+      "archiveName": "Tabula-VolumeFix-API36.zip",
+      "archiveSha256": "b5ffb494ddfecc0adbd2ab3ce8dcd73905e6fdc69b5991f00bacdc3f0a92937b"
+    },
+    {
+      "api": "37",
+      "sourceCommit": "7cc5ddcbcfd4578bc2ecbd1f4e8dccd088053574",
+      "testedPackage": "com.tabula.v3.recyclebin.test",
+      "scope": "owned synthetic JPEGs; real MediaStore queries and journal reconciliation",
+      "instrumentationSummary": "OK (3 tests)",
+      "tests": 3,
+      "logSha256": "0b2f602309f5be0730babfdd913458147dbc3598a38d755af116148febe88ed1",
+      "archiveName": "Tabula-VolumeFix-API37.zip",
+      "archiveSha256": "52ad252ecb9b15c669930b4d5dd5693b9f9547f016c0891209ee2f4b64dff227"
+    }
+  ],
+  "buildArtifact": {
+    "archiveName": "delivery-build.zip",
+    "sha256": "12af2b47f821cac082779471acea206766bfd10fc0ad35dbe1f4a497f4b2d823"
+  }
+}

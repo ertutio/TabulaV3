@@ -1,0 +1,5093 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 16,
+  "filesSkipped": [
+    "app/src/main/res/layout/fluid_cloud_layout.xml",
+    "app/src/main/res/layout/widget_tabula.xml",
+    "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+    "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+    "app/src/main/res/raw/liquidglass_effect.agsl",
+    "gradle/wrapper/gradle-wrapper.properties",
+    "gradlew",
+    "scripts/release-backup-public.pem"
+  ],
+  "filesUnreadable": [],
+  "analysisOutcomes": {
+    "structure": {
+      "succeeded": 16,
+      "failed": 0
+    },
+    "callGraph": {
+      "succeeded": 14,
+      "failed": 0,
+      "skipped": 2
+    }
+  },
+  "results": [
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 171,
+      "nonEmptyLines": 156,
+      "functions": [
+        {
+          "name": "clears140PhotosInBoundedBatches",
+          "startLine": 11,
+          "endLine": 21,
+          "params": []
+        },
+        {
+          "name": "retriesRejectedRequestsWithSmallerBatches",
+          "startLine": 23,
+          "endLine": 30,
+          "params": []
+        },
+        {
+          "name": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "startLine": 32,
+          "endLine": 41,
+          "params": []
+        },
+        {
+          "name": "partialSuccessRemovesOnlyConfirmedPhotos",
+          "startLine": 43,
+          "endLine": 50,
+          "params": []
+        },
+        {
+          "name": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "startLine": 52,
+          "endLine": 64,
+          "params": []
+        },
+        {
+          "name": "cancellationDuringSplitStopsSiblingRequests",
+          "startLine": 66,
+          "endLine": 75,
+          "params": []
+        },
+        {
+          "name": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "startLine": 77,
+          "endLine": 96,
+          "params": []
+        },
+        {
+          "name": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "startLine": 98,
+          "endLine": 105,
+          "params": []
+        },
+        {
+          "name": "emptyRecycleBinDoesNotLaunchARequest",
+          "startLine": 107,
+          "endLine": 113,
+          "params": []
+        },
+        {
+          "name": "nonRetryableFailureDoesNotSplit",
+          "startLine": 115,
+          "endLine": 123,
+          "params": []
+        },
+        {
+          "name": "globalFailureStopsAllLaterBatches",
+          "startLine": 125,
+          "endLine": 134,
+          "params": []
+        },
+        {
+          "name": "globalFailureKeepsEarlierSuccessfulWork",
+          "startLine": 136,
+          "endLine": 146,
+          "params": []
+        },
+        {
+          "name": "unknownVerificationCommitsKnownResultsThenStops",
+          "startLine": 148,
+          "endLine": 159,
+          "params": []
+        },
+        {
+          "name": "over2000ItemsStillUseBoundedRequests",
+          "startLine": 161,
+          "endLine": 170,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "BatchDeletionTest",
+          "startLine": 10,
+          "endLine": 171,
+          "methods": [
+            "clears140PhotosInBoundedBatches",
+            "retriesRejectedRequestsWithSmallerBatches",
+            "oneInvalidItemDoesNotBlockOtherPhotos",
+            "partialSuccessRemovesOnlyConfirmedPhotos",
+            "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+            "cancellationDuringSplitStopsSiblingRequests",
+            "neverStartsNextRequestBeforePermissionResultAndPersistence",
+            "deduplicatesRequestsAndIgnoresUnrequestedResults",
+            "emptyRecycleBinDoesNotLaunchARequest",
+            "nonRetryableFailureDoesNotSplit",
+            "globalFailureStopsAllLaterBatches",
+            "globalFailureKeepsEarlierSuccessfulWork",
+            "unknownVerificationCommitsKnownResultsThenStops",
+            "over2000ItemsStillUseBoundedRequests"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "clears140PhotosInBoundedBatches",
+          "line": 11,
+          "isDefault": false
+        },
+        {
+          "name": "retriesRejectedRequestsWithSmallerBatches",
+          "line": 23,
+          "isDefault": false
+        },
+        {
+          "name": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "line": 32,
+          "isDefault": false
+        },
+        {
+          "name": "partialSuccessRemovesOnlyConfirmedPhotos",
+          "line": 43,
+          "isDefault": false
+        },
+        {
+          "name": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "line": 52,
+          "isDefault": false
+        },
+        {
+          "name": "cancellationDuringSplitStopsSiblingRequests",
+          "line": 66,
+          "isDefault": false
+        },
+        {
+          "name": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "line": 77,
+          "isDefault": false
+        },
+        {
+          "name": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "line": 98,
+          "isDefault": false
+        },
+        {
+          "name": "emptyRecycleBinDoesNotLaunchARequest",
+          "line": 107,
+          "isDefault": false
+        },
+        {
+          "name": "nonRetryableFailureDoesNotSplit",
+          "line": 115,
+          "isDefault": false
+        },
+        {
+          "name": "globalFailureStopsAllLaterBatches",
+          "line": 125,
+          "isDefault": false
+        },
+        {
+          "name": "globalFailureKeepsEarlierSuccessfulWork",
+          "line": 136,
+          "isDefault": false
+        },
+        {
+          "name": "unknownVerificationCommitsKnownResultsThenStops",
+          "line": 148,
+          "isDefault": false
+        },
+        {
+          "name": "over2000ItemsStillUseBoundedRequests",
+          "line": 161,
+          "isDefault": false
+        },
+        {
+          "name": "BatchDeletionTest",
+          "line": 10,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "runBlocking",
+          "lineNumber": 11
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "mutableListOf",
+          "lineNumber": 12
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "mutableSetOf",
+          "lineNumber": 13
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "deleteInBatches",
+          "lineNumber": 14
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "toList",
+          "lineNumber": 14
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "add",
+          "lineNumber": 15
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "Completed",
+          "lineNumber": 16
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "toSet",
+          "lineNumber": 16
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "addAll",
+          "lineNumber": 17
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "assertEquals",
+          "lineNumber": 18
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "listOf",
+          "lineNumber": 18
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "map",
+          "lineNumber": 18
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "assertEquals",
+          "lineNumber": 19
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "toSet",
+          "lineNumber": 19
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "assertTrue",
+          "lineNumber": 20
+        },
+        {
+          "caller": "clears140PhotosInBoundedBatches",
+          "callee": "isEmpty",
+          "lineNumber": 20
+        },
+        {
+          "caller": "retriesRejectedRequestsWithSmallerBatches",
+          "callee": "runBlocking",
+          "lineNumber": 23
+        },
+        {
+          "caller": "retriesRejectedRequestsWithSmallerBatches",
+          "callee": "deleteInBatches",
+          "lineNumber": 24
+        },
+        {
+          "caller": "retriesRejectedRequestsWithSmallerBatches",
+          "callee": "toList",
+          "lineNumber": 24
+        },
+        {
+          "caller": "retriesRejectedRequestsWithSmallerBatches",
+          "callee": "Failed",
+          "lineNumber": 25
+        },
+        {
+          "caller": "retriesRejectedRequestsWithSmallerBatches",
+          "callee": "Completed",
+          "lineNumber": 26
+        },
+        {
+          "caller": "retriesRejectedRequestsWithSmallerBatches",
+          "callee": "toSet",
+          "lineNumber": 26
+        },
+        {
+          "caller": "retriesRejectedRequestsWithSmallerBatches",
+          "callee": "assertEquals",
+          "lineNumber": 28
+        },
+        {
+          "caller": "retriesRejectedRequestsWithSmallerBatches",
+          "callee": "toSet",
+          "lineNumber": 28
+        },
+        {
+          "caller": "retriesRejectedRequestsWithSmallerBatches",
+          "callee": "assertNull",
+          "lineNumber": 29
+        },
+        {
+          "caller": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "callee": "runBlocking",
+          "lineNumber": 32
+        },
+        {
+          "caller": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "callee": "mutableSetOf",
+          "lineNumber": 33
+        },
+        {
+          "caller": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "callee": "deleteInBatches",
+          "lineNumber": 34
+        },
+        {
+          "caller": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "callee": "toList",
+          "lineNumber": 34
+        },
+        {
+          "caller": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "callee": "Failed",
+          "lineNumber": 35
+        },
+        {
+          "caller": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "callee": "Completed",
+          "lineNumber": 36
+        },
+        {
+          "caller": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "callee": "toSet",
+          "lineNumber": 36
+        },
+        {
+          "caller": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "callee": "addAll",
+          "lineNumber": 37
+        },
+        {
+          "caller": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "callee": "assertEquals",
+          "lineNumber": 38
+        },
+        {
+          "caller": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "callee": "setOf",
+          "lineNumber": 38
+        },
+        {
+          "caller": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "callee": "assertEquals",
+          "lineNumber": 39
+        },
+        {
+          "caller": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "callee": "toSet",
+          "lineNumber": 39
+        },
+        {
+          "caller": "oneInvalidItemDoesNotBlockOtherPhotos",
+          "callee": "assertEquals",
+          "lineNumber": 40
+        },
+        {
+          "caller": "partialSuccessRemovesOnlyConfirmedPhotos",
+          "callee": "runBlocking",
+          "lineNumber": 43
+        },
+        {
+          "caller": "partialSuccessRemovesOnlyConfirmedPhotos",
+          "callee": "mutableSetOf",
+          "lineNumber": 44
+        },
+        {
+          "caller": "partialSuccessRemovesOnlyConfirmedPhotos",
+          "callee": "deleteInBatches",
+          "lineNumber": 45
+        },
+        {
+          "caller": "partialSuccessRemovesOnlyConfirmedPhotos",
+          "callee": "listOf",
+          "lineNumber": 45
+        },
+        {
+          "caller": "partialSuccessRemovesOnlyConfirmedPhotos",
+          "callee": "Completed",
+          "lineNumber": 46
+        },
+        {
+          "caller": "partialSuccessRemovesOnlyConfirmedPhotos",
+          "callee": "setOf",
+          "lineNumber": 46
+        },
+        {
+          "caller": "partialSuccessRemovesOnlyConfirmedPhotos",
+          "callee": "addAll",
+          "lineNumber": 47
+        },
+        {
+          "caller": "partialSuccessRemovesOnlyConfirmedPhotos",
+          "callee": "assertEquals",
+          "lineNumber": 48
+        },
+        {
+          "caller": "partialSuccessRemovesOnlyConfirmedPhotos",
+          "callee": "setOf",
+          "lineNumber": 48
+        },
+        {
+          "caller": "partialSuccessRemovesOnlyConfirmedPhotos",
+          "callee": "assertEquals",
+          "lineNumber": 49
+        },
+        {
+          "caller": "partialSuccessRemovesOnlyConfirmedPhotos",
+          "callee": "setOf",
+          "lineNumber": 49
+        },
+        {
+          "caller": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "callee": "runBlocking",
+          "lineNumber": 52
+        },
+        {
+          "caller": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "callee": "mutableSetOf",
+          "lineNumber": 54
+        },
+        {
+          "caller": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "callee": "deleteInBatches",
+          "lineNumber": 55
+        },
+        {
+          "caller": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "callee": "toList",
+          "lineNumber": 55
+        },
+        {
+          "caller": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "callee": "Completed",
+          "lineNumber": 58
+        },
+        {
+          "caller": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "callee": "toSet",
+          "lineNumber": 58
+        },
+        {
+          "caller": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "callee": "addAll",
+          "lineNumber": 59
+        },
+        {
+          "caller": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "callee": "assertEquals",
+          "lineNumber": 60
+        },
+        {
+          "caller": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "callee": "assertTrue",
+          "lineNumber": 61
+        },
+        {
+          "caller": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "callee": "assertEquals",
+          "lineNumber": 62
+        },
+        {
+          "caller": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "callee": "toSet",
+          "lineNumber": 62
+        },
+        {
+          "caller": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "callee": "assertEquals",
+          "lineNumber": 63
+        },
+        {
+          "caller": "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+          "callee": "toSet",
+          "lineNumber": 63
+        },
+        {
+          "caller": "cancellationDuringSplitStopsSiblingRequests",
+          "callee": "runBlocking",
+          "lineNumber": 66
+        },
+        {
+          "caller": "cancellationDuringSplitStopsSiblingRequests",
+          "callee": "mutableListOf",
+          "lineNumber": 67
+        },
+        {
+          "caller": "cancellationDuringSplitStopsSiblingRequests",
+          "callee": "deleteInBatches",
+          "lineNumber": 68
+        },
+        {
+          "caller": "cancellationDuringSplitStopsSiblingRequests",
+          "callee": "listOf",
+          "lineNumber": 68
+        },
+        {
+          "caller": "cancellationDuringSplitStopsSiblingRequests",
+          "callee": "add",
+          "lineNumber": 69
+        },
+        {
+          "caller": "cancellationDuringSplitStopsSiblingRequests",
+          "callee": "Failed",
+          "lineNumber": 70
+        },
+        {
+          "caller": "cancellationDuringSplitStopsSiblingRequests",
+          "callee": "fail",
+          "lineNumber": 72
+        },
+        {
+          "caller": "cancellationDuringSplitStopsSiblingRequests",
+          "callee": "assertEquals",
+          "lineNumber": 73
+        },
+        {
+          "caller": "cancellationDuringSplitStopsSiblingRequests",
+          "callee": "listOf",
+          "lineNumber": 73
+        },
+        {
+          "caller": "cancellationDuringSplitStopsSiblingRequests",
+          "callee": "listOf",
+          "lineNumber": 73
+        },
+        {
+          "caller": "cancellationDuringSplitStopsSiblingRequests",
+          "callee": "listOf",
+          "lineNumber": 73
+        },
+        {
+          "caller": "cancellationDuringSplitStopsSiblingRequests",
+          "callee": "assertEquals",
+          "lineNumber": 74
+        },
+        {
+          "caller": "cancellationDuringSplitStopsSiblingRequests",
+          "callee": "setOf",
+          "lineNumber": 74
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "runBlocking",
+          "lineNumber": 77
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "CompletableDeferred",
+          "lineNumber": 78
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "CompletableDeferred",
+          "lineNumber": 79
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "async",
+          "lineNumber": 81
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "deleteInBatches",
+          "lineNumber": 82
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "listOf",
+          "lineNumber": 82
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "await",
+          "lineNumber": 84
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "Completed",
+          "lineNumber": 85
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "toSet",
+          "lineNumber": 85
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "await",
+          "lineNumber": 86
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "yield",
+          "lineNumber": 88
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "assertEquals",
+          "lineNumber": 89
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "complete",
+          "lineNumber": 90
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "yield",
+          "lineNumber": 91
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "assertEquals",
+          "lineNumber": 92
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "complete",
+          "lineNumber": 93
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "assertTrue",
+          "lineNumber": 94
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "isEmpty",
+          "lineNumber": 94
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "await",
+          "lineNumber": 94
+        },
+        {
+          "caller": "neverStartsNextRequestBeforePermissionResultAndPersistence",
+          "callee": "assertEquals",
+          "lineNumber": 95
+        },
+        {
+          "caller": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "callee": "runBlocking",
+          "lineNumber": 98
+        },
+        {
+          "caller": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "callee": "deleteInBatches",
+          "lineNumber": 99
+        },
+        {
+          "caller": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "callee": "listOf",
+          "lineNumber": 99
+        },
+        {
+          "caller": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "callee": "assertEquals",
+          "lineNumber": 100
+        },
+        {
+          "caller": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "callee": "listOf",
+          "lineNumber": 100
+        },
+        {
+          "caller": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "callee": "Completed",
+          "lineNumber": 101
+        },
+        {
+          "caller": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "callee": "setOf",
+          "lineNumber": 101
+        },
+        {
+          "caller": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "callee": "assertEquals",
+          "lineNumber": 102
+        },
+        {
+          "caller": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "callee": "setOf",
+          "lineNumber": 102
+        },
+        {
+          "caller": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "callee": "assertEquals",
+          "lineNumber": 103
+        },
+        {
+          "caller": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "callee": "setOf",
+          "lineNumber": 103
+        },
+        {
+          "caller": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "callee": "assertEquals",
+          "lineNumber": 104
+        },
+        {
+          "caller": "deduplicatesRequestsAndIgnoresUnrequestedResults",
+          "callee": "setOf",
+          "lineNumber": 104
+        },
+        {
+          "caller": "emptyRecycleBinDoesNotLaunchARequest",
+          "callee": "runBlocking",
+          "lineNumber": 107
+        },
+        {
+          "caller": "emptyRecycleBinDoesNotLaunchARequest",
+          "callee": "deleteInBatches",
+          "lineNumber": 108
+        },
+        {
+          "caller": "emptyRecycleBinDoesNotLaunchARequest",
+          "callee": "emptyList",
+          "lineNumber": 108
+        },
+        {
+          "caller": "emptyRecycleBinDoesNotLaunchARequest",
+          "callee": "error",
+          "lineNumber": 109
+        },
+        {
+          "caller": "emptyRecycleBinDoesNotLaunchARequest",
+          "callee": "fail",
+          "lineNumber": 110
+        },
+        {
+          "caller": "emptyRecycleBinDoesNotLaunchARequest",
+          "callee": "assertTrue",
+          "lineNumber": 111
+        },
+        {
+          "caller": "emptyRecycleBinDoesNotLaunchARequest",
+          "callee": "isEmpty",
+          "lineNumber": 111
+        },
+        {
+          "caller": "emptyRecycleBinDoesNotLaunchARequest",
+          "callee": "assertTrue",
+          "lineNumber": 112
+        },
+        {
+          "caller": "emptyRecycleBinDoesNotLaunchARequest",
+          "callee": "isEmpty",
+          "lineNumber": 112
+        },
+        {
+          "caller": "nonRetryableFailureDoesNotSplit",
+          "callee": "runBlocking",
+          "lineNumber": 115
+        },
+        {
+          "caller": "nonRetryableFailureDoesNotSplit",
+          "callee": "deleteInBatches",
+          "lineNumber": 117
+        },
+        {
+          "caller": "nonRetryableFailureDoesNotSplit",
+          "callee": "listOf",
+          "lineNumber": 117
+        },
+        {
+          "caller": "nonRetryableFailureDoesNotSplit",
+          "callee": "Failed",
+          "lineNumber": 119
+        },
+        {
+          "caller": "nonRetryableFailureDoesNotSplit",
+          "callee": "assertEquals",
+          "lineNumber": 121
+        },
+        {
+          "caller": "nonRetryableFailureDoesNotSplit",
+          "callee": "assertEquals",
+          "lineNumber": 122
+        },
+        {
+          "caller": "nonRetryableFailureDoesNotSplit",
+          "callee": "setOf",
+          "lineNumber": 122
+        },
+        {
+          "caller": "globalFailureStopsAllLaterBatches",
+          "callee": "runBlocking",
+          "lineNumber": 125
+        },
+        {
+          "caller": "globalFailureStopsAllLaterBatches",
+          "callee": "deleteInBatches",
+          "lineNumber": 127
+        },
+        {
+          "caller": "globalFailureStopsAllLaterBatches",
+          "callee": "toList",
+          "lineNumber": 127
+        },
+        {
+          "caller": "globalFailureStopsAllLaterBatches",
+          "callee": "Failed",
+          "lineNumber": 129
+        },
+        {
+          "caller": "globalFailureStopsAllLaterBatches",
+          "callee": "fail",
+          "lineNumber": 130
+        },
+        {
+          "caller": "globalFailureStopsAllLaterBatches",
+          "callee": "assertEquals",
+          "lineNumber": 131
+        },
+        {
+          "caller": "globalFailureStopsAllLaterBatches",
+          "callee": "assertEquals",
+          "lineNumber": 132
+        },
+        {
+          "caller": "globalFailureStopsAllLaterBatches",
+          "callee": "assertEquals",
+          "lineNumber": 133
+        },
+        {
+          "caller": "globalFailureKeepsEarlierSuccessfulWork",
+          "callee": "runBlocking",
+          "lineNumber": 136
+        },
+        {
+          "caller": "globalFailureKeepsEarlierSuccessfulWork",
+          "callee": "deleteInBatches",
+          "lineNumber": 138
+        },
+        {
+          "caller": "globalFailureKeepsEarlierSuccessfulWork",
+          "callee": "toList",
+          "lineNumber": 138
+        },
+        {
+          "caller": "globalFailureKeepsEarlierSuccessfulWork",
+          "callee": "Completed",
+          "lineNumber": 140
+        },
+        {
+          "caller": "globalFailureKeepsEarlierSuccessfulWork",
+          "callee": "toSet",
+          "lineNumber": 140
+        },
+        {
+          "caller": "globalFailureKeepsEarlierSuccessfulWork",
+          "callee": "Failed",
+          "lineNumber": 141
+        },
+        {
+          "caller": "globalFailureKeepsEarlierSuccessfulWork",
+          "callee": "assertEquals",
+          "lineNumber": 143
+        },
+        {
+          "caller": "globalFailureKeepsEarlierSuccessfulWork",
+          "callee": "assertEquals",
+          "lineNumber": 144
+        },
+        {
+          "caller": "globalFailureKeepsEarlierSuccessfulWork",
+          "callee": "toSet",
+          "lineNumber": 144
+        },
+        {
+          "caller": "globalFailureKeepsEarlierSuccessfulWork",
+          "callee": "assertEquals",
+          "lineNumber": 145
+        },
+        {
+          "caller": "globalFailureKeepsEarlierSuccessfulWork",
+          "callee": "toSet",
+          "lineNumber": 145
+        },
+        {
+          "caller": "unknownVerificationCommitsKnownResultsThenStops",
+          "callee": "runBlocking",
+          "lineNumber": 148
+        },
+        {
+          "caller": "unknownVerificationCommitsKnownResultsThenStops",
+          "callee": "mutableSetOf",
+          "lineNumber": 150
+        },
+        {
+          "caller": "unknownVerificationCommitsKnownResultsThenStops",
+          "callee": "deleteInBatches",
+          "lineNumber": 151
+        },
+        {
+          "caller": "unknownVerificationCommitsKnownResultsThenStops",
+          "callee": "toList",
+          "lineNumber": 151
+        },
+        {
+          "caller": "unknownVerificationCommitsKnownResultsThenStops",
+          "callee": "Completed",
+          "lineNumber": 153
+        },
+        {
+          "caller": "unknownVerificationCommitsKnownResultsThenStops",
+          "callee": "setOf",
+          "lineNumber": 153
+        },
+        {
+          "caller": "unknownVerificationCommitsKnownResultsThenStops",
+          "callee": "addAll",
+          "lineNumber": 154
+        },
+        {
+          "caller": "unknownVerificationCommitsKnownResultsThenStops",
+          "callee": "assertEquals",
+          "lineNumber": 155
+        },
+        {
+          "caller": "unknownVerificationCommitsKnownResultsThenStops",
+          "callee": "assertEquals",
+          "lineNumber": 156
+        },
+        {
+          "caller": "unknownVerificationCommitsKnownResultsThenStops",
+          "callee": "setOf",
+          "lineNumber": 156
+        },
+        {
+          "caller": "unknownVerificationCommitsKnownResultsThenStops",
+          "callee": "assertEquals",
+          "lineNumber": 157
+        },
+        {
+          "caller": "unknownVerificationCommitsKnownResultsThenStops",
+          "callee": "assertEquals",
+          "lineNumber": 158
+        },
+        {
+          "caller": "over2000ItemsStillUseBoundedRequests",
+          "callee": "runBlocking",
+          "lineNumber": 161
+        },
+        {
+          "caller": "over2000ItemsStillUseBoundedRequests",
+          "callee": "mutableListOf",
+          "lineNumber": 162
+        },
+        {
+          "caller": "over2000ItemsStillUseBoundedRequests",
+          "callee": "deleteInBatches",
+          "lineNumber": 163
+        },
+        {
+          "caller": "over2000ItemsStillUseBoundedRequests",
+          "callee": "toList",
+          "lineNumber": 163
+        },
+        {
+          "caller": "over2000ItemsStillUseBoundedRequests",
+          "callee": "add",
+          "lineNumber": 164
+        },
+        {
+          "caller": "over2000ItemsStillUseBoundedRequests",
+          "callee": "Completed",
+          "lineNumber": 165
+        },
+        {
+          "caller": "over2000ItemsStillUseBoundedRequests",
+          "callee": "toSet",
+          "lineNumber": 165
+        },
+        {
+          "caller": "over2000ItemsStillUseBoundedRequests",
+          "callee": "assertEquals",
+          "lineNumber": 167
+        },
+        {
+          "caller": "over2000ItemsStillUseBoundedRequests",
+          "callee": "assertTrue",
+          "lineNumber": 168
+        },
+        {
+          "caller": "over2000ItemsStillUseBoundedRequests",
+          "callee": "all",
+          "lineNumber": 168
+        },
+        {
+          "caller": "over2000ItemsStillUseBoundedRequests",
+          "callee": "assertTrue",
+          "lineNumber": 169
+        },
+        {
+          "caller": "over2000ItemsStillUseBoundedRequests",
+          "callee": "isEmpty",
+          "lineNumber": 169
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 15,
+        "functionCount": 14,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 158,
+      "nonEmptyLines": 141,
+      "functions": [
+        {
+          "name": "setup",
+          "startLine": 50,
+          "endLine": 54,
+          "params": []
+        },
+        {
+          "name": "manager",
+          "startLine": 56,
+          "endLine": 59,
+          "params": [
+            "available"
+          ]
+        },
+        {
+          "name": "fullAccessAndAvailableVolumeCanConfirmMissing",
+          "startLine": 61,
+          "endLine": 63,
+          "params": []
+        },
+        {
+          "name": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "startLine": 65,
+          "endLine": 71,
+          "params": []
+        },
+        {
+          "name": "unavailableVolumeCannotConfirmMissing",
+          "startLine": 73,
+          "endLine": 75,
+          "params": []
+        },
+        {
+          "name": "permissionRevokedDuringQueryCannotConfirmMissing",
+          "startLine": 77,
+          "endLine": 80,
+          "params": []
+        },
+        {
+          "name": "nullOrFailedQueriesRemainUnknown",
+          "startLine": 82,
+          "endLine": 89,
+          "params": []
+        },
+        {
+          "name": "visiblePhotoRemainsPresentWithPartialAccess",
+          "startLine": 91,
+          "endLine": 95,
+          "params": []
+        },
+        {
+          "name": "actualServiceErrorsMapToNonSplittableFailures",
+          "startLine": 97,
+          "endLine": 106,
+          "params": []
+        },
+        {
+          "name": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "startLine": 108,
+          "endLine": 117,
+          "params": []
+        },
+        {
+          "name": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "startLine": 119,
+          "endLine": 124,
+          "params": []
+        },
+        {
+          "name": "managerWithMountedRecentOverlap",
+          "startLine": 126,
+          "endLine": 131,
+          "params": []
+        },
+        {
+          "name": "emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+          "startLine": 133,
+          "endLine": 137,
+          "params": []
+        },
+        {
+          "name": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "startLine": 139,
+          "endLine": 157,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "FileOperationManagerTest",
+          "startLine": 23,
+          "endLine": 158,
+          "methods": [
+            "setup",
+            "manager",
+            "fullAccessAndAvailableVolumeCanConfirmMissing",
+            "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+            "unavailableVolumeCannotConfirmMissing",
+            "permissionRevokedDuringQueryCannotConfirmMissing",
+            "nullOrFailedQueriesRemainUnknown",
+            "visiblePhotoRemainsPresentWithPartialAccess",
+            "actualServiceErrorsMapToNonSplittableFailures",
+            "rejectedRequestCanBeSplitButCancellationPropagates",
+            "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+            "managerWithMountedRecentOverlap",
+            "emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+            "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained"
+          ],
+          "properties": [
+            "context",
+            "provider",
+            "uri"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "setup",
+          "line": 50,
+          "isDefault": false
+        },
+        {
+          "name": "fullAccessAndAvailableVolumeCanConfirmMissing",
+          "line": 61,
+          "isDefault": false
+        },
+        {
+          "name": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "line": 65,
+          "isDefault": false
+        },
+        {
+          "name": "unavailableVolumeCannotConfirmMissing",
+          "line": 73,
+          "isDefault": false
+        },
+        {
+          "name": "permissionRevokedDuringQueryCannotConfirmMissing",
+          "line": 77,
+          "isDefault": false
+        },
+        {
+          "name": "nullOrFailedQueriesRemainUnknown",
+          "line": 82,
+          "isDefault": false
+        },
+        {
+          "name": "visiblePhotoRemainsPresentWithPartialAccess",
+          "line": 91,
+          "isDefault": false
+        },
+        {
+          "name": "actualServiceErrorsMapToNonSplittableFailures",
+          "line": 97,
+          "isDefault": false
+        },
+        {
+          "name": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "line": 108,
+          "isDefault": false
+        },
+        {
+          "name": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "line": 119,
+          "isDefault": false
+        },
+        {
+          "name": "emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+          "line": 133,
+          "isDefault": false
+        },
+        {
+          "name": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "line": 139,
+          "isDefault": false
+        },
+        {
+          "name": "FileOperationManagerTest",
+          "line": 23,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "query",
+          "callee": "beforeReturn",
+          "lineNumber": 36
+        },
+        {
+          "caller": "query",
+          "callee": "SecurityException",
+          "lineNumber": 38
+        },
+        {
+          "caller": "query",
+          "callee": "IllegalStateException",
+          "lineNumber": 39
+        },
+        {
+          "caller": "query",
+          "callee": "apply",
+          "lineNumber": 40
+        },
+        {
+          "caller": "query",
+          "callee": "MatrixCursor",
+          "lineNumber": 40
+        },
+        {
+          "caller": "query",
+          "callee": "arrayOf",
+          "lineNumber": 40
+        },
+        {
+          "caller": "query",
+          "callee": "addRow",
+          "lineNumber": 41
+        },
+        {
+          "caller": "query",
+          "callee": "arrayOf",
+          "lineNumber": 41
+        },
+        {
+          "caller": "setup",
+          "callee": "QueryProvider",
+          "lineNumber": 51
+        },
+        {
+          "caller": "setup",
+          "callee": "registerProviderInternal",
+          "lineNumber": 52
+        },
+        {
+          "caller": "setup",
+          "callee": "grantPermissions",
+          "lineNumber": 53
+        },
+        {
+          "caller": "setup",
+          "callee": "shadowOf",
+          "lineNumber": 53
+        },
+        {
+          "caller": "manager",
+          "callee": "FileOperationManager",
+          "lineNumber": 56
+        },
+        {
+          "caller": "manager",
+          "callee": "getBroadcast",
+          "lineNumber": 58
+        },
+        {
+          "caller": "manager",
+          "callee": "Intent",
+          "lineNumber": 58
+        },
+        {
+          "caller": "fullAccessAndAvailableVolumeCanConfirmMissing",
+          "callee": "runBlocking",
+          "lineNumber": 61
+        },
+        {
+          "caller": "fullAccessAndAvailableVolumeCanConfirmMissing",
+          "callee": "assertEquals",
+          "lineNumber": 62
+        },
+        {
+          "caller": "fullAccessAndAvailableVolumeCanConfirmMissing",
+          "callee": "setOf",
+          "lineNumber": 62
+        },
+        {
+          "caller": "fullAccessAndAvailableVolumeCanConfirmMissing",
+          "callee": "verifyDeletionState",
+          "lineNumber": 62
+        },
+        {
+          "caller": "fullAccessAndAvailableVolumeCanConfirmMissing",
+          "callee": "manager",
+          "lineNumber": 62
+        },
+        {
+          "caller": "fullAccessAndAvailableVolumeCanConfirmMissing",
+          "callee": "listOf",
+          "lineNumber": 62
+        },
+        {
+          "caller": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "callee": "runBlocking",
+          "lineNumber": 65
+        },
+        {
+          "caller": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "callee": "denyPermissions",
+          "lineNumber": 66
+        },
+        {
+          "caller": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "callee": "shadowOf",
+          "lineNumber": 66
+        },
+        {
+          "caller": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "callee": "grantPermissions",
+          "lineNumber": 67
+        },
+        {
+          "caller": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "callee": "shadowOf",
+          "lineNumber": 67
+        },
+        {
+          "caller": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "callee": "verifyDeletionState",
+          "lineNumber": 68
+        },
+        {
+          "caller": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "callee": "manager",
+          "lineNumber": 68
+        },
+        {
+          "caller": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "callee": "listOf",
+          "lineNumber": 68
+        },
+        {
+          "caller": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "callee": "assertTrue",
+          "lineNumber": 69
+        },
+        {
+          "caller": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "callee": "isEmpty",
+          "lineNumber": 69
+        },
+        {
+          "caller": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "callee": "assertEquals",
+          "lineNumber": 70
+        },
+        {
+          "caller": "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+          "callee": "setOf",
+          "lineNumber": 70
+        },
+        {
+          "caller": "unavailableVolumeCannotConfirmMissing",
+          "callee": "runBlocking",
+          "lineNumber": 73
+        },
+        {
+          "caller": "unavailableVolumeCannotConfirmMissing",
+          "callee": "assertEquals",
+          "lineNumber": 74
+        },
+        {
+          "caller": "unavailableVolumeCannotConfirmMissing",
+          "callee": "setOf",
+          "lineNumber": 74
+        },
+        {
+          "caller": "unavailableVolumeCannotConfirmMissing",
+          "callee": "verifyDeletionState",
+          "lineNumber": 74
+        },
+        {
+          "caller": "unavailableVolumeCannotConfirmMissing",
+          "callee": "manager",
+          "lineNumber": 74
+        },
+        {
+          "caller": "unavailableVolumeCannotConfirmMissing",
+          "callee": "listOf",
+          "lineNumber": 74
+        },
+        {
+          "caller": "permissionRevokedDuringQueryCannotConfirmMissing",
+          "callee": "runBlocking",
+          "lineNumber": 77
+        },
+        {
+          "caller": "permissionRevokedDuringQueryCannotConfirmMissing",
+          "callee": "denyPermissions",
+          "lineNumber": 78
+        },
+        {
+          "caller": "permissionRevokedDuringQueryCannotConfirmMissing",
+          "callee": "shadowOf",
+          "lineNumber": 78
+        },
+        {
+          "caller": "permissionRevokedDuringQueryCannotConfirmMissing",
+          "callee": "assertEquals",
+          "lineNumber": 79
+        },
+        {
+          "caller": "permissionRevokedDuringQueryCannotConfirmMissing",
+          "callee": "setOf",
+          "lineNumber": 79
+        },
+        {
+          "caller": "permissionRevokedDuringQueryCannotConfirmMissing",
+          "callee": "verifyDeletionState",
+          "lineNumber": 79
+        },
+        {
+          "caller": "permissionRevokedDuringQueryCannotConfirmMissing",
+          "callee": "manager",
+          "lineNumber": 79
+        },
+        {
+          "caller": "permissionRevokedDuringQueryCannotConfirmMissing",
+          "callee": "listOf",
+          "lineNumber": 79
+        },
+        {
+          "caller": "nullOrFailedQueriesRemainUnknown",
+          "callee": "runBlocking",
+          "lineNumber": 82
+        },
+        {
+          "caller": "nullOrFailedQueriesRemainUnknown",
+          "callee": "listOf",
+          "lineNumber": 83
+        },
+        {
+          "caller": "nullOrFailedQueriesRemainUnknown",
+          "callee": "verifyDeletionState",
+          "lineNumber": 85
+        },
+        {
+          "caller": "nullOrFailedQueriesRemainUnknown",
+          "callee": "manager",
+          "lineNumber": 85
+        },
+        {
+          "caller": "nullOrFailedQueriesRemainUnknown",
+          "callee": "listOf",
+          "lineNumber": 85
+        },
+        {
+          "caller": "nullOrFailedQueriesRemainUnknown",
+          "callee": "assertTrue",
+          "lineNumber": 86
+        },
+        {
+          "caller": "nullOrFailedQueriesRemainUnknown",
+          "callee": "isEmpty",
+          "lineNumber": 86
+        },
+        {
+          "caller": "nullOrFailedQueriesRemainUnknown",
+          "callee": "assertEquals",
+          "lineNumber": 87
+        },
+        {
+          "caller": "nullOrFailedQueriesRemainUnknown",
+          "callee": "setOf",
+          "lineNumber": 87
+        },
+        {
+          "caller": "visiblePhotoRemainsPresentWithPartialAccess",
+          "callee": "runBlocking",
+          "lineNumber": 91
+        },
+        {
+          "caller": "visiblePhotoRemainsPresentWithPartialAccess",
+          "callee": "denyPermissions",
+          "lineNumber": 93
+        },
+        {
+          "caller": "visiblePhotoRemainsPresentWithPartialAccess",
+          "callee": "shadowOf",
+          "lineNumber": 93
+        },
+        {
+          "caller": "visiblePhotoRemainsPresentWithPartialAccess",
+          "callee": "assertEquals",
+          "lineNumber": 94
+        },
+        {
+          "caller": "visiblePhotoRemainsPresentWithPartialAccess",
+          "callee": "setOf",
+          "lineNumber": 94
+        },
+        {
+          "caller": "visiblePhotoRemainsPresentWithPartialAccess",
+          "callee": "verifyDeletionState",
+          "lineNumber": 94
+        },
+        {
+          "caller": "visiblePhotoRemainsPresentWithPartialAccess",
+          "callee": "manager",
+          "lineNumber": 94
+        },
+        {
+          "caller": "visiblePhotoRemainsPresentWithPartialAccess",
+          "callee": "listOf",
+          "lineNumber": 94
+        },
+        {
+          "caller": "actualServiceErrorsMapToNonSplittableFailures",
+          "callee": "runBlocking",
+          "lineNumber": 97
+        },
+        {
+          "caller": "actualServiceErrorsMapToNonSplittableFailures",
+          "callee": "listOf",
+          "lineNumber": 99
+        },
+        {
+          "caller": "actualServiceErrorsMapToNonSplittableFailures",
+          "callee": "SecurityException",
+          "lineNumber": 99
+        },
+        {
+          "caller": "actualServiceErrorsMapToNonSplittableFailures",
+          "callee": "IllegalStateException",
+          "lineNumber": 99
+        },
+        {
+          "caller": "actualServiceErrorsMapToNonSplittableFailures",
+          "callee": "FileOperationManager",
+          "lineNumber": 100
+        },
+        {
+          "caller": "actualServiceErrorsMapToNonSplittableFailures",
+          "callee": "deleteImages",
+          "lineNumber": 102
+        },
+        {
+          "caller": "actualServiceErrorsMapToNonSplittableFailures",
+          "callee": "listOf",
+          "lineNumber": 102
+        },
+        {
+          "caller": "actualServiceErrorsMapToNonSplittableFailures",
+          "callee": "assertFalse",
+          "lineNumber": 103
+        },
+        {
+          "caller": "actualServiceErrorsMapToNonSplittableFailures",
+          "callee": "asBatchFailure",
+          "lineNumber": 103
+        },
+        {
+          "caller": "actualServiceErrorsMapToNonSplittableFailures",
+          "callee": "assertEquals",
+          "lineNumber": 104
+        },
+        {
+          "caller": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "callee": "runBlocking",
+          "lineNumber": 108
+        },
+        {
+          "caller": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "callee": "FileOperationManager",
+          "lineNumber": 110
+        },
+        {
+          "caller": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "callee": "IllegalArgumentException",
+          "lineNumber": 111
+        },
+        {
+          "caller": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "callee": "assertTrue",
+          "lineNumber": 112
+        },
+        {
+          "caller": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "callee": "asBatchFailure",
+          "lineNumber": 112
+        },
+        {
+          "caller": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "callee": "deleteImages",
+          "lineNumber": 112
+        },
+        {
+          "caller": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "callee": "listOf",
+          "lineNumber": 112
+        },
+        {
+          "caller": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "callee": "FileOperationManager",
+          "lineNumber": 113
+        },
+        {
+          "caller": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "callee": "CancellationException",
+          "lineNumber": 114
+        },
+        {
+          "caller": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "callee": "deleteImages",
+          "lineNumber": 115
+        },
+        {
+          "caller": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "callee": "listOf",
+          "lineNumber": 115
+        },
+        {
+          "caller": "rejectedRequestCanBeSplitButCancellationPropagates",
+          "callee": "fail",
+          "lineNumber": 115
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "assertFalse",
+          "lineNumber": 120
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 120
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "setOf",
+          "lineNumber": 120
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "setOf",
+          "lineNumber": 120
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "assertTrue",
+          "lineNumber": 121
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 121
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "setOf",
+          "lineNumber": 121
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "emptySet",
+          "lineNumber": 121
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "assertFalse",
+          "lineNumber": 122
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 122
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "emptySet",
+          "lineNumber": 122
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "emptySet",
+          "lineNumber": 122
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "assertFalse",
+          "lineNumber": 123
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 123
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "setOf",
+          "lineNumber": 123
+        },
+        {
+          "caller": "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+          "callee": "emptySet",
+          "lineNumber": 123
+        },
+        {
+          "caller": "managerWithMountedRecentOverlap",
+          "callee": "FileOperationManager",
+          "lineNumber": 126
+        },
+        {
+          "caller": "managerWithMountedRecentOverlap",
+          "callee": "error",
+          "lineNumber": 127
+        },
+        {
+          "caller": "managerWithMountedRecentOverlap",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 129
+        },
+        {
+          "caller": "managerWithMountedRecentOverlap",
+          "callee": "firstOrNull",
+          "lineNumber": 129
+        },
+        {
+          "caller": "managerWithMountedRecentOverlap",
+          "callee": "setOf",
+          "lineNumber": 130
+        },
+        {
+          "caller": "managerWithMountedRecentOverlap",
+          "callee": "setOf",
+          "lineNumber": 130
+        },
+        {
+          "caller": "emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+          "callee": "runBlocking",
+          "lineNumber": 133
+        },
+        {
+          "caller": "emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+          "callee": "verifyDeletionState",
+          "lineNumber": 134
+        },
+        {
+          "caller": "emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+          "callee": "managerWithMountedRecentOverlap",
+          "lineNumber": 134
+        },
+        {
+          "caller": "emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+          "callee": "listOf",
+          "lineNumber": 134
+        },
+        {
+          "caller": "emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+          "callee": "assertEquals",
+          "lineNumber": 135
+        },
+        {
+          "caller": "emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+          "callee": "setOf",
+          "lineNumber": 135
+        },
+        {
+          "caller": "emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+          "callee": "assertTrue",
+          "lineNumber": 136
+        },
+        {
+          "caller": "emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+          "callee": "isEmpty",
+          "lineNumber": 136
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "runBlocking",
+          "lineNumber": 139
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 140
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 141
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "RecycleBinManager",
+          "lineNumber": 142
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "fixturePhoto",
+          "lineNumber": 143
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "fixturePhoto",
+          "lineNumber": 144
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "addAllToRecycleBin",
+          "lineNumber": 145
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "listOf",
+          "lineNumber": 145
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "beginDeletion",
+          "lineNumber": 146
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "listOf",
+          "lineNumber": 146
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "finishDeletion",
+          "lineNumber": 147
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "emptySet",
+          "lineNumber": 147
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "setOf",
+          "lineNumber": 147
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "managerWithMountedRecentOverlap",
+          "lineNumber": 148
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "reconcileRecycleBinDeletion",
+          "lineNumber": 149
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "assertEquals",
+          "lineNumber": 150
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "setOf",
+          "lineNumber": 150
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "assertTrue",
+          "lineNumber": 151
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "isEmpty",
+          "lineNumber": 151
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "assertTrue",
+          "lineNumber": 152
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "isEmpty",
+          "lineNumber": 152
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "pendingDeletionUris",
+          "lineNumber": 152
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "assertEquals",
+          "lineNumber": 153
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "listOf",
+          "lineNumber": 153
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "map",
+          "lineNumber": 153
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "loadRecycleBin",
+          "lineNumber": 153
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "assertEquals",
+          "lineNumber": 155
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "setOf",
+          "lineNumber": 155
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "verifyDeletionState",
+          "lineNumber": 155
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "listOf",
+          "lineNumber": 155
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "assertTrue",
+          "lineNumber": 156
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "isEmpty",
+          "lineNumber": 156
+        },
+        {
+          "caller": "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+          "callee": "reconcileRecycleBinDeletion",
+          "lineNumber": 156
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 13,
+        "functionCount": 14,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 178,
+      "nonEmptyLines": 168,
+      "functions": [
+        {
+          "name": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "startLine": 15,
+          "endLine": 44,
+          "params": []
+        },
+        {
+          "name": "journalCommitFailureCanBeReconciledIdempotently",
+          "startLine": 46,
+          "endLine": 64,
+          "params": []
+        },
+        {
+          "name": "failedJournalPreparationDoesNotRequestDeletion",
+          "startLine": 66,
+          "endLine": 78,
+          "params": []
+        },
+        {
+          "name": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "startLine": 80,
+          "endLine": 97,
+          "params": []
+        },
+        {
+          "name": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "startLine": 99,
+          "endLine": 112,
+          "params": []
+        },
+        {
+          "name": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "startLine": 114,
+          "endLine": 125,
+          "params": []
+        },
+        {
+          "name": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "startLine": 127,
+          "endLine": 141,
+          "params": []
+        },
+        {
+          "name": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "startLine": 143,
+          "endLine": 162,
+          "params": []
+        },
+        {
+          "name": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "startLine": 164,
+          "endLine": 177,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "RecycleBinDeletionTest",
+          "startLine": 12,
+          "endLine": 178,
+          "methods": [
+            "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+            "journalCommitFailureCanBeReconciledIdempotently",
+            "failedJournalPreparationDoesNotRequestDeletion",
+            "globalErrorsAreNotSplitAndStopAfterOneRequest",
+            "invalidItemIsIsolatedWithoutLosingOtherRecords",
+            "recoveryKeepsUnknownAndExistingPhotosDistinct",
+            "cancelledCoroutineLeavesJournalForLaterRecovery",
+            "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+            "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "line": 15,
+          "isDefault": false
+        },
+        {
+          "name": "journalCommitFailureCanBeReconciledIdempotently",
+          "line": 46,
+          "isDefault": false
+        },
+        {
+          "name": "failedJournalPreparationDoesNotRequestDeletion",
+          "line": 66,
+          "isDefault": false
+        },
+        {
+          "name": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "line": 80,
+          "isDefault": false
+        },
+        {
+          "name": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "line": 99,
+          "isDefault": false
+        },
+        {
+          "name": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "line": 114,
+          "isDefault": false
+        },
+        {
+          "name": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "line": 127,
+          "isDefault": false
+        },
+        {
+          "name": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "line": 143,
+          "isDefault": false
+        },
+        {
+          "name": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "line": 164,
+          "isDefault": false
+        },
+        {
+          "name": "RecycleBinDeletionTest",
+          "line": 12,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "runBlocking",
+          "lineNumber": 15
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 16
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 17
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "RecycleBinManager",
+          "lineNumber": 18
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "fixturePhoto",
+          "lineNumber": 19
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "addToRecycleBin",
+          "lineNumber": 20
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "deleteRecycleBinBatch",
+          "lineNumber": 23
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "listOf",
+          "lineNumber": 23
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "Success",
+          "lineNumber": 27
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "toSet",
+          "lineNumber": 27
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "error",
+          "lineNumber": 28
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "error",
+          "lineNumber": 29
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "fail",
+          "lineNumber": 30
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "assertEquals",
+          "lineNumber": 32
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "setOf",
+          "lineNumber": 32
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "assertEquals",
+          "lineNumber": 34
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "listOf",
+          "lineNumber": 34
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "pendingDeletionUris",
+          "lineNumber": 34
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "assertEquals",
+          "lineNumber": 35
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "listOf",
+          "lineNumber": 35
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "map",
+          "lineNumber": 35
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "loadRecycleBin",
+          "lineNumber": 35
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "reconcileRecycleBinDeletion",
+          "lineNumber": 37
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "DeletionVerification",
+          "lineNumber": 38
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "toSet",
+          "lineNumber": 38
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "emptySet",
+          "lineNumber": 38
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "emptySet",
+          "lineNumber": 38
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "assertEquals",
+          "lineNumber": 40
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "setOf",
+          "lineNumber": 40
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "assertTrue",
+          "lineNumber": 41
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "isEmpty",
+          "lineNumber": 41
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "loadRecycleBin",
+          "lineNumber": 41
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "assertTrue",
+          "lineNumber": 42
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "isEmpty",
+          "lineNumber": 42
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "pendingDeletionUris",
+          "lineNumber": 42
+        },
+        {
+          "caller": "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+          "callee": "assertEquals",
+          "lineNumber": 43
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "runBlocking",
+          "lineNumber": 46
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 47
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 48
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "RecycleBinManager",
+          "lineNumber": 49
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "fixturePhoto",
+          "lineNumber": 50
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "addToRecycleBin",
+          "lineNumber": 51
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "fixturePhoto",
+          "lineNumber": 51
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "deleteRecycleBinBatch",
+          "lineNumber": 53
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "listOf",
+          "lineNumber": 53
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "Success",
+          "lineNumber": 55
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "toSet",
+          "lineNumber": 55
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "error",
+          "lineNumber": 56
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "fail",
+          "lineNumber": 57
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "assertTrue",
+          "lineNumber": 59
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "isEmpty",
+          "lineNumber": 59
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "loadRecycleBin",
+          "lineNumber": 59
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "reconcileRecycleBinDeletion",
+          "lineNumber": 61
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "DeletionVerification",
+          "lineNumber": 61
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "toSet",
+          "lineNumber": 61
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "emptySet",
+          "lineNumber": 61
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "emptySet",
+          "lineNumber": 61
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "assertTrue",
+          "lineNumber": 62
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "isEmpty",
+          "lineNumber": 62
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "pendingDeletionUris",
+          "lineNumber": 62
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "assertTrue",
+          "lineNumber": 63
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "isEmpty",
+          "lineNumber": 63
+        },
+        {
+          "caller": "journalCommitFailureCanBeReconciledIdempotently",
+          "callee": "loadRecycleBin",
+          "lineNumber": 63
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "runBlocking",
+          "lineNumber": 66
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 67
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "apply",
+          "lineNumber": 68
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 68
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "RecycleBinManager",
+          "lineNumber": 69
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "addToRecycleBin",
+          "lineNumber": 70
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "fixturePhoto",
+          "lineNumber": 70
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "deleteRecycleBinBatch",
+          "lineNumber": 72
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "listOf",
+          "lineNumber": 72
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "fixturePhoto",
+          "lineNumber": 72
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "fail",
+          "lineNumber": 73
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "error",
+          "lineNumber": 73
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "error",
+          "lineNumber": 74
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "fail",
+          "lineNumber": 75
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "assertEquals",
+          "lineNumber": 77
+        },
+        {
+          "caller": "failedJournalPreparationDoesNotRequestDeletion",
+          "callee": "getRecycleBinCount",
+          "lineNumber": 77
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "runBlocking",
+          "lineNumber": 80
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "listOf",
+          "lineNumber": 81
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "RecycleBinManager",
+          "lineNumber": 82
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 82
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 82
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "map",
+          "lineNumber": 83
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "fixturePhoto",
+          "lineNumber": 83
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "addAllToRecycleBin",
+          "lineNumber": 84
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "deleteInBatches",
+          "lineNumber": 86
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "map",
+          "lineNumber": 86
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "deleteRecycleBinBatch",
+          "lineNumber": 87
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "Error",
+          "lineNumber": 89
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "error",
+          "lineNumber": 90
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "fail",
+          "lineNumber": 91
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "assertEquals",
+          "lineNumber": 92
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "assertEquals",
+          "lineNumber": 93
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "assertEquals",
+          "lineNumber": 94
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "getRecycleBinCount",
+          "lineNumber": 94
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "assertTrue",
+          "lineNumber": 95
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "isEmpty",
+          "lineNumber": 95
+        },
+        {
+          "caller": "globalErrorsAreNotSplitAndStopAfterOneRequest",
+          "callee": "pendingDeletionUris",
+          "lineNumber": 95
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "runBlocking",
+          "lineNumber": 99
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "RecycleBinManager",
+          "lineNumber": 100
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 100
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 100
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "map",
+          "lineNumber": 101
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "fixturePhoto",
+          "lineNumber": 101
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "addAllToRecycleBin",
+          "lineNumber": 103
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "deleteInBatches",
+          "lineNumber": 104
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "map",
+          "lineNumber": 104
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "deleteRecycleBinBatch",
+          "lineNumber": 105
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "Error",
+          "lineNumber": 106
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "Success",
+          "lineNumber": 107
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "toSet",
+          "lineNumber": 107
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "error",
+          "lineNumber": 108
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "assertEquals",
+          "lineNumber": 110
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "setOf",
+          "lineNumber": 110
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "assertEquals",
+          "lineNumber": 111
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "listOf",
+          "lineNumber": 111
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "map",
+          "lineNumber": 111
+        },
+        {
+          "caller": "invalidItemIsIsolatedWithoutLosingOtherRecords",
+          "callee": "loadRecycleBin",
+          "lineNumber": 111
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "runBlocking",
+          "lineNumber": 114
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "RecycleBinManager",
+          "lineNumber": 115
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 115
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 115
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "map",
+          "lineNumber": 116
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "fixturePhoto",
+          "lineNumber": 116
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "addAllToRecycleBin",
+          "lineNumber": 117
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "beginDeletion",
+          "lineNumber": 118
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "map",
+          "lineNumber": 118
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "reconcileRecycleBinDeletion",
+          "lineNumber": 119
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "DeletionVerification",
+          "lineNumber": 120
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "setOf",
+          "lineNumber": 120
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "setOf",
+          "lineNumber": 120
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "setOf",
+          "lineNumber": 120
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "assertEquals",
+          "lineNumber": 122
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "setOf",
+          "lineNumber": 122
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "assertEquals",
+          "lineNumber": 123
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "listOf",
+          "lineNumber": 123
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "map",
+          "lineNumber": 123
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "loadRecycleBin",
+          "lineNumber": 123
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "assertEquals",
+          "lineNumber": 124
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "listOf",
+          "lineNumber": 124
+        },
+        {
+          "caller": "recoveryKeepsUnknownAndExistingPhotosDistinct",
+          "callee": "pendingDeletionUris",
+          "lineNumber": 124
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "runBlocking",
+          "lineNumber": 127
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "RecycleBinManager",
+          "lineNumber": 128
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 128
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 128
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "fixturePhoto",
+          "lineNumber": 129
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "addToRecycleBin",
+          "lineNumber": 130
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "fixturePhoto",
+          "lineNumber": 130
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "deleteRecycleBinBatch",
+          "lineNumber": 132
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "listOf",
+          "lineNumber": 132
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "CancellationException",
+          "lineNumber": 133
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "error",
+          "lineNumber": 134
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "fail",
+          "lineNumber": 135
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "assertEquals",
+          "lineNumber": 137
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "listOf",
+          "lineNumber": 137
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "pendingDeletionUris",
+          "lineNumber": 137
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "reconcileRecycleBinDeletion",
+          "lineNumber": 138
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "DeletionVerification",
+          "lineNumber": 138
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "emptySet",
+          "lineNumber": 138
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "toSet",
+          "lineNumber": 138
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "emptySet",
+          "lineNumber": 138
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "assertEquals",
+          "lineNumber": 139
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "getRecycleBinCount",
+          "lineNumber": 139
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "assertTrue",
+          "lineNumber": 140
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "isEmpty",
+          "lineNumber": 140
+        },
+        {
+          "caller": "cancelledCoroutineLeavesJournalForLaterRecovery",
+          "callee": "pendingDeletionUris",
+          "lineNumber": 140
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "runBlocking",
+          "lineNumber": 143
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "RecycleBinManager",
+          "lineNumber": 144
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 144
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 144
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "map",
+          "lineNumber": 145
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "fixturePhoto",
+          "lineNumber": 145
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "addAllToRecycleBin",
+          "lineNumber": 146
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "getApplication",
+          "lineNumber": 147
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "getBroadcast",
+          "lineNumber": 148
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "Intent",
+          "lineNumber": 148
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "deleteInBatches",
+          "lineNumber": 151
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "map",
+          "lineNumber": 151
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "deleteRecycleBinBatch",
+          "lineNumber": 152
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "NeedsPermission",
+          "lineNumber": 153
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "DeletionVerification",
+          "lineNumber": 155
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "setOf",
+          "lineNumber": 155
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "first",
+          "lineNumber": 155
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "emptySet",
+          "lineNumber": 155
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "toSet",
+          "lineNumber": 155
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "drop",
+          "lineNumber": 155
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "assertEquals",
+          "lineNumber": 157
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "assertEquals",
+          "lineNumber": 158
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "assertNotNull",
+          "lineNumber": 159
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "assertEquals",
+          "lineNumber": 160
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "pendingDeletionUris",
+          "lineNumber": 160
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "assertEquals",
+          "lineNumber": 161
+        },
+        {
+          "caller": "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+          "callee": "getRecycleBinCount",
+          "lineNumber": 161
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "runBlocking",
+          "lineNumber": 164
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "RecycleBinManager",
+          "lineNumber": 165
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 165
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "MemoryRecycleBinStorage",
+          "lineNumber": 165
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "fixturePhoto",
+          "lineNumber": 166
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "addToRecycleBin",
+          "lineNumber": 167
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "getApplication",
+          "lineNumber": 168
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "getBroadcast",
+          "lineNumber": 169
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "Intent",
+          "lineNumber": 169
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "deleteRecycleBinBatch",
+          "lineNumber": 171
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "listOf",
+          "lineNumber": 171
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "NeedsPermission",
+          "lineNumber": 172
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "error",
+          "lineNumber": 173
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "assertEquals",
+          "lineNumber": 174
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "assertEquals",
+          "lineNumber": 175
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "getRecycleBinCount",
+          "lineNumber": 175
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "assertTrue",
+          "lineNumber": 176
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "isEmpty",
+          "lineNumber": 176
+        },
+        {
+          "caller": "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+          "callee": "pendingDeletionUris",
+          "lineNumber": 176
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 10,
+        "functionCount": 9,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 36,
+      "nonEmptyLines": 28,
+      "functions": [
+        {
+          "name": "recentListMayContainTheCurrentlyMountedPrimaryVolume",
+          "startLine": 9,
+          "endLine": 11,
+          "params": []
+        },
+        {
+          "name": "allRecentVolumesAlreadyMountedDoNotBlockMergedUri",
+          "startLine": 13,
+          "endLine": 16,
+          "params": []
+        },
+        {
+          "name": "genuinelyUnmountedRecentVolumeStillBlocksAmbiguousMergedUri",
+          "startLine": 18,
+          "endLine": 20,
+          "params": []
+        },
+        {
+          "name": "mergedUriRequiresConsistentMountedPrimaryEvidence",
+          "startLine": 22,
+          "endLine": 25,
+          "params": []
+        },
+        {
+          "name": "concretePrimaryIsNotBlockedByAnUnrelatedEjectedVolume",
+          "startLine": 27,
+          "endLine": 29,
+          "params": []
+        },
+        {
+          "name": "concreteUnavailableVolumesCannotBeConfirmedMissing",
+          "startLine": 31,
+          "endLine": 35,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "VolumeConfirmationRuleTest",
+          "startLine": 6,
+          "endLine": 36,
+          "methods": [
+            "recentListMayContainTheCurrentlyMountedPrimaryVolume",
+            "allRecentVolumesAlreadyMountedDoNotBlockMergedUri",
+            "genuinelyUnmountedRecentVolumeStillBlocksAmbiguousMergedUri",
+            "mergedUriRequiresConsistentMountedPrimaryEvidence",
+            "concretePrimaryIsNotBlockedByAnUnrelatedEjectedVolume",
+            "concreteUnavailableVolumesCannotBeConfirmedMissing"
+          ],
+          "properties": [
+            "primary"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "recentListMayContainTheCurrentlyMountedPrimaryVolume",
+          "line": 9,
+          "isDefault": false
+        },
+        {
+          "name": "allRecentVolumesAlreadyMountedDoNotBlockMergedUri",
+          "line": 13,
+          "isDefault": false
+        },
+        {
+          "name": "genuinelyUnmountedRecentVolumeStillBlocksAmbiguousMergedUri",
+          "line": 18,
+          "isDefault": false
+        },
+        {
+          "name": "mergedUriRequiresConsistentMountedPrimaryEvidence",
+          "line": 22,
+          "isDefault": false
+        },
+        {
+          "name": "concretePrimaryIsNotBlockedByAnUnrelatedEjectedVolume",
+          "line": 27,
+          "isDefault": false
+        },
+        {
+          "name": "concreteUnavailableVolumesCannotBeConfirmedMissing",
+          "line": 31,
+          "isDefault": false
+        },
+        {
+          "name": "VolumeConfirmationRuleTest",
+          "line": 6,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "recentListMayContainTheCurrentlyMountedPrimaryVolume",
+          "callee": "assertTrue",
+          "lineNumber": 10
+        },
+        {
+          "caller": "recentListMayContainTheCurrentlyMountedPrimaryVolume",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 10
+        },
+        {
+          "caller": "allRecentVolumesAlreadyMountedDoNotBlockMergedUri",
+          "callee": "setOf",
+          "lineNumber": 14
+        },
+        {
+          "caller": "allRecentVolumesAlreadyMountedDoNotBlockMergedUri",
+          "callee": "assertTrue",
+          "lineNumber": 15
+        },
+        {
+          "caller": "allRecentVolumesAlreadyMountedDoNotBlockMergedUri",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 15
+        },
+        {
+          "caller": "genuinelyUnmountedRecentVolumeStillBlocksAmbiguousMergedUri",
+          "callee": "assertFalse",
+          "lineNumber": 19
+        },
+        {
+          "caller": "genuinelyUnmountedRecentVolumeStillBlocksAmbiguousMergedUri",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 19
+        },
+        {
+          "caller": "mergedUriRequiresConsistentMountedPrimaryEvidence",
+          "callee": "assertFalse",
+          "lineNumber": 23
+        },
+        {
+          "caller": "mergedUriRequiresConsistentMountedPrimaryEvidence",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 23
+        },
+        {
+          "caller": "mergedUriRequiresConsistentMountedPrimaryEvidence",
+          "callee": "assertFalse",
+          "lineNumber": 24
+        },
+        {
+          "caller": "mergedUriRequiresConsistentMountedPrimaryEvidence",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 24
+        },
+        {
+          "caller": "mergedUriRequiresConsistentMountedPrimaryEvidence",
+          "callee": "emptySet",
+          "lineNumber": 24
+        },
+        {
+          "caller": "mergedUriRequiresConsistentMountedPrimaryEvidence",
+          "callee": "emptySet",
+          "lineNumber": 24
+        },
+        {
+          "caller": "concretePrimaryIsNotBlockedByAnUnrelatedEjectedVolume",
+          "callee": "assertTrue",
+          "lineNumber": 28
+        },
+        {
+          "caller": "concretePrimaryIsNotBlockedByAnUnrelatedEjectedVolume",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 28
+        },
+        {
+          "caller": "concreteUnavailableVolumesCannotBeConfirmedMissing",
+          "callee": "assertFalse",
+          "lineNumber": 32
+        },
+        {
+          "caller": "concreteUnavailableVolumesCannotBeConfirmedMissing",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 32
+        },
+        {
+          "caller": "concreteUnavailableVolumesCannotBeConfirmedMissing",
+          "callee": "emptySet",
+          "lineNumber": 32
+        },
+        {
+          "caller": "concreteUnavailableVolumesCannotBeConfirmedMissing",
+          "callee": "emptySet",
+          "lineNumber": 32
+        },
+        {
+          "caller": "concreteUnavailableVolumesCannotBeConfirmedMissing",
+          "callee": "assertFalse",
+          "lineNumber": 33
+        },
+        {
+          "caller": "concreteUnavailableVolumesCannotBeConfirmedMissing",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 33
+        },
+        {
+          "caller": "concreteUnavailableVolumesCannotBeConfirmedMissing",
+          "callee": "assertFalse",
+          "lineNumber": 34
+        },
+        {
+          "caller": "concreteUnavailableVolumesCannotBeConfirmedMissing",
+          "callee": "canConfirmMissingOnVolume",
+          "lineNumber": 34
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 7,
+        "functionCount": 6,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 69,
+      "nonEmptyLines": 65,
+      "functions": [
+        {
+          "name": "onLaunch",
+          "startLine": 20,
+          "endLine": 21,
+          "params": [
+            "requestCode",
+            "contract",
+            "input",
+            "options"
+          ]
+        },
+        {
+          "name": "onCreate",
+          "startLine": 29,
+          "endLine": 41,
+          "params": [
+            "savedInstanceState"
+          ]
+        },
+        {
+          "name": "onSaveInstanceState",
+          "startLine": 42,
+          "endLine": 48,
+          "params": [
+            "outState"
+          ]
+        },
+        {
+          "name": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "startLine": 54,
+          "endLine": 68,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "ControlledDeleteResultRegistry",
+          "startLine": 18,
+          "endLine": 22,
+          "methods": [
+            "onLaunch"
+          ],
+          "properties": [
+            "lastCode"
+          ]
+        },
+        {
+          "name": "DeletePermissionRecoveryActivity",
+          "startLine": 25,
+          "endLine": 49,
+          "methods": [
+            "onCreate",
+            "onSaveInstanceState"
+          ],
+          "properties": [
+            "session",
+            "registry",
+            "request"
+          ]
+        },
+        {
+          "name": "DeletePermissionActivityRecoveryTest",
+          "startLine": 52,
+          "endLine": 69,
+          "methods": [
+            "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "lastCode",
+          "line": 19,
+          "isDefault": false
+        },
+        {
+          "name": "onLaunch",
+          "line": 20,
+          "isDefault": false
+        },
+        {
+          "name": "ControlledDeleteResultRegistry",
+          "line": 18,
+          "isDefault": false
+        },
+        {
+          "name": "session",
+          "line": 26,
+          "isDefault": false
+        },
+        {
+          "name": "registry",
+          "line": 27,
+          "isDefault": false
+        },
+        {
+          "name": "request",
+          "line": 28,
+          "isDefault": false
+        },
+        {
+          "name": "onCreate",
+          "line": 29,
+          "isDefault": false
+        },
+        {
+          "name": "onSaveInstanceState",
+          "line": 42,
+          "isDefault": false
+        },
+        {
+          "name": "DeletePermissionRecoveryActivity",
+          "line": 25,
+          "isDefault": false
+        },
+        {
+          "name": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "line": 54,
+          "isDefault": false
+        },
+        {
+          "name": "DeletePermissionActivityRecoveryTest",
+          "line": 52,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "onCreate",
+          "callee": "onCreate",
+          "lineNumber": 30
+        },
+        {
+          "caller": "onCreate",
+          "callee": "DeletePermissionSession",
+          "lineNumber": 31
+        },
+        {
+          "caller": "onCreate",
+          "callee": "let",
+          "lineNumber": 32
+        },
+        {
+          "caller": "onCreate",
+          "callee": "getBundle",
+          "lineNumber": 32
+        },
+        {
+          "caller": "onCreate",
+          "callee": "onRestoreInstanceState",
+          "lineNumber": 32
+        },
+        {
+          "caller": "onCreate",
+          "callee": "registerForActivityResult",
+          "lineNumber": 33
+        },
+        {
+          "caller": "onCreate",
+          "callee": "StartIntentSenderForResult",
+          "lineNumber": 33
+        },
+        {
+          "caller": "onCreate",
+          "callee": "complete",
+          "lineNumber": 34
+        },
+        {
+          "caller": "onCreate",
+          "callee": "getBroadcast",
+          "lineNumber": 37
+        },
+        {
+          "caller": "onCreate",
+          "callee": "Intent",
+          "lineNumber": 37
+        },
+        {
+          "caller": "onCreate",
+          "callee": "launch",
+          "lineNumber": 39
+        },
+        {
+          "caller": "onCreate",
+          "callee": "launch",
+          "lineNumber": 39
+        },
+        {
+          "caller": "onCreate",
+          "callee": "build",
+          "lineNumber": 39
+        },
+        {
+          "caller": "onCreate",
+          "callee": "Builder",
+          "lineNumber": 39
+        },
+        {
+          "caller": "onSaveInstanceState",
+          "callee": "save",
+          "lineNumber": 43
+        },
+        {
+          "caller": "onSaveInstanceState",
+          "callee": "Bundle",
+          "lineNumber": 44
+        },
+        {
+          "caller": "onSaveInstanceState",
+          "callee": "onSaveInstanceState",
+          "lineNumber": 45
+        },
+        {
+          "caller": "onSaveInstanceState",
+          "callee": "putBundle",
+          "lineNumber": 46
+        },
+        {
+          "caller": "onSaveInstanceState",
+          "callee": "onSaveInstanceState",
+          "lineNumber": 47
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "resume",
+          "lineNumber": 55
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "start",
+          "lineNumber": 55
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "create",
+          "lineNumber": 55
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "buildActivity",
+          "lineNumber": 55
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "request",
+          "lineNumber": 56
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "get",
+          "lineNumber": 56
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "get",
+          "lineNumber": 57
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "Bundle",
+          "lineNumber": 58
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "destroy",
+          "lineNumber": 59
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "stop",
+          "lineNumber": 59
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "pause",
+          "lineNumber": 59
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "saveInstanceState",
+          "lineNumber": 59
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "resume",
+          "lineNumber": 60
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "start",
+          "lineNumber": 60
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "create",
+          "lineNumber": 60
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "buildActivity",
+          "lineNumber": 60
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "assertTrue",
+          "lineNumber": 61
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "get",
+          "lineNumber": 61
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "assertEquals",
+          "lineNumber": 62
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "get",
+          "lineNumber": 62
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "assertTrue",
+          "lineNumber": 63
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "dispatchResult",
+          "lineNumber": 63
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "get",
+          "lineNumber": 63
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "assertFalse",
+          "lineNumber": 64
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "get",
+          "lineNumber": 64
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "assertEquals",
+          "lineNumber": 65
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "get",
+          "lineNumber": 65
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "assertEquals",
+          "lineNumber": 66
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "get",
+          "lineNumber": 66
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "destroy",
+          "lineNumber": 67
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "stop",
+          "lineNumber": 67
+        },
+        {
+          "caller": "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+          "callee": "pause",
+          "lineNumber": 67
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 11,
+        "functionCount": 4,
+        "classCount": 3
+      }
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 51,
+      "nonEmptyLines": 47,
+      "functions": [
+        {
+          "name": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "startLine": 13,
+          "endLine": 30,
+          "params": []
+        },
+        {
+          "name": "ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+          "startLine": 32,
+          "endLine": 41,
+          "params": []
+        },
+        {
+          "name": "failedLauncherDoesNotLeaveBusyState",
+          "startLine": 43,
+          "endLine": 50,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "DeletePermissionSessionTest",
+          "startLine": 10,
+          "endLine": 51,
+          "methods": [
+            "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+            "ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+            "failedLauncherDoesNotLeaveBusyState"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "line": 13,
+          "isDefault": false
+        },
+        {
+          "name": "ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+          "line": 32,
+          "isDefault": false
+        },
+        {
+          "name": "failedLauncherDoesNotLeaveBusyState",
+          "line": 43,
+          "isDefault": false
+        },
+        {
+          "name": "DeletePermissionSessionTest",
+          "line": 10,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "callee": "DeletePermissionSession",
+          "lineNumber": 14
+        },
+        {
+          "caller": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "callee": "launch",
+          "lineNumber": 16
+        },
+        {
+          "caller": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "callee": "Bundle",
+          "lineNumber": 17
+        },
+        {
+          "caller": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "callee": "save",
+          "lineNumber": 18
+        },
+        {
+          "caller": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "callee": "DeletePermissionSession",
+          "lineNumber": 19
+        },
+        {
+          "caller": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "callee": "assertTrue",
+          "lineNumber": 20
+        },
+        {
+          "caller": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "callee": "launch",
+          "lineNumber": 23
+        },
+        {
+          "caller": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "callee": "assertFalse",
+          "lineNumber": 24
+        },
+        {
+          "caller": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "callee": "assertEquals",
+          "lineNumber": 25
+        },
+        {
+          "caller": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "callee": "complete",
+          "lineNumber": 26
+        },
+        {
+          "caller": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "callee": "assertFalse",
+          "lineNumber": 27
+        },
+        {
+          "caller": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "callee": "assertEquals",
+          "lineNumber": 28
+        },
+        {
+          "caller": "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+          "callee": "assertFalse",
+          "lineNumber": 29
+        },
+        {
+          "caller": "ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+          "callee": "DeletePermissionSession",
+          "lineNumber": 33
+        },
+        {
+          "caller": "ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+          "callee": "launch",
+          "lineNumber": 35
+        },
+        {
+          "caller": "ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+          "callee": "assertFalse",
+          "lineNumber": 35
+        },
+        {
+          "caller": "ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+          "callee": "complete",
+          "lineNumber": 36
+        },
+        {
+          "caller": "ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+          "callee": "assertEquals",
+          "lineNumber": 37
+        },
+        {
+          "caller": "ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+          "callee": "assertEquals",
+          "lineNumber": 38
+        },
+        {
+          "caller": "ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+          "callee": "launch",
+          "lineNumber": 39
+        },
+        {
+          "caller": "ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+          "callee": "assertTrue",
+          "lineNumber": 40
+        },
+        {
+          "caller": "failedLauncherDoesNotLeaveBusyState",
+          "callee": "DeletePermissionSession",
+          "lineNumber": 44
+        },
+        {
+          "caller": "failedLauncherDoesNotLeaveBusyState",
+          "callee": "launch",
+          "lineNumber": 45
+        },
+        {
+          "caller": "failedLauncherDoesNotLeaveBusyState",
+          "callee": "IllegalStateException",
+          "lineNumber": 45
+        },
+        {
+          "caller": "failedLauncherDoesNotLeaveBusyState",
+          "callee": "fail",
+          "lineNumber": 45
+        },
+        {
+          "caller": "failedLauncherDoesNotLeaveBusyState",
+          "callee": "assertFalse",
+          "lineNumber": 47
+        },
+        {
+          "caller": "failedLauncherDoesNotLeaveBusyState",
+          "callee": "launch",
+          "lineNumber": 48
+        },
+        {
+          "caller": "failedLauncherDoesNotLeaveBusyState",
+          "callee": "assertTrue",
+          "lineNumber": 49
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 4,
+        "functionCount": 3,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 54,
+      "nonEmptyLines": 45,
+      "functions": [
+        {
+          "name": "requiredPermissions_sdk34_includesPartialAccessPermission",
+          "startLine": 11,
+          "endLine": 21,
+          "params": []
+        },
+        {
+          "name": "hasMediaReadPermission_sdk34_trueWhenOnlySelectedPhotosGranted",
+          "startLine": 23,
+          "endLine": 30,
+          "params": []
+        },
+        {
+          "name": "hasMediaReadPermission_sdk33_requiresReadMediaImages",
+          "startLine": 32,
+          "endLine": 41,
+          "params": []
+        },
+        {
+          "name": "isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted",
+          "startLine": 43,
+          "endLine": 53,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "MediaPermissionPolicyTest",
+          "startLine": 9,
+          "endLine": 54,
+          "methods": [
+            "requiredPermissions_sdk34_includesPartialAccessPermission",
+            "hasMediaReadPermission_sdk34_trueWhenOnlySelectedPhotosGranted",
+            "hasMediaReadPermission_sdk33_requiresReadMediaImages",
+            "isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "requiredPermissions_sdk34_includesPartialAccessPermission",
+          "line": 11,
+          "isDefault": false
+        },
+        {
+          "name": "hasMediaReadPermission_sdk34_trueWhenOnlySelectedPhotosGranted",
+          "line": 23,
+          "isDefault": false
+        },
+        {
+          "name": "hasMediaReadPermission_sdk33_requiresReadMediaImages",
+          "line": 32,
+          "isDefault": false
+        },
+        {
+          "name": "isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted",
+          "line": 43,
+          "isDefault": false
+        },
+        {
+          "name": "MediaPermissionPolicyTest",
+          "line": 9,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "requiredPermissions_sdk34_includesPartialAccessPermission",
+          "callee": "requiredPermissionsForSdk",
+          "lineNumber": 13
+        },
+        {
+          "caller": "requiredPermissions_sdk34_includesPartialAccessPermission",
+          "callee": "assertArrayEquals",
+          "lineNumber": 14
+        },
+        {
+          "caller": "requiredPermissions_sdk34_includesPartialAccessPermission",
+          "callee": "arrayOf",
+          "lineNumber": 15
+        },
+        {
+          "caller": "hasMediaReadPermission_sdk34_trueWhenOnlySelectedPhotosGranted",
+          "callee": "hasMediaReadPermission",
+          "lineNumber": 25
+        },
+        {
+          "caller": "hasMediaReadPermission_sdk34_trueWhenOnlySelectedPhotosGranted",
+          "callee": "assertTrue",
+          "lineNumber": 29
+        },
+        {
+          "caller": "hasMediaReadPermission_sdk33_requiresReadMediaImages",
+          "callee": "hasMediaReadPermission",
+          "lineNumber": 34
+        },
+        {
+          "caller": "hasMediaReadPermission_sdk33_requiresReadMediaImages",
+          "callee": "hasMediaReadPermission",
+          "lineNumber": 37
+        },
+        {
+          "caller": "hasMediaReadPermission_sdk33_requiresReadMediaImages",
+          "callee": "assertTrue",
+          "lineNumber": 39
+        },
+        {
+          "caller": "hasMediaReadPermission_sdk33_requiresReadMediaImages",
+          "callee": "assertFalse",
+          "lineNumber": 40
+        },
+        {
+          "caller": "isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted",
+          "callee": "isAnyRequestedPermissionGranted",
+          "lineNumber": 45
+        },
+        {
+          "caller": "isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted",
+          "callee": "mapOf",
+          "lineNumber": 46
+        },
+        {
+          "caller": "isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted",
+          "callee": "assertTrue",
+          "lineNumber": 52
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 5,
+        "functionCount": 4,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 31,
+      "nonEmptyLines": 23,
+      "functions": [
+        {
+          "name": "trashTargetUsesBottomCenterWhenBoundsAvailable",
+          "startLine": 10,
+          "endLine": 19,
+          "params": []
+        },
+        {
+          "name": "tagTargetUsesTopCenterWhenBoundsAvailable",
+          "startLine": 21,
+          "endLine": 30,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "GenieTargetUtilsTest",
+          "startLine": 8,
+          "endLine": 31,
+          "methods": [
+            "trashTargetUsesBottomCenterWhenBoundsAvailable",
+            "tagTargetUsesTopCenterWhenBoundsAvailable"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "trashTargetUsesBottomCenterWhenBoundsAvailable",
+          "line": 10,
+          "isDefault": false
+        },
+        {
+          "name": "tagTargetUsesTopCenterWhenBoundsAvailable",
+          "line": 21,
+          "isDefault": false
+        },
+        {
+          "name": "GenieTargetUtilsTest",
+          "line": 8,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "trashTargetUsesBottomCenterWhenBoundsAvailable",
+          "callee": "Rect",
+          "lineNumber": 12
+        },
+        {
+          "caller": "trashTargetUsesBottomCenterWhenBoundsAvailable",
+          "callee": "Offset",
+          "lineNumber": 13
+        },
+        {
+          "caller": "trashTargetUsesBottomCenterWhenBoundsAvailable",
+          "callee": "computeTrashTargetInRoot",
+          "lineNumber": 15
+        },
+        {
+          "caller": "trashTargetUsesBottomCenterWhenBoundsAvailable",
+          "callee": "assertEquals",
+          "lineNumber": 17
+        },
+        {
+          "caller": "trashTargetUsesBottomCenterWhenBoundsAvailable",
+          "callee": "assertEquals",
+          "lineNumber": 18
+        },
+        {
+          "caller": "tagTargetUsesTopCenterWhenBoundsAvailable",
+          "callee": "Rect",
+          "lineNumber": 23
+        },
+        {
+          "caller": "tagTargetUsesTopCenterWhenBoundsAvailable",
+          "callee": "Offset",
+          "lineNumber": 24
+        },
+        {
+          "caller": "tagTargetUsesTopCenterWhenBoundsAvailable",
+          "callee": "computeTagTargetInRoot",
+          "lineNumber": 26
+        },
+        {
+          "caller": "tagTargetUsesTopCenterWhenBoundsAvailable",
+          "callee": "assertEquals",
+          "lineNumber": 28
+        },
+        {
+          "caller": "tagTargetUsesTopCenterWhenBoundsAvailable",
+          "callee": "assertEquals",
+          "lineNumber": 29
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 3,
+        "functionCount": 2,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 27,
+      "nonEmptyLines": 23,
+      "functions": [
+        {
+          "name": "toggleSelection_addsAndRemoves",
+          "startLine": 7,
+          "endLine": 12,
+          "params": []
+        },
+        {
+          "name": "selectAllOrClear_togglesBasedOnAllSelected",
+          "startLine": 14,
+          "endLine": 19,
+          "params": []
+        },
+        {
+          "name": "clampSelectionToVisible_dropsHidden",
+          "startLine": 21,
+          "endLine": 26,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "SelectionUtilsTest",
+          "startLine": 6,
+          "endLine": 27,
+          "methods": [
+            "toggleSelection_addsAndRemoves",
+            "selectAllOrClear_togglesBasedOnAllSelected",
+            "clampSelectionToVisible_dropsHidden"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "toggleSelection_addsAndRemoves",
+          "line": 7,
+          "isDefault": false
+        },
+        {
+          "name": "selectAllOrClear_togglesBasedOnAllSelected",
+          "line": 14,
+          "isDefault": false
+        },
+        {
+          "name": "clampSelectionToVisible_dropsHidden",
+          "line": 21,
+          "isDefault": false
+        },
+        {
+          "name": "SelectionUtilsTest",
+          "line": 6,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "toggleSelection_addsAndRemoves",
+          "callee": "setOf",
+          "lineNumber": 9
+        },
+        {
+          "caller": "toggleSelection_addsAndRemoves",
+          "callee": "assertEquals",
+          "lineNumber": 10
+        },
+        {
+          "caller": "toggleSelection_addsAndRemoves",
+          "callee": "setOf",
+          "lineNumber": 10
+        },
+        {
+          "caller": "toggleSelection_addsAndRemoves",
+          "callee": "toggleSelection",
+          "lineNumber": 10
+        },
+        {
+          "caller": "toggleSelection_addsAndRemoves",
+          "callee": "assertEquals",
+          "lineNumber": 11
+        },
+        {
+          "caller": "toggleSelection_addsAndRemoves",
+          "callee": "emptySet",
+          "lineNumber": 11
+        },
+        {
+          "caller": "toggleSelection_addsAndRemoves",
+          "callee": "toggleSelection",
+          "lineNumber": 11
+        },
+        {
+          "caller": "toggleSelection_addsAndRemoves",
+          "callee": "setOf",
+          "lineNumber": 11
+        },
+        {
+          "caller": "selectAllOrClear_togglesBasedOnAllSelected",
+          "callee": "listOf",
+          "lineNumber": 16
+        },
+        {
+          "caller": "selectAllOrClear_togglesBasedOnAllSelected",
+          "callee": "assertEquals",
+          "lineNumber": 17
+        },
+        {
+          "caller": "selectAllOrClear_togglesBasedOnAllSelected",
+          "callee": "toSet",
+          "lineNumber": 17
+        },
+        {
+          "caller": "selectAllOrClear_togglesBasedOnAllSelected",
+          "callee": "selectAllOrClear",
+          "lineNumber": 17
+        },
+        {
+          "caller": "selectAllOrClear_togglesBasedOnAllSelected",
+          "callee": "emptySet",
+          "lineNumber": 17
+        },
+        {
+          "caller": "selectAllOrClear_togglesBasedOnAllSelected",
+          "callee": "assertEquals",
+          "lineNumber": 18
+        },
+        {
+          "caller": "selectAllOrClear_togglesBasedOnAllSelected",
+          "callee": "emptySet",
+          "lineNumber": 18
+        },
+        {
+          "caller": "selectAllOrClear_togglesBasedOnAllSelected",
+          "callee": "selectAllOrClear",
+          "lineNumber": 18
+        },
+        {
+          "caller": "selectAllOrClear_togglesBasedOnAllSelected",
+          "callee": "toSet",
+          "lineNumber": 18
+        },
+        {
+          "caller": "clampSelectionToVisible_dropsHidden",
+          "callee": "setOf",
+          "lineNumber": 23
+        },
+        {
+          "caller": "clampSelectionToVisible_dropsHidden",
+          "callee": "setOf",
+          "lineNumber": 24
+        },
+        {
+          "caller": "clampSelectionToVisible_dropsHidden",
+          "callee": "assertEquals",
+          "lineNumber": 25
+        },
+        {
+          "caller": "clampSelectionToVisible_dropsHidden",
+          "callee": "setOf",
+          "lineNumber": 25
+        },
+        {
+          "caller": "clampSelectionToVisible_dropsHidden",
+          "callee": "clampSelectionToVisible",
+          "lineNumber": 25
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 4,
+        "functionCount": 3,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 60,
+      "nonEmptyLines": 51,
+      "functions": [
+        {
+          "name": "dragSelect_addsItemsDuringDrag",
+          "startLine": 11,
+          "endLine": 34,
+          "params": []
+        },
+        {
+          "name": "dragSelect_removesWhenInitiallySelected",
+          "startLine": 36,
+          "endLine": 53,
+          "params": []
+        },
+        {
+          "name": "performHapticFeedback",
+          "startLine": 57,
+          "endLine": 59,
+          "params": [
+            "hapticFeedbackType"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "StringDragSelectStateTest",
+          "startLine": 10,
+          "endLine": 54,
+          "methods": [
+            "dragSelect_addsItemsDuringDrag",
+            "dragSelect_removesWhenInitiallySelected"
+          ],
+          "properties": []
+        },
+        {
+          "name": "NoOpHaptic",
+          "startLine": 56,
+          "endLine": 60,
+          "methods": [
+            "performHapticFeedback"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "dragSelect_addsItemsDuringDrag",
+          "line": 11,
+          "isDefault": false
+        },
+        {
+          "name": "dragSelect_removesWhenInitiallySelected",
+          "line": 36,
+          "isDefault": false
+        },
+        {
+          "name": "StringDragSelectStateTest",
+          "line": 10,
+          "isDefault": false
+        },
+        {
+          "name": "performHapticFeedback",
+          "line": 57,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "listOf",
+          "lineNumber": 13
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "emptySet",
+          "lineNumber": 14
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "StringDragSelectState",
+          "lineNumber": 16
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "registerGridPosition",
+          "lineNumber": 24
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "registerItemBounds",
+          "lineNumber": 25
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "ItemBounds",
+          "lineNumber": 25
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "registerItemBounds",
+          "lineNumber": 26
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "ItemBounds",
+          "lineNumber": 26
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "onDragStart",
+          "lineNumber": 28
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "Offset",
+          "lineNumber": 28
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "assertTrue",
+          "lineNumber": 29
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "assertEquals",
+          "lineNumber": 30
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "setOf",
+          "lineNumber": 30
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "onDrag",
+          "lineNumber": 32
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "Offset",
+          "lineNumber": 32
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "assertEquals",
+          "lineNumber": 33
+        },
+        {
+          "caller": "dragSelect_addsItemsDuringDrag",
+          "callee": "setOf",
+          "lineNumber": 33
+        },
+        {
+          "caller": "dragSelect_removesWhenInitiallySelected",
+          "callee": "listOf",
+          "lineNumber": 38
+        },
+        {
+          "caller": "dragSelect_removesWhenInitiallySelected",
+          "callee": "setOf",
+          "lineNumber": 39
+        },
+        {
+          "caller": "dragSelect_removesWhenInitiallySelected",
+          "callee": "StringDragSelectState",
+          "lineNumber": 40
+        },
+        {
+          "caller": "dragSelect_removesWhenInitiallySelected",
+          "callee": "registerGridPosition",
+          "lineNumber": 48
+        },
+        {
+          "caller": "dragSelect_removesWhenInitiallySelected",
+          "callee": "registerItemBounds",
+          "lineNumber": 49
+        },
+        {
+          "caller": "dragSelect_removesWhenInitiallySelected",
+          "callee": "ItemBounds",
+          "lineNumber": 49
+        },
+        {
+          "caller": "dragSelect_removesWhenInitiallySelected",
+          "callee": "onDragStart",
+          "lineNumber": 51
+        },
+        {
+          "caller": "dragSelect_removesWhenInitiallySelected",
+          "callee": "Offset",
+          "lineNumber": 51
+        },
+        {
+          "caller": "dragSelect_removesWhenInitiallySelected",
+          "callee": "assertEquals",
+          "lineNumber": 52
+        },
+        {
+          "caller": "dragSelect_removesWhenInitiallySelected",
+          "callee": "emptySet",
+          "lineNumber": 52
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 4,
+        "functionCount": 3,
+        "classCount": 2
+      }
+    },
+    {
+      "path": "build.gradle.kts",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 6,
+      "nonEmptyLines": 6,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "docs/release-3.3.4.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 14,
+      "nonEmptyLines": 10,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": "gradle/libs.versions.toml",
+      "language": "toml",
+      "fileCategory": "config",
+      "totalLines": 59,
+      "nonEmptyLines": 50,
+      "sections": [
+        {
+          "heading": "versions",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "libraries",
+          "level": 1,
+          "line": 15
+        },
+        {
+          "heading": "plugins",
+          "level": 1,
+          "line": 56
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 3
+      }
+    },
+    {
+      "path": "scripts/encrypt-release-backup.cjs",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 22,
+      "nonEmptyLines": 22,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "settings.gradle.kts",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "totalLines": 25,
+      "nonEmptyLines": 24,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tools/run-volume-device-probe.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 89,
+      "nonEmptyLines": 83,
+      "functions": [
+        {
+          "name": "adb",
+          "startLine": 11,
+          "endLine": 16,
+          "params": [
+            "*args",
+            "check"
+          ]
+        },
+        {
+          "name": "install",
+          "startLine": 18,
+          "endLine": 31,
+          "params": [
+            "apk"
+          ]
+        },
+        {
+          "name": "wait_for_primary_storage",
+          "startLine": 33,
+          "endLine": 42,
+          "params": []
+        },
+        {
+          "name": "main",
+          "startLine": 44,
+          "endLine": 77,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "adb",
+          "line": 11,
+          "isDefault": false
+        },
+        {
+          "name": "install",
+          "line": 18,
+          "isDefault": false
+        },
+        {
+          "name": "wait_for_primary_storage",
+          "line": 33,
+          "isDefault": false
+        },
+        {
+          "name": "main",
+          "line": 44,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "adb",
+          "callee": "subprocess.run",
+          "lineNumber": 12
+        },
+        {
+          "caller": "adb",
+          "callee": "RuntimeError",
+          "lineNumber": 15
+        },
+        {
+          "caller": "install",
+          "callee": "range",
+          "lineNumber": 21
+        },
+        {
+          "caller": "install",
+          "callee": "subprocess.run",
+          "lineNumber": 22
+        },
+        {
+          "caller": "install",
+          "callee": "(out / \"install.txt\").open",
+          "lineNumber": 24
+        },
+        {
+          "caller": "install",
+          "callee": "f.write",
+          "lineNumber": 25
+        },
+        {
+          "caller": "install",
+          "callee": "RuntimeError",
+          "lineNumber": 29
+        },
+        {
+          "caller": "install",
+          "callee": "time.sleep",
+          "lineNumber": 30
+        },
+        {
+          "caller": "install",
+          "callee": "adb",
+          "lineNumber": 31
+        },
+        {
+          "caller": "wait_for_primary_storage",
+          "callee": "time.monotonic",
+          "lineNumber": 34
+        },
+        {
+          "caller": "wait_for_primary_storage",
+          "callee": "time.monotonic",
+          "lineNumber": 35
+        },
+        {
+          "caller": "wait_for_primary_storage",
+          "callee": "adb",
+          "lineNumber": 36
+        },
+        {
+          "caller": "wait_for_primary_storage",
+          "callee": "(out / \"storage-readiness.txt\").open",
+          "lineNumber": 37
+        },
+        {
+          "caller": "wait_for_primary_storage",
+          "callee": "f.write",
+          "lineNumber": 38
+        },
+        {
+          "caller": "wait_for_primary_storage",
+          "callee": "re.search",
+          "lineNumber": 39
+        },
+        {
+          "caller": "wait_for_primary_storage",
+          "callee": "time.sleep",
+          "lineNumber": 41
+        },
+        {
+          "caller": "wait_for_primary_storage",
+          "callee": "RuntimeError",
+          "lineNumber": 42
+        },
+        {
+          "caller": "main",
+          "callee": "adb",
+          "lineNumber": 45
+        },
+        {
+          "caller": "main",
+          "callee": "adb(\"shell\", \"getprop ro.kernel.qemu\").strip",
+          "lineNumber": 46
+        },
+        {
+          "caller": "main",
+          "callee": "adb",
+          "lineNumber": 46
+        },
+        {
+          "caller": "main",
+          "callee": "RuntimeError",
+          "lineNumber": 47
+        },
+        {
+          "caller": "main",
+          "callee": "adb",
+          "lineNumber": 50
+        },
+        {
+          "caller": "main",
+          "callee": "wait_for_primary_storage",
+          "lineNumber": 52
+        },
+        {
+          "caller": "main",
+          "callee": "install",
+          "lineNumber": 53
+        },
+        {
+          "caller": "main",
+          "callee": "install",
+          "lineNumber": 54
+        },
+        {
+          "caller": "main",
+          "callee": "wait_for_primary_storage",
+          "lineNumber": 55
+        },
+        {
+          "caller": "main",
+          "callee": "adb",
+          "lineNumber": 56
+        },
+        {
+          "caller": "main",
+          "callee": "(out / \"instrumentation.txt\").write_text",
+          "lineNumber": 60
+        },
+        {
+          "caller": "main",
+          "callee": "adb",
+          "lineNumber": 61
+        },
+        {
+          "caller": "main",
+          "callee": "(out / \"volume-observations.jsonl\").write_text",
+          "lineNumber": 63
+        },
+        {
+          "caller": "main",
+          "callee": "adb(\"shell\", \"getprop ro.build.version.sdk\").strip",
+          "lineNumber": 64
+        },
+        {
+          "caller": "main",
+          "callee": "adb",
+          "lineNumber": 64
+        },
+        {
+          "caller": "main",
+          "callee": "adb(\"shell\", \"getprop ro.build.fingerprint\").strip",
+          "lineNumber": 65
+        },
+        {
+          "caller": "main",
+          "callee": "adb",
+          "lineNumber": 65
+        },
+        {
+          "caller": "main",
+          "callee": "(out / \"device.json\").write_text",
+          "lineNumber": 68
+        },
+        {
+          "caller": "main",
+          "callee": "json.dumps",
+          "lineNumber": 68
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 69
+        },
+        {
+          "caller": "main",
+          "callee": "re.search",
+          "lineNumber": 70
+        },
+        {
+          "caller": "main",
+          "callee": "RuntimeError",
+          "lineNumber": 71
+        },
+        {
+          "caller": "main",
+          "callee": "json.loads",
+          "lineNumber": 72
+        },
+        {
+          "caller": "main",
+          "callee": "observations.splitlines",
+          "lineNumber": 72
+        },
+        {
+          "caller": "main",
+          "callee": "line.strip",
+          "lineNumber": 72
+        },
+        {
+          "caller": "main",
+          "callee": "len",
+          "lineNumber": 73
+        },
+        {
+          "caller": "main",
+          "callee": "RuntimeError",
+          "lineNumber": 74
+        },
+        {
+          "caller": "main",
+          "callee": "any",
+          "lineNumber": 75
+        },
+        {
+          "caller": "main",
+          "callee": "str",
+          "lineNumber": 75
+        },
+        {
+          "caller": "main",
+          "callee": "RuntimeError",
+          "lineNumber": 76
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 77
+        },
+        {
+          "caller": "main",
+          "callee": "json.dumps",
+          "lineNumber": 77
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 4,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,607 @@
+[
+  {
+    "path": "build.gradle.kts",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "gradle.properties",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "LICENSE",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "README.md",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "settings.gradle.kts",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": ".github/workflows/build-photo-sharing.yml",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": ".github/workflows/build-recycle-bin-consistency.yml",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": ".github/workflows/build-test-apk.yml",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": ".github/workflows/build-volume-confirmation.yml",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": ".github/workflows/publish-release.yml",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/build.gradle.kts",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/proguard-rules.pro",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/androidTest/java/com/tabula/v3/data/repository/VolumeDeletionDeviceTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/AndroidManifest.xml",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/model/AlbumMapping.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/model/AlbumUsage.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/model/ImageFeatures.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumManager.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumUsageTracker.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/BatchDeletion.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/ImageFeatureDetector.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/PerceptualHash.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinDeletion.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/SimilarGroupDetector.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/data/repository/SystemAlbumSyncManager.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/di/PreloadingManager.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/service/FluidCloudService.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumChips.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumDialogs.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumDropTarget.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/BackdropLiquidGlass.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/BatchCompletionScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/CardStack.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/DrawCardState.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/FixedTagBar.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/GenieEffect.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/GenieTargetUtils.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/GlassBottomSheet.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/Glassmorphism.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/LiquidGlass.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/LiquidGlassV2.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/MediaBadges.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/PhysicalLiquidGlass.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/RealLiquidGlass.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/TagPosition.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/TopBar.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/UndoSnackbar.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/components/quickaction/SafeAreaCompat.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/theme/Theme.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/theme/Type.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/util/AlbumCleanupImageResolver.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/util/ContextExtensions.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/util/ImageFeatureState.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/util/PhotoSharing.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/util/SelectionUtils.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/ui/util/StringDragSelectState.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/main/java/com/tabula/v3/widget/TabulaWidgetProvider.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinManagerTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/ui/components/MonthInfoBuilderTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/ui/util/AlbumCleanupImageResolverTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/ui/util/PhotoSharingTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "gradle/libs.versions.toml",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "gradle/wrapper/gradle-wrapper.properties",
+    "exists": true,
+    "same": true
+  },
+  {
+    "path": "tools/run-volume-device-probe.py",
+    "exists": true,
+    "same": true
+  }
+]

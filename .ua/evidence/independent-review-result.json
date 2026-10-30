@@ -1,0 +1,51 @@
+{
+  "schema_version": 2,
+  "success": false,
+  "status": "launch_error",
+  "exit_code": null,
+  "timed_out": false,
+  "session_id": "26dc9c97-d5b8-4721-86c5-a20732a061f5",
+  "permission_denials": [],
+  "model": "deepseek-flash[1m]",
+  "model_usage": {},
+  "usage": {},
+  "result": null,
+  "errors": [
+    "PermissionError: [Errno 13] Permission denied: 'local-user\\\\.deepseek-worker\\\\locks\\\\e1428c4545d72c409c029e1f93f82bbb4349e61f02f7777cbbad57bd8410d602.lock'"
+  ],
+  "termination_reason": "launch_error",
+  "progress": {},
+  "observed_models": [],
+  "warnings": [],
+  "review_complete": null,
+  "credential_source": "env_file",
+  "dry_run": false,
+  "plan": {
+    "cwd": ".",
+    "state_dir": "local-user\\.deepseek-worker",
+    "env_file": "local-user\\.deepseek-worker\\worker.env",
+    "claude_config_dir": "local-user\\.deepseek-worker\\sessions\\26dc9c97-d5b8-4721-86c5-a20732a061f5\\claude",
+    "executable": "local-user\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+    "base_url": "https://api.deepseek.com/anthropic",
+    "tools": [
+      "Read"
+    ],
+    "write_files": [],
+    "allowed_tools": [
+      "Read"
+    ],
+    "max_turns": 6,
+    "timeout_seconds": 240,
+    "resume": false,
+    "profile": "review",
+    "effort": "max",
+    "max_output_tokens": 16384,
+    "max_total_output_tokens": 32768,
+    "max_report_chars": 3000,
+    "streaming": true,
+    "max_api_retries": 1,
+    "credential_present": true,
+    "proxy_inherited": []
+  },
+  "duration_seconds": 0
+}

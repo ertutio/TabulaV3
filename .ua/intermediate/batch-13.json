@@ -1,0 +1,3747 @@
+{
+  "nodes": [
+    {
+      "id": "config:app/src/main/res/layout/fluid_cloud_layout.xml",
+      "type": "config",
+      "name": "fluid_cloud_layout.xml",
+      "filePath": "app/src/main/res/layout/fluid_cloud_layout.xml",
+      "startLine": 1,
+      "endLine": 47,
+      "summary": "定义前台流体云通知的照片数量及标识 RemoteViews 布局。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        47
+      ]
+    },
+    {
+      "id": "config:app/src/main/res/layout/widget_tabula.xml",
+      "type": "config",
+      "name": "widget_tabula.xml",
+      "filePath": "app/src/main/res/layout/widget_tabula.xml",
+      "startLine": 1,
+      "endLine": 66,
+      "summary": "定义桌面 widget 名称、照片数量、描述与行动提示的 RemoteViews 布局。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "moderate",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        66
+      ]
+    },
+    {
+      "id": "config:app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "type": "config",
+      "name": "ic_launcher.xml",
+      "filePath": "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "startLine": 1,
+      "endLine": 4,
+      "summary": "用图标背景和前景组合 adaptive launcher icon。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        4
+      ]
+    },
+    {
+      "id": "config:app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "type": "config",
+      "name": "ic_launcher_round.xml",
+      "filePath": "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "startLine": 1,
+      "endLine": 4,
+      "summary": "定义圆形启动器入口的 adaptive icon 组合。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "xml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        4
+      ]
+    },
+    {
+      "id": "file:app/src/main/res/raw/liquidglass_effect.agsl",
+      "type": "file",
+      "name": "liquidglass_effect.agsl",
+      "filePath": "app/src/main/res/raw/liquidglass_effect.agsl",
+      "startLine": 1,
+      "endLine": 136,
+      "summary": "通过 AGSL shader 的尺寸、偏移、折射及圆角 uniform 实现液态玻璃视觉。",
+      "tags": [
+        "supporting-index",
+        "platform"
+      ],
+      "complexity": "moderate",
+      "language": "agsl",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        136
+      ]
+    },
+    {
+      "id": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "type": "file",
+      "name": "BatchDeletionTest.kt",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 1,
+      "endLine": 171,
+      "summary": "验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        171
+      ]
+    },
+    {
+      "id": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "type": "class",
+      "name": "BatchDeletionTest",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 10,
+      "endLine": 171,
+      "summary": "BatchDeletionTest 的声明与成员入口；文件职责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        10,
+        171
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.clears140PhotosInBoundedBatches",
+      "type": "function",
+      "name": "BatchDeletionTest.clears140PhotosInBoundedBatches",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 11,
+      "endLine": 21,
+      "summary": "声明入口 BatchDeletionTest.clears140PhotosInBoundedBatches；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        11,
+        21
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.retriesRejectedRequestsWithSmallerBatches",
+      "type": "function",
+      "name": "BatchDeletionTest.retriesRejectedRequestsWithSmallerBatches",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 23,
+      "endLine": 30,
+      "summary": "声明入口 BatchDeletionTest.retriesRejectedRequestsWithSmallerBatches；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        23,
+        30
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.oneInvalidItemDoesNotBlockOtherPhotos",
+      "type": "function",
+      "name": "BatchDeletionTest.oneInvalidItemDoesNotBlockOtherPhotos",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 32,
+      "endLine": 41,
+      "summary": "声明入口 BatchDeletionTest.oneInvalidItemDoesNotBlockOtherPhotos；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        32,
+        41
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.partialSuccessRemovesOnlyConfirmedPhotos",
+      "type": "function",
+      "name": "BatchDeletionTest.partialSuccessRemovesOnlyConfirmedPhotos",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 43,
+      "endLine": 50,
+      "summary": "声明入口 BatchDeletionTest.partialSuccessRemovesOnlyConfirmedPhotos；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        43,
+        50
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.cancellationPreservesCompletedWorkAndStopsLaterRequests",
+      "type": "function",
+      "name": "BatchDeletionTest.cancellationPreservesCompletedWorkAndStopsLaterRequests",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 52,
+      "endLine": 64,
+      "summary": "声明入口 BatchDeletionTest.cancellationPreservesCompletedWorkAndStopsLaterRequests；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        52,
+        64
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.cancellationDuringSplitStopsSiblingRequests",
+      "type": "function",
+      "name": "BatchDeletionTest.cancellationDuringSplitStopsSiblingRequests",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 66,
+      "endLine": 75,
+      "summary": "声明入口 BatchDeletionTest.cancellationDuringSplitStopsSiblingRequests；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        66,
+        75
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.neverStartsNextRequestBeforePermissionResultAndPersistence",
+      "type": "function",
+      "name": "BatchDeletionTest.neverStartsNextRequestBeforePermissionResultAndPersistence",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 77,
+      "endLine": 96,
+      "summary": "声明入口 BatchDeletionTest.neverStartsNextRequestBeforePermissionResultAndPersistence；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        77,
+        96
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.deduplicatesRequestsAndIgnoresUnrequestedResults",
+      "type": "function",
+      "name": "BatchDeletionTest.deduplicatesRequestsAndIgnoresUnrequestedResults",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 98,
+      "endLine": 105,
+      "summary": "声明入口 BatchDeletionTest.deduplicatesRequestsAndIgnoresUnrequestedResults；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        98,
+        105
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.emptyRecycleBinDoesNotLaunchARequest",
+      "type": "function",
+      "name": "BatchDeletionTest.emptyRecycleBinDoesNotLaunchARequest",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 107,
+      "endLine": 113,
+      "summary": "声明入口 BatchDeletionTest.emptyRecycleBinDoesNotLaunchARequest；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        107,
+        113
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.nonRetryableFailureDoesNotSplit",
+      "type": "function",
+      "name": "BatchDeletionTest.nonRetryableFailureDoesNotSplit",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 115,
+      "endLine": 123,
+      "summary": "声明入口 BatchDeletionTest.nonRetryableFailureDoesNotSplit；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        115,
+        123
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.globalFailureStopsAllLaterBatches",
+      "type": "function",
+      "name": "BatchDeletionTest.globalFailureStopsAllLaterBatches",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 125,
+      "endLine": 134,
+      "summary": "声明入口 BatchDeletionTest.globalFailureStopsAllLaterBatches；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        125,
+        134
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.globalFailureKeepsEarlierSuccessfulWork",
+      "type": "function",
+      "name": "BatchDeletionTest.globalFailureKeepsEarlierSuccessfulWork",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 136,
+      "endLine": 146,
+      "summary": "声明入口 BatchDeletionTest.globalFailureKeepsEarlierSuccessfulWork；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        136,
+        146
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.unknownVerificationCommitsKnownResultsThenStops",
+      "type": "function",
+      "name": "BatchDeletionTest.unknownVerificationCommitsKnownResultsThenStops",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 148,
+      "endLine": 159,
+      "summary": "声明入口 BatchDeletionTest.unknownVerificationCommitsKnownResultsThenStops；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        148,
+        159
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.over2000ItemsStillUseBoundedRequests",
+      "type": "function",
+      "name": "BatchDeletionTest.over2000ItemsStillUseBoundedRequests",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "startLine": 161,
+      "endLine": 170,
+      "summary": "声明入口 BatchDeletionTest.over2000ItemsStillUseBoundedRequests；所属文件负责：验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "BatchDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        161,
+        170
+      ]
+    },
+    {
+      "id": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "type": "file",
+      "name": "FileOperationManagerTest.kt",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 1,
+      "endLine": 158,
+      "summary": "通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        158
+      ]
+    },
+    {
+      "id": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "type": "class",
+      "name": "FileOperationManagerTest",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 23,
+      "endLine": 158,
+      "summary": "FileOperationManagerTest 的声明与成员入口；文件职责：通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        23,
+        158
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.setup",
+      "type": "function",
+      "name": "FileOperationManagerTest.setup",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 50,
+      "endLine": 54,
+      "summary": "声明入口 FileOperationManagerTest.setup；所属文件负责：通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "FileOperationManagerTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        50,
+        54
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.fullAccessAndAvailableVolumeCanConfirmMissing",
+      "type": "function",
+      "name": "FileOperationManagerTest.fullAccessAndAvailableVolumeCanConfirmMissing",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 61,
+      "endLine": 63,
+      "summary": "声明入口 FileOperationManagerTest.fullAccessAndAvailableVolumeCanConfirmMissing；所属文件负责：通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "FileOperationManagerTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        61,
+        63
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+      "type": "function",
+      "name": "FileOperationManagerTest.selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 65,
+      "endLine": 71,
+      "summary": "声明入口 FileOperationManagerTest.selectedAccessEmptyQueryRemainsUnknownAfterAuthorization；所属文件负责：通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "FileOperationManagerTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        65,
+        71
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.unavailableVolumeCannotConfirmMissing",
+      "type": "function",
+      "name": "FileOperationManagerTest.unavailableVolumeCannotConfirmMissing",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 73,
+      "endLine": 75,
+      "summary": "声明入口 FileOperationManagerTest.unavailableVolumeCannotConfirmMissing；所属文件负责：通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "FileOperationManagerTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        73,
+        75
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.permissionRevokedDuringQueryCannotConfirmMissing",
+      "type": "function",
+      "name": "FileOperationManagerTest.permissionRevokedDuringQueryCannotConfirmMissing",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 77,
+      "endLine": 80,
+      "summary": "声明入口 FileOperationManagerTest.permissionRevokedDuringQueryCannotConfirmMissing；所属文件负责：通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "FileOperationManagerTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        77,
+        80
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.nullOrFailedQueriesRemainUnknown",
+      "type": "function",
+      "name": "FileOperationManagerTest.nullOrFailedQueriesRemainUnknown",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 82,
+      "endLine": 89,
+      "summary": "声明入口 FileOperationManagerTest.nullOrFailedQueriesRemainUnknown；所属文件负责：通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "FileOperationManagerTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        82,
+        89
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.visiblePhotoRemainsPresentWithPartialAccess",
+      "type": "function",
+      "name": "FileOperationManagerTest.visiblePhotoRemainsPresentWithPartialAccess",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 91,
+      "endLine": 95,
+      "summary": "声明入口 FileOperationManagerTest.visiblePhotoRemainsPresentWithPartialAccess；所属文件负责：通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "FileOperationManagerTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        91,
+        95
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.actualServiceErrorsMapToNonSplittableFailures",
+      "type": "function",
+      "name": "FileOperationManagerTest.actualServiceErrorsMapToNonSplittableFailures",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 97,
+      "endLine": 106,
+      "summary": "声明入口 FileOperationManagerTest.actualServiceErrorsMapToNonSplittableFailures；所属文件负责：通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "FileOperationManagerTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        97,
+        106
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.rejectedRequestCanBeSplitButCancellationPropagates",
+      "type": "function",
+      "name": "FileOperationManagerTest.rejectedRequestCanBeSplitButCancellationPropagates",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 108,
+      "endLine": 117,
+      "summary": "声明入口 FileOperationManagerTest.rejectedRequestCanBeSplitButCancellationPropagates；所属文件负责：通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "FileOperationManagerTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        108,
+        117
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+      "type": "function",
+      "name": "FileOperationManagerTest.mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 119,
+      "endLine": 124,
+      "summary": "声明入口 FileOperationManagerTest.mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing；所属文件负责：通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "FileOperationManagerTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        119,
+        124
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+      "type": "function",
+      "name": "FileOperationManagerTest.emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 133,
+      "endLine": 137,
+      "summary": "声明入口 FileOperationManagerTest.emptyCursorWithMountedRecentOverlapIsConfirmedMissing；所属文件负责：通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "FileOperationManagerTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        133,
+        137
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+      "type": "function",
+      "name": "FileOperationManagerTest.oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "startLine": 139,
+      "endLine": 157,
+      "summary": "声明入口 FileOperationManagerTest.oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained；所属文件负责：通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "FileOperationManagerTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        139,
+        157
+      ]
+    },
+    {
+      "id": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "type": "file",
+      "name": "RecycleBinDeletionTest.kt",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "startLine": 1,
+      "endLine": 178,
+      "summary": "验证日志准备/提交失败、恢复幂等、禁止再次物理删除、UNKNOWN 与取消语义，覆盖回收站删除适配层。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        178
+      ]
+    },
+    {
+      "id": "class:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest",
+      "type": "class",
+      "name": "RecycleBinDeletionTest",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "startLine": 12,
+      "endLine": 178,
+      "summary": "RecycleBinDeletionTest 的声明与成员入口；文件职责：验证日志准备/提交失败、恢复幂等、禁止再次物理删除、UNKNOWN 与取消语义，覆盖回收站删除适配层。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        12,
+        178
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+      "type": "function",
+      "name": "RecycleBinDeletionTest.saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "startLine": 15,
+      "endLine": 44,
+      "summary": "声明入口 RecycleBinDeletionTest.saveFailureStopsTaskAndRecoveryNeverDeletesAgain；所属文件负责：验证日志准备/提交失败、恢复幂等、禁止再次物理删除、UNKNOWN 与取消语义，覆盖回收站删除适配层。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        15,
+        44
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.journalCommitFailureCanBeReconciledIdempotently",
+      "type": "function",
+      "name": "RecycleBinDeletionTest.journalCommitFailureCanBeReconciledIdempotently",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "startLine": 46,
+      "endLine": 64,
+      "summary": "声明入口 RecycleBinDeletionTest.journalCommitFailureCanBeReconciledIdempotently；所属文件负责：验证日志准备/提交失败、恢复幂等、禁止再次物理删除、UNKNOWN 与取消语义，覆盖回收站删除适配层。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        46,
+        64
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.failedJournalPreparationDoesNotRequestDeletion",
+      "type": "function",
+      "name": "RecycleBinDeletionTest.failedJournalPreparationDoesNotRequestDeletion",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "startLine": 66,
+      "endLine": 78,
+      "summary": "声明入口 RecycleBinDeletionTest.failedJournalPreparationDoesNotRequestDeletion；所属文件负责：验证日志准备/提交失败、恢复幂等、禁止再次物理删除、UNKNOWN 与取消语义，覆盖回收站删除适配层。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        66,
+        78
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.globalErrorsAreNotSplitAndStopAfterOneRequest",
+      "type": "function",
+      "name": "RecycleBinDeletionTest.globalErrorsAreNotSplitAndStopAfterOneRequest",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "startLine": 80,
+      "endLine": 97,
+      "summary": "声明入口 RecycleBinDeletionTest.globalErrorsAreNotSplitAndStopAfterOneRequest；所属文件负责：验证日志准备/提交失败、恢复幂等、禁止再次物理删除、UNKNOWN 与取消语义，覆盖回收站删除适配层。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        80,
+        97
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.invalidItemIsIsolatedWithoutLosingOtherRecords",
+      "type": "function",
+      "name": "RecycleBinDeletionTest.invalidItemIsIsolatedWithoutLosingOtherRecords",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "startLine": 99,
+      "endLine": 112,
+      "summary": "声明入口 RecycleBinDeletionTest.invalidItemIsIsolatedWithoutLosingOtherRecords；所属文件负责：验证日志准备/提交失败、恢复幂等、禁止再次物理删除、UNKNOWN 与取消语义，覆盖回收站删除适配层。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        99,
+        112
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.recoveryKeepsUnknownAndExistingPhotosDistinct",
+      "type": "function",
+      "name": "RecycleBinDeletionTest.recoveryKeepsUnknownAndExistingPhotosDistinct",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "startLine": 114,
+      "endLine": 125,
+      "summary": "声明入口 RecycleBinDeletionTest.recoveryKeepsUnknownAndExistingPhotosDistinct；所属文件负责：验证日志准备/提交失败、恢复幂等、禁止再次物理删除、UNKNOWN 与取消语义，覆盖回收站删除适配层。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        114,
+        125
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.cancelledCoroutineLeavesJournalForLaterRecovery",
+      "type": "function",
+      "name": "RecycleBinDeletionTest.cancelledCoroutineLeavesJournalForLaterRecovery",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "startLine": 127,
+      "endLine": 141,
+      "summary": "声明入口 RecycleBinDeletionTest.cancelledCoroutineLeavesJournalForLaterRecovery；所属文件负责：验证日志准备/提交失败、恢复幂等、禁止再次物理删除、UNKNOWN 与取消语义，覆盖回收站删除适配层。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        127,
+        141
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+      "type": "function",
+      "name": "RecycleBinDeletionTest.unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "startLine": 143,
+      "endLine": 162,
+      "summary": "声明入口 RecycleBinDeletionTest.unknownPermissionResultStopsFurtherDeletionAndKeepsJournal；所属文件负责：验证日志准备/提交失败、恢复幂等、禁止再次物理删除、UNKNOWN 与取消语义，覆盖回收站删除适配层。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        143,
+        162
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+      "type": "function",
+      "name": "RecycleBinDeletionTest.systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "startLine": 164,
+      "endLine": 177,
+      "summary": "声明入口 RecycleBinDeletionTest.systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork；所属文件负责：验证日志准备/提交失败、恢复幂等、禁止再次物理删除、UNKNOWN 与取消语义，覆盖回收站删除适配层。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinDeletionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        164,
+        177
+      ]
+    },
+    {
+      "id": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "type": "file",
+      "name": "VolumeConfirmationRuleTest.kt",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "startLine": 1,
+      "endLine": 36,
+      "summary": "覆盖 recent 集合包含已挂载卷、真离线卷、merged URI 与具体主卷之间的缺失确认规则。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        36
+      ]
+    },
+    {
+      "id": "class:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest",
+      "type": "class",
+      "name": "VolumeConfirmationRuleTest",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "startLine": 6,
+      "endLine": 36,
+      "summary": "VolumeConfirmationRuleTest 的声明与成员入口；文件职责：覆盖 recent 集合包含已挂载卷、真离线卷、merged URI 与具体主卷之间的缺失确认规则。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        6,
+        36
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.recentListMayContainTheCurrentlyMountedPrimaryVolume",
+      "type": "function",
+      "name": "VolumeConfirmationRuleTest.recentListMayContainTheCurrentlyMountedPrimaryVolume",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "startLine": 9,
+      "endLine": 11,
+      "summary": "声明入口 VolumeConfirmationRuleTest.recentListMayContainTheCurrentlyMountedPrimaryVolume；所属文件负责：覆盖 recent 集合包含已挂载卷、真离线卷、merged URI 与具体主卷之间的缺失确认规则。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "VolumeConfirmationRuleTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        9,
+        11
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.allRecentVolumesAlreadyMountedDoNotBlockMergedUri",
+      "type": "function",
+      "name": "VolumeConfirmationRuleTest.allRecentVolumesAlreadyMountedDoNotBlockMergedUri",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "startLine": 13,
+      "endLine": 16,
+      "summary": "声明入口 VolumeConfirmationRuleTest.allRecentVolumesAlreadyMountedDoNotBlockMergedUri；所属文件负责：覆盖 recent 集合包含已挂载卷、真离线卷、merged URI 与具体主卷之间的缺失确认规则。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "VolumeConfirmationRuleTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        13,
+        16
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.genuinelyUnmountedRecentVolumeStillBlocksAmbiguousMergedUri",
+      "type": "function",
+      "name": "VolumeConfirmationRuleTest.genuinelyUnmountedRecentVolumeStillBlocksAmbiguousMergedUri",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "startLine": 18,
+      "endLine": 20,
+      "summary": "声明入口 VolumeConfirmationRuleTest.genuinelyUnmountedRecentVolumeStillBlocksAmbiguousMergedUri；所属文件负责：覆盖 recent 集合包含已挂载卷、真离线卷、merged URI 与具体主卷之间的缺失确认规则。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "VolumeConfirmationRuleTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        18,
+        20
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.mergedUriRequiresConsistentMountedPrimaryEvidence",
+      "type": "function",
+      "name": "VolumeConfirmationRuleTest.mergedUriRequiresConsistentMountedPrimaryEvidence",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "startLine": 22,
+      "endLine": 25,
+      "summary": "声明入口 VolumeConfirmationRuleTest.mergedUriRequiresConsistentMountedPrimaryEvidence；所属文件负责：覆盖 recent 集合包含已挂载卷、真离线卷、merged URI 与具体主卷之间的缺失确认规则。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "VolumeConfirmationRuleTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        22,
+        25
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.concretePrimaryIsNotBlockedByAnUnrelatedEjectedVolume",
+      "type": "function",
+      "name": "VolumeConfirmationRuleTest.concretePrimaryIsNotBlockedByAnUnrelatedEjectedVolume",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "startLine": 27,
+      "endLine": 29,
+      "summary": "声明入口 VolumeConfirmationRuleTest.concretePrimaryIsNotBlockedByAnUnrelatedEjectedVolume；所属文件负责：覆盖 recent 集合包含已挂载卷、真离线卷、merged URI 与具体主卷之间的缺失确认规则。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "VolumeConfirmationRuleTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        27,
+        29
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.concreteUnavailableVolumesCannotBeConfirmedMissing",
+      "type": "function",
+      "name": "VolumeConfirmationRuleTest.concreteUnavailableVolumesCannotBeConfirmedMissing",
+      "filePath": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "startLine": 31,
+      "endLine": 35,
+      "summary": "声明入口 VolumeConfirmationRuleTest.concreteUnavailableVolumesCannotBeConfirmedMissing；所属文件负责：覆盖 recent 集合包含已挂载卷、真离线卷、merged URI 与具体主卷之间的缺失确认规则。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "VolumeConfirmationRuleTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        31,
+        35
+      ]
+    },
+    {
+      "id": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "type": "file",
+      "name": "DeletePermissionActivityRecoveryTest.kt",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "startLine": 1,
+      "endLine": 69,
+      "summary": "使用 Robolectric Activity 重建确认系统授权回调触发日志核对，而非再次发起物理删除。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        69
+      ]
+    },
+    {
+      "id": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:ControlledDeleteResultRegistry",
+      "type": "class",
+      "name": "ControlledDeleteResultRegistry",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "startLine": 18,
+      "endLine": 22,
+      "summary": "ControlledDeleteResultRegistry 的声明与成员入口；文件职责：使用 Robolectric Activity 重建确认系统授权回调触发日志核对，而非再次发起物理删除。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        18,
+        22
+      ]
+    },
+    {
+      "id": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionRecoveryActivity",
+      "type": "class",
+      "name": "DeletePermissionRecoveryActivity",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "startLine": 25,
+      "endLine": 49,
+      "summary": "DeletePermissionRecoveryActivity 的声明与成员入口；文件职责：使用 Robolectric Activity 重建确认系统授权回调触发日志核对，而非再次发起物理删除。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        25,
+        49
+      ]
+    },
+    {
+      "id": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionActivityRecoveryTest",
+      "type": "class",
+      "name": "DeletePermissionActivityRecoveryTest",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "startLine": 52,
+      "endLine": 69,
+      "summary": "DeletePermissionActivityRecoveryTest 的声明与成员入口；文件职责：使用 Robolectric Activity 重建确认系统授权回调触发日志核对，而非再次发起物理删除。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        52,
+        69
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:ControlledDeleteResultRegistry.onLaunch",
+      "type": "function",
+      "name": "ControlledDeleteResultRegistry.onLaunch",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "startLine": 20,
+      "endLine": 21,
+      "summary": "声明入口 ControlledDeleteResultRegistry.onLaunch；所属文件负责：使用 Robolectric Activity 重建确认系统授权回调触发日志核对，而非再次发起物理删除。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "requestCode",
+        "contract",
+        "input",
+        "options"
+      ],
+      "owner": "ControlledDeleteResultRegistry",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        20,
+        21
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionRecoveryActivity.onCreate",
+      "type": "function",
+      "name": "DeletePermissionRecoveryActivity.onCreate",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "startLine": 29,
+      "endLine": 41,
+      "summary": "声明入口 DeletePermissionRecoveryActivity.onCreate；所属文件负责：使用 Robolectric Activity 重建确认系统授权回调触发日志核对，而非再次发起物理删除。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "savedInstanceState"
+      ],
+      "owner": "DeletePermissionRecoveryActivity",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        29,
+        41
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionRecoveryActivity.onSaveInstanceState",
+      "type": "function",
+      "name": "DeletePermissionRecoveryActivity.onSaveInstanceState",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "startLine": 42,
+      "endLine": 48,
+      "summary": "声明入口 DeletePermissionRecoveryActivity.onSaveInstanceState；所属文件负责：使用 Robolectric Activity 重建确认系统授权回调触发日志核对，而非再次发起物理删除。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "outState"
+      ],
+      "owner": "DeletePermissionRecoveryActivity",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        42,
+        48
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionActivityRecoveryTest.resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+      "type": "function",
+      "name": "DeletePermissionActivityRecoveryTest.resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "startLine": 54,
+      "endLine": 68,
+      "summary": "声明入口 DeletePermissionActivityRecoveryTest.resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain；所属文件负责：使用 Robolectric Activity 重建确认系统授权回调触发日志核对，而非再次发起物理删除。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "DeletePermissionActivityRecoveryTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        54,
+        68
+      ]
+    },
+    {
+      "id": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "type": "file",
+      "name": "DeletePermissionSessionTest.kt",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "startLine": 1,
+      "endLine": 51,
+      "summary": "验证瞬时授权回调、恢复中 inFlight 和 launcher 失败时释放占用。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        51
+      ]
+    },
+    {
+      "id": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest",
+      "type": "class",
+      "name": "DeletePermissionSessionTest",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "startLine": 10,
+      "endLine": 51,
+      "summary": "DeletePermissionSessionTest 的声明与成员入口；文件职责：验证瞬时授权回调、恢复中 inFlight 和 launcher 失败时释放占用。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        10,
+        51
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest.restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+      "type": "function",
+      "name": "DeletePermissionSessionTest.restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "startLine": 13,
+      "endLine": 30,
+      "summary": "声明入口 DeletePermissionSessionTest.restoredSessionWaitsForSystemAndTriggersJournalRecovery；所属文件负责：验证瞬时授权回调、恢复中 inFlight 和 launcher 失败时释放占用。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "DeletePermissionSessionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        13,
+        30
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest.ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+      "type": "function",
+      "name": "DeletePermissionSessionTest.ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "startLine": 32,
+      "endLine": 41,
+      "summary": "声明入口 DeletePermissionSessionTest.ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery；所属文件负责：验证瞬时授权回调、恢复中 inFlight 和 launcher 失败时释放占用。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "DeletePermissionSessionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        32,
+        41
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest.failedLauncherDoesNotLeaveBusyState",
+      "type": "function",
+      "name": "DeletePermissionSessionTest.failedLauncherDoesNotLeaveBusyState",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "startLine": 43,
+      "endLine": 50,
+      "summary": "声明入口 DeletePermissionSessionTest.failedLauncherDoesNotLeaveBusyState；所属文件负责：验证瞬时授权回调、恢复中 inFlight 和 launcher 失败时释放占用。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "DeletePermissionSessionTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        43,
+        50
+      ]
+    },
+    {
+      "id": "file:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "type": "file",
+      "name": "MediaPermissionPolicyTest.kt",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "startLine": 1,
+      "endLine": 54,
+      "summary": "验证 SDK 对应读取权限及部分授权可读策略；不等于图库随权限变化刷新已验证。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        54
+      ]
+    },
+    {
+      "id": "class:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest",
+      "type": "class",
+      "name": "MediaPermissionPolicyTest",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "startLine": 9,
+      "endLine": 54,
+      "summary": "MediaPermissionPolicyTest 的声明与成员入口；文件职责：验证 SDK 对应读取权限及部分授权可读策略；不等于图库随权限变化刷新已验证。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        9,
+        54
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.requiredPermissions_sdk34_includesPartialAccessPermission",
+      "type": "function",
+      "name": "MediaPermissionPolicyTest.requiredPermissions_sdk34_includesPartialAccessPermission",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "startLine": 11,
+      "endLine": 21,
+      "summary": "声明入口 MediaPermissionPolicyTest.requiredPermissions_sdk34_includesPartialAccessPermission；所属文件负责：验证 SDK 对应读取权限及部分授权可读策略；不等于图库随权限变化刷新已验证。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "MediaPermissionPolicyTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        11,
+        21
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.hasMediaReadPermission_sdk34_trueWhenOnlySelectedPhotosGranted",
+      "type": "function",
+      "name": "MediaPermissionPolicyTest.hasMediaReadPermission_sdk34_trueWhenOnlySelectedPhotosGranted",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "startLine": 23,
+      "endLine": 30,
+      "summary": "声明入口 MediaPermissionPolicyTest.hasMediaReadPermission_sdk34_trueWhenOnlySelectedPhotosGranted；所属文件负责：验证 SDK 对应读取权限及部分授权可读策略；不等于图库随权限变化刷新已验证。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "MediaPermissionPolicyTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        23,
+        30
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.hasMediaReadPermission_sdk33_requiresReadMediaImages",
+      "type": "function",
+      "name": "MediaPermissionPolicyTest.hasMediaReadPermission_sdk33_requiresReadMediaImages",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "startLine": 32,
+      "endLine": 41,
+      "summary": "声明入口 MediaPermissionPolicyTest.hasMediaReadPermission_sdk33_requiresReadMediaImages；所属文件负责：验证 SDK 对应读取权限及部分授权可读策略；不等于图库随权限变化刷新已验证。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "MediaPermissionPolicyTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        32,
+        41
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted",
+      "type": "function",
+      "name": "MediaPermissionPolicyTest.isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted",
+      "filePath": "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "startLine": 43,
+      "endLine": 53,
+      "summary": "声明入口 MediaPermissionPolicyTest.isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted；所属文件负责：验证 SDK 对应读取权限及部分授权可读策略；不等于图库随权限变化刷新已验证。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "MediaPermissionPolicyTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        43,
+        53
+      ]
+    },
+    {
+      "id": "file:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "type": "file",
+      "name": "GenieTargetUtilsTest.kt",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "startLine": 1,
+      "endLine": 31,
+      "summary": "验证回收站底边中心及标签上边中心到根布局的坐标变换。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        31
+      ]
+    },
+    {
+      "id": "class:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt:GenieTargetUtilsTest",
+      "type": "class",
+      "name": "GenieTargetUtilsTest",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "startLine": 8,
+      "endLine": 31,
+      "summary": "GenieTargetUtilsTest 的声明与成员入口；文件职责：验证回收站底边中心及标签上边中心到根布局的坐标变换。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        8,
+        31
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt:GenieTargetUtilsTest.trashTargetUsesBottomCenterWhenBoundsAvailable",
+      "type": "function",
+      "name": "GenieTargetUtilsTest.trashTargetUsesBottomCenterWhenBoundsAvailable",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "startLine": 10,
+      "endLine": 19,
+      "summary": "声明入口 GenieTargetUtilsTest.trashTargetUsesBottomCenterWhenBoundsAvailable；所属文件负责：验证回收站底边中心及标签上边中心到根布局的坐标变换。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "GenieTargetUtilsTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        10,
+        19
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt:GenieTargetUtilsTest.tagTargetUsesTopCenterWhenBoundsAvailable",
+      "type": "function",
+      "name": "GenieTargetUtilsTest.tagTargetUsesTopCenterWhenBoundsAvailable",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "startLine": 21,
+      "endLine": 30,
+      "summary": "声明入口 GenieTargetUtilsTest.tagTargetUsesTopCenterWhenBoundsAvailable；所属文件负责：验证回收站底边中心及标签上边中心到根布局的坐标变换。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "GenieTargetUtilsTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        21,
+        30
+      ]
+    },
+    {
+      "id": "file:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "type": "file",
+      "name": "SelectionUtilsTest.kt",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "startLine": 1,
+      "endLine": 27,
+      "summary": "验证 String 身份的选中切换、全选和可见集合收敛。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        27
+      ]
+    },
+    {
+      "id": "class:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest",
+      "type": "class",
+      "name": "SelectionUtilsTest",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "startLine": 6,
+      "endLine": 27,
+      "summary": "SelectionUtilsTest 的声明与成员入口；文件职责：验证 String 身份的选中切换、全选和可见集合收敛。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        6,
+        27
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest.toggleSelection_addsAndRemoves",
+      "type": "function",
+      "name": "SelectionUtilsTest.toggleSelection_addsAndRemoves",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "startLine": 7,
+      "endLine": 12,
+      "summary": "声明入口 SelectionUtilsTest.toggleSelection_addsAndRemoves；所属文件负责：验证 String 身份的选中切换、全选和可见集合收敛。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "SelectionUtilsTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        7,
+        12
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest.selectAllOrClear_togglesBasedOnAllSelected",
+      "type": "function",
+      "name": "SelectionUtilsTest.selectAllOrClear_togglesBasedOnAllSelected",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "startLine": 14,
+      "endLine": 19,
+      "summary": "声明入口 SelectionUtilsTest.selectAllOrClear_togglesBasedOnAllSelected；所属文件负责：验证 String 身份的选中切换、全选和可见集合收敛。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "SelectionUtilsTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        14,
+        19
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest.clampSelectionToVisible_dropsHidden",
+      "type": "function",
+      "name": "SelectionUtilsTest.clampSelectionToVisible_dropsHidden",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "startLine": 21,
+      "endLine": 26,
+      "summary": "声明入口 SelectionUtilsTest.clampSelectionToVisible_dropsHidden；所属文件负责：验证 String 身份的选中切换、全选和可见集合收敛。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "SelectionUtilsTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        21,
+        26
+      ]
+    },
+    {
+      "id": "file:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "type": "file",
+      "name": "StringDragSelectStateTest.kt",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "startLine": 1,
+      "endLine": 60,
+      "summary": "验证拖动选取/取消选取的集合变化与位置命中。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        60
+      ]
+    },
+    {
+      "id": "class:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:StringDragSelectStateTest",
+      "type": "class",
+      "name": "StringDragSelectStateTest",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "startLine": 10,
+      "endLine": 54,
+      "summary": "StringDragSelectStateTest 的声明与成员入口；文件职责：验证拖动选取/取消选取的集合变化与位置命中。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        10,
+        54
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:StringDragSelectStateTest.dragSelect_addsItemsDuringDrag",
+      "type": "function",
+      "name": "StringDragSelectStateTest.dragSelect_addsItemsDuringDrag",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "startLine": 11,
+      "endLine": 34,
+      "summary": "声明入口 StringDragSelectStateTest.dragSelect_addsItemsDuringDrag；所属文件负责：验证拖动选取/取消选取的集合变化与位置命中。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "StringDragSelectStateTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        11,
+        34
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:StringDragSelectStateTest.dragSelect_removesWhenInitiallySelected",
+      "type": "function",
+      "name": "StringDragSelectStateTest.dragSelect_removesWhenInitiallySelected",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "startLine": 36,
+      "endLine": 53,
+      "summary": "声明入口 StringDragSelectStateTest.dragSelect_removesWhenInitiallySelected；所属文件负责：验证拖动选取/取消选取的集合变化与位置命中。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "StringDragSelectStateTest",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        36,
+        53
+      ]
+    },
+    {
+      "id": "function:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:NoOpHaptic.performHapticFeedback",
+      "type": "function",
+      "name": "NoOpHaptic.performHapticFeedback",
+      "filePath": "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "startLine": 57,
+      "endLine": 59,
+      "summary": "声明入口 NoOpHaptic.performHapticFeedback；所属文件负责：验证拖动选取/取消选取的集合变化与位置命中。",
+      "tags": [
+        "declaration-index",
+        "test",
+        "source-coverage"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "hapticFeedbackType"
+      ],
+      "owner": "NoOpHaptic",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        57,
+        59
+      ]
+    },
+    {
+      "id": "file:build.gradle.kts",
+      "type": "file",
+      "name": "build.gradle.kts",
+      "filePath": "build.gradle.kts",
+      "startLine": 1,
+      "endLine": 6,
+      "summary": "项目根只声明 Android/Kotlin/Compose 插件别名；app 模块另配置编译、签名、构建变体及依赖。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "complexity": "simple",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        6
+      ]
+    },
+    {
+      "id": "document:docs/release-3.3.4.md",
+      "type": "document",
+      "name": "release-3.3.4.md",
+      "filePath": "docs/release-3.3.4.md",
+      "startLine": 1,
+      "endLine": 14,
+      "summary": "历史 3.3.4 回收站修复说明与 fork 签名兼容约定，不是当前完整验收清单。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "complexity": "simple",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        14
+      ]
+    },
+    {
+      "id": "config:gradle/libs.versions.toml",
+      "type": "config",
+      "name": "libs.versions.toml",
+      "filePath": "gradle/libs.versions.toml",
+      "startLine": 1,
+      "endLine": 59,
+      "summary": "集中声明插件与库版本；存在的 Media3 alias 未被 app dependencies 使用，升级前应核实真实解析。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "moderate",
+      "language": "toml",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        59
+      ]
+    },
+    {
+      "id": "config:gradle/wrapper/gradle-wrapper.properties",
+      "type": "config",
+      "name": "gradle-wrapper.properties",
+      "filePath": "gradle/wrapper/gradle-wrapper.properties",
+      "startLine": 1,
+      "endLine": 7,
+      "summary": "锁定 Gradle 8.11.1 分发地址与校验/网络参数，供两个 wrapper 启动器使用。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "properties",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        7
+      ]
+    },
+    {
+      "id": "file:gradlew",
+      "type": "file",
+      "name": "gradlew",
+      "filePath": "gradlew",
+      "startLine": 1,
+      "endLine": 182,
+      "summary": "Unix Gradle wrapper，定位 Java 与 gradle-wrapper.jar 后启动 GradleWrapperMain。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "complexity": "moderate",
+      "language": "unknown",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        182
+      ]
+    },
+    {
+      "id": "file:scripts/encrypt-release-backup.cjs",
+      "type": "file",
+      "name": "encrypt-release-backup.cjs",
+      "filePath": "scripts/encrypt-release-backup.cjs",
+      "startLine": 1,
+      "endLine": 22,
+      "summary": "用随机 AES-256-GCM 加密签名备份，再用公开 RSA-OAEP SHA-256 包装对称密钥，输出加密封装。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "complexity": "simple",
+      "language": "javascript",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        22
+      ]
+    },
+    {
+      "id": "file:scripts/release-backup-public.pem",
+      "type": "file",
+      "name": "release-backup-public.pem",
+      "filePath": "scripts/release-backup-public.pem",
+      "startLine": 1,
+      "endLine": 11,
+      "summary": "首次签名备份的公开收件人 RSA 公钥；不包含私钥。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "complexity": "simple",
+      "language": "pem",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        11
+      ]
+    },
+    {
+      "id": "file:settings.gradle.kts",
+      "type": "file",
+      "name": "settings.gradle.kts",
+      "filePath": "settings.gradle.kts",
+      "startLine": 1,
+      "endLine": 25,
+      "summary": "定义插件和依赖仓库、项目名称及 app 模块，限制部分 Google 仓库内容。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "complexity": "simple",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        25
+      ]
+    },
+    {
+      "id": "file:tools/run-volume-device-probe.py",
+      "type": "file",
+      "name": "run-volume-device-probe.py",
+      "filePath": "tools/run-volume-device-probe.py",
+      "startLine": 1,
+      "endLine": 89,
+      "summary": "验证模拟器身份与主卷挂载，安装独立测试 APK 并运行3项设备探针，校验日志/观察值且保留诊断。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "complexity": "moderate",
+      "language": "python",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        89
+      ]
+    },
+    {
+      "id": "function:tools/run-volume-device-probe.py:adb",
+      "type": "function",
+      "name": "adb",
+      "filePath": "tools/run-volume-device-probe.py",
+      "startLine": 11,
+      "endLine": 16,
+      "summary": "声明入口 adb；所属文件负责：验证模拟器身份与主卷挂载，安装独立测试 APK 并运行3项设备探针，校验日志/观察值且保留诊断。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "quality-release"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "*args",
+        "check"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        11,
+        16
+      ]
+    },
+    {
+      "id": "function:tools/run-volume-device-probe.py:install",
+      "type": "function",
+      "name": "install",
+      "filePath": "tools/run-volume-device-probe.py",
+      "startLine": 18,
+      "endLine": 31,
+      "summary": "声明入口 install；所属文件负责：验证模拟器身份与主卷挂载，安装独立测试 APK 并运行3项设备探针，校验日志/观察值且保留诊断。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "quality-release"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "apk"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        18,
+        31
+      ]
+    },
+    {
+      "id": "function:tools/run-volume-device-probe.py:wait_for_primary_storage",
+      "type": "function",
+      "name": "wait_for_primary_storage",
+      "filePath": "tools/run-volume-device-probe.py",
+      "startLine": 33,
+      "endLine": 42,
+      "summary": "声明入口 wait_for_primary_storage；所属文件负责：验证模拟器身份与主卷挂载，安装独立测试 APK 并运行3项设备探针，校验日志/观察值且保留诊断。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "quality-release"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        33,
+        42
+      ]
+    },
+    {
+      "id": "function:tools/run-volume-device-probe.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "tools/run-volume-device-probe.py",
+      "startLine": 44,
+      "endLine": 77,
+      "summary": "声明入口 main；所属文件负责：验证模拟器身份与主卷挂载，安装独立测试 APK 并运行3项设备探针，校验日志/观察值且保留诊断。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "quality-release"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        44,
+        77
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.clears140PhotosInBoundedBatches",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.clears140PhotosInBoundedBatches",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.clears140PhotosInBoundedBatches",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.retriesRejectedRequestsWithSmallerBatches",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.retriesRejectedRequestsWithSmallerBatches",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.retriesRejectedRequestsWithSmallerBatches",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.oneInvalidItemDoesNotBlockOtherPhotos",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.oneInvalidItemDoesNotBlockOtherPhotos",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.oneInvalidItemDoesNotBlockOtherPhotos",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.partialSuccessRemovesOnlyConfirmedPhotos",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.partialSuccessRemovesOnlyConfirmedPhotos",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.partialSuccessRemovesOnlyConfirmedPhotos",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.cancellationPreservesCompletedWorkAndStopsLaterRequests",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.cancellationPreservesCompletedWorkAndStopsLaterRequests",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.cancellationPreservesCompletedWorkAndStopsLaterRequests",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.cancellationDuringSplitStopsSiblingRequests",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.cancellationDuringSplitStopsSiblingRequests",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.cancellationDuringSplitStopsSiblingRequests",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.neverStartsNextRequestBeforePermissionResultAndPersistence",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.neverStartsNextRequestBeforePermissionResultAndPersistence",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.neverStartsNextRequestBeforePermissionResultAndPersistence",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.deduplicatesRequestsAndIgnoresUnrequestedResults",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.deduplicatesRequestsAndIgnoresUnrequestedResults",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.deduplicatesRequestsAndIgnoresUnrequestedResults",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.emptyRecycleBinDoesNotLaunchARequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.emptyRecycleBinDoesNotLaunchARequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.emptyRecycleBinDoesNotLaunchARequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.nonRetryableFailureDoesNotSplit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.nonRetryableFailureDoesNotSplit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.nonRetryableFailureDoesNotSplit",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.globalFailureStopsAllLaterBatches",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.globalFailureStopsAllLaterBatches",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.globalFailureStopsAllLaterBatches",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.globalFailureKeepsEarlierSuccessfulWork",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.globalFailureKeepsEarlierSuccessfulWork",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.globalFailureKeepsEarlierSuccessfulWork",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.unknownVerificationCommitsKnownResultsThenStops",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.unknownVerificationCommitsKnownResultsThenStops",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.unknownVerificationCommitsKnownResultsThenStops",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.over2000ItemsStillUseBoundedRequests",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.over2000ItemsStillUseBoundedRequests",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt:BatchDeletionTest.over2000ItemsStillUseBoundedRequests",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.setup",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.setup",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.setup",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.fullAccessAndAvailableVolumeCanConfirmMissing",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.fullAccessAndAvailableVolumeCanConfirmMissing",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.fullAccessAndAvailableVolumeCanConfirmMissing",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.unavailableVolumeCannotConfirmMissing",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.unavailableVolumeCannotConfirmMissing",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.unavailableVolumeCannotConfirmMissing",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.permissionRevokedDuringQueryCannotConfirmMissing",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.permissionRevokedDuringQueryCannotConfirmMissing",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.permissionRevokedDuringQueryCannotConfirmMissing",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.nullOrFailedQueriesRemainUnknown",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.nullOrFailedQueriesRemainUnknown",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.nullOrFailedQueriesRemainUnknown",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.visiblePhotoRemainsPresentWithPartialAccess",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.visiblePhotoRemainsPresentWithPartialAccess",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.visiblePhotoRemainsPresentWithPartialAccess",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.actualServiceErrorsMapToNonSplittableFailures",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.actualServiceErrorsMapToNonSplittableFailures",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.actualServiceErrorsMapToNonSplittableFailures",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.rejectedRequestCanBeSplitButCancellationPropagates",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.rejectedRequestCanBeSplitButCancellationPropagates",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.rejectedRequestCanBeSplitButCancellationPropagates",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt:FileOperationManagerTest.oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.journalCommitFailureCanBeReconciledIdempotently",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.journalCommitFailureCanBeReconciledIdempotently",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.journalCommitFailureCanBeReconciledIdempotently",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.failedJournalPreparationDoesNotRequestDeletion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.failedJournalPreparationDoesNotRequestDeletion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.failedJournalPreparationDoesNotRequestDeletion",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.globalErrorsAreNotSplitAndStopAfterOneRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.globalErrorsAreNotSplitAndStopAfterOneRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.globalErrorsAreNotSplitAndStopAfterOneRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.invalidItemIsIsolatedWithoutLosingOtherRecords",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.invalidItemIsIsolatedWithoutLosingOtherRecords",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.invalidItemIsIsolatedWithoutLosingOtherRecords",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.recoveryKeepsUnknownAndExistingPhotosDistinct",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.recoveryKeepsUnknownAndExistingPhotosDistinct",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.recoveryKeepsUnknownAndExistingPhotosDistinct",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.cancelledCoroutineLeavesJournalForLaterRecovery",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.cancelledCoroutineLeavesJournalForLaterRecovery",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.cancelledCoroutineLeavesJournalForLaterRecovery",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt:RecycleBinDeletionTest.systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.recentListMayContainTheCurrentlyMountedPrimaryVolume",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.recentListMayContainTheCurrentlyMountedPrimaryVolume",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.recentListMayContainTheCurrentlyMountedPrimaryVolume",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.allRecentVolumesAlreadyMountedDoNotBlockMergedUri",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.allRecentVolumesAlreadyMountedDoNotBlockMergedUri",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.allRecentVolumesAlreadyMountedDoNotBlockMergedUri",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.genuinelyUnmountedRecentVolumeStillBlocksAmbiguousMergedUri",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.genuinelyUnmountedRecentVolumeStillBlocksAmbiguousMergedUri",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.genuinelyUnmountedRecentVolumeStillBlocksAmbiguousMergedUri",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.mergedUriRequiresConsistentMountedPrimaryEvidence",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.mergedUriRequiresConsistentMountedPrimaryEvidence",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.mergedUriRequiresConsistentMountedPrimaryEvidence",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.concretePrimaryIsNotBlockedByAnUnrelatedEjectedVolume",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.concretePrimaryIsNotBlockedByAnUnrelatedEjectedVolume",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.concretePrimaryIsNotBlockedByAnUnrelatedEjectedVolume",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.concreteUnavailableVolumesCannotBeConfirmedMissing",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.concreteUnavailableVolumesCannotBeConfirmedMissing",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt:VolumeConfirmationRuleTest.concreteUnavailableVolumesCannotBeConfirmedMissing",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:ControlledDeleteResultRegistry",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:ControlledDeleteResultRegistry",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionRecoveryActivity",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionRecoveryActivity",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionActivityRecoveryTest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionActivityRecoveryTest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:ControlledDeleteResultRegistry.onLaunch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:ControlledDeleteResultRegistry",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:ControlledDeleteResultRegistry.onLaunch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:ControlledDeleteResultRegistry.onLaunch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionRecoveryActivity.onCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionRecoveryActivity",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionRecoveryActivity.onCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionRecoveryActivity.onCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionRecoveryActivity.onSaveInstanceState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionRecoveryActivity",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionRecoveryActivity.onSaveInstanceState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionRecoveryActivity.onSaveInstanceState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionActivityRecoveryTest.resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionActivityRecoveryTest",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionActivityRecoveryTest.resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt:DeletePermissionActivityRecoveryTest.resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest.restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest.restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest.restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest.ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest.ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest.ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest.failedLauncherDoesNotLeaveBusyState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest.failedLauncherDoesNotLeaveBusyState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt:DeletePermissionSessionTest.failedLauncherDoesNotLeaveBusyState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.requiredPermissions_sdk34_includesPartialAccessPermission",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.requiredPermissions_sdk34_includesPartialAccessPermission",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.requiredPermissions_sdk34_includesPartialAccessPermission",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.hasMediaReadPermission_sdk34_trueWhenOnlySelectedPhotosGranted",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.hasMediaReadPermission_sdk34_trueWhenOnlySelectedPhotosGranted",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.hasMediaReadPermission_sdk34_trueWhenOnlySelectedPhotosGranted",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.hasMediaReadPermission_sdk33_requiresReadMediaImages",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.hasMediaReadPermission_sdk33_requiresReadMediaImages",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.hasMediaReadPermission_sdk33_requiresReadMediaImages",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt:MediaPermissionPolicyTest.isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt:GenieTargetUtilsTest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt:GenieTargetUtilsTest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt:GenieTargetUtilsTest.trashTargetUsesBottomCenterWhenBoundsAvailable",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt:GenieTargetUtilsTest",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt:GenieTargetUtilsTest.trashTargetUsesBottomCenterWhenBoundsAvailable",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt:GenieTargetUtilsTest.trashTargetUsesBottomCenterWhenBoundsAvailable",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt:GenieTargetUtilsTest.tagTargetUsesTopCenterWhenBoundsAvailable",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt:GenieTargetUtilsTest",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt:GenieTargetUtilsTest.tagTargetUsesTopCenterWhenBoundsAvailable",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt:GenieTargetUtilsTest.tagTargetUsesTopCenterWhenBoundsAvailable",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest.toggleSelection_addsAndRemoves",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest.toggleSelection_addsAndRemoves",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest.toggleSelection_addsAndRemoves",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest.selectAllOrClear_togglesBasedOnAllSelected",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest.selectAllOrClear_togglesBasedOnAllSelected",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest.selectAllOrClear_togglesBasedOnAllSelected",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest.clampSelectionToVisible_dropsHidden",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest.clampSelectionToVisible_dropsHidden",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt:SelectionUtilsTest.clampSelectionToVisible_dropsHidden",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:StringDragSelectStateTest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "target": "class:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:StringDragSelectStateTest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:StringDragSelectStateTest.dragSelect_addsItemsDuringDrag",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:StringDragSelectStateTest",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:StringDragSelectStateTest.dragSelect_addsItemsDuringDrag",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:StringDragSelectStateTest.dragSelect_addsItemsDuringDrag",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:StringDragSelectStateTest.dragSelect_removesWhenInitiallySelected",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:StringDragSelectStateTest",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:StringDragSelectStateTest.dragSelect_removesWhenInitiallySelected",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:StringDragSelectStateTest.dragSelect_removesWhenInitiallySelected",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:NoOpHaptic.performHapticFeedback",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "target": "function:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt:NoOpHaptic.performHapticFeedback",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tools/run-volume-device-probe.py",
+      "target": "function:tools/run-volume-device-probe.py:adb",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tools/run-volume-device-probe.py",
+      "target": "function:tools/run-volume-device-probe.py:adb",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tools/run-volume-device-probe.py",
+      "target": "function:tools/run-volume-device-probe.py:install",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tools/run-volume-device-probe.py",
+      "target": "function:tools/run-volume-device-probe.py:install",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tools/run-volume-device-probe.py",
+      "target": "function:tools/run-volume-device-probe.py:wait_for_primary_storage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tools/run-volume-device-probe.py",
+      "target": "function:tools/run-volume-device-probe.py:wait_for_primary_storage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tools/run-volume-device-probe.py",
+      "target": "function:tools/run-volume-device-probe.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tools/run-volume-device-probe.py",
+      "target": "function:tools/run-volume-device-probe.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

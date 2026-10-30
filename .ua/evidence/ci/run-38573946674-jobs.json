@@ -1,0 +1,138 @@
+{
+  "total_count": 4,
+  "jobs": [
+    {
+      "id": 115886607651,
+      "run_id": 38573946674,
+      "workflow_name": "Tabula emulator performance baseline v1",
+      "head_branch": "perf/emulator-baseline-v1",
+      "run_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/runs/38573946674",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVGQp388AAAAa-2FNIw",
+      "head_sha": "eb8b94b821635838b00dfbb957d6969ca48a4583",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/jobs/115886607651",
+      "html_url": "https://github.com/ertutio/TabulaV3/actions/runs/38573946674/job/115886607651",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-10-14T13:42:56Z",
+      "started_at": "2026-10-14T13:42:59Z",
+      "completed_at": "2026-10-14T13:43:03Z",
+      "name": "paused",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-14T13:43:00Z",
+          "completed_at": "2026-10-14T13:43:00Z"
+        },
+        {
+          "name": "Run echo 'Performance baseline paused at user request'",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-14T13:43:00Z",
+          "completed_at": "2026-10-14T13:43:00Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-14T13:43:00Z",
+          "completed_at": "2026-10-14T13:43:00Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/ertutio/TabulaV3/check-runs/115886607651",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 1000000013,
+      "runner_name": "GitHub Actions 1000000013",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 115886610120,
+      "run_id": 38573946674,
+      "workflow_name": "Tabula emulator performance baseline v1",
+      "head_branch": "perf/emulator-baseline-v1",
+      "run_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/runs/38573946674",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVGQp388AAAAa-2FWyA",
+      "head_sha": "eb8b94b821635838b00dfbb957d6969ca48a4583",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/jobs/115886610120",
+      "html_url": "https://github.com/ertutio/TabulaV3/actions/runs/38573946674/job/115886610120",
+      "status": "completed",
+      "conclusion": "skipped",
+      "created_at": "2026-10-14T13:42:56Z",
+      "started_at": "2026-10-14T13:42:56Z",
+      "completed_at": "2026-10-14T13:42:56Z",
+      "name": "build",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/ertutio/TabulaV3/check-runs/115886610120",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    },
+    {
+      "id": 115886611347,
+      "run_id": 38573946674,
+      "workflow_name": "Tabula emulator performance baseline v1",
+      "head_branch": "perf/emulator-baseline-v1",
+      "run_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/runs/38573946674",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVGQp388AAAAa-2Fbkw",
+      "head_sha": "eb8b94b821635838b00dfbb957d6969ca48a4583",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/jobs/115886611347",
+      "html_url": "https://github.com/ertutio/TabulaV3/actions/runs/38573946674/job/115886611347",
+      "status": "completed",
+      "conclusion": "skipped",
+      "created_at": "2026-10-14T13:42:56Z",
+      "started_at": "2026-10-14T13:42:56Z",
+      "completed_at": "2026-10-14T13:42:56Z",
+      "name": "measure",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/ertutio/TabulaV3/check-runs/115886611347",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    },
+    {
+      "id": 115886611574,
+      "run_id": 38573946674,
+      "workflow_name": "Tabula emulator performance baseline v1",
+      "head_branch": "perf/emulator-baseline-v1",
+      "run_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/runs/38573946674",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVGQp388AAAAa-2Fcdg",
+      "head_sha": "eb8b94b821635838b00dfbb957d6969ca48a4583",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/jobs/115886611574",
+      "html_url": "https://github.com/ertutio/TabulaV3/actions/runs/38573946674/job/115886611574",
+      "status": "completed",
+      "conclusion": "skipped",
+      "created_at": "2026-10-14T13:42:56Z",
+      "started_at": "2026-10-14T13:42:56Z",
+      "completed_at": "2026-10-14T13:42:56Z",
+      "name": "report",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/ertutio/TabulaV3/check-runs/115886611574",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    }
+  ]
+}

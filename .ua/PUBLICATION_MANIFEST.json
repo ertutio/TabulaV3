@@ -1,0 +1,832 @@
+{
+  "repository": "ertutio/TabulaV3",
+  "routePR": "https://github.com/ertutio/TabulaV3/pull/9",
+  "branch": "codex/development-roadmap-2026-10-17",
+  "analysisCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+  "publishedDate": "2026-10-17",
+  "fileCountExcludingManifest": 94,
+  "totalBytesExcludingManifest": 8438276,
+  "privacy": "Credential files and worker state excluded; private absolute machine paths converted to relative/local-user labels.",
+  "files": [
+    {
+      "path": ".ua/.understandignore",
+      "bytes": 1707,
+      "sha256": "b03cfb938b7f66c8c6e757376915c152a9590c909c48189573222ae00106d63b",
+      "gitBlobSha": "3d971a064a8d2991716731c54fc90bfdce5e8968",
+      "origin": "analysis/.understandignore"
+    },
+    {
+      "path": ".ua/agent-analysis.json",
+      "bytes": 216496,
+      "sha256": "e3b38d163967b9c9405e889c14c9b4ae4c53fc82ff203ce53eeb3b2540b4cb2d",
+      "gitBlobSha": "7b20a253c28205c67209512652f742066479aed3",
+      "origin": "analysis/agent-analysis.json"
+    },
+    {
+      "path": ".ua/AGENT_INDEX.md",
+      "bytes": 4928,
+      "sha256": "4b9db92e26162e9e3701606485218febddcc5fde41fb1506e56204cabd5f7b71",
+      "gitBlobSha": "7962a35015c8d326f103ac490bb38a3bc289cb21",
+      "origin": "analysis/AGENT_INDEX.md"
+    },
+    {
+      "path": ".ua/config.json",
+      "bytes": 85,
+      "sha256": "3a2dda237474df28525e1afebf130c727ccc39d28683b0e4e889373e3f0f51d1",
+      "gitBlobSha": "c66109d2f5f05a6f84e49b56220c48ef3273f481",
+      "origin": "analysis/config.json"
+    },
+    {
+      "path": ".ua/coverage.json",
+      "bytes": 2317,
+      "sha256": "7e864c95c11271e93a7ad9e82e958428255d0697eb1feac4dea5c159eeeae229",
+      "gitBlobSha": "199ab46449af3a35d19b864c3fdadc273f1d13a0",
+      "origin": "analysis/coverage.json"
+    },
+    {
+      "path": ".ua/evidence/ci/ci-summary.md",
+      "bytes": 4315,
+      "sha256": "7d92f5a068736f2689c44cfc7e0100dd4bde0a12e976633654abbbbc9f29c7f7",
+      "gitBlobSha": "2172b12e785f4029186dff5361438a7b7cd5d2f7",
+      "origin": "analysis/evidence/ci/ci-summary.md"
+    },
+    {
+      "path": ".ua/evidence/ci/commit-master.json",
+      "bytes": 3122,
+      "sha256": "772ff790be0467ef103a19256f8046c88942bd2b98e9aaf64b3b2bc993940f76",
+      "gitBlobSha": "6d7b867fe41de9c59ada55305c7f121ce36bdcea",
+      "origin": "analysis/evidence/ci/commit-master.json"
+    },
+    {
+      "path": ".ua/evidence/ci/commit-run7.json",
+      "bytes": 1325,
+      "sha256": "514fa476ac0f0d434c1f347dc09b80ac61e318413878059d9e7c8cbf55cd50ea",
+      "gitBlobSha": "5cfa86e6c35ac48d5e28ef1b304174a7d13af0d1",
+      "origin": "analysis/evidence/ci/commit-run7.json"
+    },
+    {
+      "path": ".ua/evidence/ci/master-actions-runs.json",
+      "bytes": 46,
+      "sha256": "763f11efb3fd0695809422708bf5765dfad5d8438bfb9a7bad31f23ff74d3285",
+      "gitBlobSha": "00b8fd6e0c19d8d55ac5e33bc3a8ead1af20738c",
+      "origin": "analysis/evidence/ci/master-actions-runs.json"
+    },
+    {
+      "path": ".ua/evidence/ci/master-check-runs.json",
+      "bytes": 43,
+      "sha256": "b150177a8c788b7b07da87bff90385279fd53478d8292b03f232f20cb2e8d5a9",
+      "gitBlobSha": "4c6d61d4432661a164a9b282c191dc208c9a958f",
+      "origin": "analysis/evidence/ci/master-check-runs.json"
+    },
+    {
+      "path": ".ua/evidence/ci/master-status.json",
+      "bytes": 4934,
+      "sha256": "14fbdbc8ff429169d091d69234102f62497e35848d2e741dabb8c806dd875ed9",
+      "gitBlobSha": "9e56a5ae8c1331712ce6a67369d01d7cedb07cfb",
+      "origin": "analysis/evidence/ci/master-status.json"
+    },
+    {
+      "path": ".ua/evidence/ci/pr-6.json",
+      "bytes": 19879,
+      "sha256": "eb6aefd24d2612e6604e297f0e35bdeb008ae05706b006b1efab754942b86079",
+      "gitBlobSha": "35adf0a6dd0313da6b13d00bd05948a49334c9cc",
+      "origin": "analysis/evidence/ci/pr-6.json"
+    },
+    {
+      "path": ".ua/evidence/ci/pr6-head-status.json",
+      "bytes": 4934,
+      "sha256": "1be19da5149d928bfc1dedba31207c0246854a3f5c91111940be10ae7fedbe8f",
+      "gitBlobSha": "1357ee4c9866cacac6fc2983533496c5eef4e3fe",
+      "origin": "analysis/evidence/ci/pr6-head-status.json"
+    },
+    {
+      "path": ".ua/evidence/ci/pr6-performance-baseline-workflow-metadata.json",
+      "bytes": 321,
+      "sha256": "c3a9e06b8938b3fc8741bc3d86929d457493f11ac41ab390dca5907336ecab88",
+      "gitBlobSha": "8587904fee2ebeda8b1b6c0f65664409dec45d19",
+      "origin": "analysis/evidence/ci/pr6-performance-baseline-workflow-metadata.json"
+    },
+    {
+      "path": ".ua/evidence/ci/pr6-performance-baseline.yml",
+      "bytes": 4597,
+      "sha256": "ad7f88804acfb068ffafa5fa58527b3df22e280338218c2d3380316a8e252e05",
+      "gitBlobSha": "baf1e2d95778b7fe005f1870eb23e69f7591ab78",
+      "origin": "analysis/evidence/ci/pr6-performance-baseline.yml"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38572253086-artifacts.json",
+      "bytes": 42,
+      "sha256": "f7417e1fb877d3f5934f143cc38ad9e2905476e8f5ac6776507d09441efcd6f6",
+      "gitBlobSha": "0674b39d4f87fa0cff7027660aeb481bb61b871f",
+      "origin": "analysis/evidence/ci/run-38572253086-artifacts.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38572253086-jobs.json",
+      "bytes": 6135,
+      "sha256": "2978cdcf54a381eeef66097006b588cd1403a88f4bd1df5fd2169bc6df3cd3b4",
+      "gitBlobSha": "84bf699e482e0685b893e10a60da500629b9676c",
+      "origin": "analysis/evidence/ci/run-38572253086-jobs.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38572253086.json",
+      "bytes": 14091,
+      "sha256": "b9b4b6c284df9b034763750615489b12696fd35dad1da4c2c8f4ad52bef153a6",
+      "gitBlobSha": "4407b94e519f4e0b6e7cd387490ad0024c116b1c",
+      "origin": "analysis/evidence/ci/run-38572253086.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38573180519-jobs.json",
+      "bytes": 6143,
+      "sha256": "96be449236f9f51e0533876d9429e1b482b24e877c453781686adac0034a12a7",
+      "gitBlobSha": "5b902119ae9a61ce730af42457134b8ed5c61649",
+      "origin": "analysis/evidence/ci/run-38573180519-jobs.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38573180519.json",
+      "bytes": 14080,
+      "sha256": "d4c0704252ed980a38fba84b1fd11276d9c6350093699e91235fb59d1c3fada0",
+      "gitBlobSha": "477b521db26b9dc06ba387ea9f636422a8654b1d",
+      "origin": "analysis/evidence/ci/run-38573180519.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38573946674-artifacts.json",
+      "bytes": 42,
+      "sha256": "f7417e1fb877d3f5934f143cc38ad9e2905476e8f5ac6776507d09441efcd6f6",
+      "gitBlobSha": "0674b39d4f87fa0cff7027660aeb481bb61b871f",
+      "origin": "analysis/evidence/ci/run-38573946674-artifacts.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38573946674-check-runs.json",
+      "bytes": 20097,
+      "sha256": "024bb13b2156a1d87fa706092c54a7c991bebc019f5313766d0018d55a86c3ea",
+      "gitBlobSha": "b9fc1249dddf8ea14d8d92ff5535919476177564",
+      "origin": "analysis/evidence/ci/run-38573946674-check-runs.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38573946674-jobs.json",
+      "bytes": 5220,
+      "sha256": "c6f86a9d106821badb8ce15f1f603131cbb60bc9ef8b09b9826ba6fcdf5c0fc9",
+      "gitBlobSha": "4938337fc8a572abc8cb8bea3389b2a5c953b152",
+      "origin": "analysis/evidence/ci/run-38573946674-jobs.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38573946674.json",
+      "bytes": 14091,
+      "sha256": "e3e3b2d98f157a03c9119c8150336a5cf68729a9af410e185d89370977604917",
+      "gitBlobSha": "7b14612b7eeea33521d9a3bade71a95e5c700bd8",
+      "origin": "analysis/evidence/ci/run-38573946674.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38675609117-jobs.json",
+      "bytes": 10970,
+      "sha256": "295389e696e7e3ce181cc2894f176cd204b235955e6410a79ed3fd3dd2aaed6a",
+      "gitBlobSha": "ee15baaa14a370697f80c2f3452cc445e1fb538c",
+      "origin": "analysis/evidence/ci/run-38675609117-jobs.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38675609117.json",
+      "bytes": 13430,
+      "sha256": "4116eab82308d1a19d1ecb10c07d0d8e286f2cc1a0df4a52427b44e878fca517",
+      "gitBlobSha": "4ce56e6f56d90d7d8072c804b633fb7b50edb9a2",
+      "origin": "analysis/evidence/ci/run-38675609117.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38676180550-jobs.json",
+      "bytes": 5362,
+      "sha256": "0253c52da6f1c6433b5ae78866d7ad5ca0c4080f06515c76d30e67318d7e1a9b",
+      "gitBlobSha": "d6f69fe6c8cd6ca9a68664eecb565856f353fe14",
+      "origin": "analysis/evidence/ci/run-38676180550-jobs.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38676180550.json",
+      "bytes": 13438,
+      "sha256": "7cb0b94ce5ebaa8eb135fc5062b99b3e6453dddca1c7ab49d9ae7624455eb179",
+      "gitBlobSha": "587527a7ee87beca06c51d6a75c80b782256974d",
+      "origin": "analysis/evidence/ci/run-38676180550.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38676233496-artifacts.json",
+      "bytes": 3562,
+      "sha256": "d6a5ec0fddaf3bb9b85e1ea0cca69e8b00bb45d109b1853fac4980bf282d4ec8",
+      "gitBlobSha": "ce3a1f290bc7984794192c2b68f852c31b90146d",
+      "origin": "analysis/evidence/ci/run-38676233496-artifacts.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38676233496-jobs.json",
+      "bytes": 10970,
+      "sha256": "87cac3aeab04fa0bcab4423f1b66dd2a1484471f582f7bffe248e4a893fa7003",
+      "gitBlobSha": "27726d8374f5fd3537401dc20d0d3166c87378ea",
+      "origin": "analysis/evidence/ci/run-38676233496-jobs.json"
+    },
+    {
+      "path": ".ua/evidence/ci/run-38676233496.json",
+      "bytes": 13377,
+      "sha256": "1c0e696d896215dd11767d57ea788b48c6bf6fd64bca55d76bcc5b394dce75e3",
+      "gitBlobSha": "1c5f40f2ed6f20f3ed82faa606c9e216d2eb395a",
+      "origin": "analysis/evidence/ci/run-38676233496.json"
+    },
+    {
+      "path": ".ua/evidence/ci/test-results-summary.json",
+      "bytes": 5344,
+      "sha256": "5316ed83a7a1a864b238dac75a838f98f4220c395cebc8c76d0599f3eede9f1a",
+      "gitBlobSha": "bcba342f1f2bb075ff90e66b320b7c9309b544ab",
+      "origin": "analysis/evidence/ci/test-results-summary.json"
+    },
+    {
+      "path": ".ua/evidence/ci/tree-120001e8b1e4809b7e942c466686a3813bbaf3c3.json",
+      "bytes": 81217,
+      "sha256": "aa4b83d0a591136892797386d19e026c5cc4787d383da0268daca00fbfe98f80",
+      "gitBlobSha": "78d66c545246cb3eb9a3f7e658c6e4b7a87a9a8c",
+      "origin": "analysis/evidence/ci/tree-120001e8b1e4809b7e942c466686a3813bbaf3c3.json"
+    },
+    {
+      "path": ".ua/evidence/ci/tree-equivalence.json",
+      "bytes": 518,
+      "sha256": "ad27e4570c61f821216d7d15e7aed2ce15b7be2868c761a6641bf5c7bfa88f7f",
+      "gitBlobSha": "30062a3d7c49c9c84fdfa700e47182d30e528807",
+      "origin": "analysis/evidence/ci/tree-equivalence.json"
+    },
+    {
+      "path": ".ua/evidence/delivery-verification.json",
+      "bytes": 499,
+      "sha256": "6ae786893100f04e769318fe506c5eeaf3b86ccc167f48b7be163971620be944",
+      "gitBlobSha": "c0d208a50c3107f66e76d943d81c05f5236f8bf6",
+      "origin": "analysis/evidence/delivery-verification.json"
+    },
+    {
+      "path": ".ua/evidence/handoff-source-comparison.json",
+      "bytes": 14678,
+      "sha256": "02dee5501bd7a3a4ee5f84b617756581808bfea665aae691161dd0dcb2288881",
+      "gitBlobSha": "379a35fc6d11c07a186738741174290749af1e71",
+      "origin": "analysis/evidence/handoff-source-comparison.json"
+    },
+    {
+      "path": ".ua/evidence/handoff-tests.json",
+      "bytes": 53068,
+      "sha256": "2bc62b2489a1f4c0ba64e2a18baad8bac074bca5401f72afb98ecfb487e86ff2",
+      "gitBlobSha": "e2458f79874be93b3b771dfdb45c2cc2fd239d5a",
+      "origin": "analysis/evidence/handoff-tests.json"
+    },
+    {
+      "path": ".ua/evidence/independent-review-dry-run.json",
+      "bytes": 1350,
+      "sha256": "02784b93f9e01eeacd1aa5b438a411586c6124c8e602e7d7f9a6a7d936214655",
+      "gitBlobSha": "e949e21b613d74a0917db46f0a4fc849749e6418",
+      "origin": "analysis/evidence/independent-review-dry-run.json"
+    },
+    {
+      "path": ".ua/evidence/independent-review-localstate-dry-run.json",
+      "bytes": 1504,
+      "sha256": "aaa9695d9812c0049ef81fc723fea666a9627d22601d435ef443dd16efa46512",
+      "gitBlobSha": "fa30669e276fd85dd0dbb947fa82578b4dbcecd2",
+      "origin": "analysis/evidence/independent-review-localstate-dry-run.json"
+    },
+    {
+      "path": ".ua/evidence/independent-review-localstate-result.json",
+      "bytes": 2778,
+      "sha256": "6b7ad8b2caf857f5ed729c2bdd1bc29cacfa343c789906a108eaefd812d8c462",
+      "gitBlobSha": "fc7ae89e67b852f04e92e610aad77d8ecc9dfd2d",
+      "origin": "analysis/evidence/independent-review-localstate-result.json"
+    },
+    {
+      "path": ".ua/evidence/independent-review-network-result.json",
+      "bytes": 6856,
+      "sha256": "ff347140cda2054e8368981f7132c4e1e735d4cf3c3c3c34922f16c18f42749e",
+      "gitBlobSha": "276b580470b08e546c0c280e98bd27b3bd10890a",
+      "origin": "analysis/evidence/independent-review-network-result.json"
+    },
+    {
+      "path": ".ua/evidence/independent-review-result.json",
+      "bytes": 1529,
+      "sha256": "bc43b3c1c239bd6e299b6189d16072bc5bea7508c047a63773e569adaa22fa37",
+      "gitBlobSha": "4defbbfe2e5487ae7ed996b5b07073c9d75c7726",
+      "origin": "analysis/evidence/independent-review-result.json"
+    },
+    {
+      "path": ".ua/evidence/independent-review-task.md",
+      "bytes": 3046,
+      "sha256": "91f17c098e71989696fd211ccd35c35c54b09ecec9e6224f6a0c636fb812146d",
+      "gitBlobSha": "3e50a7c53b0121fdd2b01e36f5d27350e6d43197",
+      "origin": "analysis/evidence/independent-review-task.md"
+    },
+    {
+      "path": ".ua/evidence/master-commit.json",
+      "bytes": 579,
+      "sha256": "f061c2884f81d3a63b6e326f55427caf8d7c5d8a8c88fb3690d847eca3e2c698",
+      "gitBlobSha": "e2f2088932e6d42a9da67e1a1e1b04ffed082db3",
+      "origin": "analysis/evidence/master-commit.json"
+    },
+    {
+      "path": ".ua/evidence/pr8-comments.json",
+      "bytes": 239,
+      "sha256": "53a72b5a9ac2e727674c74d01e81d5cabd467024fe7342d0794703cb3c65a668",
+      "gitBlobSha": "e180553512daf76da7404332694a55f80d50bef1",
+      "origin": "analysis/evidence/pr8-comments.json"
+    },
+    {
+      "path": ".ua/evidence/pr8-current.json",
+      "bytes": 30085,
+      "sha256": "8786f00348d226809a861fcc091f0ede4a8df7166477b278ddcbde0b53df531f",
+      "gitBlobSha": "704d06d42b25918ea7eb81c581299c5d37cc40b5",
+      "origin": "analysis/evidence/pr8-current.json"
+    },
+    {
+      "path": ".ua/evidence/repository.json",
+      "bytes": 1008,
+      "sha256": "f8a588a872cdd0166813f77162d87d27a9ce8e631337f1b33517434ebe254c2b",
+      "gitBlobSha": "4f42187c3301160c93a43758fe3546983405eba6",
+      "origin": "analysis/evidence/repository.json"
+    },
+    {
+      "path": ".ua/fingerprints.json",
+      "bytes": 725960,
+      "sha256": "ff3e6b7a96b908f7e62053c1303300942ebdd86225d104ac8fe7c5092f7be9ef",
+      "gitBlobSha": "2d8e73f0d0d73f5b20cd3fd511aad4538ff84e06",
+      "origin": "analysis/fingerprints.json"
+    },
+    {
+      "path": ".ua/intermediate/assemble-review.json",
+      "bytes": 358,
+      "sha256": "b054d126087784c413ca9f1d852b05955692f0db4e006beb01043ca91cfd6118",
+      "gitBlobSha": "d751eba32df89832eafdb275441928fb4f314431",
+      "origin": "analysis/intermediate/assemble-review.json"
+    },
+    {
+      "path": ".ua/intermediate/assembled-graph.json",
+      "bytes": 1493505,
+      "sha256": "c1c82f2088f438e4834ebab2c085d602e534bd62ec02edb141624c1dc26fcd5a",
+      "gitBlobSha": "ffc6d6c1f58675459f1a75c0f0e9eabdcdd821ac",
+      "origin": "analysis/intermediate/assembled-graph.json"
+    },
+    {
+      "path": ".ua/intermediate/batch-1.json",
+      "bytes": 242721,
+      "sha256": "8b42b9c90d88aa2bc7c965f2ca982eb64686b349a3c2b5bbb8c020ba8f6957eb",
+      "gitBlobSha": "825935ed75bb30fcd58de683ca1a30d834411407",
+      "origin": "analysis/intermediate/batch-1.json"
+    },
+    {
+      "path": ".ua/intermediate/batch-10.json",
+      "bytes": 1877,
+      "sha256": "ffe47ae26e93e36a7526f3fa6693cd5152cc67c1b1a3536d0732a3bee930fcf9",
+      "gitBlobSha": "c28c7b7add7f00b32ef0234f900f3f6ef508d184",
+      "origin": "analysis/intermediate/batch-10.json"
+    },
+    {
+      "path": ".ua/intermediate/batch-11.json",
+      "bytes": 2006,
+      "sha256": "86e61a118c1a455064aa42ccebfdfcb2c5df200363ad2f09b6849bfe5c2e4a17",
+      "gitBlobSha": "fa9e0c82c26a5b387528fc20f4c62b49d32af20f",
+      "origin": "analysis/intermediate/batch-11.json"
+    },
+    {
+      "path": ".ua/intermediate/batch-12.json",
+      "bytes": 241030,
+      "sha256": "842270471f0d4a1820f173c17e9450fbd93ca74c971e19e06a0b247340d6cd46",
+      "gitBlobSha": "af264c41f2778ae40c1e674a4c3f431cb2e9a0d6",
+      "origin": "analysis/intermediate/batch-12.json"
+    },
+    {
+      "path": ".ua/intermediate/batch-13.json",
+      "bytes": 165427,
+      "sha256": "83e199389a777c1e55841d67c8715bdd01079285379205655c9678ccb2ed6f6d",
+      "gitBlobSha": "01475d2d7b83ecabf2f7605d62a6391bcf7561f7",
+      "origin": "analysis/intermediate/batch-13.json"
+    },
+    {
+      "path": ".ua/intermediate/batch-2.json",
+      "bytes": 248830,
+      "sha256": "8a4e249852e3e9b1f272f60d445d1827293ffe1d994153679b6f6dc699167912",
+      "gitBlobSha": "ed4f4f86c646321071769cb26365a8e992c3e709",
+      "origin": "analysis/intermediate/batch-2.json"
+    },
+    {
+      "path": ".ua/intermediate/batch-3.json",
+      "bytes": 186735,
+      "sha256": "8dcb4b10b072fb4ea586b81ce4202926f78f50abf3bc492b2c1dd8f3024b93a8",
+      "gitBlobSha": "021ef7ad443a7e10599f947adcd0fdb7977ae64f",
+      "origin": "analysis/intermediate/batch-3.json"
+    },
+    {
+      "path": ".ua/intermediate/batch-4.json",
+      "bytes": 275437,
+      "sha256": "81c186d205abc0b164cc13965bee781c2603f5243021b93048b7d9f61a7e0dcc",
+      "gitBlobSha": "4f00a41667356d5e4b74ab021b2615170ec84c09",
+      "origin": "analysis/intermediate/batch-4.json"
+    },
+    {
+      "path": ".ua/intermediate/batch-5.json",
+      "bytes": 91369,
+      "sha256": "9fdf85a682519480f50c737fb00b2c0f808c649d994dc555763c84b980fbb1eb",
+      "gitBlobSha": "34bdd2cf4dea4d4f57a89256428b67ab43878500",
+      "origin": "analysis/intermediate/batch-5.json"
+    },
+    {
+      "path": ".ua/intermediate/batch-6.json",
+      "bytes": 28848,
+      "sha256": "7c3c17182a94501796e690d509248c70eb10f9bdfee24f8270dc784caa88d7bd",
+      "gitBlobSha": "a43f53ac65b6ec6d780b94d7823fafe1bd540bf4",
+      "origin": "analysis/intermediate/batch-6.json"
+    },
+    {
+      "path": ".ua/intermediate/batch-7.json",
+      "bytes": 3618,
+      "sha256": "17e44b30ea9106ba63fd685acd66dd6fef99548b881c6192471501212e606363",
+      "gitBlobSha": "1ceb4676f24ac970ff12c5c005067e76b9c267e2",
+      "origin": "analysis/intermediate/batch-7.json"
+    },
+    {
+      "path": ".ua/intermediate/batch-8.json",
+      "bytes": 1897,
+      "sha256": "72a06ca5bfe75c64ab5d7e63a8bcfb8871ef6b789248f603ff6c653046ef1b89",
+      "gitBlobSha": "96743364ec8599d1103a2f4fce1db6f96264e059",
+      "origin": "analysis/intermediate/batch-8.json"
+    },
+    {
+      "path": ".ua/intermediate/batch-9.json",
+      "bytes": 3910,
+      "sha256": "628edf7a56e4a7003bb715c13e8dc16a736a34297cc764bdcfdeb4be9c8efe3f",
+      "gitBlobSha": "1548a7b00090d60168eed4a1b653737abc83fc37",
+      "origin": "analysis/intermediate/batch-9.json"
+    },
+    {
+      "path": ".ua/intermediate/batches.json",
+      "bytes": 146420,
+      "sha256": "315469b7123b9bb533afeee4d914300eda3c50885724f51ed886c68167ad5194",
+      "gitBlobSha": "372eb9d2f80048e6702ca40296e225435e28452d",
+      "origin": "analysis/intermediate/batches.json"
+    },
+    {
+      "path": ".ua/intermediate/review.json",
+      "bytes": 792,
+      "sha256": "a7be80cff58e4843328ec38486d39ef48f91924064f723cb673ac4650a6cbddb",
+      "gitBlobSha": "9dcaa781a8b7bae7e309dc9317baada21643bf72",
+      "origin": "analysis/intermediate/review.json"
+    },
+    {
+      "path": ".ua/intermediate/scan-result.json",
+      "bytes": 46440,
+      "sha256": "90f7014a1df0ea9a99fac8bb3e3e3b1e249fe39fa60be8ac5f0b7cba8a8ce9a9",
+      "gitBlobSha": "ad4043ecc4eb0f5de79441f56d1b513c91f8fc42",
+      "origin": "analysis/intermediate/scan-result.json"
+    },
+    {
+      "path": ".ua/intermediate/supporting-semantics.json",
+      "bytes": 85852,
+      "sha256": "1b1f382ed9b01bf48f2377bc0dc28a737a9dde0609714bd8af82d5c29bcbce00",
+      "gitBlobSha": "59d4b4079d1b73f905ebf84feff44227411acbe9",
+      "origin": "analysis/intermediate/supporting-semantics.json"
+    },
+    {
+      "path": ".ua/knowledge-graph.json",
+      "bytes": 1511133,
+      "sha256": "384e72ab33f1db2e690a421c47888a7326becbe6c4691e4fc17668ce53e6372b",
+      "gitBlobSha": "114950e70628d108077fbf48e80ee72d0bc7b53f",
+      "origin": "analysis/knowledge-graph.json"
+    },
+    {
+      "path": ".ua/meta.json",
+      "bytes": 306,
+      "sha256": "0c7f17cbb10089ae6c6c19562bc3d355ee59f2b4f3eb797dbefb17c9c4bbb2c2",
+      "gitBlobSha": "bce37be62f6814ecd8ef287181192dba7bb01327",
+      "origin": "analysis/meta.json"
+    },
+    {
+      "path": ".ua/PR8_BODY_DRAFT.md",
+      "bytes": 24859,
+      "sha256": "e946c0cdb49ff09677187fdf2c2cf8c2fb6ab5779dae77b0aab958d5859b7c59",
+      "gitBlobSha": "3783942625232ac90927b3305c8c77565f1548e9",
+      "origin": "analysis/PR8_BODY_DRAFT.md"
+    },
+    {
+      "path": ".ua/PR8_REASSESSMENT.md",
+      "bytes": 13505,
+      "sha256": "b640a7a36f8d25818ca9058733e9cf35887eb23b766f6b80b62a1550f7fad59f",
+      "gitBlobSha": "00b284fe93e5a2d8a4e5bd21d56dfdb0c576c7c4",
+      "origin": "analysis/PR8_REASSESSMENT.md"
+    },
+    {
+      "path": ".ua/source-hashes.json",
+      "bytes": 19222,
+      "sha256": "8cd17e7f9521188bc1c72095539b721ef9a73a2b4d9065150ddc1a94effe70f1",
+      "gitBlobSha": "56e2e07df3a7b7e6bb226aeb9cc7c56d1a575d02",
+      "origin": "analysis/source-hashes.json"
+    },
+    {
+      "path": ".ua/tmp/build-analysis-summary.json",
+      "bytes": 2644,
+      "sha256": "cdde45760843b1ff7bb451c66a965e3f1cfc14762005a652e85d57e9633e4738",
+      "gitBlobSha": "de24a023b3d9bd8b60d6e0c4f08f10827a5bab48",
+      "origin": "analysis/tmp/build-analysis-summary.json"
+    },
+    {
+      "path": ".ua/tmp/graph-assembly-context.json",
+      "bytes": 17323,
+      "sha256": "1c9a63c79ed4e35ca92cdacd8984f7ef03031aa3ab4ee58e1f39ec1d3c80c7f8",
+      "gitBlobSha": "2c4ef1f784c2f06b3f2ec3cc7cc415ac42fd07aa",
+      "origin": "analysis/tmp/graph-assembly-context.json"
+    },
+    {
+      "path": ".ua/tmp/merge.stderr.log",
+      "bytes": 1013,
+      "sha256": "0b85d0ba2f07cc7ad863637562b9d360d967c5a5fb87275ee3b0e30f8eba7be1",
+      "gitBlobSha": "1f451ac01498067aa6cda0fc93b4ee39f4ea5907",
+      "origin": "analysis/tmp/merge.stderr.log"
+    },
+    {
+      "path": ".ua/tmp/ua-file-extract-results-1.json",
+      "bytes": 330905,
+      "sha256": "5ae2367398344daaa4920612221a31eb716d9d10663ddd7e158a5259196cea82",
+      "gitBlobSha": "36497af0076929719a1e5d095cddaa1207b4922e",
+      "origin": "analysis/tmp/ua-file-extract-results-1.json"
+    },
+    {
+      "path": ".ua/tmp/ua-file-extract-results-10.json",
+      "bytes": 425,
+      "sha256": "8defd3e9686ac735d6c72b10f9a1ad67089588714eb7dc09f9301398f4e4c2d6",
+      "gitBlobSha": "2dc9476aedc86361f3353bdbca28f6fe9b821add",
+      "origin": "analysis/tmp/ua-file-extract-results-10.json"
+    },
+    {
+      "path": ".ua/tmp/ua-file-extract-results-11.json",
+      "bytes": 438,
+      "sha256": "3b3a31713a4b1828b050db57bd8230471c0594aec6b16ec673873e4205781aba",
+      "gitBlobSha": "271d047352217f79ef9d392734d598c82d6e472a",
+      "origin": "analysis/tmp/ua-file-extract-results-11.json"
+    },
+    {
+      "path": ".ua/tmp/ua-file-extract-results-12.json",
+      "bytes": 239582,
+      "sha256": "577e5401748638e1aadabd30c21756d6d4a90826c8832bac6db6c4195ac9ee8b",
+      "gitBlobSha": "3f165460e1f0fb7ac8c614ea30aee7f80afbd9c6",
+      "origin": "analysis/tmp/ua-file-extract-results-12.json"
+    },
+    {
+      "path": ".ua/tmp/ua-file-extract-results-13.json",
+      "bytes": 148753,
+      "sha256": "6f15826c7affa695745881aa3639992e7a8864852c0705f4b1dea36197141501",
+      "gitBlobSha": "226865510fec52357311ce6fe94041298a361cb0",
+      "origin": "analysis/tmp/ua-file-extract-results-13.json"
+    },
+    {
+      "path": ".ua/tmp/ua-file-extract-results-2.json",
+      "bytes": 357628,
+      "sha256": "7bd97a6f2f435c021bc593074fdd9af8e6a556b26ebf1b8a4b3f71e590ff0932",
+      "gitBlobSha": "327efe355df7877c4dd1009a55341fc697f70707",
+      "origin": "analysis/tmp/ua-file-extract-results-2.json"
+    },
+    {
+      "path": ".ua/tmp/ua-file-extract-results-3.json",
+      "bytes": 303714,
+      "sha256": "b1a78e2292595cce081c0ce89659df787ea58205029013944d483adb855c050f",
+      "gitBlobSha": "b277d29f850b3206955c24566c3fb3fce902112d",
+      "origin": "analysis/tmp/ua-file-extract-results-3.json"
+    },
+    {
+      "path": ".ua/tmp/ua-file-extract-results-4.json",
+      "bytes": 443764,
+      "sha256": "5947085d02c2b5238b0648f44c83f93004fd0e736f45a21ff5d9631d57f15ffa",
+      "gitBlobSha": "1c70be3d15567b1648f6669c6b506993ebd9fd1c",
+      "origin": "analysis/tmp/ua-file-extract-results-4.json"
+    },
+    {
+      "path": ".ua/tmp/ua-file-extract-results-5.json",
+      "bytes": 237484,
+      "sha256": "b62e0962bfe23906b03a91bd9af213f442be7fb9499d07f51c879895b7c8ccbd",
+      "gitBlobSha": "41979c3ce2323ddf773666f7320c0f588d8eefb5",
+      "origin": "analysis/tmp/ua-file-extract-results-5.json"
+    },
+    {
+      "path": ".ua/tmp/ua-file-extract-results-6.json",
+      "bytes": 57616,
+      "sha256": "007006c55d5f912df5c2e20e4ccb68989dea39a0d6ba460fb25195c44eab538b",
+      "gitBlobSha": "064876f3e06a616e1e6425f1a3a854e0f61f6257",
+      "origin": "analysis/tmp/ua-file-extract-results-6.json"
+    },
+    {
+      "path": ".ua/tmp/ua-file-extract-results-7.json",
+      "bytes": 4509,
+      "sha256": "c22d320f8ba20ee64111669f2194e5b7978a9519db27f5a2626b959d7a8931a5",
+      "gitBlobSha": "a7671de20941a46d1fc70b9b8d3cca915ebacdaa",
+      "origin": "analysis/tmp/ua-file-extract-results-7.json"
+    },
+    {
+      "path": ".ua/tmp/ua-file-extract-results-8.json",
+      "bytes": 1788,
+      "sha256": "1a3a961f91e471787b5fe2ec013468619bea402d4c12a4ccae9e2c055276905a",
+      "gitBlobSha": "41396f003842863ff2ca90d3b974bd3638de7cbb",
+      "origin": "analysis/tmp/ua-file-extract-results-8.json"
+    },
+    {
+      "path": ".ua/tmp/ua-file-extract-results-9.json",
+      "bytes": 641,
+      "sha256": "dd4fdd0f19fa811add6e85d49116ebdc8cc2ae6dbdfd00cb67ca4cfd1c19e02e",
+      "gitBlobSha": "ff86635f6fd777a7d960e089f6f8dddc9f585aac",
+      "origin": "analysis/tmp/ua-file-extract-results-9.json"
+    },
+    {
+      "path": ".ua/tmp/ua-import-map-output.json",
+      "bytes": 21634,
+      "sha256": "a49cb032cfeb98ef9ef3c2ae0803a446268d1de5e8bdc073815c6d29668a8bd6",
+      "gitBlobSha": "d622ec93613998aaf8f55234e81bf15a76b26845",
+      "origin": "analysis/tmp/ua-import-map-output.json"
+    },
+    {
+      "path": ".ua/tmp/ua-scan-files.json",
+      "bytes": 24985,
+      "sha256": "bdcc66a9f3e072da49c44285820d767051c03c67b55700cf09c9459ffb87a382",
+      "gitBlobSha": "a5ff1ec4a994720bc1e428b5cc5b9fd131d30cfe",
+      "origin": "analysis/tmp/ua-scan-files.json"
+    },
+    {
+      "path": ".ua/source-manifest.json",
+      "bytes": 532,
+      "sha256": "a4a4e41ac62c064dafd41d5836df8e44efe2e96718a123037d340c0551c437ae",
+      "gitBlobSha": "7c2b09cb7e06952a64395dd35ce6a8b6a6ec50b7",
+      "origin": "source-manifest.json"
+    },
+    {
+      "path": ".ua/evidence/pr8-before-replacement.json",
+      "bytes": 29202,
+      "sha256": "61ff62f6eaa3beefbb48ab74cf24725b8ba773904fdb9770b559e1d8258e689a",
+      "gitBlobSha": "61ec43d1741a901df75b5e8fc475c73d5affd57d",
+      "origin": "live PR8 backup"
+    },
+    {
+      "path": ".ua/DEVELOPMENT_ROADMAP.md",
+      "bytes": 26258,
+      "sha256": "d44a7ce7d4faf6b5bb2d2f961f3a6a681f64c3d8d31fcca20b5236bb0ffd0481",
+      "gitBlobSha": "f787f750423f720d18d74fe83f7772dcfbaa7e08",
+      "origin": "published roadmap body snapshot"
+    },
+    {
+      "path": "docs/agent-analysis-2026-10-17.md",
+      "bytes": 984,
+      "sha256": "840fc4d2e728326b61a8d58e25d0bab446b912f941c1d01d3a16bffe150206b6",
+      "gitBlobSha": "0929d9b432a451b9ca675a986f9a67bfe2a74157",
+      "origin": "publication entry"
+    }
+  ],
+  "excludedLocalScratch": [
+    {
+      "path": "evidence/roadmap-publication-20261017/",
+      "reason": "Publication transport requests and local receipts; final publication manifest included separately."
+    },
+    {
+      "path": "intermediate/fingerprint-input.json",
+      "reason": "Temporary fingerprint request; final fingerprints.json is included."
+    },
+    {
+      "path": "tmp/analysis-data.cjs",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/build-analysis.cjs",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/build-supporting-index.cjs",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/extract-1.stderr.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/extract-10.stderr.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/extract-11.stderr.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/extract-12.stderr.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/extract-13.stderr.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/extract-2.stderr.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/extract-3.stderr.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/extract-4.stderr.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/extract-5.stderr.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/extract-6.stderr.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/extract-7.stderr.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/extract-8.stderr.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/extract-9.stderr.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/finalize-graph.mjs",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/merge.stdout.log",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/prepare-roadmap-publication.cjs",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/prepare-roadmap-publication.py",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/stage-roadmap-results.cjs",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/supporting-semantics-interrupted.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-file-analyzer-input-1.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-file-analyzer-input-10.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-file-analyzer-input-11.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-file-analyzer-input-12.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-file-analyzer-input-13.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-file-analyzer-input-2.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-file-analyzer-input-3.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-file-analyzer-input-4.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-file-analyzer-input-5.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-file-analyzer-input-6.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-file-analyzer-input-7.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-file-analyzer-input-8.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-file-analyzer-input-9.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/ua-import-map-input.json",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/verify-delivery.py",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    },
+    {
+      "path": "tmp/write-deliverables.cjs",
+      "reason": "Temporary input, generation helper, interrupted placeholder, or empty diagnostic; not a completed result."
+    }
+  ]
+}

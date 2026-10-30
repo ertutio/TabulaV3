@@ -1,0 +1,49 @@
+{
+  "schema_version": 2,
+  "success": true,
+  "status": "dry_run",
+  "exit_code": null,
+  "timed_out": false,
+  "session_id": "229d4ba0-0e3e-49f6-805a-bd2dddaa4627",
+  "permission_denials": [],
+  "model": "deepseek-flash[1m]",
+  "model_usage": {},
+  "usage": {},
+  "result": null,
+  "errors": [],
+  "termination_reason": "dry_run",
+  "progress": {},
+  "observed_models": [],
+  "warnings": [],
+  "review_complete": null,
+  "credential_source": "env_file",
+  "dry_run": true,
+  "plan": {
+    "cwd": ".",
+    "state_dir": "local-user\\Documents\\ChatGPT\\GitHub项目开发\\work\\TabulaV3-understand-20261017\\review-worker-state",
+    "env_file": "local-user\\.deepseek-worker\\worker.env",
+    "claude_config_dir": "local-user\\Documents\\ChatGPT\\GitHub项目开发\\work\\TabulaV3-understand-20261017\\review-worker-state\\sessions\\229d4ba0-0e3e-49f6-805a-bd2dddaa4627\\claude",
+    "executable": "local-user\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+    "base_url": "https://api.deepseek.com/anthropic",
+    "tools": [
+      "Read"
+    ],
+    "write_files": [],
+    "allowed_tools": [
+      "Read"
+    ],
+    "max_turns": 6,
+    "timeout_seconds": 240,
+    "resume": false,
+    "profile": "review",
+    "effort": "max",
+    "max_output_tokens": 16384,
+    "max_total_output_tokens": 32768,
+    "max_report_chars": 3000,
+    "streaming": true,
+    "max_api_retries": 1,
+    "credential_present": true,
+    "proxy_inherited": []
+  },
+  "duration_seconds": 0
+}
