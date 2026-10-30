@@ -1281,7 +1281,15 @@ fun TabulaApp(
                 if (BuildConfig.DEBUG && preferences.debugForceAlbumLoadFailure) {
                     throw java.io.IOException("probe: forced album load failure")
                 }
-                albumManager.getAlbumDetailImages(albumId)
+                val images = albumManager.getAlbumDetailImages(albumId)
+                // C0/T05 切图集/取消探针接缝（仅 debug 构建）：查询完成后的返回延迟，
+                // 制造慢加载窗口供设备断言取消与切换语义；查询先行、延迟后返回，
+                // 使"结果已就绪但调用方已取消"成为可控场景。
+                if (BuildConfig.DEBUG) {
+                    val delayMs = preferences.debugAlbumLoadDelayMs
+                    if (delayMs > 0) kotlinx.coroutines.delay(delayMs)
+                }
+                images
             },
             onCreateAlbum = { name, color, emoji ->
                 scope.launch {
