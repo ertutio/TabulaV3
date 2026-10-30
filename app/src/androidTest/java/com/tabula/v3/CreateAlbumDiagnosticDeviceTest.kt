@@ -86,11 +86,22 @@ class CreateAlbumDiagnosticDeviceTest {
         0xFF.toByte(), 0xD9.toByte()
     )
 
+    // UiAutomation 字符串入口按空白分词（acceptance.md）：含 &&/||/重定向的
+    // 命令必须经完整脚本封装；此前 dirExists 恒 false 是 shell 语法假象
+    // （run 41082467467 的"空目录不持久"观察因此作废，待本版重证）。
+    private fun runScript(script: String): String {
+        val encoded = android.util.Base64.encodeToString(script.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
+        val command = "/system/bin/sh -c printf\${IFS}%s\${IFS}$encoded|base64\${IFS}-d|/system/bin/sh"
+        return ins.uiAutomation.executeShellCommand(command).use { p ->
+            FileInputStream(p.fileDescriptor).use { it.readBytes().toString(Charsets.UTF_8) }
+        }
+    }
+
     private fun dirListing(relativePath: String): String =
-        shell("ls /sdcard/$relativePath 2>&1").trim().replace('\n', '|')
+        runScript("ls /sdcard/$relativePath 2>&1").trim().replace("\n", "|")
 
     private fun dirExists(relativePath: String): Boolean =
-        shell("test -d /sdcard/$relativePath && echo EXISTS || echo ABSENT").trim() == "EXISTS"
+        runScript("test -d /sdcard/$relativePath && echo EXISTS || echo ABSENT").trim() == "EXISTS"
 
     @Test fun createBucketStageProbeReportsEachStep() = runBlocking {
         // 1) 真实 createBucket：包含 getAlbumRelativePath 前置探测 + 占位链。
@@ -257,7 +268,7 @@ class CreateAlbumDiagnosticDeviceTest {
         }
         dirsToClean.distinct().forEach { dir ->
             attempt {
-                shell("rmdir /sdcard/$dir")
+                runScript("rmdir /sdcard/$dir")
                 if (dirExists(dir)) diag("cleanup", "rmdir did not remove: $dir")
             }
         }
