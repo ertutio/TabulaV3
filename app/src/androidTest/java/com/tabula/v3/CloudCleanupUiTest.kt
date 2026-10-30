@@ -17,6 +17,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.app.UiAutomation
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.repository.AlbumManager
@@ -43,6 +44,7 @@ class CloudCleanupUiTest {
     private var activity: android.app.Activity? = null
     private var probeAllowed = false
     private val albumName = "CloudProbe" + UUID.randomUUID().toString().replace("-", "").take(10)
+    private var emptyAlbumForCleanup: String? = null
 
     private fun shell(command: String): String = ins.uiAutomation.executeShellCommand(command).use { p ->
         FileInputStream(p.fileDescriptor).use { it.readBytes().toString(Charsets.UTF_8) }
@@ -117,6 +119,12 @@ class CloudCleanupUiTest {
     private fun present(uri: Uri): Boolean = requireNotNull(
         ctx.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns._ID), null, null, null)
     ) { "MediaStore query returned null: $uri" }.use { it.moveToFirst() }
+    private fun displayNameOf(uri: Uri): String = requireNotNull(
+        ctx.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
+    ) { "MediaStore query returned null: $uri" }.use {
+        check(it.moveToFirst()) { "No row for $uri" }
+        it.getString(0)
+    }
     private fun captureUiFailure(label: String) {
         fun dump(node: AccessibilityNodeInfo?, depth: Int) {
             if (node == null || depth > 30) return
@@ -217,8 +225,8 @@ class CloudCleanupUiTest {
     @Test fun albumDetailLoadFailureShowsBannerAndRetryRecovers() = runBlocking {
         // C0-DETAIL-EMPTY-RETRY（非空相册路径）：详情加载失败 → 错误横幅+重试可见；
         // 解除注入后重试成功，真实图片出现、横幅消失。
-        // 注：空相册（imageCount==0）分支依赖 createAlbum，在 API37 模拟器因
-        // scoped storage mkdirs 失败（O2 证据），无法稳定构造，保持静态断言。
+        // 注：空相册（imageCount==0）分支由下方
+        // albumDetailEmptyAlbumLoadFailureShowsErrorAndRetryShowsRealImage 专门覆盖。
         AppPreferences(ctx).debugForceAlbumLoadFailure = true
         try {
             // 前一个用例失败可能遗留打开的清理对话框：先返回关闭，保证导航起点干净。
@@ -260,6 +268,56 @@ class CloudCleanupUiTest {
         }
         captureUiFailure("banner still visible after retry")
         error("retry did not clear the load error banner")
+    }
+
+    @Test fun albumDetailEmptyAlbumLoadFailureShowsErrorAndRetryShowsRealImage() = runBlocking {
+        // C0-DETAIL-EMPTY-RETRY（空相册分支）：元数据空图集首次详情加载失败 →
+        // 空态错误行+重试可见；解除注入并放入真实照片后重试，真实图片出现、错误消失。
+        // 空图集不经 createAlbum 构造（O2：API37 scoped storage createBucket 失败）：
+        // refreshAlbumsFromSystem 会把仅存在于元数据的图集恢复为 imageCount=0 的空图集，
+        // 与 createAlbum 成功后的持久化形态一致（仅元数据、无系统 bucket）。
+        val emptyAlbumName = "CloudEmpty" + UUID.randomUUID().toString().replace("-", "").take(10)
+        emptyAlbumForCleanup = emptyAlbumName
+        albums.updateAlbum(Album(id = emptyAlbumName, name = emptyAlbumName))
+        assertTrue(
+            "metadata-only album must surface as empty album",
+            albums.albums.value.any { it.name == emptyAlbumName && it.imageCount == 0 }
+        )
+        AppPreferences(ctx).debugForceAlbumLoadFailure = true
+        try {
+            // 前序用例可能耗尽卡片可见照片（deck 空态不渲染图库入口）：先补一张。
+            photo()
+            var navigated = false
+            repeat(3) { attempt ->
+                if (!navigated) {
+                    ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
+                    SystemClock.sleep(1500)
+                    activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    try {
+                        waitFor("图库")
+                        tap("图库")
+                        tap(emptyAlbumName)
+                        // 空态分支专属文案，区分于非空相册的"当前显示为上次结果"。
+                        waitFor("图集加载失败，未能获取照片")
+                        navigated = true
+                    } catch (e: IllegalStateException) {
+                        captureUiFailure("empty album navigation attempt $attempt")
+                        if (attempt == 2) throw e
+                    }
+                }
+            }
+            waitFor("重试")
+        } finally {
+            AppPreferences(ctx).debugForceAlbumLoadFailure = false
+        }
+        // 重试前放入真实照片：解除注入后的重试查询应返回并渲染它，
+        // 证明重试走真实详情查询而非仅清除错误状态。
+        val retryPhoto = photo("Tabula/$emptyAlbumName")
+        val photoName = displayNameOf(retryPhoto)
+        tap("重试")
+        waitFor(photoName)
+        assertNull("empty-state error row must be gone after retry",
+            find(ins.uiAutomation.rootInActiveWindow, "图集加载失败，未能获取照片"))
     }
 
     @Test fun unknownDeleteVerificationKeepsSourceRecordAndReportsReason() = runBlocking {
@@ -321,6 +379,9 @@ class CloudCleanupUiTest {
             awaitCondition("activity destruction") { current.isDestroyed }
         }
         try { albums.clearDeletedUris(sources) } catch (e: Throwable) { errors += e }
+        emptyAlbumForCleanup?.let { name ->
+            try { albums.deleteAlbum(name) } catch (e: Throwable) { errors += e }
+        }
         var sentinel: CloudFixtureCleanup.Fixture? = null
         attempt { sentinel = fixtures.fixture(photo("CloudSafetySentinel", register = false)) }
         photos.forEach { f -> attempt { fixtures.removeFixture(f) } }
