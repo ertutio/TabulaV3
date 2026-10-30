@@ -483,8 +483,9 @@ class CloudCleanupUiTest {
                     SystemClock.sleep(1500)
                     activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     try {
-                        // deck 卡片首屏：FixedTagBar 含本用例图集 chip。
-                        waitFor(albumName)
+                        // deck 卡片首屏：顶栏「选择图集」入口（run 41105952670 工件证实
+                        // FixedTagBar chips 在该模式下不渲染，改走图集选择弹层）。
+                        waitFor("选择图集")
                         started = true
                     } catch (e: IllegalStateException) {
                         captureUiFailure("archive-toast deck attempt $attempt")
@@ -492,9 +493,12 @@ class CloudCleanupUiTest {
                     }
                 }
             }
-            // chip 点击 → 归类动画 → 入队 → Snackbar 超时自动提交（数秒后）→ 失败 Toast。
+            // 选择图集弹层 → 点本用例图集 → 入队 → Snackbar 超时自动提交（数秒后）→ 失败 Toast。
             val completed = ins.uiAutomation.executeAndWaitForEvent(
-                { tap(albumName) },
+                {
+                    tap("选择图集")
+                    tap(albumName)
+                },
                 UiAutomation.AccessibilityEventFilter { event ->
                     event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED &&
                         event.text.any { it.toString().contains("归档失败") }
