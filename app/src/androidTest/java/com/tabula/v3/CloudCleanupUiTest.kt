@@ -419,6 +419,10 @@ class CloudCleanupUiTest {
         AppPreferences(ctx).debugAlbumLoadDelayMs = 3000L
         try {
             photo()
+            // 基线必须在打开任何详情之前采样：本用例自己的加载也会写标记，
+            // 导航完成后再采样会把已发生的标记计入基线，导致等待永不满足
+            //（run 41092875221 首轮失败根因）。
+            val handshakeBaseline = currentHandshakeCount()
             var navigated = false
             repeat(3) { attempt ->
                 if (!navigated) {
@@ -437,8 +441,8 @@ class CloudCleanupUiTest {
                     }
                 }
             }
-            // 握手 1：旧查询已进入慢加载窗口。
-            val afterOld = waitHandshake(currentHandshakeCount())
+            // 握手 1：旧查询已进入慢加载窗口（计数必须超过导航前基线）。
+            val afterOld = waitHandshake(handshakeBaseline)
             // 切换：旧结果将在窗口结束后"晚到"。
             ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
             waitUntilGone("返回")
