@@ -15,12 +15,15 @@ case "${API_LEVEL:?API_LEVEL must identify the workflow device}" in
 esac
 adb shell getprop ro.build.version.sdk | tr -d '\r' | grep -Fx "$API_LEVEL"
 status=0
-# 预期逐例计数（新增场景须同步声明）：CloudCleanupUiTest 4 例
-# （laterCandidate / invalidatedCopy / albumDetailLoadFailureShowsBannerAndRetryRecovers（非空相册） / unknownDeleteVerificationKeepsSourceRecordAndReportsReason），
+# 预期逐例计数（新增场景须同步声明）：CloudCleanupUiTest 6 例
+# （laterCandidate / invalidatedCopy / albumDetailLoadFailureShowsBannerAndRetryRecovers（非空相册） /
+#  albumDetailEmptyAlbumLoadFailureShowsErrorAndRetryShowsRealImage（空相册，元数据构造绕开 O2） /
+#  albumDetailSlowLoadSwitchShowsNewAlbumContentAndCancelIsSafe（切图集/取消，debug 慢加载接缝） /
+#  unknownDeleteVerificationKeepsSourceRecordAndReportsReason），
 # CloudRestoreUiTest 3 例（singleRestore / batchRestore / restoreKeepsUnknown）。
 for class in CloudCleanupUiTest CloudRestoreUiTest; do
   case "$class" in
-    CloudCleanupUiTest) expected_tests=4 ;;
+    CloudCleanupUiTest) expected_tests=6 ;;
     CloudRestoreUiTest) expected_tests=3 ;;
     *) expected_tests=2 ;;
   esac
@@ -51,7 +54,7 @@ for class in CloudCleanupUiTest CloudRestoreUiTest; do
     status=1
   fi
   if ! grep -Eq "^OK \(${expected_tests} tests\)" "$output"; then
-    echo "Expected two passing tests in $class" >&2
+    echo "Expected ${expected_tests} passing tests in $class" >&2
     status=1
   fi
   if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' "$output"; then
