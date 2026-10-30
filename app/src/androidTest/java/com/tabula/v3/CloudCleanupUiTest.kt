@@ -186,9 +186,11 @@ class CloudCleanupUiTest {
     }
     // #17 握手：轮询 logcat 中接缝写入的"进入延迟窗口"标记行，
     // 等待计数超过 baseline 后返回新计数（logcat 跨用例累积，用单调计数）。
+    // UiAutomation 字符串入口按空白分词（acceptance.md）：不能使用管道/重定向，
+    // 在 Kotlin 侧计数。
     private fun currentHandshakeCount(): Int =
-        shell("logcat -d -s TabulaProbe:D 2>/dev/null | grep -c 'entering delay window'")
-            .trim().filter { it.isDigit() }.toIntOrNull() ?: 0
+        shell("logcat -d -s TabulaProbe:D")
+            .split("\n").count { it.contains("entering delay window") }
 
     private fun waitHandshake(aboveCount: Int, timeoutMs: Long = 10000): Int {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
