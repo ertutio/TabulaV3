@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import com.tabula.v3.BuildConfig
 import com.tabula.v3.data.model.MediaItemKey
 import com.tabula.v3.data.model.SyncMode
 import kotlinx.coroutines.CancellationException
@@ -48,6 +49,14 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
     companion object {
         private const val TAG = "SystemAlbumSyncManager"
         private const val TABULA_ALBUMS_FOLDER = "Tabula"
+
+        /**
+         * T01-UIFEEDBACK 探针接缝（仿 FileOperationManager.debugForceUnknownUris）：
+         * 强制 copyImageWithEvidence 失败，供设备断言归档失败 Toast 与源保留。
+         * 仅测试注入；默认 false，生产路径不读取。
+         */
+        @Volatile
+        internal var debugForceArchiveCopyFailure: Boolean = false
 
         @Volatile
         private var instance: SystemAlbumSyncManager? = null
@@ -380,7 +389,13 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
         imageUri: Uri,
         albumName: String,
         displayName: String? = null
-    ): CopyResult? = copyImageToSystemAlbum(imageUri, albumName, displayName).toCopyResultOrNull()
+    ): CopyResult? {
+        if (BuildConfig.DEBUG && debugForceArchiveCopyFailure) {
+            Log.w(TAG, "debug: forced archive copy failure (T01-UIFEEDBACK probe)")
+            return null
+        }
+        return copyImageToSystemAlbum(imageUri, albumName, displayName).toCopyResultOrNull()
+    }
 
     /**
      * 轻量核验：两侧媒体项身份均可解析、分属不同项目且互非别名（零字节读取）。
