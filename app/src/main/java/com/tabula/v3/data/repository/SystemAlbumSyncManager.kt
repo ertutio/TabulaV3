@@ -1355,7 +1355,10 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
             
             // 使用 MediaStore API 创建占位文件来间接创建文件夹
             // 文件夹会在创建第一个文件时自动生成
-            val placeholderName = ".tabula_placeholder_${System.currentTimeMillis()}.jpg"
+            // O2 诊断（run 41086854893）：API37 上 unpublish 后删除带前导点的
+            // 自有占位项抛 SecurityException，导致 createBucket 整链失败；
+            // 非 dot 名同链删除成功。占位名去掉前导点即修复。
+            val placeholderName = "tabula_placeholder_${System.currentTimeMillis()}.jpg"
             
             val values = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, placeholderName)
