@@ -1287,7 +1287,15 @@ fun TabulaApp(
                 // 使"结果已就绪但调用方已取消"成为可控场景。
                 if (BuildConfig.DEBUG) {
                     val delayMs = preferences.debugAlbumLoadDelayMs
-                    if (delayMs > 0) kotlinx.coroutines.delay(delayMs)
+                    if (delayMs > 0) {
+                        // 握手标记：设备探针轮询 logcat 确认旧查询已进入慢加载窗口。
+                        Log.d("TabulaProbe", "albumDetailLoad entering delay window ms=$delayMs")
+                        // NonCancellable 延迟模拟"结果在调用方取消后才完成"的最坏情形：
+                        // 晚到结果必须被 AlbumViewScreen 的 isActive 守卫丢弃，不覆盖新页。
+                        withContext(kotlinx.coroutines.NonCancellable) {
+                            kotlinx.coroutines.delay(delayMs)
+                        }
+                    }
                 }
                 images
             },
