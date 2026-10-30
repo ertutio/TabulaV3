@@ -10,7 +10,7 @@
 | 已接受代码基线 | `master@b2d6b43e4ef31062a59e70568473dceb58b1a3e6`；#13 后依次合入 [#14](https://github.com/ertutio/TabulaV3/pull/14) → [#17](https://github.com/ertutio/TabulaV3/pull/17) → [#16](https://github.com/ertutio/TabulaV3/pull/16) → [#15](https://github.com/ertutio/TabulaV3/pull/15)。继续开发从该 master 建下一检查点分支。 |
 | 验证输入及运行 | 最终组合输入 `87dd93c5a3cb8e8e81c1f1a77e3275d1c53749b1`：[41003765715](https://github.com/ertutio/TabulaV3/actions/runs/41003765715)，attempt 1，build/API36/API37 三项全绿。完整单测任务实际执行，无 FROM-CACHE/UP-TO-DATE；未取混合 APK 工件中的 XML，精确全套单测数未知。每 API 实际执行 VolumeDeletion 3 + Cleanup 6 + Restore 3，全数通过（共 24 项设备测试）。合并树与被测输入树相同。历史四 PR 原始运行与失败/重跑见保存点表。 |
 | 当前检查点 | C0–C3 各有局部改进；各组仍 `PARTIAL`，详见下表 |
-| next_action | O2 已确诊并修复（#18 诊断含 shell 观测修正 / #19 因果对照 / #20 占位名修复）；#17 旧结果晚到竞争已补确定性握手断言（#21）；均待评审合并。下一就绪项：T01 归档失败反馈（C0-T01-UIFEEDBACK 设备断言）、C1 跨卷身份消费者核验（TC13–TC16）；#20 合并后可选择性简化 #14 空相册夹具的 O2 注释（非必须）。#15 非阻断测试清理可用固定逆序代替 shuffled 并去掉恒真断言。继续按就绪条件实现→验收→保存/PR→推进，总任务保持 in_progress。 |
+| next_action | O2 已确诊并修复（#18 诊断含 shell 观测修正 / #19 因果对照 / #20 占位名修复）；#17 旧结果晚到竞争已补确定性握手断言（#21）；均待评审合并。下一就绪项（已设计待实现）：T01 归档失败 Toast 设备断言（C0-T01-UIFEEDBACK）——清理保留 Toast 半边已由 invalidatedCopyKeepsConfirmedOriginal 覆盖，归档失败半边需仿 FileOperationManager.debugForceUnknownUris 先例在 SystemAlbumSyncManager.copyImageWithEvidence 入口加 debugForceArchiveCopyFailure 接缝（companion @Volatile，仅测试注入），设备用例经真实 UI 路径（deck 卡片归档动作 → MainActivity:709 commitPendingArchiveWithFeedback）用 executeAndWaitForEvent 断言「归档失败，照片未复制」Toast 与源保留；探针计数 7→8。随后 C1 跨卷身份消费者核验（TC13–TC16）；#20 合并后可选择性简化 #14 空相册夹具的 O2 注释（非必须）。#15 非阻断测试清理可用固定逆序代替 shuffled 并去掉恒真断言。继续按就绪条件实现→验收→保存/PR→推进，总任务保持 in_progress。 |
 | 尚未验证 | 真实跨卷与其他应用媒体、进程死亡和持久化失败；不得以合成探针代替。 |
 
 ## 本次合入的局部范围与剩余工作
