@@ -14,24 +14,15 @@ internal class SimilarGroupsCache(private val validityMs: Long = DEFAULT_VALIDIT
 
     private var cached: List<SimilarGroup>? = null
     private var cacheTimestamp: Long = 0L
-    private var cacheFingerprint: Long = 0L
+    private var cacheFingerprint: List<Triple<Long, Long, Long>>? = null
 
     /**
-     * 输入列表的身份+内容指纹：成员 (id, dateModified, size) 按 id 排序后折叠。
-     * 顺序不敏感；同 ID 改内容或成员增删都会改变指纹。
+     * 输入列表的身份+内容版本：按所有字段排序后精确比较。
+     * 顺序不敏感，避免数值折叠导致不同版本碰撞。
      */
-    internal fun fingerprintOf(images: List<ImageFile>): Long {
-        var result = 17L
-        for ((id, dateModified, size) in images
-            .map { Triple(it.id, it.dateModified, it.size) }
-            .sortedBy { it.first }
-        ) {
-            result = result * 31L + id
-            result = result * 31L + dateModified
-            result = result * 31L + size
-        }
-        return result
-    }
+    internal fun fingerprintOf(images: List<ImageFile>): List<Triple<Long, Long, Long>> =
+        images.map { Triple(it.id, it.dateModified, it.size) }
+            .sortedWith(compareBy({ it.first }, { it.second }, { it.third }))
 
     /** TTL 内且指纹匹配才返回缓存组；内容变更、成员变化或过期返回 null。 */
     @Synchronized
@@ -54,7 +45,7 @@ internal class SimilarGroupsCache(private val validityMs: Long = DEFAULT_VALIDIT
     internal fun invalidate() {
         cached = null
         cacheTimestamp = 0L
-        cacheFingerprint = 0L
+        cacheFingerprint = null
     }
 
     companion object {

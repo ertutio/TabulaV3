@@ -79,6 +79,16 @@ class SimilarGroupsCacheTest {
     }
 
     @Test
+    fun simultaneousDateAndSizeChangesDoNotCollide() {
+        val images = listOf(image(10, dateModified = 1000L, size = 500L))
+        val stored = listOf(group(10))
+        cache.store(stored, images, now)
+        assertSame(stored, cache.lookup(images, now + 1_000L))
+        val edited = listOf(image(10, dateModified = 1001L, size = 469L))
+        assertNull("different version fields must miss even when old hash collides", cache.lookup(edited, now + 1_000L))
+    }
+
+    @Test
     fun membershipChangeWithinTtlMisses() {
         val images = listOf(image(1), image(2))
         cache.store(listOf(group(1, 2)), images, now)
