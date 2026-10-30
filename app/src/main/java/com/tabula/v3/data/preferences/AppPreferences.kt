@@ -81,6 +81,15 @@ class AppPreferences(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_DEBUG_FORCE_ALBUM_LOAD_FAILURE, value).apply()
 
     /**
+     * 仅调试探针使用（BuildConfig.DEBUG 门控）：详情查询完成后的返回延迟毫秒，
+     * 制造慢加载窗口，用于设备验证切图集/取消后旧结果不覆盖新页面（C0/T05）。
+     * 0 表示无延迟；生产构建不读取。
+     */
+    var debugAlbumLoadDelayMs: Long
+        get() = prefs.getLong(KEY_DEBUG_ALBUM_LOAD_DELAY_MS, 0L)
+        set(value) = prefs.edit().putLong(KEY_DEBUG_ALBUM_LOAD_DELAY_MS, value).apply()
+
+    /**
      * Show HDR badges
      */
     var showHdrBadges: Boolean
@@ -1022,6 +1031,7 @@ class AppPreferences(context: Context) {
         private const val KEY_SORT_ORDER = "sort_order"
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_DEBUG_FORCE_ALBUM_LOAD_FAILURE = "debug_force_album_load_failure"
+        private const val KEY_DEBUG_ALBUM_LOAD_DELAY_MS = "debug_album_load_delay_ms"
         private const val KEY_DELETE_CONFIRM = "delete_confirm"
         private const val KEY_SHOW_HDR_BADGES = "show_hdr_badges"
         private const val KEY_SHOW_MOTION_BADGES = "show_motion_badges"
