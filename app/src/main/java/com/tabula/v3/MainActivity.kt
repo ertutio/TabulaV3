@@ -463,7 +463,7 @@ fun TabulaApp(
                 val loadResult = LocalImageRepository(context).loadAllData()
                 val deleted = recycleBinManager.loadRecycleBin()
                 // 浏览/推荐由"快照 − 软删除集合"派生，相册计数与封面同步重算。
-                val projected = projectSnapshot(loadResult, deleted.map { it.id }.toSet())
+                val projected = projectSnapshot(loadResult, deleted)
                 albumManager.initialize(preloadedBuckets = projected.systemBuckets)
                 Pair(projected, deleted)
             }
@@ -846,7 +846,7 @@ fun TabulaApp(
                         val repository = LocalImageRepository(context)
                         val refreshedData = withContext(Dispatchers.IO) {
                             val loadResult = repository.loadAllData()
-                            val projected = projectSnapshot(loadResult, deletedImages.map { it.id }.toSet())
+                            val projected = projectSnapshot(loadResult, deletedImages)
                             albumManager.refreshAlbumsFromSystem(projected.systemBuckets)
                             projected
                         }

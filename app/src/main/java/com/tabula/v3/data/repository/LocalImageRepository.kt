@@ -639,11 +639,20 @@ class LocalImageRepository(private val context: Context) {
  */
 fun projectSnapshot(
     snapshot: LocalImageRepository.LoadResult,
-    softDeletedIds: Set<Long>
+    softDeleted: Collection<ImageFile>
 ): LocalImageRepository.LoadResult {
-    if (softDeletedIds.isEmpty()) return snapshot
-    val allImages = snapshot.allImages.filterNot { it.id in softDeletedIds }
-    val imagesExcludingTabula = snapshot.imagesExcludingTabula.filterNot { it.id in softDeletedIds }
+    if (softDeleted.isEmpty()) return snapshot
+    // C1-T03-SNAPSHOT-CROSSVOLUME-DELETE：软删除按 (卷, 数值 ID) 消费身份——
+    // 不同卷的同数值 ID 是不同照片。兼容规则：任一侧卷未知（T03 前旧数据）
+    // 退化为纯 ID 匹配；两侧卷已知则必须同卷才命中。
+    val softDeletedById = softDeleted.groupBy { it.id }
+    fun isSoftDeleted(image: ImageFile): Boolean =
+        softDeletedById[image.id]?.any { record ->
+            record.volumeName == null || image.volumeName == null ||
+                record.volumeName == image.volumeName
+        } == true
+    val allImages = snapshot.allImages.filterNot(::isSoftDeleted)
+    val imagesExcludingTabula = snapshot.imagesExcludingTabula.filterNot(::isSoftDeleted)
     // 按真实身份 (卷, 路径) 重算 count/cover，避免同名桶互相污染；无身份信息的旧数据退化为显示名键。
     val covers = LinkedHashMap<BucketGroupKey, Long>()
     val counts = HashMap<BucketGroupKey, Int>()

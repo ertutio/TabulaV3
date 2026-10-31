@@ -117,7 +117,9 @@ internal class EvidenceTestProvider(
         displayName: String,
         bytes: ByteArray,
         idOverride: Long? = null,
-        volumeName: String = "external_primary"
+        volumeName: String = "external_primary",
+        bucketName: String = "Target",
+        relativePath: String = "Pictures/Tabula/Target/"
     ): Uri {
         val id = idOverride ?: nextId++
         val file = File(syntheticTargetDirectory, "candidate-$volumeName-$id.jpg").apply { writeBytes(bytes) }
@@ -126,8 +128,8 @@ internal class EvidenceTestProvider(
             file = file,
             volumeName = volumeName,
             displayName = displayName,
-            bucketName = "Target",
-            relativePath = "Pictures/Tabula/Target/",
+            bucketName = bucketName,
+            relativePath = relativePath,
             dateModified = 1_700_000_002L
         )
         if (volumeName == "external_primary") {
