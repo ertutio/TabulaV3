@@ -56,7 +56,7 @@ gh workflow run build-volume-confirmation.yml --repo ertutio/TabulaV3 --ref <实
 
 - 保留 API36/37 的真实身份/镜像/工具版本和 AVD target 检查；API37 当前有效配置通过 cmdline-tools 22.0 创建 `android-37.0` target。未知元数据要明确，`android-0` 或平台进程异常不能当应用测试通过。
 - 保留三个测试窗口的 boot_id、system_server/SurfaceFlinger PID/starttime 及目标 native/DeadSystem 检查。不要通过吞掉平台崩溃或关闭断言得到绿色；环境修复与应用改动分别验证。
-- 现有旧探针 3 项、Cleanup 2 项、Restore 2 项是已验证的起点。新增场景时同步声明预期 case/数量并检查逐例结果与 skip，不能只提高/降低一个总计数阈值；原有效断言保持。
+- 已验收基线为 tested SHA `dff9898ba3518df3658788b39b627b61c4df369f` 的 [run 41169544885](https://github.com/ertutio/TabulaV3/actions/runs/41169544885)：228 Release units；API36/37 每 API Volume 3 + Cleanup 8 + Restore 3 + CreateAlbum 2 = 16，零 skip。此数量只描述该历史 run。未来新增场景同步声明预期 case/数量，按逐例 XML、断言和 skip 核验，不能把历史 16 硬冻为新要求或只改总计数阈值；原有效断言保持。
 - 故障注入和删除仅对测试自建且有 manifest 的合成对象；记录 volume/id/随机 name/完整 relativePath，删除前准确匹配，删除后明确查询不存在，集合外哨兵保持，再独立清理。错误/空输出/null Cursor/解析失败不当作不存在。
 - CloudFixtureCleanup 只服务 opt-in 模拟器测试的 `@After`：先销毁 Activity，独立 shell 精确清理，验证 shell 与应用查询；不授予生产应用 MANAGE_MEDIA、不改 app-op 或全程采用 shell permission identity。UiAutomation 字符串入口按空白分词，完整脚本封装必须保留真正退出/错误信息；不能把重定向当 content 参数。
 - 自有媒体的测试成功不能证明他人媒体授权、多卷热拔插、所有进程死亡/真实断电或目标 OEM 行为。必要真实设备缺口明确列出，不能由 green unit 代替。

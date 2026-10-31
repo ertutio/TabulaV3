@@ -1,30 +1,62 @@
 # 持续开发进度与续接记录
 
-本文件记录事实和下一动作；执行规则见[总计划](DEVELOPMENT_ROADMAP.md)，验收规格见[验收约定](../docs/acceptance.md)。历史条目保留原记录，当前状态以本节与下表为准；旧的 PASS、accepted 或关闭不表示整个 T 组完成。
+本文件是当前游标、队列和唯一 `next_action` 的维护处。执行过程及完成条件见[总计划](DEVELOPMENT_ROADMAP.md)，T/TC 规格见[验收约定](../docs/acceptance.md)。以下当前记录覆盖后文历史快照；历史待办、状态及旧 next_action 只说明当时过程，不驱动今晚执行。已解决卡点的旧计数不再作为活动 blocker；同一未解决卡点沿用累计有效修正失败次数，跨代理/会话/夜晚不清零。
 
-## 当前游标
+## 当前游标：北京时间 2026-10-31 夜至 11-01 早
 
 | 字段 | 当前值 |
 | --- | --- |
-| 总任务状态 | `in_progress` |
-| 已接受代码基线 | `master@b2d6b43e4ef31062a59e70568473dceb58b1a3e6`；#13 后依次合入 [#14](https://github.com/ertutio/TabulaV3/pull/14) → [#17](https://github.com/ertutio/TabulaV3/pull/17) → [#16](https://github.com/ertutio/TabulaV3/pull/16) → [#15](https://github.com/ertutio/TabulaV3/pull/15)。继续开发从该 master 建下一检查点分支。 |
-| 验证输入及运行 | 最终组合输入 `87dd93c5a3cb8e8e81c1f1a77e3275d1c53749b1`：[41003765715](https://github.com/ertutio/TabulaV3/actions/runs/41003765715)，attempt 1，build/API36/API37 三项全绿。完整单测任务实际执行，无 FROM-CACHE/UP-TO-DATE；未取混合 APK 工件中的 XML，精确全套单测数未知。每 API 实际执行 VolumeDeletion 3 + Cleanup 6 + Restore 3，全数通过（共 24 项设备测试）。合并树与被测输入树相同。历史四 PR 原始运行与失败/重跑见保存点表。 |
-| 当前检查点 | C0–C3 各有局部改进；各组仍 `PARTIAL`，详见下表 |
-| next_action | O2（#18/#19/#20）与 #17 晚到竞争（#21）已交付待合并。T01-UIFEEDBACK 归档失败 Toast：接缝与用例已就绪（PR #22，堆叠 #21），**卡点在第 3 环**——真实 deck 路径两轮 CI 失败均已诊断：41105952670 该模式下 FixedTagBar chips 不渲染（改走顶栏「选择图集」弹层）；41108977165 弹层选择动作完成但**队列从未填充**（无 Queued/Committing/接缝日志，TimeoutException）——疑似 DeckScreen.onAlbumSelected 的 `currentImage?.let` 静默 no-op（选中时 currentImage 为空），需真机/本地模拟器实测弹层选择时的 deck 状态（或在 onAlbumSelected 加一次性 debug 日志确认分支走向）后再修测试或确认应用缺陷。**累计失败 2 次，假设与证据已留存**（PR #22 两次运行工件）。解除前转做：C1 跨卷身份消费者核验（TC13–TC16）、#20 合并后简化 #14 的 O2 注释（非必须）、#15 非阻断测试清理。总任务保持 in_progress。 |
-| 尚未验证 | 真实跨卷与其他应用媒体、进程死亡和持久化失败；不得以合成探针代替。 |
+| 总任务状态 | `in_progress`；本次只更新计划，尚未启动智谱或设置自动化。 |
+| 计划 ref | [PR #12](https://github.com/ertutio/TabulaV3/pull/12)，`docs/continuous-development-2026-10-28`，编辑前 head `adfde442d7d756b6d5102c991fb80bd09a3bb7a1`；保持开放，用户要求不能整体合并。旧代码只作历史，生产实现从实际最新 master 建分支。 |
+| 已接受代码基线 | `master@5415c0b59ac5a9066d23cc0f75b3d1400f2e994d` 已合入 [PR #23](https://github.com/ertutio/TabulaV3/pull/23)；#18–#22 已关闭并合入。恢复时核对实际 refs，不回退到计划分支旧代码。 |
+| 精确验证基线 | tested SHA `dff9898ba3518df3658788b39b627b61c4df369f`，[run 41169544885](https://github.com/ertutio/TabulaV3/actions/runs/41169544885)：228 Release units；API36/37 各 Volume 3 + Cleanup 8 + Restore 3 + CreateAlbum 2 = 16，零 skip。测试数量描述该 run，未来新增按逐例 XML 核验。缓存及完整 artifact 路径本摘要未登记，需引用原报告，不推断重新执行。 |
+| 当前检查点 | C0/T01、T02 安全与恢复差额优先；T05 该组既有断言完成。其他 T 组只记实际子断言局部 PASS，总任务未完成。 |
+| next_action | 从实际最新 master 的 tests 与实际 service/UI/持久调用链建立 C0/T01、T02 差额清单，排除下列已验收边界；选择最早可控的失败/取消/账本持久故障或 rebuild/恢复一致性缺口，给出稳定断言 ID、通过条件和回退，先建立有效 FAIL，再最小修复。 |
+| 执行状态 / 所有权 | 五份计划文档已冻结、生产未启动；计划版本以实际 Git commit 与 PR12 head 为准，文档静态审计记录在 PR 交付；恢复先核实际 refs 及未提交所有权。 |
 
-## 本次合入的局部范围与剩余工作
+## 本轮已验收边界：复用，不重做
 
-| 检查点 | 本次局部边界 | 未完成、不得标为整组 PASS |
+| T / 边界 | 当前证据与局限 |
+| --- | --- |
+| T01：真实 archive 失败 | 真正卡片归档入口已断言完整失败 Toast、源保留、源账本保留、目标集合不变；归档选择路由和目标身份已确认。旧 #22“队列未填充”及其两轮诊断失败已解决，不能继承为今晚活动 blocker。 |
+| T05：详情数据、错误/重试和晚到查询 | 完整模型/单位与错误重试既有断言完成；album-specific gate 确认旧请求进入后，在新页真实照片出现才释放，等待旧请求实际 Job 结束，断言旧结果不覆盖。旧 logcat/固定延时握手方案仅为历史。 |
+| T11a：同失败输入取消因果 | 相同失败输入未取消对照已 PASS；其余取消阶段和真实卡片重入仍逐断言核对，不扩展为全 T11 PASS。 |
+| 创建相册：O2 | API37 dotless 占位严格事务与取消 cleanup 已 PASS；旧前导点导致 delete SecurityException 的诊断保留为历史，不再排入今晚待办。 |
+
+以上使用当前精确验证基线。真实跨卷、其他应用媒体、进程死亡及持久失败的完整要求仍缺；合成媒体、构建或通用 green 不能替代。
+
+## 今晚队列与依赖
+
+子项使用 `ready / in_progress / verifying / review_pending / blocked / accepted`。`accepted` 要求实现、有效断言和必要独立审计闭环；当前表是计划就绪度，不宣称已经执行。
+
+| 顺序 / 范围 | 状态 | 行为边界与通过条件 |
 | --- | --- | --- |
-| C0 | #14 空相册首次失败后重试显示真实照片（元数据空图集夹具）、#17 返回/重开/顺序切换显示正确照片、#16 取消夹具不落缓存，均已作为局部增量合入。 | #17 无查询进入延迟窗口握手，且等旧页内容显示后才切换，未证明旧慢结果晚到新页的竞争；#16 未直接对照未取消的相同失败输入。C0-T01-UIFEEDBACK、O2 诊断及其余 T01/T02/T05/T11a 差额仍按验收规格逐项核对，整组保持 PARTIAL。 |
-| C1.1 | 哈希内容版本与失败重试的局部改进；#15 已合入推荐组缓存的 `(id,dateModified,size)` 排序版本列表精确比较，字段/成员变化使 TTL 内缓存失效，组合变更碰撞回归已补。 | 这是元数据版本失效，不保证字节变更必然更新元数据，也不是完整身份迁移；跨卷身份消费者及 TC13–TC16 仍待核验，整组保持 PARTIAL。 |
-| C2 | 详情和清理入口逐批处理；仅确认项同步、UNKNOWN 停止后续请求并反馈未确认/未处理项 | 设备注入覆盖删除后 UNKNOWN 和源记录保留，不证明被系统删除的源文件仍存在；真实部分 UNKNOWN 与两入口完整 UI、进程死亡后恢复及持久失败仍待验证。本次有限 NonCancellable 落地不构成崩溃恢复日志。 |
-| C3 | 请求身份包含 URI、内容版本与实际解码选项；窗口淘汰、失败重试和过期回调隔离 | 本次单测及设备运行仅证明实际执行的夹具；两种 CardStack 模式的真实预热、取消和重入仍需专用设备断言，不能用通用设备绿灯替代。 |
+| A：C0 / T01、T02 | `ready`（差额盘点） | 首读实际 tests，补真正缺失的失败、取消、账本持久故障、rebuild/恢复一致性；证明保源、UNKNOWN 分离及用户确认集合固定。有效实际 service/UI/持久反例 FAIL → 最小修复 → 同门禁 PASS + 相邻回归 → 独立审计闭环后保存。 |
+| B：C1 / T03 | `ready`（按簇盘点） | 清点身份消费者的读写、兼容、冲突、幂等和中断恢复；每次一簇迁移。显式按名合并是保留的产品语义，不能以身份迁移为由擅改产品名或整库迁移。共享契约稳定并审计闭环后接依赖后继。 |
+| C：C2 / T04 | `ready`（独立接口/fixture）；依赖接入待稳定 | 按实际删除入口接入逐项结果、UNKNOWN 隔离和恢复；依赖受影响的稳定 identity 簇。验证批处理、部分成功、取消不发后续请求、日志失败和恢复不重复删除；保持固定确认集合。 |
+| 独立备选：C3 / T06 | `ready`（定位/回归） | 两种卡片模式的生命周期、请求取消/重试/释放和旧回调隔离；请求版本接入等待对应身份契约，使用实际 UI/生命周期故障断言。 |
+| 独立备选：C5 / T08 | `ready`（工具 fixture/验收映射） | 工具成功和失败 fixture、case/TC 映射；PR6 真实云测另需授权与有效协议，paused/skipped 不作基线。 |
+| C4 / T07 | `blocked`（依赖契约） | 权限/快照和移动结果的实际接入等待受影响 C0/C1/C2 契约稳定；仅可做独立盘点。 |
+| C6 / T10、T11b | `blocked`（基线/正确性） | 有效性能基线和受影响正确性稳定后才优化；无冻结性能数字，不预写提升。 |
+| C5/T09、C7/T12、T13 | `ready`（独立兼容/交付映射）；实际变更门控 | 大版本依赖、工具链、真照片、签名发布保留门控；原 T01–T13 定义保留，不要求今晚将剩余 12 组全部关闭。 |
 
-以下历史记录保存当时的测试结果和设计意见；冲突处以上表为准。历史头 SHA 的运行只证明对应输入、设备和实际执行夹具。
+每项目同时一个生产行为单元；两个项目可并行。共享契约处于 verifying 或审计未清时暂停依赖后继，转独立项。无每晚 1–2 任务硬上限；按真实 ready 和验收闭环继续。
 
-## 已接受的证据
+## 晨间交付与恢复登记
+
+分列“已实现待复核 / 未验证 / 阻塞”，逐行为单元更新下表。本文更新尚无新增生产 FAIL/PASS 或独立审计；所有未知字段如实保留。硬中断先落盘。
+
+| T / 稳定断言 ID / 状态 | exact SHA、分支/PR、父依赖 | 有效 FAIL/PASS、run、skip/cache | 独立审计读取范围、遗留 | 累计修正失败、假设/升级 | 回退、未提交文件/写者、运行中 CI、恢复点 |
+| --- | --- | --- | --- | --- | --- |
+| 夜间首单元 / 未启动 | 待从实际最新 master 建立 | 未执行 | 未执行；无独立会话则 review_pending | 新卡点需先核旧记录，跨代理/夜晚保留累计次数；预期 baseline FAIL 不计 | 当前恢复点为本文件唯一 next_action；生产未改 |
+
+现有独立性/设备缺口：真跨卷、其他应用媒体、进程死亡和完整持久故障证据尚缺；没有可用独立会话或高阶只读咨询时记录能力缺口并暂停对应依赖，不把自查写成独立 PASS。两次有效针对性修正仍失败先咨询；咨询后一次仍失败须等用户对此卡点明确决定。
+
+## 历史记录的解释边界
+
+后文完整保留旧证据与原始过程。旧 `review_pending`、待合并、O2 待诊断、Toast/握手待办、历史 next_action 和旧计数均已被当前游标覆盖；它们不是今晚队列，也不能覆盖上述已合入与精确 run 事实。历史 PASS 仅覆盖当时实际夹具；其他 T 组整体仍需逐断言验收。
+
+## 历史证据归档（截至 2026-10-30）
 
 - [#11](https://github.com/ertutio/TabulaV3/pull/11) 已合并；#10 已作为被覆盖 PR 关闭，未单独合并。merge 的父提交是原 `d2038b8e0dc8c99fbdf2c754e88dec0a8078a725` 与测试提交 `b2facebf5e6137ff0c15d1a1eedf1fd0bb5bc1cf`。
 - [run 40680146410](https://github.com/ertutio/TabulaV3/actions/runs/40680146410) 在该测试提交上成功：build、API36、API37 三个 job 成功；每台 VolumeDeletionDeviceTest 3 项、CloudCleanupUiTest 2 项、CloudRestoreUiTest 2 项，共 14 项实际设备测试通过。
@@ -33,7 +65,7 @@
 - 本轮 `testReleaseUnitTest` 为 `FROM-CACHE`，没有本轮新执行/计数。此前 run [40650966680](https://github.com/ertutio/TabulaV3/actions/runs/40650966680) 的 XML 汇总为 176 tests、0 failures/errors/skips；这不是未来固定测试数，也不能据此把全部 TC 判为 PASS。
 - [run 40717554994](https://github.com/ertutio/TabulaV3/actions/runs/40717554994)（workflow_dispatch，ref docs/continuous-development-2026-10-28，head sha `6a685e3ed4440f0c8a9f40a5290dc2600eb6facc`）三 job 成功：build + API36 + API37。设备逐例：API36 旧探针 OK (2 tests)；API37 VolumeDeletionDeviceTest OK (3)、CloudCleanupUiTest OK (2)、CloudRestoreUiTest OK (2)（singleRestoreUpdatesAlbumWithoutManualRefresh / batchRestoreUpdatesAlbumWithoutManualRefresh）。即本分支 C0.1/C0.3/C1.1 改动在两台云模拟器实测无回归，且 T01 清理确认集、T02 单张/批量恢复接线取得真实 UI 证据。
 
-## 已交付部分：保留并补差额
+## 历史已交付范围快照（后续状态见当前游标）
 
 下表“已交付”只指列出的子边界；不表示整个 T 组及所有 TC 已验收。用当前源码/测试核对具体字段和调用者，不按旧计划的 `[ ]` 重做功能。
 
@@ -47,23 +79,6 @@
 | T05 的数据链 | AlbumManager.getAlbumDetailImages、AlbumViewScreen、AlbumDetailImagesTest。 | 首次空列表错误与重试、切换/取消及旧结果覆盖的真实 UI 证据。 |
 | T06a | OwnedBitmaps.kt、OwnedBitmapsTest，既定 CardStack 调用点。 | 预加载请求身份、Disposable/scope、动画/替换/取消/退出的完整生命周期。 |
 | T11a | ImageFeatureDetector、ImageFeatureCacheStore、ImageFeatureState；ImageFeatureDefinitiveTest、ImageFeatureCacheStoreTest。 | 必要重试/取消等组级断言；T11b single-flight、有界缓存与测量尚未因此完成。 |
-
-## 历史就绪与待办队列（状态以当前游标为准）
-
-子项状态使用 `ready / in_progress / verifying / review_pending / blocked / accepted`；总任务另使用 `ready / in_progress / awaiting_human / complete`，其中 `awaiting_human` 表示实现已保存但尚需具体人工评审、设备或决策。只有实现、相关断言、证据和必要评审均满足才标子项 `accepted`。一组可用多个子行拆分，以 `C1.1` 等稳定编号续接。
-
-| 检查点 | 初始状态 | 下一边界 / 依赖 |
-| --- | --- | --- |
-| C0：T01/T02/T05/T11a 差额 | ready | 从当前 next_action 开始；已交付部分保留，未测断言逐条补证据。 |
-| C1：T03 消费者迁移 | ready | 先盘点每簇旧键/读写者，再迁移首簇；r1/r2 契约已存在。 |
-| C2：T04 统一删除 | ready（接口/测试准备） | 先列实际入口与按项结果；涉及 C1 的接入等该簇接口稳定。 |
-| C3：T06 预加载生命周期 | ready（定位/回归） | 可独立补请求/释放测试；版本接入依赖 C1 明确契约。 |
-| C4：T07 媒体同步/移动 | ready（契约盘点） | 真实接入依赖 C1/C2 受影响接口及 C0 安全约束。 |
-| C5：T08/T09 工具与基线 | ready（工具 fixture/兼容分析） | 先核 PR6 暂停与工具；真实测量、工具链改动及校准分别保存边界和授权。 |
-| C6：T10/T11b 优化 | blocked（有效基线/接口） | C5 的有效性能参考及受影响正确性稳定后执行；不虚构已冻结指标。 |
-| C7：T12/T13 最终交付 | ready（覆盖清单） | 可先补验收映射；依赖升级、覆盖安装、最终评审及发布各按其前置/授权推进。 |
-
-`ready（准备）`只允许执行写明的准备范围，不表示可提前完成依赖尚未满足的接入。一个子项被阻塞时保持精确边界，转到下一独立就绪项。
 
 ## 历史 C0 差额登记（状态以当前游标为准，对照 docs/acceptance.md 组级矩阵）
 
@@ -101,15 +116,6 @@
 
 | C2-UNKNOWN-UI / blocked | UNKNOWN 提示在详情/清理真实 UI 的可见性 | 同上接线 | BLOCKED（需设备探针注入场景，与 C0-DETAIL-EMPTY-RETRY 探针同批） |
 
-## 观察与证据缺口
-
-| 编号 | 类型与当前事实 | 最小下一步 | 影响 |
-| --- | --- | --- | --- |
-| O1 | 部分完成（2026-10-30）：#14 空态失败/重试真实照片、#17 返回/重开/顺序切换、#16 特征预加载取消夹具均已合入，证据见本轮保存点。 | 补查询进入慢加载窗口的确定性握手，再让旧查询在新页打开后结束，检查新页不被覆盖；#16 补相同失败输入的未取消对照；C0-T01-UIFEEDBACK 仍就绪。 | 有限夹具通过不代表所有取消阶段或跨页竞争已验收。 |
-| O2 | **已确诊并修复（待合并）**：#18 诊断（run [41082467467](https://github.com/ertutio/TabulaV3/actions/runs/41082467467) / [41086854893](https://github.com/ertutio/TabulaV3/actions/runs/41086854893)）在 API37 逐阶段复现旧占位链：insert/write/unpublish 全部成功，**delete 前导点命名的自有占位项抛 SecurityException（has no access）**；同链非 dot 名删除成功、API36 对 dot 名全绿 → 失败阶段=unpublish 后 delete，触发条件=占位名前导点（旧"scoped storage mkdirs"归因不成立）。真实 createBucket 返回 NULL（无异常）→ createAlbum 抛「无法创建图集文件夹，请检查存储权限」。 | #20 修复：占位名去前导点（634cc22，堆叠于 #18）；其 CI run [41088956649](https://github.com/ertutio/TabulaV3/actions/runs/41088956649) API37 记录 `real-createBucket OK` 与 `createAlbum OK imageCount=0`（同镜像此前抛异常），双设备全绿，FINDING 行保留触发条件记录。 | 图集创建在 API37 可用性恢复依赖 #20 合并；#14 元数据空图集夹具继续有效（不依赖 createAlbum）。 |
-| O3 | 真实多卷、其他应用媒体、进程死亡/取消/持久失败的所有组级规格尚未逐例证实。 | 明确 fixture/设备/授权，先做可控测试，真实设备缺口单独列明。 | 自有媒体探针通过不能替代这些要求。 |
-| O4 | 性能 PR6 仍 draft，旧 paused run 不能证明有效基线；没有冻结性能数字。 | 验证工具成功/失败 fixture，获实际授权后按版本协议测量。 | C5/C6 的性能结论门槛。 |
-
 ## C1 消费者盘点（2026-10-28，基线 6293c16）
 
 | 簇 | 当前键 | 读写者 | 身份缺口 | 迁移建议 |
@@ -124,7 +130,7 @@
 
 结论：Album/元数据/偏好/统计/UI 六簇跟随"按名合并 Album"的显式产品行为（不迁移即为有依据决定）；**ImageHashCache+RecommendationEngine 是 C1.1 首个真实迁移簇**（TC58/F20 直接缺口）。
 
-## 保存点格式
+## 历史保存点（原始过程与失败记录）
 
 继续在此表追加或更新当前子行；详细日志放现有 CI artifact/测试报告，避免把全部日志塞进上下文。
 
