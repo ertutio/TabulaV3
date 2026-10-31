@@ -19,6 +19,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.ui.util.DebugAlbumLoadGate
+import com.tabula.v3.data.preferences.TagSelectionMode
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.repository.AlbumManager
 import com.tabula.v3.data.repository.CopyEvidenceStore
@@ -61,6 +63,7 @@ class CloudCleanupUiTest {
             // 前序用例崩溃可能遗留慢加载接缝：每个用例前复位。
             debugAlbumLoadDelayMs = 0L
         }
+        DebugAlbumLoadGate.reset()
         photo("Tabula/$albumName")
         albums.initialize()
         assertTrue("fixture bucket must be discovered", albums.albums.value.any { it.name == albumName && it.systemAlbumPath?.trimEnd('/') == "Pictures/Tabula/$albumName" })
@@ -184,24 +187,6 @@ class CloudCleanupUiTest {
         }
         captureUiFailure("still visible: $label")
         error("UI element still present: $label")
-    }
-    // #17 握手：轮询 logcat 中接缝写入的"进入延迟窗口"标记行，
-    // 等待计数超过 baseline 后返回新计数（logcat 跨用例累积，用单调计数）。
-    // UiAutomation 字符串入口按空白分词（acceptance.md）：不能使用管道/重定向，
-    // 在 Kotlin 侧计数。
-    private fun currentHandshakeCount(): Int =
-        shell("logcat -d -s TabulaProbe:D")
-            .split("\n").count { it.contains("entering delay window") }
-
-    private fun waitHandshake(aboveCount: Int, timeoutMs: Long = 10000): Int {
-        val deadline = SystemClock.uptimeMillis() + timeoutMs
-        while (SystemClock.uptimeMillis() < deadline) {
-            val seen = currentHandshakeCount()
-            if (seen > aboveCount) return seen
-            SystemClock.sleep(150)
-        }
-        captureUiFailure("handshake not observed above $aboveCount")
-        error("album load never entered the delay window (handshake missing)")
     }
     private fun startAndOpenDialog() {
         activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -409,109 +394,101 @@ class CloudCleanupUiTest {
     }
 
     @Test fun albumDetailLateResultAfterSwitchDoesNotOverwriteNewPage() = runBlocking {
-        // #17 晚到竞争（确定性握手）：接缝在进入延迟窗口时写 logcat 标记，
-        // NonCancellable 延迟使旧查询结果必然在调用方返回、新页打开之后才完成。
-        // 断言：晚到的旧图集结果不得覆盖新页（旧照片不出现、新照片保持）。
         val switchAlbumName = "CloudLate" + UUID.randomUUID().toString().replace("-", "").take(10)
         metadataAlbumsForCleanup += switchAlbumName
         albums.updateAlbum(Album(id = switchAlbumName, name = switchAlbumName))
-        val switchPhoto = photo("Tabula/$switchAlbumName")
-        val switchPhotoName = displayNameOf(switchPhoto)
-        val basePhoto = photo("Tabula/$albumName")
-        val basePhotoName = displayNameOf(basePhoto)
-        AppPreferences(ctx).debugAlbumLoadDelayMs = 3000L
+        val switchPhotoName = displayNameOf(photo("Tabula/$switchAlbumName"))
+        val basePhotoName = displayNameOf(photo("Tabula/$albumName"))
+        val baseAlbum = albums.albums.value.single { it.name == albumName }
+        val request = DebugAlbumLoadGate.arm(baseAlbum.id)
         try {
             photo()
-            // 基线必须在打开任何详情之前采样：本用例自己的加载也会写标记，
-            // 导航完成后再采样会把已发生的标记计入基线，导致等待永不满足
-            //（run 41092875221 首轮失败根因）。
-            val handshakeBaseline = currentHandshakeCount()
-            var navigated = false
-            repeat(3) { attempt ->
-                if (!navigated) {
-                    ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
-                    SystemClock.sleep(1500)
-                    activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    try {
-                        waitFor("图库")
-                        tap("图库")
-                        tap(albumName)
-                        waitFor("返回")
-                        navigated = true
-                    } catch (e: IllegalStateException) {
-                        captureUiFailure("late-race navigation attempt $attempt")
-                        if (attempt == 2) throw e
-                    }
-                }
-            }
-            // 握手 1：旧查询已进入慢加载窗口（计数必须超过导航前基线）。
-            val afterOld = waitHandshake(handshakeBaseline)
-            // 切换：旧结果将在窗口结束后"晚到"。
-            ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
+            activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            tap("图库")
+            tap(albumName)
+            waitFor("返回")
+            awaitCondition("old album request entered: ${request.albumId}") { request.entered }
+            assertFalse("old request must stay blocked until explicitly released", request.completed)
+            shell("input keyevent 4")
             waitUntilGone("返回")
-            waitFor(albumName)
             tap(switchAlbumName)
-            // 握手 2：新页查询也已进入窗口（此后旧结果晚到与新加载并存）。
-            waitHandshake(afterOld)
-            waitFor(switchPhotoName, timeout = 20000)
-            // 旧窗口此刻必已结束（握手 1 后已过 >3s）：晚到结果应当已被丢弃。
-            SystemClock.sleep(3500)
+            waitFor(switchPhotoName)
+            assertFalse("new page must render before old request completes", request.completed)
+            request.release()
+            awaitCondition("old album request completed after release") { request.completed }
+            ins.waitForIdleSync()
             assertNull("late previous-album result must not leak into the new page",
                 find(ins.uiAutomation.rootInActiveWindow, basePhotoName))
-            assertTrue("new page must keep showing its own photo",
-                find(ins.uiAutomation.rootInActiveWindow, switchPhotoName) != null)
+            waitFor(switchPhotoName)
         } finally {
-            AppPreferences(ctx).debugAlbumLoadDelayMs = 0L
+            request.release()
+            DebugAlbumLoadGate.reset()
         }
     }
 
     @Test fun archiveFailureShowsToastAndKeepsSource() = runBlocking {
-        // C0-T01-UIFEEDBACK（归档失败半边）：经真实 UI 路径（FixedTagBar chip 归类
-        // 当前卡片 → Snackbar 超时自动提交 → copyImageWithEvidence 注入失败），
-        // 断言「归档失败，照片未复制」Toast 真实可见、源媒体保留且无半提交残留。
-        // 清理保留 Toast 半边由 invalidatedCopyKeepsConfirmedOriginal 覆盖。
         val source = photo()
+        val protection = photo()
+        val fixtureIds = setOf(ContentUris.parseId(source), ContentUris.parseId(protection))
+        val fixtureNames = listOf(displayNameOf(source), displayNameOf(protection))
+        val target = albums.albums.value.single { it.name == albumName }
+        val beforeImages = albums.getAlbumDetailImages(target.id).map { it.id }.toSet()
+        val beforeSources = albums.getAllSourceImages().toSet()
+        val preferences = AppPreferences(ctx)
+        val previousMode = preferences.tagSelectionMode
+        preferences.tagSelectionMode = TagSelectionMode.LIST_POPUP
         SystemAlbumSyncManager.debugForceArchiveCopyFailure = true
+        var selectedSource: Uri? = null
         try {
-            // 导航起点保护：deck 至少两张卡片；chip 归类的是当前卡片，
-            // 二者都可能是被归档对象，失败后都必须保留。
-            val protection = photo()
-            var started = false
-            repeat(3) { attempt ->
-                if (!started) {
-                    ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
-                    SystemClock.sleep(1500)
-                    activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    try {
-                        // deck 卡片首屏：顶栏「选择图集」入口（run 41105952670 工件证实
-                        // FixedTagBar chips 在该模式下不渲染，改走图集选择弹层）。
-                        waitFor("选择图集")
-                        started = true
-                    } catch (e: IllegalStateException) {
-                        captureUiFailure("archive-toast deck attempt $attempt")
-                        if (attempt == 2) throw e
-                    }
-                }
+            activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            // The enabled share button proves a current card exists. The top-bar
+            // "选择图集" button opens cleanup mode, not the archive picker.
+            val share = waitFor("分享当前照片")
+            assertTrue("current card must be available", share.isEnabled)
+            waitFor("↓ 下滑选择图集")
+            var card: AccessibilityNodeInfo? = null
+            awaitCondition("synthetic photo card is rendered") {
+                card = fixtureNames.firstNotNullOfOrNull { find(ins.uiAutomation.rootInActiveWindow, it) }
+                card != null
             }
-            // 选择图集弹层 → 点本用例图集 → 入队 → Snackbar 超时自动提交（数秒后）→ 失败 Toast。
+            val bounds = Rect()
+            requireNotNull(card).getBoundsInScreen(bounds)
+            assertTrue("rendered photo card must have usable geometry", bounds.width() > 0 && bounds.height() > 0)
+            val x = bounds.centerX()
+            shell("input swipe $x ${bounds.top + bounds.height() / 3} $x ${bounds.top + bounds.height() * 5 / 6} 700")
+            waitFor("选择相册")
             val completed = ins.uiAutomation.executeAndWaitForEvent(
                 {
-                    tap("选择图集")
                     tap(albumName)
+                    awaitCondition("UI selection queued the fixture for archive") {
+                        albums.getLastPendingArchive()?.let { action ->
+                            assertEquals("real picker must select the target album", target.id, action.albumId)
+                            assertTrue("real current card must be one of this test's synthetic sources", action.imageId in fixtureIds)
+                            selectedSource = Uri.parse(action.imageUri)
+                            assertEquals("queued URI must identify the same synthetic image", action.imageId, ContentUris.parseId(selectedSource!!))
+                            true
+                        } ?: false
+                    }
                 },
                 UiAutomation.AccessibilityEventFilter { event ->
                     event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED &&
-                        event.text.any { it.toString().contains("归档失败") }
+                        event.packageName?.toString() == ctx.packageName &&
+                        event.text.any { it.toString() == "归档失败，照片未复制" }
                 }, 30000
             )
             completed.recycle()
-            val pending = albums.getLastPendingArchive()
-            assertNull("failed commit must not leave a half-committed action", pending)
-            assertTrue("classified source media must be retained after failed archive", present(source))
-            assertTrue("other deck media must be retained", present(protection))
+            val classifiedSource = requireNotNull(selectedSource)
+            assertNull("failed commit must clear its pending action", albums.getLastPendingArchive())
+            assertTrue("the actual classified source must remain", present(classifiedSource))
+            assertTrue("other synthetic source must remain", present(source) && present(protection))
+            assertEquals("copy failure must not add a source ledger record", beforeSources, albums.getAllSourceImages().toSet())
+            assertNull("copy failure must not persist copy evidence", CopyEvidenceStore(ctx).get(classifiedSource.toString()))
+            assertEquals("copy failure must not create a target copy", beforeImages,
+                albums.getAlbumDetailImages(target.id).map { it.id }.toSet())
         } finally {
             SystemAlbumSyncManager.debugForceArchiveCopyFailure = false
-            try { albums.cancelLastPendingArchive() } catch (_: Throwable) {}
+            preferences.tagSelectionMode = previousMode
+            albums.cancelLastPendingArchive()
         }
     }
 

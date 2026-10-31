@@ -15,7 +15,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -50,7 +49,8 @@ class CreateAlbumDiagnosticDeviceTest {
     private val albums get() = AlbumManager.getInstance(ctx)
     private val syncManager get() = SystemAlbumSyncManager.getInstance(ctx)
     private var probeAllowed = false
-    private val registered = mutableListOf<CloudFixtureCleanup.Fixture>()
+    private val registered = mutableListOf<Uri>()
+    private val fixtureInfo = mutableMapOf<Uri, CloudFixtureCleanup.Fixture>()
     private val dirsToClean = mutableListOf<String>()
     private val metadataAlbumsToClean = mutableListOf<String>()
     private val bucketName = "DiagBucket" + UUID.randomUUID().toString().replace("-", "").take(10)
@@ -105,6 +105,7 @@ class CreateAlbumDiagnosticDeviceTest {
 
     @Test fun createBucketStageProbeReportsEachStep() = runBlocking {
         // 1) 真实 createBucket：包含 getAlbumRelativePath 前置探测 + 占位链。
+        dirsToClean += "Pictures/Tabula/$bucketName"
         val realOutcome = try {
             val path = syncManager.createBucket(bucketName)
             diag("real-createBucket", if (path != null) "OK path=$path" else "NULL (no exception)")
@@ -117,7 +118,7 @@ class CreateAlbumDiagnosticDeviceTest {
             // 空目录在占位删除后未必持久可见（首轮 API36 实测 dirExists=false）：
             // createBucket 的契约是返回路径，目录存在性只记录不作为断言。
             diag("real-createBucket-dir", "path=$realOutcome dirExists=${dirExists(realOutcome.trimEnd('/'))}")
-            if (dirExists(realOutcome.trimEnd('/'))) dirsToClean += realOutcome.trimEnd('/')
+
         } else {
             diag("real-createBucket-dir", "dirExists=${dirExists("Pictures/Tabula/$bucketName")}")
         }
@@ -125,10 +126,11 @@ class CreateAlbumDiagnosticDeviceTest {
         // 2) 逐阶段复现：dot 名（与生产占位一致）与非 dot 名各跑一次，
         // 隔离占位文件名前导点对 delete 阶段的影响。
         val replicaPath = "Pictures/Tabula/$replicaName"
+        dirsToClean += replicaPath
         val dotFailures = runReplicaChain(replicaPath, ".tabula_placeholder_diag_${System.currentTimeMillis()}.jpg", "replica")
         val dotlessFailures = runReplicaChain(replicaPath, "tabula_placeholder_diag_${System.currentTimeMillis()}.jpg", "replica-dotless")
         diag("replica-summary", "dotFailures=$dotFailures dotlessFailures=$dotlessFailures")
-        if (dirExists(replicaPath)) dirsToClean += replicaPath
+
 
         // 3) 对照结论：两路结果一致性（不一致记 FINDING/MISMATCH 供分析，不作为断言）。
         if (realOutcome == null && dotFailures.isEmpty()) {
@@ -143,14 +145,9 @@ class CreateAlbumDiagnosticDeviceTest {
         if ("delete" in dotFailures && "delete" in dotlessFailures) {
             diag("FINDING", "delete stage fails regardless of placeholder name")
         }
-        if (Build.VERSION.SDK_INT <= 36) {
-            // API36 是已知可用基线：两路都必须成功。
-            assertNotNull("API36 baseline: real createBucket must succeed", realOutcome)
-            assertTrue(
-                "API36 baseline: replicated chain must fully succeed, failures=$dotFailures",
-                dotFailures.isEmpty()
-            )
-        }
+        assertNotNull("real createBucket must succeed on API ${Build.VERSION.SDK_INT}", realOutcome)
+        assertEquals("Pictures/Tabula/$bucketName", realOutcome?.trimEnd('/'))
+
     }
 
     /** createBucket 旧占位链的逐阶段复现；返回失败阶段列表（空 = 全部成功）。 */
@@ -169,7 +166,10 @@ class CreateAlbumDiagnosticDeviceTest {
             )
             diag("$tag-insert", if (placeholderUri != null) "OK uri=$placeholderUri" else "NULL (no exception)")
             if (placeholderUri == null) failures += "insert"
-            if (placeholderUri != null) registered += fixtures.fixture(placeholderUri)
+            if (placeholderUri != null) {
+                registered += placeholderUri
+                fixtureInfo[placeholderUri] = fixtures.fixture(placeholderUri)
+            }
 
             if (placeholderUri != null) {
                 val written = try {
@@ -211,35 +211,15 @@ class CreateAlbumDiagnosticDeviceTest {
     }
 
     @Test fun createAlbumRealEntryOutcomeReported() = runBlocking {
-        // 真实入口 createAlbum：成功→图集可见；失败→异常原文记录且元数据无半提交。
-        val album = try {
-            albums.createAlbum(entryName)
-            albums.albums.value.find { it.name == entryName }
-        } catch (e: Throwable) {
-            diag("createAlbum", "EXCEPTION ${e.javaClass.name}: ${e.message}")
-            diag("createAlbum-stack", e.stackTraceToString().lineSequence().take(6).joinToString(" | "))
-            null
-        }
-        if (album != null) {
-            diag("createAlbum", "OK systemAlbumPath=${album.systemAlbumPath} imageCount=${album.imageCount}")
-            assertEquals("created album must start empty", 0, album.imageCount)
-            assertEquals(
-                "created album path must follow the Tabula convention",
-                "Pictures/Tabula/$entryName", album.systemAlbumPath?.trimEnd('/')
-            )
-            metadataAlbumsToClean += entryName
-            if (album.systemAlbumPath != null) {
-                val dir = album.systemAlbumPath!!.trimEnd('/')
-                diag("createAlbum-dir", "exists=${dirExists(dir)}")
-                if (dirExists(dir)) dirsToClean += dir
-            }
-        } else {
-            diag("createAlbum-dir", "dirExists=${dirExists("Pictures/Tabula/$entryName")}")
-            assertNull(
-                "failed createAlbum must not leave metadata behind (abort-before-save)",
-                albums.albums.value.find { it.name == entryName }
-            )
-        }
+        // Register before the operation: metadata can be saved before a later failure.
+        metadataAlbumsToClean += entryName
+        dirsToClean += "Pictures/Tabula/$entryName"
+        val album = albums.createAlbum(entryName)
+        diag("createAlbum", "OK systemAlbumPath=${album.systemAlbumPath} imageCount=${album.imageCount}")
+        assertEquals("created album must start empty", 0, album.imageCount)
+        assertEquals("created album path must follow the Tabula convention",
+            "Pictures/Tabula/$entryName", album.systemAlbumPath?.trimEnd('/'))
+
     }
 
     @After fun cleanup() = runBlocking {
@@ -247,9 +227,9 @@ class CreateAlbumDiagnosticDeviceTest {
         val errors = mutableListOf<Throwable>()
         fun attempt(block: () -> Unit) { try { block() } catch (e: Throwable) { errors += e } }
         // 哨兵：与本诊断无关的独立合成媒体，验证清理动作不越界。
-        var sentinel: CloudFixtureCleanup.Fixture? = null
+        var sentinel: Uri? = null
         attempt {
-            val item = ctx.contentResolver.insert(
+            val item = requireNotNull(ctx.contentResolver.insert(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, "$sentinelName.jpg")
@@ -257,26 +237,49 @@ class CreateAlbumDiagnosticDeviceTest {
                     put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/CloudSafetySentinels/")
                     put(MediaStore.MediaColumns.IS_PENDING, 1)
                 }
-            )
-            requireNotNull(item)
+            ))
+            sentinel = item // Record immediately, even if writing or publishing fails.
+            fixtureInfo[item] = fixtures.fixture(item)
             ctx.contentResolver.openOutputStream(item)!!.use { it.write(minimalJpeg()) }
-            ctx.contentResolver.update(item, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
-            sentinel = fixtures.fixture(item)
+            check(ctx.contentResolver.update(item, ContentValues().apply {
+                put(MediaStore.MediaColumns.IS_PENDING, 0)
+            }, null, null) == 1)
         }
         metadataAlbumsToClean.forEach { name ->
             try { albums.deleteAlbum(name) } catch (e: Throwable) { errors += e }
         }
-        dirsToClean.distinct().forEach { dir ->
-            attempt {
+        // Delete exact inserted media first; the dot replica may have failed its own delete.
+        registered.forEach { uri -> attempt {
+            val fixture = fixtureInfo[uri]
+            if (fixture != null) fixtures.removeFixture(fixture)
+            else {
+                // Metadata lookup failed immediately after insertion; use only the returned item URI.
+                ctx.contentResolver.delete(uri, null, null)
+                val cursor = requireNotNull(ctx.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns._ID), null, null, null))
+                check(!cursor.use { it.moveToFirst() }) { "Fixture remains: $uri" }
+            }
+        } }
+
+        dirsToClean.distinct().forEach { dir -> attempt {
+            if (dirExists(dir)) {
                 runScript("rmdir /sdcard/$dir")
-                if (dirExists(dir)) diag("cleanup", "rmdir did not remove: $dir")
+                check(!dirExists(dir)) { "Could not remove empty fixture directory: $dir" }
+            }
+        } }
+        sentinel?.let { uri ->
+            val fixture = fixtureInfo[uri]
+            if (fixture != null) {
+                attempt { check(fixtures.queryFixture(fixture)) { "Unrelated sentinel was removed" } }
+                attempt { fixtures.removeFixture(fixture) }
+            } else {
+                attempt {
+                    ctx.contentResolver.delete(uri, null, null)
+                    val cursor = requireNotNull(ctx.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns._ID), null, null, null))
+                    check(!cursor.use { it.moveToFirst() }) { "Sentinel remains: $uri" }
+                }
             }
         }
-        registered.forEach { f -> attempt { fixtures.removeFixture(f) } }
-        sentinel?.let { f ->
-            attempt { check(fixtures.queryFixture(f)) { "Unrelated sentinel was removed" } }
-            attempt { fixtures.removeFixture(f) }
-        }
+
         if (errors.isNotEmpty()) {
             val failure = AssertionError("Fixture cleanup failed (${errors.size} errors)")
             errors.forEach { failure.addSuppressed(it) }

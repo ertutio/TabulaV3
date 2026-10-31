@@ -1282,20 +1282,11 @@ fun TabulaApp(
                     throw java.io.IOException("probe: forced album load failure")
                 }
                 val images = albumManager.getAlbumDetailImages(albumId)
-                // C0/T05 切图集/取消探针接缝（仅 debug 构建）：查询完成后的返回延迟，
-                // 制造慢加载窗口供设备断言取消与切换语义；查询先行、延迟后返回，
-                // 使"结果已就绪但调用方已取消"成为可控场景。
                 if (BuildConfig.DEBUG) {
+                    com.tabula.v3.ui.util.DebugAlbumLoadGate.awaitIfArmed(albumId)
+                    // Keep the existing cancellable slow-load probe compatible.
                     val delayMs = preferences.debugAlbumLoadDelayMs
-                    if (delayMs > 0) {
-                        // 握手标记：设备探针轮询 logcat 确认旧查询已进入慢加载窗口。
-                        Log.d("TabulaProbe", "albumDetailLoad entering delay window ms=$delayMs")
-                        // NonCancellable 延迟模拟"结果在调用方取消后才完成"的最坏情形：
-                        // 晚到结果必须被 AlbumViewScreen 的 isActive 守卫丢弃，不覆盖新页。
-                        withContext(kotlinx.coroutines.NonCancellable) {
-                            kotlinx.coroutines.delay(delayMs)
-                        }
-                    }
+                    if (delayMs > 0) kotlinx.coroutines.delay(delayMs)
                 }
                 images
             },

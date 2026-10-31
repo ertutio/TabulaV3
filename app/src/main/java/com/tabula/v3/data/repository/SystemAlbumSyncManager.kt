@@ -1364,60 +1364,60 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
      * @param albumName 相册名称
      * @return 创建的相册相对路径（如 "Pictures/Tabula/旅行"）
      */
-    suspend fun createBucket(albumName: String): String? = withContext(Dispatchers.IO) {
+    suspend fun createBucket(albumName: String): String? {
+        val ownedTarget = OwnedCopyTargetHolder()
         try {
-            val relativePath = getAlbumRelativePath(albumName)
-            
-            // 使用 MediaStore API 创建占位文件来间接创建文件夹
-            // 文件夹会在创建第一个文件时自动生成
-            // O2 诊断（run 41086854893）：API37 上 unpublish 后删除带前导点的
-            // 自有占位项抛 SecurityException，导致 createBucket 整链失败；
-            // 非 dot 名同链删除成功。占位名去掉前导点即修复。
-            val placeholderName = "tabula_placeholder_${System.currentTimeMillis()}.jpg"
-            
-            val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, placeholderName)
-                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            }
-            
-            val placeholderUri = contentResolver.insert(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                values
-            )
-            
-            if (placeholderUri != null) {
-                // 写入最小的有效 JPEG 数据，防止 MediaStore 拒绝空文件
-                contentResolver.openOutputStream(placeholderUri)?.use { output ->
-                    // 最小的有效 JPEG 文件头
-                    val minimalJpeg = byteArrayOf(
-                        0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(),
-                        0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
-                        0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
-                        0xFF.toByte(), 0xD9.toByte()
-                    )
-                    output.write(minimalJpeg)
+            val result = withContext(Dispatchers.IO) {
+                currentCoroutineContext().ensureActive()
+                val relativePath = getAlbumRelativePath(albumName)
+                // API 37 cannot delete the published dot-prefixed placeholder; use a normal name.
+                val values = ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, "tabula_placeholder_${System.currentTimeMillis()}.jpg")
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                    put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
                 }
-                
-                // 完成 pending 状态
-                val updateValues = ContentValues().apply {
+                val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                    ?: throw IOException("Bucket placeholder insert returned null")
+                ownedTarget.set(uri)
+                currentCoroutineContext().ensureActive()
+                val minimalJpeg = byteArrayOf(
+                    0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(),
+                    0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
+                    0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
+                    0xFF.toByte(), 0xD9.toByte()
+                )
+                val output = contentResolver.openOutputStream(uri)
+                    ?: throw IOException("Bucket placeholder output stream unavailable: $uri")
+                output.use { it.write(minimalJpeg); it.flush() }
+                currentCoroutineContext().ensureActive()
+                val input = contentResolver.openInputStream(uri)
+                    ?: throw IOException("Bucket placeholder readback unavailable: $uri")
+                val readback = input.use { it.readBytes() }
+                if (!readback.contentEquals(minimalJpeg)) {
+                    throw IOException("Bucket placeholder readback mismatch: $uri")
+                }
+                currentCoroutineContext().ensureActive()
+                val updated = contentResolver.update(uri, ContentValues().apply {
                     put(MediaStore.Images.Media.IS_PENDING, 0)
-                }
-                contentResolver.update(placeholderUri, updateValues, null, null)
-                
-                // 立即删除占位文件，文件夹会保留
-                contentResolver.delete(placeholderUri, null, null)
-                
+                }, null, null)
+                if (updated != 1) throw IOException("Bucket placeholder publish affected $updated rows: $uri")
+                currentCoroutineContext().ensureActive()
+                val deleted = contentResolver.delete(uri, null, null)
+                if (deleted != 1) throw IOException("Bucket placeholder delete affected $deleted rows: $uri")
                 Log.d(TAG, "Created bucket: $albumName at $relativePath")
-                return@withContext relativePath
-            } else {
-                Log.e(TAG, "Failed to create placeholder file for bucket: $albumName")
-                return@withContext null
+                relativePath
             }
+            // Retain ownership until withContext delivers the result, including cancellation on dispatch.
+            ownedTarget.clear()
+            return result
+        } catch (e: CancellationException) {
+            cleanupOwnedCopyTarget(ownedTarget)
+            throw e
         } catch (e: Exception) {
+            cleanupOwnedCopyTarget(ownedTarget)
             Log.e(TAG, "Error creating bucket: $albumName", e)
-            null
+            return null
         }
     }
 
