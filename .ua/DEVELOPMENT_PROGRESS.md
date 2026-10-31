@@ -11,7 +11,7 @@
 | 已接受代码基线 | `master@5415c0b59ac5a9066d23cc0f75b3d1400f2e994d` 已合入 [PR #23](https://github.com/ertutio/TabulaV3/pull/23)；#18–#22 已关闭并合入。恢复时核对实际 refs，不回退到计划分支旧代码。 |
 | 精确验证基线 | tested SHA `dff9898ba3518df3658788b39b627b61c4df369f`，[run 41169544885](https://github.com/ertutio/TabulaV3/actions/runs/41169544885)：228 Release units；API36/37 各 Volume 3 + Cleanup 8 + Restore 3 + CreateAlbum 2 = 16，零 skip。测试数量描述该 run，未来新增按逐例 XML 核验。缓存及完整 artifact 路径本摘要未登记，需引用原报告，不推断重新执行。 |
 | 当前检查点 | C0/T01、T02 安全与恢复差额优先；T05 该组既有断言完成。其他 T 组只记实际子断言局部 PASS，总任务未完成。 |
-| next_action | 从实际最新 master 的 tests 与实际 service/UI/持久调用链建立 C0/T01、T02 差额清单，排除下列已验收边界；选择最早可控的失败/取消/账本持久故障或 rebuild/恢复一致性缺口，给出稳定断言 ID、通过条件和回退，先建立有效 FAIL，再最小修复。 |
+| next_action | A 项差额清单已交付（夜间首单元表 A 行：T01/T02 逻辑层饱和、无可控合成缺口，真实设备项保持 blocked）→ 转队列 B：C1/T03 身份消费者按簇盘点，从 LocalImageRepository 投影与 Album/元数据簇开始核验跨卷语义（保留显式按名合并产品语义），每簇给出读写者、兼容/冲突/幂等/中断恢复结论后再定是否有可控缺口。 |
 | 执行状态 / 所有权 | 五份计划文档已冻结、生产未启动；计划版本以实际 Git commit 与 PR12 head 为准，文档静态审计记录在 PR 交付；恢复先核实际 refs 及未提交所有权。 |
 
 ## 本轮已验收边界：复用，不重做
@@ -49,6 +49,7 @@
 | T / 稳定断言 ID / 状态 | exact SHA、分支/PR、父依赖 | 有效 FAIL/PASS、run、skip/cache | 独立审计读取范围、遗留 | 累计修正失败、假设/升级 | 回退、未提交文件/写者、运行中 CI、恢复点 |
 | --- | --- | --- | --- | --- | --- |
 | 夜间首单元 / 未启动 | 待从实际最新 master 建立 | 未执行 | 未执行；无独立会话则 review_pending | 新卡点需先核旧记录，跨代理/夜晚保留累计次数；预期 baseline FAIL 不计 | 当前恢复点为本文件唯一 next_action；生产未改 |
+| A：C0-T01/T02 差额盘点 / `review_pending`（清单交付，无代码变更） | 对照 master@5415c0b 实际 tests 与调用链逐项核验（文档交付，无需实现分支），稳定断言映射见独立审计列 | 同左 | 覆盖映射：T01 同源/别名=MediaStoreCopySafetyTest.insertedUriEqualToSourceIsRejected…/…Aliases；同名同尺寸不同内容=…sameNameAndSizeButDifferentContent…+CleanupEvidenceTest.destinationWithSameSize…；null/短读写/EOF/flush/close/publish=29 项系列；取消=…cancellationAfterInsert/DuringSourceCopy/WhenPublishReturns+rollbackFailureIsLogged；账本写失败=CopyEvidenceStoreTest.writeFailure…+ArchiveCommitEvidenceTest.evidenceWriteFailureKeepsSourceUnverifiedButArchiveCommits（源记录仍加、无账本→清理不可达，保守一致）；确认集合=CleanupEvidenceTest+设备 laterCandidateIsNotDeleted；TC57=concurrentCommits…/cancelThenCommit/commitOfUnknownActionId/queueRebuild…；目标失效保留原图=invalidatedCopyKeepsConfirmedOriginal（设备）。T02 快照/软删除/分桶=ProjectSnapshotTest 6 项；PRESENT/MISSING/UNKNOWN=RestoreDecisionTest 3 项；orientation 新旧 JSON+批量单事务=RecycleBinSerializationTest；持久故障/journal/并发=RecycleBinManagerTest（corrupt/failedSave/atomicRead/journal/concurrentUpdates/failedPartialWrite）+RecycleBinDeletionTest 8 项（recovery 不重复删、UNKNOWN 与现存分离、取消留 journal）；恢复 UI=CloudRestoreUiTest。O2 事务=CreateBucketTransactionTest 6 项。 | 结构核对级（无专测，实现已核）：① CopyEvidenceStore.put/removeAll 有 Mutex 串行化，跨 action 并发无丢失更新（同 action 并发已由 TC57 覆盖）；② DebugAlbumLoadGate 为 #23 调试握手设施，由晚到竞争设备用例行使，不另造辅助类测试。真实设备缺口（不可合成，保持 blocked）：真跨卷/热拔插、其他应用媒体授权、进程死亡/断电、持久层真实故障。 | **结论：T01/T02 逻辑层（合成可测）无未覆盖的可控缺口，无 FAIL→FIX 单元可立**；本清单即 A 项交付物，下游直接引用这些 ID，不重复造测试。 |
 
 现有独立性/设备缺口：真跨卷、其他应用媒体、进程死亡和完整持久故障证据尚缺；没有可用独立会话或高阶只读咨询时记录能力缺口并暂停对应依赖，不把自查写成独立 PASS。两次有效针对性修正仍失败先咨询；咨询后一次仍失败须等用户对此卡点明确决定。
 
