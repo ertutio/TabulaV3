@@ -94,7 +94,8 @@ class LocalImageRepository(private val context: Context) {
     ): List<ImageFile> {
         val images = mutableListOf<ImageFile>()
         
-        // 添加 RELATIVE_PATH 到查询列
+        // T03：与 queryImages 一致，deck 待整理数据源同样携带身份字段（卷/路径），
+        // 同数值 ID 的跨卷行依赖 volumeName 区分（C1-T03-DECKFEED-VOLUME）。
         val projectionWithPath = arrayOf(
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DISPLAY_NAME,
@@ -104,7 +105,8 @@ class LocalImageRepository(private val context: Context) {
             MediaStore.Images.Media.HEIGHT,
             MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
             MediaStore.Images.Media.ORIENTATION,
-            MediaStore.Images.Media.RELATIVE_PATH
+            MediaStore.Images.Media.RELATIVE_PATH,
+            MediaStore.MediaColumns.VOLUME_NAME
         )
 
         contentResolver.query(
@@ -123,6 +125,7 @@ class LocalImageRepository(private val context: Context) {
             val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
             val orientationColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.ORIENTATION)
             val relativePathColumn = cursor.getColumnIndex(MediaStore.Images.Media.RELATIVE_PATH)
+            val volumeColumn = cursor.getColumnIndex(MediaStore.MediaColumns.VOLUME_NAME)
 
             while (cursor.moveToNext()) {
                 // 检查是否在 Tabula 图集路径下
@@ -154,7 +157,11 @@ class LocalImageRepository(private val context: Context) {
                         width = cursor.getInt(widthColumn),
                         height = cursor.getInt(heightColumn),
                         bucketDisplayName = cursor.getString(bucketColumn),
-                        orientation = cursor.getInt(orientationColumn)
+                        orientation = cursor.getInt(orientationColumn),
+                        volumeName = if (volumeColumn >= 0) {
+                            cursor.getString(volumeColumn)?.takeIf { it.isNotBlank() }
+                        } else null,
+                        relativePath = relativePath.ifEmpty { null }
                     )
                 )
             }
