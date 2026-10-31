@@ -19,12 +19,13 @@ status=0
 # （laterCandidate / invalidatedCopy / albumDetailLoadFailureShowsBannerAndRetryRecovers（非空相册） /
 #  albumDetailEmptyAlbumLoadFailureShowsErrorAndRetryShowsRealImage（空相册，元数据构造绕开 O2） /
 #  albumDetailSlowLoadSwitchShowsNewAlbumContentAndCancelIsSafe（切图集/取消，debug 慢加载接缝） /
+#  albumDetailLateResultAfterSwitchDoesNotOverwriteNewPage（晚到竞争，握手+NonCancellable 窗口） /
 #  unknownDeleteVerificationKeepsSourceRecordAndReportsReason），
 # CloudRestoreUiTest 3 例（singleRestore / batchRestore / restoreKeepsUnknown）。
 # CreateAlbumDiagnosticDeviceTest 2 例（O2 诊断：createBucket 分阶段 + createAlbum 真实入口）。
 for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest; do
   case "$class" in
-    CloudCleanupUiTest) expected_tests=6 ;;
+    CloudCleanupUiTest) expected_tests=7 ;;
     CloudRestoreUiTest) expected_tests=3 ;;
     CreateAlbumDiagnosticDeviceTest) expected_tests=2 ;;
     *) expected_tests=2 ;;

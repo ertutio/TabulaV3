@@ -184,6 +184,24 @@ class CloudCleanupUiTest {
         captureUiFailure("still visible: $label")
         error("UI element still present: $label")
     }
+    // #17 握手：轮询 logcat 中接缝写入的"进入延迟窗口"标记行，
+    // 等待计数超过 baseline 后返回新计数（logcat 跨用例累积，用单调计数）。
+    // UiAutomation 字符串入口按空白分词（acceptance.md）：不能使用管道/重定向，
+    // 在 Kotlin 侧计数。
+    private fun currentHandshakeCount(): Int =
+        shell("logcat -d -s TabulaProbe:D")
+            .split("\n").count { it.contains("entering delay window") }
+
+    private fun waitHandshake(aboveCount: Int, timeoutMs: Long = 10000): Int {
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        while (SystemClock.uptimeMillis() < deadline) {
+            val seen = currentHandshakeCount()
+            if (seen > aboveCount) return seen
+            SystemClock.sleep(150)
+        }
+        captureUiFailure("handshake not observed above $aboveCount")
+        error("album load never entered the delay window (handshake missing)")
+    }
     private fun startAndOpenDialog() {
         activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         tap("图库")
@@ -384,6 +402,63 @@ class CloudCleanupUiTest {
             waitFor(switchPhotoName, timeout = 20000)
             assertNull("previous album photo must not leak into the switched page",
                 find(ins.uiAutomation.rootInActiveWindow, basePhotoName))
+        } finally {
+            AppPreferences(ctx).debugAlbumLoadDelayMs = 0L
+        }
+    }
+
+    @Test fun albumDetailLateResultAfterSwitchDoesNotOverwriteNewPage() = runBlocking {
+        // #17 晚到竞争（确定性握手）：接缝在进入延迟窗口时写 logcat 标记，
+        // NonCancellable 延迟使旧查询结果必然在调用方返回、新页打开之后才完成。
+        // 断言：晚到的旧图集结果不得覆盖新页（旧照片不出现、新照片保持）。
+        val switchAlbumName = "CloudLate" + UUID.randomUUID().toString().replace("-", "").take(10)
+        metadataAlbumsForCleanup += switchAlbumName
+        albums.updateAlbum(Album(id = switchAlbumName, name = switchAlbumName))
+        val switchPhoto = photo("Tabula/$switchAlbumName")
+        val switchPhotoName = displayNameOf(switchPhoto)
+        val basePhoto = photo("Tabula/$albumName")
+        val basePhotoName = displayNameOf(basePhoto)
+        AppPreferences(ctx).debugAlbumLoadDelayMs = 3000L
+        try {
+            photo()
+            // 基线必须在打开任何详情之前采样：本用例自己的加载也会写标记，
+            // 导航完成后再采样会把已发生的标记计入基线，导致等待永不满足
+            //（run 41092875221 首轮失败根因）。
+            val handshakeBaseline = currentHandshakeCount()
+            var navigated = false
+            repeat(3) { attempt ->
+                if (!navigated) {
+                    ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
+                    SystemClock.sleep(1500)
+                    activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    try {
+                        waitFor("图库")
+                        tap("图库")
+                        tap(albumName)
+                        waitFor("返回")
+                        navigated = true
+                    } catch (e: IllegalStateException) {
+                        captureUiFailure("late-race navigation attempt $attempt")
+                        if (attempt == 2) throw e
+                    }
+                }
+            }
+            // 握手 1：旧查询已进入慢加载窗口（计数必须超过导航前基线）。
+            val afterOld = waitHandshake(handshakeBaseline)
+            // 切换：旧结果将在窗口结束后"晚到"。
+            ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
+            waitUntilGone("返回")
+            waitFor(albumName)
+            tap(switchAlbumName)
+            // 握手 2：新页查询也已进入窗口（此后旧结果晚到与新加载并存）。
+            waitHandshake(afterOld)
+            waitFor(switchPhotoName, timeout = 20000)
+            // 旧窗口此刻必已结束（握手 1 后已过 >3s）：晚到结果应当已被丢弃。
+            SystemClock.sleep(3500)
+            assertNull("late previous-album result must not leak into the new page",
+                find(ins.uiAutomation.rootInActiveWindow, basePhotoName))
+            assertTrue("new page must keep showing its own photo",
+                find(ins.uiAutomation.rootInActiveWindow, switchPhotoName) != null)
         } finally {
             AppPreferences(ctx).debugAlbumLoadDelayMs = 0L
         }
