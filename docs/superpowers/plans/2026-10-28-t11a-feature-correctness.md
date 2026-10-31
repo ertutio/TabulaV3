@@ -1,6 +1,6 @@
 # T11a 特征检测正确性前移实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **历史设计参考：** 本文保留当时的拆分方案；实现/续接以[持续开发总计划](../../../.ua/DEVELOPMENT_ROADMAP.md)、[当前进度](../../../.ua/DEVELOPMENT_PROGRESS.md)和[验收约定](../../acceptance.md)为准。先核对已交付子项，旧复选框与历史失败记录不代表当前状态；完成本文片段后返回总任务执行循环。
 
 **Goal:** 忙碌（信号量满）、快速模式门槛、检测失败产生的"非 HDR/非动态"阴性一律视为不可信——不入缓存；缓存键含内容版本（DATE_MODIFIED 毫秒，T03 契约）与开关组合；取消语义保持（LaunchedEffect 取消不落缓存）。
 
