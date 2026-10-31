@@ -19,10 +19,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.ui.util.DebugAlbumLoadGate
+import com.tabula.v3.data.preferences.TagSelectionMode
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.repository.AlbumManager
 import com.tabula.v3.data.repository.CopyEvidenceStore
 import com.tabula.v3.data.repository.FileOperationManager
+import com.tabula.v3.data.repository.SystemAlbumSyncManager
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -60,6 +63,7 @@ class CloudCleanupUiTest {
             // 前序用例崩溃可能遗留慢加载接缝：每个用例前复位。
             debugAlbumLoadDelayMs = 0L
         }
+        DebugAlbumLoadGate.reset()
         photo("Tabula/$albumName")
         albums.initialize()
         assertTrue("fixture bucket must be discovered", albums.albums.value.any { it.name == albumName && it.systemAlbumPath?.trimEnd('/') == "Pictures/Tabula/$albumName" })
@@ -386,6 +390,105 @@ class CloudCleanupUiTest {
                 find(ins.uiAutomation.rootInActiveWindow, basePhotoName))
         } finally {
             AppPreferences(ctx).debugAlbumLoadDelayMs = 0L
+        }
+    }
+
+    @Test fun albumDetailLateResultAfterSwitchDoesNotOverwriteNewPage(): Unit = runBlocking {
+        val switchAlbumName = "CloudLate" + UUID.randomUUID().toString().replace("-", "").take(10)
+        metadataAlbumsForCleanup += switchAlbumName
+        albums.updateAlbum(Album(id = switchAlbumName, name = switchAlbumName))
+        val switchPhotoName = displayNameOf(photo("Tabula/$switchAlbumName"))
+        val basePhotoName = displayNameOf(photo("Tabula/$albumName"))
+        val baseAlbum = albums.albums.value.single { it.name == albumName }
+        val request = DebugAlbumLoadGate.arm(baseAlbum.id)
+        try {
+            photo()
+            activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            tap("图库")
+            tap(albumName)
+            waitFor("返回")
+            awaitCondition("old album request entered: ${request.albumId}") { request.entered }
+            assertFalse("old request must stay blocked until explicitly released", request.completed)
+            shell("input keyevent 4")
+            waitUntilGone("返回")
+            tap(switchAlbumName)
+            waitFor(switchPhotoName)
+            assertFalse("new page must render before old request completes", request.completed)
+            request.release()
+            awaitCondition("old album request completed after release") { request.completed }
+            ins.waitForIdleSync()
+            assertNull("late previous-album result must not leak into the new page",
+                find(ins.uiAutomation.rootInActiveWindow, basePhotoName))
+            waitFor(switchPhotoName)
+        } finally {
+            request.release()
+            DebugAlbumLoadGate.reset()
+        }
+    }
+
+    @Test fun archiveFailureShowsToastAndKeepsSource() = runBlocking {
+        val source = photo()
+        val protection = photo()
+        val fixtureIds = setOf(ContentUris.parseId(source), ContentUris.parseId(protection))
+        val fixtureNames = listOf(displayNameOf(source), displayNameOf(protection))
+        val target = albums.albums.value.single { it.name == albumName }
+        val beforeImages = albums.getAlbumDetailImages(target.id).map { it.id }.toSet()
+        val beforeSources = albums.getAllSourceImages().toSet()
+        val preferences = AppPreferences(ctx)
+        val previousMode = preferences.tagSelectionMode
+        preferences.tagSelectionMode = TagSelectionMode.LIST_POPUP
+        SystemAlbumSyncManager.debugForceArchiveCopyFailure = true
+        var selectedSource: Uri? = null
+        try {
+            activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            // The enabled share button proves a current card exists. The top-bar
+            // "选择图集" button opens cleanup mode, not the archive picker.
+            val share = waitFor("分享当前照片")
+            assertTrue("current card must be available", share.isEnabled)
+            waitFor("↓ 下滑选择图集")
+            var card: AccessibilityNodeInfo? = null
+            awaitCondition("synthetic photo card is rendered") {
+                card = fixtureNames.firstNotNullOfOrNull { find(ins.uiAutomation.rootInActiveWindow, it) }
+                card != null
+            }
+            val bounds = Rect()
+            requireNotNull(card).getBoundsInScreen(bounds)
+            assertTrue("rendered photo card must have usable geometry", bounds.width() > 0 && bounds.height() > 0)
+            val x = bounds.centerX()
+            shell("input swipe $x ${bounds.top + bounds.height() / 3} $x ${bounds.top + bounds.height() * 5 / 6} 700")
+            waitFor("选择相册")
+            val completed = ins.uiAutomation.executeAndWaitForEvent(
+                {
+                    tap(albumName)
+                    awaitCondition("UI selection queued the fixture for archive") {
+                        albums.getLastPendingArchive()?.let { action ->
+                            assertEquals("real picker must select the target album", target.id, action.albumId)
+                            assertTrue("real current card must be one of this test's synthetic sources", action.imageId in fixtureIds)
+                            selectedSource = Uri.parse(action.imageUri)
+                            assertEquals("queued URI must identify the same synthetic image", action.imageId, ContentUris.parseId(selectedSource!!))
+                            true
+                        } ?: false
+                    }
+                },
+                UiAutomation.AccessibilityEventFilter { event ->
+                    event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED &&
+                        event.packageName?.toString() == ctx.packageName &&
+                        event.text.any { it.toString() == "归档失败，照片未复制" }
+                }, 30000
+            )
+            completed.recycle()
+            val classifiedSource = requireNotNull(selectedSource)
+            assertNull("failed commit must clear its pending action", albums.getLastPendingArchive())
+            assertTrue("the actual classified source must remain", present(classifiedSource))
+            assertTrue("other synthetic source must remain", present(source) && present(protection))
+            assertEquals("copy failure must not add a source ledger record", beforeSources, albums.getAllSourceImages().toSet())
+            assertNull("copy failure must not persist copy evidence", CopyEvidenceStore(ctx).get(classifiedSource.toString()))
+            assertEquals("copy failure must not create a target copy", beforeImages,
+                albums.getAlbumDetailImages(target.id).map { it.id }.toSet())
+        } finally {
+            SystemAlbumSyncManager.debugForceArchiveCopyFailure = false
+            preferences.tagSelectionMode = previousMode
+            albums.cancelLastPendingArchive()
         }
     }
 

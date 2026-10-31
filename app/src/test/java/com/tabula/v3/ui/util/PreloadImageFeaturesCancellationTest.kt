@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -126,5 +127,39 @@ class PreloadImageFeaturesCancellationTest {
         }
         val cached = ImageFeatureCacheStore.get(cacheKey)
         assertNotNull("uncancelled definitive result must be cached", cached)
+    }
+
+    @Test
+    fun sameFailingInputWithoutCancellationCachesDefinitiveNegative() {
+        // #16 取消因果对照：与取消用例完全相同的阻断流输入，但不取消——
+        // 检测完整走完并按可靠性规则缓存 definitive 阴性。由此取消用例的
+        // 空缓存可归因于取消本身，而非失败输入或缓存机制失效。
+        val opened = CountDownLatch(1)
+        val released = CountDownLatch(1)
+        registerStreams(Supplier<InputStream?> {
+            opened.countDown()
+            BlockingStream(released)
+        })
+        val scope = CoroutineScope(Dispatchers.Default + SupervisorJob()).also { scopes += it }
+        val job = scope.launch {
+            preloadImageFeatures(context, image, enableHdr = false, enableMotion = true)
+        }
+        assertTrue("detect must reach the stream", opened.await(5, TimeUnit.SECONDS))
+        released.countDown()
+        runBlocking { withTimeout(15_000) { job.join() } }
+        assertFalse("uncancelled run must complete without cancellation", job.isCancelled)
+        // 同一失败输入未取消：readXmp 异常被吞、motion 路径无失败标记，
+        // 产生 definitive 阴性并照常入缓存——这正是取消用例空缓存的因果对照。
+        val end = System.currentTimeMillis() + 10_000
+        var cached = ImageFeatureCacheStore.get(cacheKey)
+        while (System.currentTimeMillis() < end) {
+            cached = ImageFeatureCacheStore.get(cacheKey)
+            if (cached != null) break
+            Thread.sleep(50)
+        }
+        assertNotNull(
+            "same failing input without cancellation must cache the definitive negative",
+            cached
+        )
     }
 }
