@@ -3,6 +3,7 @@ package com.tabula.v3.data.repository
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import com.tabula.v3.data.model.ImageFile
@@ -24,7 +25,7 @@ class LocalImageRepository(private val context: Context) {
     private val contentResolver: ContentResolver = context.contentResolver
 
     /**
-     * MediaStore 查询投影 - 仅查询必要列
+     * MediaStore 查询投影 - 仅查询必要列；身份列（卷/路径）按 T03 契约统一携带。
      */
     private val projection = arrayOf(
         MediaStore.Images.Media._ID,
@@ -34,7 +35,9 @@ class LocalImageRepository(private val context: Context) {
         MediaStore.Images.Media.WIDTH,
         MediaStore.Images.Media.HEIGHT,
         MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
-        MediaStore.Images.Media.ORIENTATION
+        MediaStore.Images.Media.ORIENTATION,
+        MediaStore.Images.Media.RELATIVE_PATH,
+        MediaStore.MediaColumns.VOLUME_NAME
     )
 
     /**
@@ -142,15 +145,14 @@ class LocalImageRepository(private val context: Context) {
                 }
                 
                 val id = cursor.getLong(idColumn)
-                val uri = ContentUris.withAppendedId(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    id
-                )
+                val volumeName = if (volumeColumn >= 0) {
+                    cursor.getString(volumeColumn)?.takeIf { it.isNotBlank() }
+                } else null
 
                 images.add(
                     ImageFile(
                         id = id,
-                        uri = uri,
+                        uri = imageItemUri(volumeName, id),
                         displayName = cursor.getString(nameColumn) ?: "unknown",
                         dateModified = cursor.getLong(dateColumn) * 1000, // 转换为毫秒
                         size = cursor.getLong(sizeColumn),
@@ -158,9 +160,7 @@ class LocalImageRepository(private val context: Context) {
                         height = cursor.getInt(heightColumn),
                         bucketDisplayName = cursor.getString(bucketColumn),
                         orientation = cursor.getInt(orientationColumn),
-                        volumeName = if (volumeColumn >= 0) {
-                            cursor.getString(volumeColumn)?.takeIf { it.isNotBlank() }
-                        } else null,
+                        volumeName = volumeName,
                         relativePath = relativePath.ifEmpty { null }
                     )
                 )
@@ -395,10 +395,6 @@ class LocalImageRepository(private val context: Context) {
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
-                val uri = ContentUris.withAppendedId(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    id
-                )
                 val relativePath = if (relativePathColumn >= 0) cursor.getString(relativePathColumn) else null
                 val volumeName = if (volumeColumn >= 0) {
                     cursor.getString(volumeColumn)?.takeIf { it.isNotBlank() }
@@ -407,7 +403,7 @@ class LocalImageRepository(private val context: Context) {
                 images.add(
                     ImageFile(
                         id = id,
-                        uri = uri,
+                        uri = imageItemUri(volumeName, id),
                         displayName = cursor.getString(nameColumn) ?: "unknown",
                         dateModified = cursor.getLong(dateColumn) * 1000, // 转换为毫秒
                         size = cursor.getLong(sizeColumn),
@@ -466,25 +462,29 @@ class LocalImageRepository(private val context: Context) {
             val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
             val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
             val orientationColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.ORIENTATION)
+            val relativePathColumn = cursor.getColumnIndex(MediaStore.Images.Media.RELATIVE_PATH)
+            val volumeColumn = cursor.getColumnIndex(MediaStore.MediaColumns.VOLUME_NAME)
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
-                val uri = ContentUris.withAppendedId(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    id
-                )
+                val volumeName = if (volumeColumn >= 0) {
+                    cursor.getString(volumeColumn)?.takeIf { it.isNotBlank() }
+                } else null
+                val relativePath = if (relativePathColumn >= 0) cursor.getString(relativePathColumn) else null
 
                 images.add(
                     ImageFile(
                         id = id,
-                        uri = uri,
+                        uri = imageItemUri(volumeName, id),
                         displayName = cursor.getString(nameColumn) ?: "unknown",
                         dateModified = cursor.getLong(dateColumn) * 1000,
                         size = cursor.getLong(sizeColumn),
                         width = cursor.getInt(widthColumn),
                         height = cursor.getInt(heightColumn),
                         bucketDisplayName = cursor.getString(bucketColumn),
-                        orientation = cursor.getInt(orientationColumn)
+                        orientation = cursor.getInt(orientationColumn),
+                        volumeName = volumeName,
+                        relativePath = relativePath
                     )
                 )
             }
@@ -553,10 +553,6 @@ class LocalImageRepository(private val context: Context) {
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
-                val uri = ContentUris.withAppendedId(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    id
-                )
                 val bucketDisplayName = cursor.getString(bucketColumn)
                 val relativePath = if (relativePathColumn >= 0) {
                     cursor.getString(relativePathColumn) ?: ""
@@ -564,6 +560,7 @@ class LocalImageRepository(private val context: Context) {
                 val volumeName = if (volumeColumn >= 0) {
                     cursor.getString(volumeColumn)?.takeIf { it.isNotBlank() }
                 } else null
+                val uri = imageItemUri(volumeName, id)
 
                 val imageFile = ImageFile(
                     id = id,
@@ -639,11 +636,15 @@ class LocalImageRepository(private val context: Context) {
  */
 fun projectSnapshot(
     snapshot: LocalImageRepository.LoadResult,
-    softDeletedIds: Set<Long>
+    softDeleted: Collection<ImageFile>
 ): LocalImageRepository.LoadResult {
-    if (softDeletedIds.isEmpty()) return snapshot
-    val allImages = snapshot.allImages.filterNot { it.id in softDeletedIds }
-    val imagesExcludingTabula = snapshot.imagesExcludingTabula.filterNot { it.id in softDeletedIds }
+    if (softDeleted.isEmpty()) return snapshot
+    // C1-T03-SNAPSHOT-CROSSVOLUME-DELETE：软删除按 (卷, 数值 ID) 消费身份——
+    // 不同卷的同数值 ID 是不同照片。兼容规则：任一侧卷未知（T03 前旧数据）
+    // 退化为纯 ID 匹配；两侧卷已知则必须同卷才命中。
+    val allImages = snapshot.allImages.filterNot { image -> softDeleted.any { it.matchesSameMediaIdentity(image) } }
+    val imagesExcludingTabula =
+        snapshot.imagesExcludingTabula.filterNot { image -> softDeleted.any { it.matchesSameMediaIdentity(image) } }
     // 按真实身份 (卷, 路径) 重算 count/cover，避免同名桶互相污染；无身份信息的旧数据退化为显示名键。
     val covers = LinkedHashMap<BucketGroupKey, Long>()
     val counts = HashMap<BucketGroupKey, Int>()
@@ -665,6 +666,34 @@ fun projectSnapshot(
 
 /** T03：bucket 真实身份 = (卷, 相对路径)；显示名可跨卷/跨目录重复。 */
 internal data class BucketGroupKey(val volumeName: String, val relativePath: String)
+
+/**
+ * T03：媒体行 item URI = 卷限定地址（真实身份）。聚合 external URI 对跨卷同
+ * 数值 ID 行不可区分，会使回收站日志/核验/清除按 URI 串到另一卷；卷未知的
+ * 旧行为保持聚合 URI（兼容）。
+ */
+internal fun imageItemUri(volumeName: String?, id: Long): Uri =
+    if (volumeName != null) {
+        ContentUris.withAppendedId(MediaStore.Images.Media.getContentUri(volumeName), id)
+    } else {
+        ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+    }
+
+/**
+ * T03：同媒体身份 = 同数值 ID 且同卷——不同卷的同数值 ID 是不同照片。
+ * 任一侧卷未知（T03 前旧序列化数据）退化为纯 ID 匹配，保持旧数据行为。
+ * 已统一到本匹配的消费者：软删除投影（projectSnapshot）、回收站去重/移除
+ * （RecycleBinManager）、回收后即时 UI 状态（MainActivity.onRemove）。
+ * 仍按旧口径消费身份的已知遗留（后续簇边界，见进度文件 O5）：
+ * 恢复路径的内存态过滤/回插门槛（MainActivity removedIds/回插 none{id}）、
+ * 物理删除日志与核验（finishDeletion/verifyDeletionState 按聚合 URI，
+ * 跨卷同 ID 记录共享同一 URI）、图集批量永久删除（MainActivity 按 id 集合）。
+ */
+internal fun ImageFile.matchesSameMediaIdentity(other: ImageFile): Boolean =
+    id == other.id && (volumeName == null || other.volumeName == null || volumeName == other.volumeName)
+
+/** T03：UI 列表 key/选择集用的稳定身份键（卷|ID）；卷未知行退化为纯 ID 键。 */
+internal fun ImageFile.mediaIdentityKey(): String = "${volumeName ?: ""}|$id"
 
 internal class BucketGroupData(
     val ids: MutableList<Long>,

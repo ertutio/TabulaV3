@@ -85,17 +85,24 @@ class RecycleBinManager internal constructor(
 
     suspend fun addAllToRecycleBin(images: List<ImageFile>) = transaction {
         val items = loadUnlocked().toMutableList()
-        val ids = items.map { it.id }.toMutableSet()
         val now = System.currentTimeMillis()
-        images.forEach { if (ids.add(it.id)) items.add(it.copy(deletedAt = now)) }
+        // T03：去重按媒体身份（同 ID 且同卷；任一侧卷未知退化纯 ID）——
+        // 不同卷的同数值 ID 是不同照片，各自独立入站。
+        images.forEach { image ->
+            if (items.none { it.matchesSameMediaIdentity(image) }) {
+                items.add(image.copy(deletedAt = now))
+            }
+        }
         saveUnlocked(items)
     }
 
     suspend fun removeFromRecycleBin(image: ImageFile) = removeAllFromRecycleBin(listOf(image))
 
     suspend fun removeAllFromRecycleBin(images: List<ImageFile>) = transaction {
-        val ids = images.map { it.id }.toSet()
-        saveUnlocked(loadUnlocked().filterNot { it.id in ids })
+        // T03：按媒体身份移除，恢复一卷记录不得连带移除另一卷的同数值 ID 记录。
+        saveUnlocked(
+            loadUnlocked().filterNot { record -> images.any { it.matchesSameMediaIdentity(record) } }
+        )
     }
 
     suspend fun clearRecycleBin() = transaction {

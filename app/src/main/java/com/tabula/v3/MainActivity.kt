@@ -69,6 +69,7 @@ import com.tabula.v3.data.preferences.TopBarDisplayMode
 import com.tabula.v3.data.repository.DeletionVerification
 import com.tabula.v3.data.repository.FileOperationManager
 import com.tabula.v3.data.repository.LocalImageRepository
+import com.tabula.v3.data.repository.matchesSameMediaIdentity
 import com.tabula.v3.data.repository.projectSnapshot
 import com.tabula.v3.data.repository.RecycleBinManager
 import com.tabula.v3.data.repository.RecommendationEngine
@@ -463,7 +464,7 @@ fun TabulaApp(
                 val loadResult = LocalImageRepository(context).loadAllData()
                 val deleted = recycleBinManager.loadRecycleBin()
                 // 浏览/推荐由"快照 − 软删除集合"派生，相册计数与封面同步重算。
-                val projected = projectSnapshot(loadResult, deleted.map { it.id }.toSet())
+                val projected = projectSnapshot(loadResult, deleted)
                 albumManager.initialize(preloadedBuckets = projected.systemBuckets)
                 Pair(projected, deleted)
             }
@@ -574,14 +575,17 @@ fun TabulaApp(
                 // 单一记录事务：只移除核验通过的条目；未知项原样保留。
                 if (restorable.isNotEmpty()) recycleBinManager.removeAllFromRecycleBin(restorable)
                 if (missing.isNotEmpty()) recycleBinManager.removeAllFromRecycleBin(missing)
-                val removedIds = (restorable + missing).map { it.id }.toSet()
-                deletedImages = deletedImages.filterNot { it.id in removedIds }
+                // T03：内存态与持久层同口径——按媒体身份移除/回插，跨卷同数值
+                // ID 记录互不影响。
+                val removed = restorable + missing
+                deletedImages =
+                    deletedImages.filterNot { row -> removed.any { it.matchesSameMediaIdentity(row) } }
                 restorable.forEach { image ->
-                    if (allImages.none { it.id == image.id }) allImages = allImages + image
+                    if (allImages.none { it.matchesSameMediaIdentity(image) }) allImages = allImages + image
                     val isInTabulaAlbum = albums.any { album ->
                         album.systemAlbumPath?.trimEnd('/')?.substringAfterLast('/') == image.bucketDisplayName
                     }
-                    if (!isInTabulaAlbum && imagesForSorting.none { it.id == image.id }) {
+                    if (!isInTabulaAlbum && imagesForSorting.none { it.matchesSameMediaIdentity(image) }) {
                         imagesForSorting = imagesForSorting + image
                     }
                 }
@@ -733,8 +737,11 @@ fun TabulaApp(
                     try {
                         recycleBinManager.addToRecycleBin(image)
                         val persisted = recycleBinManager.loadRecycleBin()
-                        allImages = allImages.filterNot { it.id == image.id }
-                        imagesForSorting = imagesForSorting.filterNot { it.id == image.id }
+                        // 即时状态与刷新后的投影同口径：按媒体身份（卷, ID）过滤，
+                        // 跨卷同数值 ID 的其他照片不受本次回收影响。
+                        allImages = allImages.filterNot { row -> persisted.any { it.matchesSameMediaIdentity(row) } }
+                        imagesForSorting =
+                            imagesForSorting.filterNot { row -> persisted.any { it.matchesSameMediaIdentity(row) } }
                         deletedImages = persisted
                         preferences.totalReviewedCount++
                         preferences.totalDeletedCount++
@@ -846,7 +853,7 @@ fun TabulaApp(
                         val repository = LocalImageRepository(context)
                         val refreshedData = withContext(Dispatchers.IO) {
                             val loadResult = repository.loadAllData()
-                            val projected = projectSnapshot(loadResult, deletedImages.map { it.id }.toSet())
+                            val projected = projectSnapshot(loadResult, deletedImages)
                             albumManager.refreshAlbumsFromSystem(projected.systemBuckets)
                             projected
                         }
