@@ -168,6 +168,63 @@ class SnapshotCrossVolumeSoftDeleteTest {
     }
 
     @Test
+    fun binDeletionUriDistinguishesCrossVolumeSameId() = runBlocking {
+        // C1-T03-BINURI-DELETE：永久删除链（deleteRecycleBinBatch → beginDeletion →
+        // request → finishDeletion）按记录 URI 消费身份。两卷同数值 ID 的行必须携带
+        // 卷限定 item URI（真实身份），使日志、系统删除、核验与记录清除各自独立；
+        // 聚合 URI 下两条记录共享同一 URI，物理删除一张会双删另一卷记录。
+        seedRow(10L, "external_primary", "DCIM/Camera/")
+        seedRow(10L, "external_secondary", "DCIM/Camera/")
+        seedRow(11L, "external_primary", "DCIM/Camera/")
+        val loaded = repository.loadAllData()
+        val primary10 = loaded.allImages.first { it.id == 10L && it.volumeName == "external_primary" }
+        val secondary10 = loaded.allImages.first { it.id == 10L && it.volumeName == "external_secondary" }
+
+        // 反例前置断言：两条记录的 item URI 必须可区分（卷限定）。
+        val recordUris = listOf(primary10, secondary10).map { it.uri }
+        println("DIAG uris=$recordUris volumes=${listOf(primary10, secondary10).map { it.volumeName }}")
+        assertEquals(
+            "跨卷同数值 ID 行必须携带可区分的卷限定 URI uris=$recordUris volumes=${listOf(primary10, secondary10).map { it.volumeName }}",
+            2, recordUris.distinct().size
+        )
+        assertTrue("主卷行必须携带主卷限定 URI", primary10.uri.toString().contains("external_primary"))
+        assertTrue("第二卷行必须携带第二卷限定 URI", secondary10.uri.toString().contains("external_secondary"))
+
+        val bin = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        bin.addAllToRecycleBin(listOf(primary10, secondary10))
+        // 真实流程（deleteRecycleBinBatch）：把待删除记录的 URI 写入 journal 后交给系统。
+        val deletionTargets = listOf(primary10.uri, secondary10.uri)
+        assertEquals("journal 必须能区分两条跨卷同 ID 记录", 2, deletionTargets.distinct().size)
+        bin.beginDeletion(deletionTargets)
+
+        // 模拟系统只物理删除了主卷那张：deleted 集合以卷限定 URI 表达。
+        bin.finishDeletion(deleted = setOf(primary10.uri))
+
+        val remaining = bin.loadRecycleBin()
+        assertEquals("物理删除主卷一张不得双删另一卷记录", 1, remaining.size)
+        assertEquals(
+            "剩余记录必须是第二卷那张",
+            "external_secondary", remaining.single().volumeName
+        )
+        // journal 提交完成：unknown 为空且 pending 已清空。
+        assertTrue(bin.pendingDeletionUris().isEmpty())
+
+        // 对照钉死：旧聚合 URI 语义（两记录共享同一 URI）下同一流程会双删——
+        // 这就是卷限定 URI 修复的动机。
+        val aggregateUri = Uri.parse("content://media/external/images/media/10")
+        val legacyBin = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        legacyBin.addAllToRecycleBin(
+            listOf(
+                primary10.copy(uri = aggregateUri),
+                secondary10.copy(uri = aggregateUri)
+            )
+        )
+        legacyBin.beginDeletion(listOf(aggregateUri))
+        legacyBin.finishDeletion(deleted = setOf(aggregateUri))
+        assertEquals("聚合 URI 下两条记录会被一并清除（修复前行为对照）", 0, legacyBin.loadRecycleBin().size)
+    }
+
+    @Test
     fun legacyNullVolumeRecordStillFiltersById() = runBlocking {
         // 旧数据兼容：卷未知的回收记录（T03 前序列化）仍按纯 ID 过滤。
         seedRow(10L, "external_primary", "DCIM/Camera/")
