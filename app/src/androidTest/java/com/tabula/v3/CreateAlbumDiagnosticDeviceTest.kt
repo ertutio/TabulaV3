@@ -52,6 +52,7 @@ class CreateAlbumDiagnosticDeviceTest {
     private val registered = mutableListOf<Uri>()
     private val fixtureInfo = mutableMapOf<Uri, CloudFixtureCleanup.Fixture>()
     private val dirsToClean = mutableListOf<String>()
+    private val dotReplicaFilesToClean = mutableListOf<Pair<String, String>>()
     private val metadataAlbumsToClean = mutableListOf<String>()
     private val bucketName = "DiagBucket" + UUID.randomUUID().toString().replace("-", "").take(10)
     private val replicaName = "DiagReplica" + UUID.randomUUID().toString().replace("-", "").take(10)
@@ -127,7 +128,9 @@ class CreateAlbumDiagnosticDeviceTest {
         // 隔离占位文件名前导点对 delete 阶段的影响。
         val replicaPath = "Pictures/Tabula/$replicaName"
         dirsToClean += replicaPath
-        val dotFailures = runReplicaChain(replicaPath, ".tabula_placeholder_diag_${System.currentTimeMillis()}.jpg", "replica")
+        val dotName = ".tabula_placeholder_diag_${System.currentTimeMillis()}.jpg"
+        dotReplicaFilesToClean += replicaPath to dotName
+        val dotFailures = runReplicaChain(replicaPath, dotName, "replica")
         val dotlessFailures = runReplicaChain(replicaPath, "tabula_placeholder_diag_${System.currentTimeMillis()}.jpg", "replica-dotless")
         diag("replica-summary", "dotFailures=$dotFailures dotlessFailures=$dotlessFailures")
 
@@ -260,10 +263,26 @@ class CreateAlbumDiagnosticDeviceTest {
             }
         } }
 
+        // A published dot replica can disappear from MediaStore while its file remains.
+        // Only the exact generated fixture path is eligible for this shell fallback.
+        dotReplicaFilesToClean.forEach { (dir, name) -> attempt {
+            check(dir == "Pictures/Tabula/$replicaName" && Regex("Pictures/Tabula/DiagReplica[0-9a-f]{10}").matches(dir)) { "Unexpected replica directory: $dir" }
+            check(Regex("\\.tabula_placeholder_diag_[0-9]+\\.jpg").matches(name)) { "Unexpected replica name: $name" }
+            fun quote(value: String) = "'" + value.replace("'", "'\\''") + "'"
+            val directory = quote("/sdcard/$dir")
+            val file = quote("/sdcard/$dir/$name")
+            diag("cleanup-replica-list", runScript("ls -la $directory 2>&1").trim())
+            val result = runScript(
+                "if [ -L $file ]; then echo UNSAFE; " +
+                    "elif [ -f $file ]; then rm $file && { [ ! -e $file ] && [ ! -L $file ]; } && echo REMOVED || echo FAILED; " +
+                    "elif [ -e $file ]; then echo UNSAFE; else echo ABSENT; fi"
+            ).trim()
+            check(result == "REMOVED" || result == "ABSENT") { "Exact replica cleanup failed for $dir/$name: $result" }
+        } }
         dirsToClean.distinct().forEach { dir -> attempt {
             if (dirExists(dir)) {
                 runScript("rmdir /sdcard/$dir")
-                check(!dirExists(dir)) { "Could not remove empty fixture directory: $dir" }
+                check(!dirExists(dir)) { "Could not remove empty fixture directory: $dir; listing=${runScript("ls -la /sdcard/$dir 2>&1").trim()}" }
             }
         } }
         sentinel?.let { uri ->

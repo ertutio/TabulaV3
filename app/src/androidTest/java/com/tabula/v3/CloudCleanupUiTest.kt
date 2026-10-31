@@ -393,7 +393,7 @@ class CloudCleanupUiTest {
         }
     }
 
-    @Test fun albumDetailLateResultAfterSwitchDoesNotOverwriteNewPage() = runBlocking {
+    @Test fun albumDetailLateResultAfterSwitchDoesNotOverwriteNewPage(): Unit = runBlocking {
         val switchAlbumName = "CloudLate" + UUID.randomUUID().toString().replace("-", "").take(10)
         metadataAlbumsForCleanup += switchAlbumName
         albums.updateAlbum(Album(id = switchAlbumName, name = switchAlbumName))
