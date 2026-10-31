@@ -21,10 +21,12 @@ status=0
 #  albumDetailSlowLoadSwitchShowsNewAlbumContentAndCancelIsSafe（切图集/取消，debug 慢加载接缝） /
 #  unknownDeleteVerificationKeepsSourceRecordAndReportsReason），
 # CloudRestoreUiTest 3 例（singleRestore / batchRestore / restoreKeepsUnknown）。
-for class in CloudCleanupUiTest CloudRestoreUiTest; do
+# CreateAlbumDiagnosticDeviceTest 2 例（O2 诊断：createBucket 分阶段 + createAlbum 真实入口）。
+for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest; do
   case "$class" in
     CloudCleanupUiTest) expected_tests=6 ;;
     CloudRestoreUiTest) expected_tests=3 ;;
+    CreateAlbumDiagnosticDeviceTest) expected_tests=2 ;;
     *) expected_tests=2 ;;
   esac
   dir="device-results/$class"
