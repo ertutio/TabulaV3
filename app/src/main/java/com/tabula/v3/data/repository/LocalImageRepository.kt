@@ -25,7 +25,7 @@ class LocalImageRepository(private val context: Context) {
     private val contentResolver: ContentResolver = context.contentResolver
 
     /**
-     * MediaStore 查询投影 - 仅查询必要列
+     * MediaStore 查询投影 - 仅查询必要列；身份列（卷/路径）按 T03 契约统一携带。
      */
     private val projection = arrayOf(
         MediaStore.Images.Media._ID,
@@ -35,7 +35,9 @@ class LocalImageRepository(private val context: Context) {
         MediaStore.Images.Media.WIDTH,
         MediaStore.Images.Media.HEIGHT,
         MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
-        MediaStore.Images.Media.ORIENTATION
+        MediaStore.Images.Media.ORIENTATION,
+        MediaStore.Images.Media.RELATIVE_PATH,
+        MediaStore.MediaColumns.VOLUME_NAME
     )
 
     /**
@@ -460,25 +462,29 @@ class LocalImageRepository(private val context: Context) {
             val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
             val bucketColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
             val orientationColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.ORIENTATION)
+            val relativePathColumn = cursor.getColumnIndex(MediaStore.Images.Media.RELATIVE_PATH)
+            val volumeColumn = cursor.getColumnIndex(MediaStore.MediaColumns.VOLUME_NAME)
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
-                val uri = ContentUris.withAppendedId(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    id
-                )
+                val volumeName = if (volumeColumn >= 0) {
+                    cursor.getString(volumeColumn)?.takeIf { it.isNotBlank() }
+                } else null
+                val relativePath = if (relativePathColumn >= 0) cursor.getString(relativePathColumn) else null
 
                 images.add(
                     ImageFile(
                         id = id,
-                        uri = uri,
+                        uri = imageItemUri(volumeName, id),
                         displayName = cursor.getString(nameColumn) ?: "unknown",
                         dateModified = cursor.getLong(dateColumn) * 1000,
                         size = cursor.getLong(sizeColumn),
                         width = cursor.getInt(widthColumn),
                         height = cursor.getInt(heightColumn),
                         bucketDisplayName = cursor.getString(bucketColumn),
-                        orientation = cursor.getInt(orientationColumn)
+                        orientation = cursor.getInt(orientationColumn),
+                        volumeName = volumeName,
+                        relativePath = relativePath
                     )
                 )
             }

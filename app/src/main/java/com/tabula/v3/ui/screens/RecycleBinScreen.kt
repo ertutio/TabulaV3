@@ -747,7 +747,7 @@ private fun FullScreenViewer(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
             userScrollEnabled = !isMultiTouchActive && currentPageZoom <= 1.05f,
-            key = { images.getOrNull(it)?.id ?: it },
+            key = { images.getOrNull(it)?.mediaIdentityKey() ?: it.toString() },
             // 添加 flingBehavior 确保滑动后对齐到页面，防止卡在两图之间
             flingBehavior = PagerDefaults.flingBehavior(
                 state = pagerState,
