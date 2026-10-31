@@ -645,14 +645,9 @@ fun projectSnapshot(
     // C1-T03-SNAPSHOT-CROSSVOLUME-DELETE：软删除按 (卷, 数值 ID) 消费身份——
     // 不同卷的同数值 ID 是不同照片。兼容规则：任一侧卷未知（T03 前旧数据）
     // 退化为纯 ID 匹配；两侧卷已知则必须同卷才命中。
-    val softDeletedById = softDeleted.groupBy { it.id }
-    fun isSoftDeleted(image: ImageFile): Boolean =
-        softDeletedById[image.id]?.any { record ->
-            record.volumeName == null || image.volumeName == null ||
-                record.volumeName == image.volumeName
-        } == true
-    val allImages = snapshot.allImages.filterNot(::isSoftDeleted)
-    val imagesExcludingTabula = snapshot.imagesExcludingTabula.filterNot(::isSoftDeleted)
+    val allImages = snapshot.allImages.filterNot { image -> softDeleted.any { it.matchesSameMediaIdentity(image) } }
+    val imagesExcludingTabula =
+        snapshot.imagesExcludingTabula.filterNot { image -> softDeleted.any { it.matchesSameMediaIdentity(image) } }
     // 按真实身份 (卷, 路径) 重算 count/cover，避免同名桶互相污染；无身份信息的旧数据退化为显示名键。
     val covers = LinkedHashMap<BucketGroupKey, Long>()
     val counts = HashMap<BucketGroupKey, Int>()
@@ -674,6 +669,14 @@ fun projectSnapshot(
 
 /** T03：bucket 真实身份 = (卷, 相对路径)；显示名可跨卷/跨目录重复。 */
 internal data class BucketGroupKey(val volumeName: String, val relativePath: String)
+
+/**
+ * T03：同媒体身份 = 同数值 ID 且同卷——不同卷的同数值 ID 是不同照片。
+ * 任一侧卷未知（T03 前旧序列化数据）退化为纯 ID 匹配，保持旧数据行为。
+ * 软删除投影、回收站去重/移除与界面即时状态共用同一匹配，避免口径漂移。
+ */
+internal fun ImageFile.matchesSameMediaIdentity(other: ImageFile): Boolean =
+    id == other.id && (volumeName == null || other.volumeName == null || volumeName == other.volumeName)
 
 internal class BucketGroupData(
     val ids: MutableList<Long>,

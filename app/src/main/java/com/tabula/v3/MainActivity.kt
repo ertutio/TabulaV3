@@ -69,6 +69,7 @@ import com.tabula.v3.data.preferences.TopBarDisplayMode
 import com.tabula.v3.data.repository.DeletionVerification
 import com.tabula.v3.data.repository.FileOperationManager
 import com.tabula.v3.data.repository.LocalImageRepository
+import com.tabula.v3.data.repository.matchesSameMediaIdentity
 import com.tabula.v3.data.repository.projectSnapshot
 import com.tabula.v3.data.repository.RecycleBinManager
 import com.tabula.v3.data.repository.RecommendationEngine
@@ -733,8 +734,11 @@ fun TabulaApp(
                     try {
                         recycleBinManager.addToRecycleBin(image)
                         val persisted = recycleBinManager.loadRecycleBin()
-                        allImages = allImages.filterNot { it.id == image.id }
-                        imagesForSorting = imagesForSorting.filterNot { it.id == image.id }
+                        // 即时状态与刷新后的投影同口径：按媒体身份（卷, ID）过滤，
+                        // 跨卷同数值 ID 的其他照片不受本次回收影响。
+                        allImages = allImages.filterNot { row -> persisted.any { it.matchesSameMediaIdentity(row) } }
+                        imagesForSorting =
+                            imagesForSorting.filterNot { row -> persisted.any { it.matchesSameMediaIdentity(row) } }
                         deletedImages = persisted
                         preferences.totalReviewedCount++
                         preferences.totalDeletedCount++

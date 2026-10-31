@@ -114,6 +114,60 @@ class SnapshotCrossVolumeSoftDeleteTest {
     }
 
     @Test
+    fun recycleBinKeepsCrossVolumeSameIdRecordsIndependently() = runBlocking {
+        // C1-T03-SNAPSHOT-CROSSVOLUME-DELETE（回收站侧）：真实 RecycleBinManager
+        // 去重/移除/匹配逻辑 + 临时存储。两卷同数值 ID 依次回收：每条记录独立
+        // 持久化，重载后两行均被投影过滤；恢复一条只移除对应记录；重复回收幂等；
+        // 旧记录兼容。存储层用 Memory 而非 Atomic：Windows JVM 上 AtomicFile
+        // 第二次写入的 rename-over-existing 静默失败使回读校验必然抛出
+        // （与既有 atomicReadRestoresLegacyBackup 本地失败同根因，CI Linux 绿），
+        // 管理器去重/移除逻辑与存储无关，Atomic 层由 CI 与既有契约测试覆盖。
+        seedRow(10L, "external_primary", "DCIM/Camera/")
+        seedRow(12L, "external_primary", "DCIM/Camera/")
+        seedRow(10L, "external_secondary", "DCIM/Camera/")
+        val loaded = repository.loadAllData()
+        val primary10 = loaded.allImages.first { it.id == 10L && it.volumeName == "external_primary" }
+        val secondary10 = loaded.allImages.first { it.id == 10L && it.volumeName == "external_secondary" }
+
+        val bin = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        bin.addAllToRecycleBin(listOf(primary10))
+
+        // 第一次回收：一条记录；另一卷同 ID 行仍保留在投影（重载语义）。
+        assertEquals(1, bin.loadRecycleBin().size)
+        val projected1 = projectSnapshot(repository.loadAllData(), bin.loadRecycleBin())
+        assertTrue(
+            "回收主卷后另一卷同 ID 行必须保留在待整理投影",
+            projected1.imagesExcludingTabula.any { it.id == 10L && it.volumeName == "external_secondary" }
+        )
+
+        // 第二次回收：旧行为按纯 ID 去重静默忽略（本用例的有效反例点）。
+        bin.addAllToRecycleBin(listOf(secondary10))
+        val records = bin.loadRecycleBin()
+        assertEquals("两条不同卷记录必须独立持久化", 2, records.size)
+        assertTrue(records.any { it.id == 10L && it.volumeName == "external_primary" })
+        assertTrue(records.any { it.id == 10L && it.volumeName == "external_secondary" })
+
+        // 重载后两行均被投影过滤（浏览与待整理一致）。
+        val projected2 = projectSnapshot(repository.loadAllData(), records)
+        assertTrue(projected2.imagesExcludingTabula.none { it.id == 10L })
+        assertTrue(projected2.allImages.none { it.id == 10L })
+
+        // 恢复主卷记录：只移除对应记录，另一卷记录留在回收站。
+        bin.removeAllFromRecycleBin(listOf(records.first { it.volumeName == "external_primary" }))
+        val afterRestore = bin.loadRecycleBin()
+        assertEquals(1, afterRestore.size)
+        assertEquals("external_secondary", afterRestore.single().volumeName)
+
+        // 重复回收幂等：再次添加同卷同 ID 记录不新增条目。
+        bin.addAllToRecycleBin(listOf(primary10))
+        assertEquals(2, bin.loadRecycleBin().size)
+
+        // 旧记录兼容：卷未知记录与同 ID 已知卷记录并存时按纯 ID 去重（T03 前语义）。
+        bin.addAllToRecycleBin(listOf(primary10.copy(volumeName = null)))
+        assertEquals(2, bin.loadRecycleBin().size)
+    }
+
+    @Test
     fun legacyNullVolumeRecordStillFiltersById() = runBlocking {
         // 旧数据兼容：卷未知的回收记录（T03 前序列化）仍按纯 ID 过滤。
         seedRow(10L, "external_primary", "DCIM/Camera/")
