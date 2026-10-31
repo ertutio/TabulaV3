@@ -23,6 +23,7 @@ import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.repository.AlbumManager
 import com.tabula.v3.data.repository.CopyEvidenceStore
 import com.tabula.v3.data.repository.FileOperationManager
+import com.tabula.v3.data.repository.SystemAlbumSyncManager
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -461,6 +462,56 @@ class CloudCleanupUiTest {
                 find(ins.uiAutomation.rootInActiveWindow, switchPhotoName) != null)
         } finally {
             AppPreferences(ctx).debugAlbumLoadDelayMs = 0L
+        }
+    }
+
+    @Test fun archiveFailureShowsToastAndKeepsSource() = runBlocking {
+        // C0-T01-UIFEEDBACK（归档失败半边）：经真实 UI 路径（FixedTagBar chip 归类
+        // 当前卡片 → Snackbar 超时自动提交 → copyImageWithEvidence 注入失败），
+        // 断言「归档失败，照片未复制」Toast 真实可见、源媒体保留且无半提交残留。
+        // 清理保留 Toast 半边由 invalidatedCopyKeepsConfirmedOriginal 覆盖。
+        val source = photo()
+        SystemAlbumSyncManager.debugForceArchiveCopyFailure = true
+        try {
+            // 导航起点保护：deck 至少两张卡片；chip 归类的是当前卡片，
+            // 二者都可能是被归档对象，失败后都必须保留。
+            val protection = photo()
+            var started = false
+            repeat(3) { attempt ->
+                if (!started) {
+                    ins.uiAutomation.executeShellCommand("input keyevent 4").use {}
+                    SystemClock.sleep(1500)
+                    activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    try {
+                        // deck 卡片首屏：顶栏「选择图集」入口（run 41105952670 工件证实
+                        // FixedTagBar chips 在该模式下不渲染，改走图集选择弹层）。
+                        waitFor("选择图集")
+                        started = true
+                    } catch (e: IllegalStateException) {
+                        captureUiFailure("archive-toast deck attempt $attempt")
+                        if (attempt == 2) throw e
+                    }
+                }
+            }
+            // 选择图集弹层 → 点本用例图集 → 入队 → Snackbar 超时自动提交（数秒后）→ 失败 Toast。
+            val completed = ins.uiAutomation.executeAndWaitForEvent(
+                {
+                    tap("选择图集")
+                    tap(albumName)
+                },
+                UiAutomation.AccessibilityEventFilter { event ->
+                    event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED &&
+                        event.text.any { it.toString().contains("归档失败") }
+                }, 30000
+            )
+            completed.recycle()
+            val pending = albums.getLastPendingArchive()
+            assertNull("failed commit must not leave a half-committed action", pending)
+            assertTrue("classified source media must be retained after failed archive", present(source))
+            assertTrue("other deck media must be retained", present(protection))
+        } finally {
+            SystemAlbumSyncManager.debugForceArchiveCopyFailure = false
+            try { albums.cancelLastPendingArchive() } catch (_: Throwable) {}
         }
     }
 
