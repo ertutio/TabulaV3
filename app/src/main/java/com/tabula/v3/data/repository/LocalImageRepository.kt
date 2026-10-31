@@ -673,7 +673,12 @@ internal data class BucketGroupKey(val volumeName: String, val relativePath: Str
 /**
  * T03：同媒体身份 = 同数值 ID 且同卷——不同卷的同数值 ID 是不同照片。
  * 任一侧卷未知（T03 前旧序列化数据）退化为纯 ID 匹配，保持旧数据行为。
- * 软删除投影、回收站去重/移除与界面即时状态共用同一匹配，避免口径漂移。
+ * 已统一到本匹配的消费者：软删除投影（projectSnapshot）、回收站去重/移除
+ * （RecycleBinManager）、回收后即时 UI 状态（MainActivity.onRemove）。
+ * 仍按旧口径消费身份的已知遗留（后续簇边界，见进度文件 O5）：
+ * 恢复路径的内存态过滤/回插门槛（MainActivity removedIds/回插 none{id}）、
+ * 物理删除日志与核验（finishDeletion/verifyDeletionState 按聚合 URI，
+ * 跨卷同 ID 记录共享同一 URI）、图集批量永久删除（MainActivity 按 id 集合）。
  */
 internal fun ImageFile.matchesSameMediaIdentity(other: ImageFile): Boolean =
     id == other.id && (volumeName == null || other.volumeName == null || volumeName == other.volumeName)
