@@ -128,6 +128,7 @@ import com.tabula.v3.data.repository.deleteInBatches
 import com.tabula.v3.data.repository.deleteMediaUrisBatch
 import com.tabula.v3.data.repository.BatchDeleteSummary
 import com.tabula.v3.data.repository.mediaDeletionMessage
+import com.tabula.v3.data.repository.resolveImagesByIdentitySelection
 
 /**
  * T02b 恢复核验决策：未知保留在回收站，缺失清除死记录且不入图库，仅 PRESENT 继续恢复。
@@ -1407,9 +1408,10 @@ fun TabulaApp(
                     albumManager.copyImagesToAlbum(imageIds, targetAlbumId)
                 }
             },
-            onDeleteImages = { imageIds ->
-                // 找到对应的 ImageFile
-                val imagesToDelete = allImages.filter { it.id in imageIds }
+            onDeleteImages = { identityKeys ->
+                // O5③：按完整媒体身份（卷|ID）解析确认行——不同卷的同数值 ID
+                // 只删确认选中的那一行，另一卷同 ID 行不进入删除请求。
+                val imagesToDelete = resolveImagesByIdentitySelection(allImages, identityKeys)
                 if (imagesToDelete.isNotEmpty()) {
                     // 执行永久删除操作
                     performDeleteBatch(imagesToDelete) { summary ->

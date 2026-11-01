@@ -103,6 +103,7 @@ import com.tabula.v3.R
 import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.model.SyncMode
+import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.di.CoilSetup
 import com.tabula.v3.ui.components.AlbumDeleteConfirmDialog
 import com.tabula.v3.ui.components.AlbumEditDialog
@@ -110,11 +111,10 @@ import com.tabula.v3.ui.components.SourceRect
 import com.tabula.v3.ui.components.SwipeableViewerOverlay
 import com.tabula.v3.ui.components.SwipeableViewerState
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
-import com.tabula.v3.ui.util.DragSelectState
-import com.tabula.v3.ui.util.gridDragHandler
-import com.tabula.v3.ui.util.gridDragHandlerLongPress
+import com.tabula.v3.ui.util.gridDragHandlerString
 import com.tabula.v3.ui.util.HapticFeedback
 import com.tabula.v3.ui.util.ItemBounds
+import com.tabula.v3.ui.util.rememberStringDragSelectState
 
 /**
  * 相册视图屏幕
@@ -149,7 +149,7 @@ fun AlbumViewScreen(
     motionSoundVolume: Int = 100,
     onMoveToAlbum: ((List<Long>, String) -> Unit)? = null,
     onCopyToAlbum: ((List<Long>, String) -> Unit)? = null,
-    onDeleteImages: ((List<Long>) -> Unit)? = null
+    onDeleteImages: ((List<String>) -> Unit)? = null
 ) {
     val isDarkTheme = LocalIsDarkTheme.current
     val context = LocalContext.current
@@ -176,13 +176,15 @@ fun AlbumViewScreen(
     var hasMoreImages by remember { mutableStateOf(true) }
     
     // 响应 allImages 变化：当图片被删除时，自动从 albumImages 中移除
-    // 这解决了在图集中删除图片后不能实时刷新的问题
+    // 这解决了在图集中删除图片后不能实时刷新的问题。
+    // O5③：同步按完整媒体身份键匹配——删除确认行后，另一卷的同数值 ID 行
+    // 不因纯 ID 匹配被连带剪掉（下一轮重载前保持可见）。
     LaunchedEffect(allImages) {
         if (albumImages.isNotEmpty()) {
-            // 获取当前 allImages 中存在的图片 ID 集合
-            val validImageIds = allImages.map { it.id }.toSet()
+            // 获取当前 allImages 中存在的完整身份键集合
+            val validIdentityKeys = allImages.map { it.mediaIdentityKey() }.toSet()
             // 过滤掉已不存在的图片
-            val filteredImages = albumImages.filter { it.id in validImageIds }
+            val filteredImages = albumImages.filter { it.mediaIdentityKey() in validIdentityKeys }
             // 只有在确实有图片被删除时才更新状态，避免不必要的重组
             if (filteredImages.size != albumImages.size) {
                 albumImages = filteredImages
@@ -377,7 +379,7 @@ private fun AlbumContentView(
     allImages: List<ImageFile> = emptyList(),
     onMoveToAlbum: ((List<Long>, String) -> Unit)? = null,
     onCopyToAlbum: ((List<Long>, String) -> Unit)? = null,
-    onDeleteImages: ((List<Long>) -> Unit)? = null
+    onDeleteImages: ((List<String>) -> Unit)? = null
 ) {
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
@@ -396,71 +398,70 @@ private fun AlbumContentView(
         }
     }
     
-    // 多选模式状态
+    // 多选模式状态。O5③：选择集按完整媒体身份键（卷|ID）——不同卷的同数值
+    // ID 是不同照片，必须可独立选中/取消，批量删除只消费确认选中的行。
     var isSelectionMode by remember { mutableStateOf(false) }
-    var selectedImageIds by remember { mutableStateOf(setOf<Long>()) }
-    
+    var selectedImageKeys by remember { mutableStateOf(setOf<String>()) }
+
     // 图集选择弹窗状态
     var showAlbumPicker by remember { mutableStateOf(false) }
     var isCopyMode by remember { mutableStateOf(false) }  // true=复制, false=移动
-    
+
     // 隐藏确认弹窗状态
     var showHideConfirm by remember { mutableStateOf(false) }
-    
+
     // 删除空图集确认弹窗状态
     var showDeleteEmptyConfirm by remember { mutableStateOf(false) }
-    
+
     // 删除图片确认弹窗状态
     var showDeleteImagesConfirm by remember { mutableStateOf(false) }
-    
+
     // 滑动多选状态
-    val dragSelectState = remember(sortedImages) {
-        DragSelectState(
-            items = { sortedImages },
-            itemKey = { it.id },
-            selectedIds = { selectedImageIds },
-            onSelectionChange = { newSelection ->
-                selectedImageIds = newSelection
-                // 如果取消选中所有项，退出多选模式
-                if (newSelection.isEmpty() && isSelectionMode) {
-                    isSelectionMode = false
-                }
-            },
-            onEnterSelectionMode = {
-                if (!isSelectionMode) {
-                    isSelectionMode = true
-                }
+    val dragSelectState = rememberStringDragSelectState(
+        items = sortedImages,
+        itemKey = { it.mediaIdentityKey() },
+        selectedIds = selectedImageKeys,
+        onSelectionChange = { newSelection ->
+            selectedImageKeys = newSelection
+            // 如果取消选中所有项，退出多选模式
+            if (newSelection.isEmpty() && isSelectionMode) {
+                isSelectionMode = false
             }
-        )
-    }
-    
+        },
+        onEnterSelectionMode = {
+            if (!isSelectionMode) {
+                isSelectionMode = true
+            }
+        }
+    )
+
     // 退出多选模式
     fun exitSelectionMode() {
         isSelectionMode = false
-        selectedImageIds = emptySet()
+        selectedImageKeys = emptySet()
     }
-    
+
     // 切换选中状态
-    fun toggleSelection(imageId: Long) {
-        selectedImageIds = if (imageId in selectedImageIds) {
-            selectedImageIds - imageId
+    fun toggleSelection(identityKey: String) {
+        selectedImageKeys = if (identityKey in selectedImageKeys) {
+            selectedImageKeys - identityKey
         } else {
-            selectedImageIds + imageId
+            selectedImageKeys + identityKey
         }
         // 如果取消选中后没有选中项，退出多选模式
-        if (selectedImageIds.isEmpty()) {
+        if (selectedImageKeys.isEmpty()) {
             isSelectionMode = false
         }
     }
-    
+
     // 全选/取消全选
     fun toggleSelectAll() {
-        selectedImageIds = if (selectedImageIds.size == images.size) {
+        selectedImageKeys = if (selectedImageKeys.size == images.size) {
             emptySet()
         } else {
-            images.map { it.id }.toSet()
+            images.map { it.mediaIdentityKey() }.toSet()
         }
-        if (selectedImageIds.isEmpty()) {
+        if (selectedImageKeys.isEmpty()) {
             isSelectionMode = false
         }
     }
@@ -512,7 +513,7 @@ private fun AlbumContentView(
                     
                     // 选中数量
                     Text(
-                        text = "已选 ${selectedImageIds.size} 项",
+                        text = "已选 ${selectedImageKeys.size} 项",
                         color = textColor,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -524,7 +525,7 @@ private fun AlbumContentView(
                         onClick = { toggleSelectAll() }
                     ) {
                         Text(
-                            text = if (selectedImageIds.size == images.size) "取消全选" else "全选",
+                            text = if (selectedImageKeys.size == images.size) "取消全选" else "全选",
                             color = Color(0xFF007AFF),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
@@ -873,18 +874,21 @@ private fun AlbumContentView(
                 state = gridState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .gridDragHandler(dragSelectState, isSelectionMode = isSelectionMode)
+                    .gridDragHandlerString(dragSelectState, isSelectionMode = isSelectionMode)
                 // 注：LazyVerticalGrid 的预取由 Compose 自动管理
                 // 图片加载优化主要通过 Coil 的缓存策略实现
             ) {
-                items(sortedImages, key = { it.id }) { image ->
+                // O5③：列表 key/拖选边界注册用完整身份键——不同卷同数值 ID 行
+                // 共存时不再重复 key 崩溃或边界互相覆盖。
+                items(sortedImages, key = { it.mediaIdentityKey() }) { image ->
+                    val identityKey = image.mediaIdentityKey()
                     // 使用 Box 包装并注册位置（窗口坐标系），支持滑动多选
                     Box(
                         modifier = Modifier.onGloballyPositioned { coordinates ->
                             val position = coordinates.positionInWindow()
                             val size = coordinates.size
                             dragSelectState.registerItemBounds(
-                                image.id,
+                                identityKey,
                                 ItemBounds(
                                     left = position.x,
                                     top = position.y,
@@ -905,17 +909,17 @@ private fun AlbumContentView(
                                 { callback(image.id) }
                             },
                             isSelectionMode = isSelectionMode,
-                            isSelected = image.id in selectedImageIds,
+                            isSelected = identityKey in selectedImageKeys,
                             onLongPress = {
                                 // 长按进入多选模式并选中当前图片
                                 if (!isSelectionMode) {
                                     HapticFeedback.heavyTap(context)
                                     isSelectionMode = true
-                                    selectedImageIds = setOf(image.id)
+                                    selectedImageKeys = setOf(identityKey)
                                 }
                             },
                             onToggleSelect = {
-                                toggleSelection(image.id)
+                                toggleSelection(identityKey)
                             }
                         )
                     }
@@ -926,7 +930,7 @@ private fun AlbumContentView(
         
         // 多选模式底部操作栏
         androidx.compose.animation.AnimatedVisibility(
-            visible = isSelectionMode && selectedImageIds.isNotEmpty(),
+            visible = isSelectionMode && selectedImageKeys.isNotEmpty(),
             enter = androidx.compose.animation.slideInVertically(
                 initialOffsetY = { it },
                 animationSpec = spring(
@@ -1063,14 +1067,16 @@ private fun AlbumContentView(
                 },
                 text = {
                     Text(
-                        text = "确定要删除选中的 ${selectedImageIds.size} 张图片吗？\n\n此操作将永久删除图片，无法恢复。",
+                        text = "确定要删除选中的 ${selectedImageKeys.size} 张图片吗？\n\n此操作将永久删除图片，无法恢复。",
                         color = if (isDarkTheme) Color(0xFFAEAEB2) else Color(0xFF3C3C43)
                     )
                 },
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            onDeleteImages?.invoke(selectedImageIds.toList())
+                            // O5③：回调携带确认行的完整媒体身份键，消费侧
+                            // （MainActivity）按身份解析，不按数值 ID 串卷。
+                            onDeleteImages?.invoke(selectedImageKeys.toList())
                             showDeleteImagesConfirm = false
                             exitSelectionMode()
                             HapticFeedback.mediumTap(context)
@@ -1101,11 +1107,17 @@ private fun AlbumContentView(
                 allImages = allImages,
                 title = if (isCopyMode) "复制到图集" else "移动到图集",
                 onAlbumSelected = { targetAlbumId ->
-                    // 根据模式执行复制或移动操作
+                    // 根据模式执行复制或移动操作。
+                    // 移动/复制仍按数值 ID（图集按名合并语义，身份消费迁移属
+                    // T03 后续簇）；从确认行解析 ID 并去重，保持旧 Set<Long> 语义。
+                    val selectedIds = sortedImages
+                        .filter { it.mediaIdentityKey() in selectedImageKeys }
+                        .map { it.id }
+                        .distinct()
                     if (isCopyMode) {
-                        onCopyToAlbum?.invoke(selectedImageIds.toList(), targetAlbumId)
+                        onCopyToAlbum?.invoke(selectedIds, targetAlbumId)
                     } else {
-                        onMoveToAlbum?.invoke(selectedImageIds.toList(), targetAlbumId)
+                        onMoveToAlbum?.invoke(selectedIds, targetAlbumId)
                     }
                     showAlbumPicker = false
                     exitSelectionMode()

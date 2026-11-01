@@ -682,12 +682,14 @@ internal fun imageItemUri(volumeName: String?, id: Long): Uri =
 /**
  * T03：同媒体身份 = 同数值 ID 且同卷——不同卷的同数值 ID 是不同照片。
  * 任一侧卷未知（T03 前旧序列化数据）退化为纯 ID 匹配，保持旧数据行为。
- * 已统一到本匹配的消费者：软删除投影（projectSnapshot）、回收站去重/移除
- * （RecycleBinManager）、回收后即时 UI 状态（MainActivity.onRemove）。
- * 仍按旧口径消费身份的已知遗留（后续簇边界，见进度文件 O5）：
- * 恢复路径的内存态过滤/回插门槛（MainActivity removedIds/回插 none{id}）、
- * 物理删除日志与核验（finishDeletion/verifyDeletionState 按聚合 URI，
- * 跨卷同 ID 记录共享同一 URI）、图集批量永久删除（MainActivity 按 id 集合）。
+ * 已统一到本匹配/身份键口径的消费者：软删除投影（projectSnapshot）、
+ * 回收站去重/移除（RecycleBinManager）、回收后即时 UI 状态
+ * （MainActivity.onRemove）、恢复路径内存态过滤与回插（MainActivity）、
+ * 物理删除链卷限定 URI 与旧聚合记录分区（RecycleBinDeletion）、
+ * 图集批量永久删除选择集（resolveImagesByIdentitySelection）与
+ * 图集详情列表 key/选择/回写剪裁（AlbumViewScreen）、查看器 Pager key。
+ * 显示名/封面/哈希缓存等 Album 层消费簇仍按名或纯 ID（显式产品语义或
+ * 后续簇，见进度文件 C1/T03）。
  */
 internal fun ImageFile.matchesSameMediaIdentity(other: ImageFile): Boolean =
     id == other.id && (volumeName == null || other.volumeName == null || volumeName == other.volumeName)
