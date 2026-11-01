@@ -6,13 +6,13 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| 总任务状态 | `in_progress`；O5③（[PR #26](https://github.com/ertutio/TabulaV3/pull/26)）与 C1/T03-HASHVOLUME（[PR #27](https://github.com/ertutio/TabulaV3/pull/27)）已交付待人工评审合并，O5④ 经现场盘点确认已由 PR25 闭环（只登记）。其余约 12 个原 T 组仍有实现或组级验收差额。 |
-| 计划 ref | [PR #12](https://github.com/ertutio/TabulaV3/pull/12)，`docs/continuous-development-2026-10-28`；本次更新前父版本 `4110f5f`。PR12 保持开放、不能整体合并；其旧生产代码只作历史。 |
-| 已合并基线 | `master@b455f45044476cc2696083df5ef0a4634d2e7998` 已包含 PR23 与 [PR24](https://github.com/ertutio/TabulaV3/pull/24)。PR24 是未使用 helper 的 volume/path 透传一致性修正，不代表实际 deck 消费者或同数值 ID 跨卷场景整体验收。 |
-| 当前依赖候选 | [PR25](https://github.com/ertutio/TabulaV3/pull/25)（`fix/snapshot-crossvolume-softdelete-2026-11-01@5c0645af5d5ed9f24555f5c8f1e14b23db2eeeb8`）、堆叠其上的 [PR26](https://github.com/ertutio/TabulaV3/pull/26)（**复验后 head `48f2440`**：用户审计发现原交付把移动/复制选择压回 Long ID——只选 B 操作 A、双选折叠（P1），复验轮 `588b6ee` 基线 FAIL×6 → `48f2440` 身份修复）、独立基于 master 的 [PR27](https://github.com/ertutio/TabulaV3/pull/27)（**复验后 head `fad160a`**：用户审计证伪"列表精确比较无伪命中"——同元数据换卷命中旧组（P2），复验轮 `c9b7684` 基线 FAIL×3 → `fad160a` 指纹补卷）。三者均未进入 master；合并顺序 #25 → #26，#27 独立。 |
-| 当前检查点 | C1/T03 后续消费簇（B 簇哈希已交付；其余见盘点表 A/C/D 簇与复审新增同族残留）、C2/T04 其余删除入口。C0 已有逻辑覆盖清单可复用，真实设备等缺口仍保留；PR25–27 的局部闭环不关闭整个 T03/T04。 |
-| next_action | **队列 3 续：C1/T03 剩余消费簇逐簇接入。** 下一候选为哈希同族残留（PR27 复审建议①）：AlbumCleanupEngine 组恢复/持久化按裸 ID（:462/:475/:228-231）与 SimilarGroup.id 裸 ID（:30）——跨卷同 ID 组恢复折叠/冷却标记碰撞，先立真实 FAIL。其余候选见盘点表（A1 系统图集网格 key、A3 缩略图缓存键、C 封面按 ID）与 PR27 复审建议②（queryImagesWithBundle 无卷字段，当前无生产调用者）。按名合并簇保持显式保留决定。 |
-| 执行状态 / 所有权 | 本轮交付：O5③（PR26）+ O5④ 盘点登记 + C1/T03 消费者盘点 + 哈希簇（PR27）。生产补丁均已冻结推送，无未提交产品文件。恢复时核对实际 refs、未提交文件、写者及运行中 CI；本快照不代替现场检查。 |
+| 总任务状态 | `in_progress`；[PR25](https://github.com/ertutio/TabulaV3/pull/25)、[PR26](https://github.com/ertutio/TabulaV3/pull/26)、[PR27](https://github.com/ertutio/TabulaV3/pull/27) 已按用户授权合并进 master（跨卷软删除全链+O5③ 图集删除/移动/复制身份消费+哈希/相似组按卷消歧），O5④ 经盘点确认由 PR25 闭环。其余约 12 个原 T 组仍有实现或组级验收差额。 |
+| 计划 ref | [PR #12](https://github.com/ertutio/TabulaV3/pull/12)，`docs/continuous-development-2026-10-28`；本次更新前父版本 `dc51efb`。PR12 保持开放、不能整体合并；PR6/PR9 不在本次合并范围（未动）。 |
+| 已合并基线 | **`master@e6bd2cc062b95993479ba1f18afe2eae5741ed2d`**（2026-11-01 合并 #25/#26/#27：merge 顺序 `908a4eca`(#25, head 5c0645af) → `2c90b2b2`(#26, head 48f24404，base 已切回 master 进入 master) → `e6bd2cc0`(#27, head fad160a)；三个指定 head 均为 master 祖先）。其上叠加 PR23/PR24。合并后组合态 CI [run 41296460452](https://github.com/ertutio/TabulaV3/actions/runs/41296460452)（head e6bd2cc）。此前基线 b455f45 上的已交付边界描述继续成立（#24 限制说明保留）。 |
+| 当前依赖候选 | 无开放依赖候选。本轮合并的三个 PR 已全部进入 master；PR12 保持开放仅作计划；PR6/PR9 未在范围。后续单元从 `master@e6bd2cc` 建分支。 |
+| 当前检查点 | C1/T03 后续消费簇（见盘点表 A/C/D 簇与同族残留）、C2/T04 其余删除入口。C0 已有逻辑覆盖清单可复用，真实设备等缺口仍保留；本轮合并不关闭整个 T03/T04。 |
+| next_action | **队列 3 续：C1/T03 剩余消费簇逐簇接入（从新基线 e6bd2cc 起）。** 下一候选为哈希同族残留（PR27 复审建议①）：AlbumCleanupEngine 组恢复/持久化按裸 ID（:462/:475/:228-231）与 SimilarGroup.id 裸 ID（:30）——跨卷同 ID 组恢复折叠/冷却标记碰撞，先立真实 FAIL。其余候选见盘点表（A1 系统图集网格 key、A3 缩略图缓存键、C 封面按 ID）与 PR27 复审建议②（queryImagesWithBundle 无卷字段，当前无生产调用者）。按名合并簇保持显式保留决定。 |
+| 执行状态 / 所有权 | 本轮：用户授权合并 #25/#26/#27（核对 head 与指定 SHA 一致、逐个 MERGEABLE/CLEAN 后按序合并，#26 先切 base 到 master）；合并后组合态 CI 已触发。恢复时核对实际 refs、未提交文件、写者及运行中 CI；本快照不代替现场检查。 |
 
 ## 分支和依赖处理
 
