@@ -951,8 +951,30 @@ class AppPreferences(context: Context) {
     }
     
     /**
+     * 获取图集清理断点的保存时刻（毫秒；C1/T03-GROUPID 复验轮三：用于
+     * 判断断点保存后分析是否重跑过——重跑使旧位置索引不可确认）。
+     *
+     * @param albumId 图集ID
+     * @return 保存时刻毫秒，无断点返回 0
+     */
+    fun getAlbumCleanupCheckpointSavedAt(albumId: String): Long {
+        return albumCleanupPrefs.getLong("checkpoint_time_$albumId", 0L)
+    }
+
+    /**
+     * 获取图集最近一次相似组分析的时刻（毫秒；C1/T03-GROUPID 复验轮三：
+     * 晚于断点保存时刻说明分析重跑过，批次组成/排序可能已变）。
+     *
+     * @param albumId 图集ID
+     * @return 分析时刻毫秒，从未分析返回 0
+     */
+    fun getAlbumAnalyzedAt(albumId: String): Long {
+        return albumCleanupPrefs.getLong("analyzed_$albumId", 0L)
+    }
+
+    /**
      * 获取图集清理断点
-     * 
+     *
      * @param albumId 图集ID
      * @return 断点信息 (组ID列表, 当前索引)，如果没有断点返回 null
      */

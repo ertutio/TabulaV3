@@ -744,7 +744,37 @@ class AlbumCleanupEngine(
             clearCheckpoint(albumId)
             return@withContext null
         }
-        
+
+        // C1/T03-GROUPID 复验轮三（断点位置有效性）：批次组成（组解析结果/
+        // 成员集合/处理标记过滤）与保存时不一致——任一保存组未能原样进入
+        // 批次（如成员删除使组 ID 变化被丢弃）——旧位置索引指向的图像已
+        // 不可信：安全放弃断点，从正常批次入口重新开始（孤立照片经孤儿组
+        // 照常进入批次，不遗漏）。仅清断点，不清除永久处理意图、不自动
+        // 标记未浏览组。
+        if (batchGroupIds.size != savedGroupIds.size) {
+            android.util.Log.w(
+                TAG,
+                "Checkpoint batch composition changed for $albumId " +
+                    "(${savedGroupIds.size} -> ${batchGroupIds.size} groups); abandoning stale index"
+            )
+            clearCheckpoint(albumId)
+            return@withContext null
+        }
+        // 成员集不变但断点保存后分析重跑过（重进入口必先 analyzeAlbum，
+        // analyzed_ 晚于断点保存时刻）时，组内按 DATE_MODIFIED 的排序可能
+        // 已移动——位置同样不可确认：放弃并安全重开。正常续接（保存后未
+        // 重分析）不受影响。
+        val checkpointSavedAt = preferences.getAlbumCleanupCheckpointSavedAt(albumId)
+        val analyzedAt = preferences.getAlbumAnalyzedAt(albumId)
+        if (savedIndex > 0 && checkpointSavedAt > 0L && analyzedAt > checkpointSavedAt) {
+            android.util.Log.w(
+                TAG,
+                "Album re-analyzed after checkpoint save for $albumId; abandoning stale index"
+            )
+            clearCheckpoint(albumId)
+            return@withContext null
+        }
+
         // 确保索引在有效范围内
         val validIndex = savedIndex.coerceIn(0, batchImages.size - 1)
         

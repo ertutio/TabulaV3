@@ -427,4 +427,76 @@ class GroupIdentityCleanupPersistenceTest {
             0, preferences.getAlbumRemainingImages(album.id)
         )
     }
+
+    // ========== 复验轮三：断点位置有效性 ==========
+
+    @Test
+    fun checkpointIndexNotReusedWhenMemberDeletedFromGroup() = runBlocking {
+        // 审计复现场景：A=[a1,a2]、B=[b1,b2]；断点 [A,B] index=1（下一个
+        // 待处理 = a2）。删除 a2 后重新进入清理（入口先重分析、不清断点）：
+        // A 变为单成员孤儿组 A′（成员摘要 ID 变化，旧 A 无法匹配被丢弃），
+        // 批次只剩 [b1,b2]——旧实现仍用 index=1 从 b2 开始，b1 未浏览即被
+        // 跳过，完成后整个 B 被永久标记。批次组成变化后不得沿用旧位置索引：
+        // 放弃断点，从正常批次入口重新开始（孤儿照片经孤儿组照常进入批次，
+        // 不遗漏）；仅清断点，不清除永久处理意图、不自动标记未浏览组。
+        val engine1 = AlbumCleanupEngine(context)
+        engine1.analyzeAlbum(album, allImages).toList()
+        engine1.saveCheckpoint(listOf(expectedGroupA().id, expectedGroupB().id), 1)
+
+        // 删除 a2 后重分析（真实入口顺序：analyzeAlbum → getCheckpointBatch）。
+        val afterDelete = listOf(p10, s10, s12)
+        engine1.analyzeAlbum(album, afterDelete).toList()
+
+        val fresh = AlbumCleanupEngine(context)
+        val restored = fresh.getCheckpointBatch(album.id, afterDelete)
+        assertNull(
+            "批次组成变化后不得沿用旧位置索引（b1 不得被跳过）",
+            restored
+        )
+
+        // 实际回退路径：正常批次入口重开——孤儿 a1 与 B 组完整成员都不遗漏。
+        val batch = fresh.getNextBatch(album.id, afterDelete)
+        assertNotNull("放弃断点后必须能重开完整批次", batch)
+        assertEquals(
+            "重开批次必须覆盖孤儿照片与 B 组全部成员（不跳过、不遗漏）",
+            setOf(p10.uri, s10.uri, s12.uri),
+            batch!!.images.map { it.uri }.toSet()
+        )
+        assertFalse(
+            "未浏览的 B 组不得被提前永久标记",
+            preferences.getAlbumPermanentlyProcessedGroups(album.id).contains(expectedGroupB().id)
+        )
+    }
+
+    @Test
+    fun checkpointIndexNotReusedWhenContentEditedAfterSave() = runBlocking {
+        // 同族边界：保存后 a1 内容被编辑（DATE_MODIFIED 提升到组内最新，
+        // 组内排序移动）——成员集不变（组身份不变）但旧位置指向的图像已
+        // 不可信：放弃断点安全重开。
+        val engine1 = AlbumCleanupEngine(context)
+        engine1.analyzeAlbum(album, allImages).toList()
+        engine1.saveCheckpoint(listOf(expectedGroupA().id, expectedGroupB().id), 1)
+
+        val edited = listOf(
+            p10.copy(dateModified = T + 9_000L),
+            p11,
+            s10,
+            s12
+        )
+        engine1.analyzeAlbum(album, edited).toList()
+
+        val fresh = AlbumCleanupEngine(context)
+        val restored = fresh.getCheckpointBatch(album.id, edited)
+        assertNull(
+            "保存后内容编辑使旧位置不可确认，必须放弃断点",
+            restored
+        )
+
+        val batch = fresh.getNextBatch(album.id, edited)
+        assertNotNull(batch)
+        assertEquals(
+            setOf(p10.uri, p11.uri, s10.uri, s12.uri),
+            batch!!.images.map { it.uri }.toSet()
+        )
+    }
 }
