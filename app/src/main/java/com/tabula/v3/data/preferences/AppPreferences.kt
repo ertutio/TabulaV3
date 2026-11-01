@@ -800,8 +800,18 @@ class AppPreferences(context: Context) {
     }
     
     /**
+     * 整体替换图集的永久处理标记集合（C1/T03-GROUPID 旧格式标记唯一
+     * 映射迁移的写回通道；歧义旧条目由调用方原样保留）。
+     */
+    fun replaceAlbumPermanentlyProcessedGroups(albumId: String, groupIds: Set<String>) {
+        albumCleanupPrefs.edit()
+            .putStringSet("processed_$albumId", groupIds)
+            .apply()
+    }
+
+    /**
      * 批量永久标记图集中的组为已处理
-     * 
+     *
      * @param albumId 图集ID
      * @param groupIds 组ID列表
      */
@@ -958,30 +968,33 @@ class AppPreferences(context: Context) {
     }
     
     /**
-     * 批量保存多个组的图片 ID 列表
-     * 
+     * 批量保存多个组的成员列表（C1/T03-GROUPID：值为完整媒体身份键
+     * "卷|ID"；既有构建写入的旧格式为逗号分隔裸数字 ID，读取侧按
+     * 唯一性解析兼容，见 AlbumCleanupEngine.restoreGroupsFromPrefs）。
+     *
      * @param albumId 图集ID
-     * @param groupImageIds 组ID到图片ID列表的映射
+     * @param groupImageIds 组ID到成员身份键列表的映射
      */
-    fun saveGroupsImageIds(albumId: String, groupImageIds: Map<String, List<Long>>) {
+    fun saveGroupsImageIds(albumId: String, groupImageIds: Map<String, List<String>>) {
         val editor = albumCleanupPrefs.edit()
-        groupImageIds.forEach { (groupId, imageIds) ->
-            editor.putString("group_images_${albumId}_$groupId", imageIds.joinToString(","))
+        groupImageIds.forEach { (groupId, memberKeys) ->
+            editor.putString("group_images_${albumId}_$groupId", memberKeys.joinToString(","))
         }
         editor.apply()
     }
-    
+
     /**
-     * 获取单个组的图片 ID 列表
-     * 
+     * 获取单个组的成员列表（原始字符串：新格式为身份键"卷|ID"，
+     * 旧格式为裸数字 ID——由调用方按身份解析，此处不做语义过滤）。
+     *
      * @param albumId 图集ID
      * @param groupId 组ID
-     * @return 组内图片 ID 列表，如果不存在返回 null
+     * @return 组内成员键列表，如果不存在返回 null
      */
-    fun getGroupImageIds(albumId: String, groupId: String): List<Long>? {
+    fun getGroupImageIds(albumId: String, groupId: String): List<String>? {
         val idsString = albumCleanupPrefs.getString("group_images_${albumId}_$groupId", null)
             ?: return null
-        return idsString.split(",").mapNotNull { it.toLongOrNull() }
+        return idsString.split(",").filter { it.isNotBlank() }
     }
     
     /**

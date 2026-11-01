@@ -224,9 +224,10 @@ class AlbumCleanupEngine(
         val totalImages = allGroups.sumOf { it.size }
         preferences.saveAlbumTotalImages(album.id, totalImages)
         
-        // 【性能优化】持久化每个组的图片 ID 列表，避免重新检测相似组
+        // 【性能优化】持久化每个组的成员列表，避免重新检测相似组。
+        // C1/T03-GROUPID：成员以完整媒体身份键（卷|ID）落盘，恢复按身份解析。
         val groupImageIds = allGroups.associate { group ->
-            group.id to group.images.map { it.id }
+            group.id to group.images.map { it.mediaIdentityKey() }
         }
         preferences.saveGroupsImageIds(album.id, groupImageIds)
         
@@ -333,8 +334,11 @@ class AlbumCleanupEngine(
         }
         
         // 获取已永久处理的组ID（图集清理模式使用永久标记）
+        // C1/T03-GROUPID：先迁移旧口径永久标记（唯一映射→新身份 ID，
+        // 歧义/失配原样保留），再读取标记集合。
+        migrateLegacyProcessedGroupIds(albumId, groups)
         val permanentlyProcessedIds = preferences.getAlbumPermanentlyProcessedGroups(albumId)
-        
+
         // 过滤出未处理的组（同时排除指定的组ID）
         val allExcludeIds = permanentlyProcessedIds + excludeGroupIds.toSet()
         val availableGroups = groups.filter { it.id !in allExcludeIds }
@@ -447,38 +451,101 @@ class AlbumCleanupEngine(
      * @param allImages 图集内的所有图片
      * @return 恢复的相似组列表，如果无法恢复返回 null
      */
+    /**
+     * C1/T03-GROUPID：旧口径永久处理标记（"startTime_首张数字 ID"）迁移。
+     * 旧标记在当前组集合中能唯一映射（组的最早成员数字 ID 与 startTime 均
+     * 匹配）时替换为新身份 ID——用户已处理意图保留；命中多个候选组（跨卷
+     * 同数值 ID）或无候选（成员已变化）时**原样保留**歧义记录，不猜测、
+     * 不清空用户标记（待解析边界：用户重新处理该组时会写入新格式标记）。
+     * 幂等：迁移后旧格式条目被移除，重复调用无进一步变化。
+     */
+    private fun migrateLegacyProcessedGroupIds(albumId: String, groups: List<SimilarGroup>) {
+        val processed = preferences.getAlbumPermanentlyProcessedGroups(albumId)
+        val legacyIds = processed.filter { isLegacyGroupId(it) }
+        if (legacyIds.isEmpty()) return
+
+        val migrated = processed.toMutableSet()
+        var changed = false
+        for (legacyId in legacyIds) {
+            val (start, firstId) = parseLegacyGroupId(legacyId) ?: continue
+            val candidates = groups.filter { group ->
+                group.startTime == start && group.images.firstOrNull()?.id == firstId
+            }
+            if (candidates.size == 1) {
+                migrated.remove(legacyId)
+                migrated.add(candidates.single().id)
+                changed = true
+                android.util.Log.d(TAG, "Migrated legacy processed marker $legacyId -> ${candidates.single().id}")
+            }
+            // candidates.size >= 2（跨卷歧义）或 == 0（成员已变化）：保留原样。
+        }
+        if (changed) {
+            preferences.replaceAlbumPermanentlyProcessedGroups(albumId, migrated)
+        }
+    }
+
     private fun restoreGroupsFromPrefs(albumId: String, allImages: List<ImageFile>): List<SimilarGroup>? {
         // 检查是否有持久化数据
         if (!preferences.hasPersistedGroupData(albumId)) {
             return null
         }
-        
+
         val groupIds = preferences.getAlbumGroupIds(albumId)
         if (groupIds.isEmpty()) {
             return null
         }
-        
-        // 构建图片 ID 到 ImageFile 的映射，用于快速查找
-        val imageMap = allImages.associateBy { it.id }
-        
+
+        // C1/T03-GROUPID：恢复按完整媒体身份解析——新格式成员键精确匹配；
+        // 旧格式裸数字 ID 在当前库中唯一时按该行解析（读时迁移），命中多行
+        // （跨卷同数值 ID）时不得猜选另一卷，返回 null 触发重新检测（重算边界）。
+        val imageMap = allImages.associateBy { it.mediaIdentityKey() }
+        val imagesById = allImages.groupBy { it.id }
+
         val restoredGroups = mutableListOf<SimilarGroup>()
-        
+
         for (groupId in groupIds) {
-            val imageIds = preferences.getGroupImageIds(albumId, groupId)
-            if (imageIds.isNullOrEmpty()) {
+            val memberKeys = preferences.getGroupImageIds(albumId, groupId)
+            if (memberKeys.isNullOrEmpty()) {
                 // 如果有任何组的数据丢失，返回 null 触发重新检测
                 android.util.Log.w(TAG, "Missing image IDs for group $groupId, will re-detect")
                 return null
             }
-            
-            // 恢复组内图片（过滤掉已不存在的图片）
-            val groupImages = imageIds.mapNotNull { imageMap[it] }
-            
+
+            // 恢复组内成员（身份解析 + 过滤已不存在的照片）
+            val groupImages = mutableListOf<ImageFile>()
+            for (key in memberKeys) {
+                val exact = imageMap[key]
+                if (exact != null) {
+                    groupImages.add(exact)
+                    continue
+                }
+                if (key.toLongOrNull() == null) {
+                    // 新格式身份键但行已不存在：成员缺失，丢弃该成员（既有语义）。
+                    continue
+                }
+                // 旧格式裸 ID：唯一才解析；跨卷歧义不得猜测。
+                val candidates = imagesById[key.toLongOrNull()]
+                when {
+                    candidates == null -> {
+                        // 照片已被用户删除：成员缺失，丢弃（既有语义）。
+                        android.util.Log.d(TAG, "Legacy member $key no longer exists; dropped")
+                    }
+                    candidates.size == 1 -> groupImages.add(candidates.single())
+                    else -> {
+                        android.util.Log.w(
+                            TAG,
+                            "Ambiguous legacy member $key matches ${candidates.size} rows across volumes; re-detect"
+                        )
+                        return null
+                    }
+                }
+            }
+
             if (groupImages.isEmpty()) {
                 // 组内图片全部不存在（可能被用户删除），跳过该组
                 continue
             }
-            
+
             // 重建 SimilarGroup
             val sortedImages = groupImages.sortedBy { it.dateModified }
             restoredGroups.add(
@@ -489,11 +556,11 @@ class AlbumCleanupEngine(
                 )
             )
         }
-        
+
         if (restoredGroups.isEmpty()) {
             return null
         }
-        
+
         // 按组大小降序排列（与原始检测结果一致）
         return restoredGroups.sortedByDescending { it.images.size }
     }
@@ -578,8 +645,11 @@ class AlbumCleanupEngine(
             return@withContext null
         }
         
-        // 根据保存的组ID重建批次
-        val groupMap = groups.associateBy { it.id }
+        // 根据保存的组ID重建批次。
+        // C1/T03-GROUPID：升级前断点记录的是旧口径组 ID，恢复出的组已是
+        // 身份 ID——旧 ID 按其定义（startTime_首张数字 ID）作别名解析。
+        val groupMap = groups.associateBy { it.id } +
+            groups.associateBy { group -> "${group.startTime}_${group.images.firstOrNull()?.id ?: 0}" }
         val batchImages = mutableListOf<ImageFile>()
         val batchGroupIds = mutableListOf<String>()
         val batchBoundaries = mutableListOf<Int>()

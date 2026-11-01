@@ -25,12 +25,46 @@ data class SimilarGroup(
 ) {
     /** 组内图片数量 */
     val size: Int get() = images.size
-    
-    /** 组的唯一标识（用于冷却机制） */
-    val id: String get() = "${startTime}_${images.firstOrNull()?.id ?: 0}"
-    
+
+    /**
+     * 组的唯一标识（冷却与专清永久标记的主键）。
+     * C1/T03-GROUPID：身份 = 成员完整媒体身份键集合的内容寻址摘要——
+     * 排序后哈希（成员重排不产生变化）；键含卷（不同卷的不同成员集合必
+     * 不相同，跨卷同数值 ID 的组不再共用标记）。旧口径
+     * "startTime_首张数字 ID" 对成员重排不稳定且跨卷碰撞，识别与解析见
+     * [isLegacyGroupId]/[parseLegacyGroupId]。
+     */
+    val id: String get() = similarGroupId(images)
+
     /** 组的时间跨度（毫秒） */
     val durationMs: Long get() = endTime - startTime
+}
+
+/**
+ * C1/T03-GROUPID：相似组身份 = 排序后的成员完整媒体身份键集合的
+ * SHA-256 截断摘要。成员集相同 ⇒ 身份相同（检测与持久化恢复一致）；
+ * 任一成员不同（含卷不同）⇒ 身份不同。
+ */
+internal fun similarGroupId(images: List<ImageFile>): String {
+    val digest = java.security.MessageDigest.getInstance("SHA-256")
+    images.map { it.mediaIdentityKey() }.sorted().forEach { key ->
+        digest.update(key.toByteArray(Charsets.UTF_8))
+        digest.update('\n'.code.toByte())
+    }
+    return "grp_" + digest.digest().joinToString("") { "%02x".format(it) }.take(16)
+}
+
+/** 旧口径组 ID 形如 "${startTime 毫秒}_${首张数字 ID}"（无 grp_ 前缀）。 */
+internal fun isLegacyGroupId(groupId: String): Boolean =
+    !groupId.startsWith("grp_") && Regex("^\\d+_\\d+$").matches(groupId)
+
+/** 解析旧口径组 ID 为 (startTime 毫秒, 首张数字 ID)；非旧格式返回 null。 */
+internal fun parseLegacyGroupId(groupId: String): Pair<Long, Long>? {
+    if (!isLegacyGroupId(groupId)) return null
+    val parts = groupId.split('_')
+    val start = parts[0].toLongOrNull() ?: return null
+    val firstId = parts[1].toLongOrNull() ?: return null
+    return start to firstId
 }
 
 /**

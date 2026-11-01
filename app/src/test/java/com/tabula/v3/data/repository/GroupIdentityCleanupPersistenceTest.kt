@@ -1,6 +1,8 @@
 package com.tabula.v3.data.repository
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.Uri
 import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
@@ -17,7 +19,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import java.io.File
+import java.io.FileInputStream
+import java.util.function.Supplier
 
 /**
  * C1/T03-GROUPID-CLEANUP：相似组身份 + 专清持久化/恢复闭环。
@@ -30,9 +36,11 @@ import org.robolectric.annotation.Config
  *    associateBy(id)——跨卷同 ID 行折叠或恢复成错误照片。
  *
  * 夹具：真实 AlbumCleanupEngine + 真实 AppPreferences；图片为构造的
- * ImageFile（两卷、两档分辨率、同秒时间），哈希解码失败使检测走元数据
- * -only 分组（跨卷分辨率不同 → 不连接），组集合确定：{p10,p11} 与
- * {s10,s12}，两组的旧 ID 同为 "${T}_10"。
+ * ImageFile（两卷、同秒时间），内容为真实渐变 JPEG——Robolectric 位图解码
+ * 对任意字节都"成功"且哈希相同（探针实测 Success(0)，会使检测把四张连成
+ * 一组），必须用真实编解码控制 dHash：主卷正向渐变（dHash 0）、副卷反向
+ * 渐变（dHash 全 1，跨卷 Hamming 64 必不连接）。组集合确定：{p10,p11} 与
+ * {s10,s12}，两组的旧 ID 同为毫秒 startTime 加首张数字 ID（T_10）。
  * 旧格式组 ID（既有构建写入）= "${startTime 毫秒}_${首张数字 ID}"。
  */
 @RunWith(RobolectricTestRunner::class)
@@ -41,15 +49,16 @@ class GroupIdentityCleanupPersistenceTest {
     private val app: android.app.Application get() = RuntimeEnvironment.getApplication()
     private val context: Context get() = app
     private lateinit var preferences: AppPreferences
+    private lateinit var jpegFiles: Map<Uri, File>
 
     private val T = 1_700_000_000_000L
     private val legacyGroupId = "${T}_10"
     private val album = Album(id = "source", name = "source")
 
-    private val p10 = row("external_primary", 10L, T, width = 640, height = 480, size = 100L)
-    private val p11 = row("external_primary", 11L, T + 2_000L, width = 640, height = 480, size = 100L)
-    private val s10 = row("external_secondary", 10L, T, width = 800, height = 600, size = 200L)
-    private val s12 = row("external_secondary", 12L, T + 2_000L, width = 800, height = 600, size = 200L)
+    private val p10 = row("external_primary", 10L, T, size = 100L)
+    private val p11 = row("external_primary", 11L, T + 2_000L, size = 100L)
+    private val s10 = row("external_secondary", 10L, T, size = 200L)
+    private val s12 = row("external_secondary", 12L, T + 2_000L, size = 200L)
     private val allImages = listOf(p10, p11, s10, s12)
 
     @Before
@@ -57,17 +66,38 @@ class GroupIdentityCleanupPersistenceTest {
         preferences = AppPreferences.getInstance(context)
         preferences.clearAllAlbumCleanupState()
         com.tabula.v3.data.cache.ImageHashCache.getInstance(context).clearAll()
+        // 真实渐变 JPEG + 流注册：主卷正向（dHash 0），副卷反向（dHash 全 1）。
+        val forward = File(context.cacheDir, "grp-forward.jpg").also { writeGradientJpeg(it, leftToRight = true) }
+        val reverse = File(context.cacheDir, "grp-reverse.jpg").also { writeGradientJpeg(it, leftToRight = false) }
+        jpegFiles = mapOf(p10.uri to forward, p11.uri to forward, s10.uri to reverse, s12.uri to reverse)
+        val streamResolver = shadowOf(context.contentResolver)
+        jpegFiles.forEach { (uri, file) ->
+            streamResolver.registerInputStreamSupplier(uri, Supplier { FileInputStream(file) })
+        }
     }
 
-    private fun row(volume: String, id: Long, dateModifiedMs: Long, width: Int, height: Int, size: Long) =
+    /** 灰度横向渐变；leftToRight=false 时方向反转，dHash 与正向近似全位不同。 */
+    private fun writeGradientJpeg(target: File, leftToRight: Boolean) {
+        val bitmap = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
+        for (x in 0 until 64) {
+            for (y in 0 until 64) {
+                val v = (if (leftToRight) x else 63 - x) * 4
+                bitmap.setPixel(x, y, Color.rgb(v, v, v))
+            }
+        }
+        target.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it)) { "JPEG compress failed" } }
+        bitmap.recycle()
+    }
+
+    private fun row(volume: String, id: Long, dateModifiedMs: Long, size: Long) =
         ImageFile(
             id = id,
             uri = Uri.parse("content://media/$volume/images/media/$id"),
             displayName = "img-$volume-$id.jpg",
             dateModified = dateModifiedMs,
             size = size,
-            width = width,
-            height = height,
+            width = 64,
+            height = 64,
             bucketDisplayName = "source",
             volumeName = volume,
             relativePath = "Pictures/source/"
@@ -84,12 +114,19 @@ class GroupIdentityCleanupPersistenceTest {
     }
 
     /** 注入既有构建写下的旧格式数据（组集合 + 逗号分隔裸 ID 成员 + 可选旧标记）。 */
-    private fun seedLegacyGroup(albumId: String, legacyId: String, memberIds: List<Long>, withCheckpoint: Boolean = true, processedMarker: Boolean = false) {
-        // 全部经由 AppPreferences 写入（与被测引擎同一读写层），落盘字节与
-        // 既有构建的旧格式逐字相同（逗号分隔裸 ID）——AppPreferences 单例绑定
-        // 首个沙箱 Application，raw SharedPreferences 跨方法不可见。
+    private fun seedLegacyGroup(
+        albumId: String,
+        legacyId: String,
+        memberIds: List<Long>,
+        withCheckpoint: Boolean = true,
+        processedMarker: Boolean = false
+    ) {
+        // 全部经由 AppPreferences 写入（与被测引擎同一读写层）：落盘字节与
+        // 既有构建的旧格式逐字相同（逗号分隔裸数字 ID）。AppPreferences 单例
+        // 绑定首个沙箱 Application，raw SharedPreferences 跨方法不可见。
         preferences.saveAlbumAnalysisResult(albumId, 1, listOf(legacyId))
-        preferences.saveGroupsImageIds(albumId, mapOf(legacyId to memberIds))
+        // 旧格式成员 = 裸数字字符串；joinToString 后与既有构建落盘字节相同。
+        preferences.saveGroupsImageIds(albumId, mapOf(legacyId to memberIds.map { it.toString() }))
         if (withCheckpoint) {
             preferences.saveAlbumCleanupCheckpoint(albumId, listOf(legacyId), 0)
         }
@@ -122,14 +159,14 @@ class GroupIdentityCleanupPersistenceTest {
     // ========== 冷却消费者（真实 AppPreferences 读写） ==========
 
     @Test
-    fun cooldownOfOneGroupDoesNotSuppressCrossVolumeGroup() = runBlocking {
-        val engine = AlbumCleanupEngine(context)
-        engine.analyzeAlbum(album, allImages).toList()
+    fun cooldownOfOneGroupDoesNotSuppressCrossVolumeGroup() {
         val groupAId = expectedGroupA().id
         val groupBId = expectedGroupB().id
 
-        engine.markGroupProcessed(groupAId)
-        // 直接核对冷却池（与 RecommendationEngine 同一真实读写者）。
+        // 冷却池的真实写入口是 RecommendationEngine 经由的
+        // AppPreferences.recordSimilarGroupProcessed（markGroupProcessed 写的是
+        // 专清永久标记，不是冷却）——用同一真实读写者核对跨卷隔离。
+        preferences.recordSimilarGroupProcessed(groupAId)
         assertTrue(
             "被处理的组必须进入冷却",
             preferences.isSimilarGroupInCooldown(groupAId)
@@ -182,13 +219,12 @@ class GroupIdentityCleanupPersistenceTest {
         )
     }
 
-    // ========== 旧数据兼容（裸 ID 成员，raw 偏好注入） ==========
+    // ========== 旧数据兼容（裸 ID 成员，经 AppPreferences 注入旧格式字节） ==========
 
     @Test
     fun legacySingleVolumeMembersRestoreUniquely() = runBlocking {
         // 旧单卷数据：裸 ID 在当前库中唯一 → 必须照常恢复（兼容保持）。
         seedLegacyGroup("legacy1", legacyGroupId, listOf(10L, 11L))
-        val raw = context.getSharedPreferences("tabula_album_cleanup", Context.MODE_PRIVATE)
         val singleVolume = listOf(p10, p11)
         val engine = AlbumCleanupEngine(context)
         val restored = engine.getCheckpointBatch("legacy1", singleVolume)
