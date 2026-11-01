@@ -56,22 +56,22 @@ class SimilarGroupDetectorVersionTest {
     @Test
     fun contentEditTriggersRecomputeForNewVersion() = runBlocking {
         // 旧格式成功条目（无版本键）对版本化读取视为过期 → 本轮重算并写入新版本。
-        hashCache.saveHash(10L, PerceptualHash.HashResult.Success(7L))
+        hashCache.saveHash(ImageHashCache.HashKey(null, 10L), PerceptualHash.HashResult.Success(7L))
 
         detector.ensureHashesComputed(listOf(image(dateModified = 2000L)))
 
         // 断言不依赖解码成败：只要重算发生，ver 键就会随结果写入。
-        assertNotNull(hashCache.getHash(10L, contentVersion = 2000L))
+        assertNotNull(hashCache.getHash(ImageHashCache.HashKey(null, 10L), contentVersion = 2000L))
     }
 
     @Test
     fun failedLegacyEntryIsRetriedAndVersionStamped() = runBlocking {
         // 旧行为：失败条目永不重试（"失败的不重试"），也不会获得版本键。
-        hashCache.saveHash(10L, PerceptualHash.HashResult.Failed("legacy"))
+        hashCache.saveHash(ImageHashCache.HashKey(null, 10L), PerceptualHash.HashResult.Failed("legacy"))
 
         detector.ensureHashesComputed(listOf(image(dateModified = 1000L)))
 
         // 有界重试（每轮一次）：失败条目进入本轮计算并按当轮内容版本落盘。
-        assertNotNull(hashCache.getHash(10L, contentVersion = 1000L))
+        assertNotNull(hashCache.getHash(ImageHashCache.HashKey(null, 10L), contentVersion = 1000L))
     }
 }

@@ -22,15 +22,16 @@ class SimilarGroupsCacheTest {
         cache.invalidate()
     }
 
-    private fun image(id: Long, dateModified: Long = 1000L, size: Long = 500L) = ImageFile(
+    private fun image(id: Long, dateModified: Long = 1000L, size: Long = 500L, volumeName: String? = null) = ImageFile(
         id = id,
-        uri = Uri.parse("content://media/external/images/media/$id"),
+        uri = Uri.parse("content://media/${volumeName ?: "external"}/images/media/$id"),
         displayName = "img$id.jpg",
         dateModified = dateModified,
         size = size,
         width = 64,
         height = 64,
-        bucketDisplayName = "Camera"
+        bucketDisplayName = "Camera",
+        volumeName = volumeName
     )
 
     private fun group(vararg ids: Long) = SimilarGroup(
@@ -112,5 +113,58 @@ class SimilarGroupsCacheTest {
         cache.invalidate()
         assertNull("explicit invalidation must force recompute", cache.lookup(images, now + 1_000L))
         assertNotNull(cache.fingerprintOf(images))
+    }
+
+    @Test
+    fun volumeSwapWithSameMetadataMisses() {
+        // C1/T03-GROUPCACHE-VOLUME：成员身份含卷——A 卷照片被 B 卷同
+        // (id, dateModified, size) 的照片替换时，指纹必须 miss，不得继续
+        // 返回包含 A 卷旧 URI 的缓存组（绕过已按卷消歧的检测链）。
+        val volumeA = listOf(image(10, volumeName = "external_primary"))
+        cache.store(listOf(group(10)), volumeA, now)
+        assertSame("未变化输入仍命中", cache.lookup(volumeA, now + 1_000L), cache.lookup(volumeA, now + 1_000L))
+
+        val volumeB = listOf(image(10, volumeName = "external_secondary"))
+        assertNull(
+            "同元数据换卷必须失效缓存组",
+            cache.lookup(volumeB, now + 1_000L)
+        )
+    }
+
+    @Test
+    fun versionSizeOwnershipSwapBetweenSameIdRowsMisses() {
+        // 两卷同数值 ID 行的版本/大小归属交换（集合层面的多重集不变）也必须
+        // miss：条目保留数相同但成员所属卷不同，旧指纹无法区分。
+        val original = listOf(
+            image(10, dateModified = 1000L, size = 500L, volumeName = "external_primary"),
+            image(10, dateModified = 2000L, size = 900L, volumeName = "external_secondary")
+        )
+        cache.store(listOf(group(10)), original, now)
+        assertSame(cache.lookup(original, now + 1_000L), cache.lookup(original, now + 1_000L))
+
+        val swapped = listOf(
+            image(10, dateModified = 2000L, size = 900L, volumeName = "external_primary"),
+            image(10, dateModified = 1000L, size = 500L, volumeName = "external_secondary")
+        )
+        assertNull(
+            "版本/大小归属跨卷交换必须失效缓存组",
+            cache.lookup(swapped, now + 1_000L)
+        )
+    }
+
+    @Test
+    fun reorderWithVolumeIdentityStillHits() {
+        // 顺序无关语义保留：带卷成员重排后仍命中。
+        val images = listOf(
+            image(10, volumeName = "external_primary"),
+            image(11, dateModified = 2000L, volumeName = "external_secondary")
+        )
+        val stored = listOf(group(10, 11))
+        cache.store(stored, images, now)
+        assertSame(
+            "带卷身份的同成员重排必须仍命中",
+            stored,
+            cache.lookup(images.reversed(), now + 1_000L)
+        )
     }
 }

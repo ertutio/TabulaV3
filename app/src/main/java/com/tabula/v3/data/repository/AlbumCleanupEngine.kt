@@ -2,6 +2,7 @@ package com.tabula.v3.data.repository
 
 import android.content.Context
 import com.tabula.v3.data.cache.ImageHashCache
+import com.tabula.v3.data.cache.toHashKey
 import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.preferences.AppPreferences
@@ -183,19 +184,21 @@ class AlbumCleanupEngine(
         
         // 阶段1：预计算哈希（占 70% 进度）
         emit(0.1f)
-        val hashMap = similarGroupDetector.ensureHashesComputed(images)
+        similarGroupDetector.ensureHashesComputed(images)
         emit(0.7f)
-        
+
         // 阶段2：检测相似组（占 25% 进度）
         val similarGroups = withContext(Dispatchers.Default) {
             similarGroupDetector.detectSimilarGroups(images)
         }
         emit(0.85f)
-        
+
         // 阶段3：收集孤立图片（不在任何相似组中的图片）
-        // 图集清理的核心理念：每张照片都要过一遍，相似的凑在一起显示
-        val imagesInSimilarGroups = similarGroups.flatMap { it.images }.map { it.id }.toSet()
-        val orphanImages = images.filter { it.id !in imagesInSimilarGroups }
+        // 图集清理的核心理念：每张照片都要过一遍，相似的凑在一起显示。
+        // C1/T03-HASHVOLUME：成员判定按完整媒体身份键——不同卷同数值 ID
+        // 行不因纯 ID 匹配互相吞没。
+        val imagesInSimilarGroups = similarGroups.flatMap { it.images }.map { it.toHashKey() }.toSet()
+        val orphanImages = images.filter { it.toHashKey() !in imagesInSimilarGroups }
         
         // 为每张孤立图片创建单独的"组"
         val orphanGroups = orphanImages.map { image ->
