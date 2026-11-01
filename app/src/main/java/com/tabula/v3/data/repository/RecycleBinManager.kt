@@ -85,17 +85,24 @@ class RecycleBinManager internal constructor(
 
     suspend fun addAllToRecycleBin(images: List<ImageFile>) = transaction {
         val items = loadUnlocked().toMutableList()
-        val ids = items.map { it.id }.toMutableSet()
         val now = System.currentTimeMillis()
-        images.forEach { if (ids.add(it.id)) items.add(it.copy(deletedAt = now)) }
+        // T03：去重按媒体身份（同 ID 且同卷；任一侧卷未知退化纯 ID）——
+        // 不同卷的同数值 ID 是不同照片，各自独立入站。
+        images.forEach { image ->
+            if (items.none { it.matchesSameMediaIdentity(image) }) {
+                items.add(image.copy(deletedAt = now))
+            }
+        }
         saveUnlocked(items)
     }
 
     suspend fun removeFromRecycleBin(image: ImageFile) = removeAllFromRecycleBin(listOf(image))
 
     suspend fun removeAllFromRecycleBin(images: List<ImageFile>) = transaction {
-        val ids = images.map { it.id }.toSet()
-        saveUnlocked(loadUnlocked().filterNot { it.id in ids })
+        // T03：按媒体身份移除，恢复一卷记录不得连带移除另一卷的同数值 ID 记录。
+        saveUnlocked(
+            loadUnlocked().filterNot { record -> images.any { it.matchesSameMediaIdentity(record) } }
+        )
     }
 
     suspend fun clearRecycleBin() = transaction {
@@ -111,17 +118,32 @@ class RecycleBinManager internal constructor(
     /** Persist intent before handing any irreversible request to the system. */
     suspend fun beginDeletion(uris: List<Uri>) = transaction {
         loadUnlocked()
-        check(pendingUnlocked().isEmpty()) { "上次删除尚未核对" }
-        savePendingUnlocked(uris.distinct())
+        // C1-T03-LEGACY-PENDING-ISOLATION：合并登记而非要求空日志——升级前
+        // 遗留的未知条目保留在日志中，其他照片的删除照常进行且不覆盖旧日志。
+        savePendingUnlocked((pendingUnlocked() + uris.distinct()).distinct())
     }
 
-    /** Commit the records first. If either write fails, recovery is safe to repeat. */
-    suspend fun finishDeletion(deleted: Set<Uri>, unknown: Set<Uri> = emptySet()) = transaction {
+    /**
+     * Commit the records first. If either write fails, recovery is safe to repeat.
+     *
+     * covered = 本次核验实际覆盖的 URI；null 视为全部 pending（旧调用语义）。
+     * journal 结果 = 未被 covered 覆盖的条目（升级前遗留/未覆盖项，保留待
+     * 重新核验）+ 本次 unknown（须 ⊆ covered，逐项裁决过）。核验为 existing
+     * 的条目随 covered 一并移出 journal：记录保留、删除意图已解除，后续
+     * 再删除会重新登记。
+     */
+    suspend fun finishDeletion(
+        deleted: Set<Uri>,
+        unknown: Set<Uri> = emptySet(),
+        covered: Set<Uri>? = null
+    ) = transaction {
         val pending = pendingUnlocked().toSet()
         require(deleted.all { it in pending } && unknown.all { it in pending })
+        val coveredSet = covered ?: pending
+        require(deleted.all { it in coveredSet } && unknown.all { it in coveredSet })
         val items = loadUnlocked()
         if (deleted.isNotEmpty()) saveUnlocked(items.filterNot { it.uri in deleted })
-        savePendingUnlocked(unknown.toList())
+        savePendingUnlocked(((pending - coveredSet) + unknown).distinct().toList())
     }
 
     private fun pendingUnlocked(): List<Uri> {

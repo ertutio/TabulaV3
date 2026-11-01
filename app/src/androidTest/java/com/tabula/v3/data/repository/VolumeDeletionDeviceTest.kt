@@ -127,14 +127,14 @@ class VolumeDeletionDeviceTest {
         manager.finishDeletion(emptySet(), setOf(old.merged))
         assertEquals(1, deleteOwnedFixture(old))
         val service = verifier()
-        val result = reconcileRecycleBinDeletion(manager, service::verifyDeletionState)
+        val result = reconcileRecycleBinDeletion(manager, verify = service::verifyDeletionState)
         assertEquals(setOf(old.merged), result.deleted)
         assertTrue(result.unknown.isEmpty())
         assertTrue(manager.pendingDeletionUris().isEmpty())
         assertEquals(listOf(added.id), manager.loadRecycleBin().map { it.id })
         assertEquals(setOf(added.merged), service.verifyDeletionState(listOf(added.merged)).existing)
         context.contentResolver.openInputStream(added.merged)!!.use { assertTrue(it.read() >= 0) }
-        assertTrue(reconcileRecycleBinDeletion(manager, service::verifyDeletionState).deleted.isEmpty())
+        assertTrue(reconcileRecycleBinDeletion(manager, verify = service::verifyDeletionState).deleted.isEmpty())
     }
 
     @Test fun stillExistingPhotoIsNeverRemovedDuringReconciliation() = runBlocking {
@@ -142,7 +142,7 @@ class VolumeDeletionDeviceTest {
         val manager = isolatedManager()
         manager.addToRecycleBin(image.record())
         manager.beginDeletion(listOf(image.merged))
-        val result = reconcileRecycleBinDeletion(manager, verifier()::verifyDeletionState)
+        val result = reconcileRecycleBinDeletion(manager, verify = verifier()::verifyDeletionState)
         assertEquals(setOf(image.merged), result.existing)
         assertTrue(result.deleted.isEmpty())
         assertEquals(listOf(image.id), manager.loadRecycleBin().map { it.id })

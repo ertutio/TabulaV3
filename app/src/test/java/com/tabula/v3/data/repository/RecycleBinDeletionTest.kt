@@ -12,6 +12,103 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], manifest = Config.NONE)
 class RecycleBinDeletionTest {
+    private fun volumePhoto(id: Long) = fixturePhoto(id).copy(
+        uri = Uri.parse("content://media/external_primary/images/media/$id"),
+        volumeName = "external_primary"
+    )
+
+    private suspend fun mixedSelectionKeepsPendingUnknown(outcome: String) {
+        val records = MemoryRecycleBinStorage()
+        val journal = MemoryRecycleBinStorage()
+        val manager = RecycleBinManager(records, journal)
+        val unknown = volumePhoto(1)
+        val other = volumePhoto(2)
+        manager.addAllToRecycleBin(listOf(unknown, other))
+        manager.beginDeletion(listOf(unknown.uri))
+        val requests = mutableListOf<List<Uri>>()
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val sender = android.app.PendingIntent.getBroadcast(context, 3,
+            android.content.Intent("mixed-delete"), android.app.PendingIntent.FLAG_IMMUTABLE).intentSender
+        val summary = deleteRecycleBinSelection(listOf(unknown.uri, other.uri), manager,
+            request = {
+                requests += it.toList()
+                when (outcome) {
+                    "success" -> FileOperationManager.DeleteResult.Success(it.toSet())
+                    "error" -> FileOperationManager.DeleteResult.Error("Injected service error", DeleteFailureKind.SERVICE)
+                    else -> FileOperationManager.DeleteResult.NeedsPermission(sender, it)
+                }
+            },
+            permission = { false },
+            verify = { DeletionVerification(emptySet(), emptySet(), it.toSet()) })
+        // Rebuilding the manager must retain both the unresolved record and its old intent.
+        val rebuilt = RecycleBinManager(records, journal)
+        assertEquals(listOf(unknown.uri), rebuilt.pendingDeletionUris())
+        assertEquals(listOf(listOf(other.uri)), requests)
+        assertEquals(if (outcome == "success") setOf(other.uri) else emptySet<Uri>(), summary.deleted)
+        assertEquals(if (outcome == "success") setOf(unknown.uri) else setOf(unknown.uri, other.uri), summary.remaining)
+        assertEquals(outcome == "cancel", summary.cancelled)
+        assertEquals(outcome == "error", summary.error != null)
+        assertEquals(if (outcome == "success") listOf(unknown.uri) else listOf(unknown.uri, other.uri),
+            rebuilt.loadRecycleBin().map { it.uri })
+    }
+
+    @Test fun selectedPendingUnknownIsIsolatedFromSuccessfulDeletion() = runBlocking {
+        mixedSelectionKeepsPendingUnknown("success")
+    }
+
+    @Test fun selectedPendingUnknownSurvivesUnrelatedServiceError() = runBlocking {
+        mixedSelectionKeepsPendingUnknown("error")
+    }
+
+    @Test fun selectedPendingUnknownSurvivesUnrelatedPermissionCancellation() = runBlocking {
+        mixedSelectionKeepsPendingUnknown("cancel")
+    }
+
+    @Test fun unselectedPendingUnknownDoesNotCountAsRemaining() = runBlocking {
+        val manager = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        val unknown = volumePhoto(1)
+        val selected = volumePhoto(2)
+        manager.addAllToRecycleBin(listOf(unknown, selected))
+        manager.beginDeletion(listOf(unknown.uri))
+        val summary = deleteRecycleBinSelection(listOf(selected.uri), manager,
+            request = { FileOperationManager.DeleteResult.Success(it.toSet()) },
+            permission = { error("Unexpected permission") },
+            verify = { DeletionVerification(emptySet(), emptySet(), it.toSet()) })
+        assertEquals(setOf(selected.uri), summary.deleted)
+        assertTrue(summary.remaining.isEmpty())
+        assertEquals(listOf(unknown.uri), manager.pendingDeletionUris())
+    }
+
+    @Test fun pendingUnknownCanLaterResolveExistingOrDeletedWithoutReissuingUnknown() = runBlocking {
+        for (wasDeleted in listOf(false, true)) {
+            val records = MemoryRecycleBinStorage()
+            val journal = MemoryRecycleBinStorage()
+            var manager = RecycleBinManager(records, journal)
+            val photo = volumePhoto(1)
+            manager.addToRecycleBin(photo)
+            manager.beginDeletion(listOf(photo.uri))
+            val requests = mutableListOf<List<Uri>>()
+            val unknown = deleteRecycleBinSelection(listOf(photo.uri), manager,
+                request = { requests += it.toList(); FileOperationManager.DeleteResult.Success(it.toSet()) },
+                permission = { false },
+                verify = { DeletionVerification(emptySet(), emptySet(), it.toSet()) })
+            assertTrue(requests.isEmpty())
+            assertEquals(setOf(photo.uri), unknown.remaining)
+            manager = RecycleBinManager(records, journal)
+            val resolved = deleteRecycleBinSelection(listOf(photo.uri), manager,
+                request = { requests += it.toList(); FileOperationManager.DeleteResult.Success(it.toSet()) },
+                permission = { false },
+                verify = {
+                    if (wasDeleted) DeletionVerification(it.toSet(), emptySet(), emptySet())
+                    else DeletionVerification(emptySet(), it.toSet(), emptySet())
+                })
+            assertEquals(if (wasDeleted) emptyList<List<Uri>>() else listOf(listOf(photo.uri)), requests)
+            assertTrue(resolved.remaining.isEmpty())
+            assertTrue(manager.pendingDeletionUris().isEmpty())
+            assertTrue(manager.loadRecycleBin().isEmpty())
+        }
+    }
+
     @Test fun saveFailureStopsTaskAndRecoveryNeverDeletesAgain() = runBlocking {
         val records = MemoryRecycleBinStorage()
         val journal = MemoryRecycleBinStorage()

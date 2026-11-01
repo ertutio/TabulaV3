@@ -146,13 +146,13 @@ class FileOperationManagerTest {
         manager.beginDeletion(listOf(old.uri))
         manager.finishDeletion(emptySet(), setOf(old.uri)) // Previous version left this unknown.
         val verifier = managerWithMountedRecentOverlap()
-        val recovered = reconcileRecycleBinDeletion(manager, verifier::verifyDeletionState)
+        val recovered = reconcileRecycleBinDeletion(manager, verify = verifier::verifyDeletionState)
         assertEquals(setOf(old.uri), recovered.deleted)
         assertTrue(recovered.unknown.isEmpty())
         assertTrue(manager.pendingDeletionUris().isEmpty())
         assertEquals(listOf(newlyAdded.id), manager.loadRecycleBin().map { it.id })
         provider.mode = "present"
         assertEquals(setOf(newlyAdded.uri), verifier.verifyDeletionState(listOf(newlyAdded.uri)).existing)
-        assertTrue(reconcileRecycleBinDeletion(manager, verifier::verifyDeletionState).deleted.isEmpty())
+        assertTrue(reconcileRecycleBinDeletion(manager, verify = verifier::verifyDeletionState).deleted.isEmpty())
     }
 }

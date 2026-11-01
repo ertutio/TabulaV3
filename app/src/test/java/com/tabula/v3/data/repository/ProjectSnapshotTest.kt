@@ -37,6 +37,9 @@ class ProjectSnapshotTest {
         buckets: List<LocalImageRepository.SystemBucket> = emptyList()
     ) = LocalImageRepository.LoadResult(all, excludingTabula, buckets)
 
+    // 卷未知的软删除记录：与 T03 前旧数据一致，退化为纯 ID 匹配。
+    private fun deleted(id: Long) = image(id, bucket = "legacy").copy(volumeName = null)
+
     @Test
     fun softDeletedImagesAreExcludedFromAllProjections() {
         val snap = snapshot(
@@ -51,7 +54,7 @@ class ProjectSnapshotTest {
             )
         )
 
-        val projected = projectSnapshot(snap, setOf(2L))
+        val projected = projectSnapshot(snap, listOf(deleted(2L)))
 
         assertEquals(listOf(1L, 3L), projected.allImages.map { it.id })
         assertEquals(listOf(1L), projected.imagesExcludingTabula.map { it.id })
@@ -72,7 +75,7 @@ class ProjectSnapshotTest {
             )
         )
 
-        val projected = projectSnapshot(snap, setOf(1L))
+        val projected = projectSnapshot(snap, listOf(deleted(1L)))
 
         val bucket = projected.systemBuckets.single()
         assertEquals(2, bucket.imageCount)
@@ -88,7 +91,7 @@ class ProjectSnapshotTest {
             )
         )
 
-        val projected = projectSnapshot(snap, emptySet())
+        val projected = projectSnapshot(snap, emptyList())
 
         assertSame(snap, projected)
     }
@@ -102,7 +105,7 @@ class ProjectSnapshotTest {
             )
         )
 
-        val projected = projectSnapshot(snap, setOf(1L))
+        val projected = projectSnapshot(snap, listOf(deleted(1L)))
 
         val bucket = projected.systemBuckets.single()
         assertEquals("Camera", bucket.name)
@@ -126,7 +129,7 @@ class ProjectSnapshotTest {
             )
         )
 
-        val projected = projectSnapshot(snap, setOf(1L))
+        val projected = projectSnapshot(snap, listOf(deleted(1L)))
 
         val primary = projected.systemBuckets.first { it.volumeName == "external_primary" }
         val secondary = projected.systemBuckets.first { it.volumeName == "external_secondary" }
@@ -150,7 +153,7 @@ class ProjectSnapshotTest {
             )
         )
 
-        val projected = projectSnapshot(snap, setOf(1L, 2L))
+        val projected = projectSnapshot(snap, listOf(deleted(1L), deleted(2L)))
 
         assertEquals(listOf("Downloads", "Camera"), projected.systemBuckets.map { it.name })
         // 投影只重算 count/cover；bucket 的路径/卷原样保留（copy 语义）。

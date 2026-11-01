@@ -143,17 +143,26 @@ class RecycleBinManagerTest {
         assertEquals(listOf(1L, 2L), migrated.map { it.deletedAt })
     }
 
-    @Test fun newManagerRestoresPendingJournalAndCannotOverwriteIt() = runBlocking {
-        val directory = Files.createTempDirectory("tabula-journal").toFile()
-        val record = File(directory, "records.json")
-        val journal = File(directory, "pending.json")
-        val manager = RecycleBinManager(AtomicRecycleBinStorage(record), AtomicRecycleBinStorage(journal))
+    @Test fun newManagerRestoresPendingJournalAndMergesWithoutLosingIt() = runBlocking {
+        // C1-T03-LEGACY-PENDING-ISOLATION：进程重建后遗留 journal 与新删除
+        // 请求合并登记——旧条目不得被覆盖丢失（升级兼容隔离语义）。
+        // 存储用共享 Memory 实例：合并逻辑与存储无关；AtomicFile 层在 Windows
+        // JVM 有双写 rename 伪影（见 atomicReadRestoresLegacyBackup），由 CI
+        // Linux 覆盖。进程重建语义由两个管理器实例共享同一存储模拟。
+        val record = MemoryRecycleBinStorage()
+        val journal = MemoryRecycleBinStorage()
+        val manager = RecycleBinManager(record, journal)
         manager.addToRecycleBin(fixturePhoto(1))
         manager.beginDeletion(listOf(fixturePhoto(1).uri))
-        val recreated = RecycleBinManager(AtomicRecycleBinStorage(record), AtomicRecycleBinStorage(journal))
+        val recreated = RecycleBinManager(record, journal)
         assertEquals(listOf(fixturePhoto(1).uri), recreated.pendingDeletionUris())
-        expectFailure { recreated.beginDeletion(listOf(fixturePhoto(2).uri)) }
-        assertEquals(listOf(fixturePhoto(1).uri), recreated.pendingDeletionUris())
+        recreated.beginDeletion(listOf(fixturePhoto(2).uri))
+        assertEquals(
+            "合并后旧条目与新条目必须并存",
+            listOf(fixturePhoto(1).uri, fixturePhoto(2).uri),
+            recreated.pendingDeletionUris()
+        )
+        assertEquals("合并不得影响回收站记录", listOf(1L), recreated.loadRecycleBin().map { it.id })
     }
 
     @Test fun failedPartialWriteRollsBackAndSilentCommitFailureIsDetected() = runBlocking {
