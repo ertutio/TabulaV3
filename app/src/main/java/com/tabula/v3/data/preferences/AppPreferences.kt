@@ -800,8 +800,55 @@ class AppPreferences(context: Context) {
     }
     
     /**
+     * 整体替换图集的永久处理标记集合（C1/T03-GROUPID 旧格式标记唯一
+     * 映射迁移的写回通道；歧义旧条目由调用方原样保留）。
+     */
+    fun replaceAlbumPermanentlyProcessedGroups(albumId: String, groupIds: Set<String>) {
+        albumCleanupPrefs.edit()
+            .putStringSet("processed_$albumId", groupIds)
+            .apply()
+    }
+
+    /**
+     * 整体替换图集的组目录（C1/T03-GROUPID 复验轮：旧格式组 ID 唯一映射
+     * 迁移的组目录写回通道——groups_ 与 processed_ 口径必须一致，否则
+     * 已处理数/剩余数/完成状态失真）。
+     */
+    fun replaceAlbumGroupIds(albumId: String, groupIds: Set<String>) {
+        albumCleanupPrefs.edit()
+            .putStringSet("groups_$albumId", groupIds)
+            .apply()
+    }
+
+    /**
+     * 组成员持久化键改名（C1/T03-GROUPID 复验轮：group_images_ 与组目录
+     * 同步迁移；源键不存在时为无操作）。
+     */
+    fun renameGroupMembersKey(albumId: String, fromGroupId: String, toGroupId: String) {
+        val members = albumCleanupPrefs.getString("group_images_${albumId}_$fromGroupId", null)
+            ?: return
+        albumCleanupPrefs.edit()
+            .putString("group_images_${albumId}_$toGroupId", members)
+            .remove("group_images_${albumId}_$fromGroupId")
+            .apply()
+    }
+
+    /**
+     * 组数量持久化键改名（C1/T03-GROUPID 复验轮：group_size_ 与组目录
+     * 同步迁移；源键不存在时为无操作）。
+     */
+    fun renameGroupSizeKey(albumId: String, fromGroupId: String, toGroupId: String) {
+        if (!albumCleanupPrefs.contains("group_size_${albumId}_$fromGroupId")) return
+        val count = albumCleanupPrefs.getInt("group_size_${albumId}_$fromGroupId", 0)
+        albumCleanupPrefs.edit()
+            .putInt("group_size_${albumId}_$toGroupId", count)
+            .remove("group_size_${albumId}_$fromGroupId")
+            .apply()
+    }
+
+    /**
      * 批量永久标记图集中的组为已处理
-     * 
+     *
      * @param albumId 图集ID
      * @param groupIds 组ID列表
      */
@@ -904,8 +951,49 @@ class AppPreferences(context: Context) {
     }
     
     /**
+     * 获取图集清理断点的保存时刻（毫秒；C1/T03-GROUPID 复验轮三：用于
+     * 判断断点保存后分析是否重跑过——重跑使旧位置索引不可确认）。
+     *
+     * @param albumId 图集ID
+     * @return 保存时刻毫秒，无断点返回 0
+     */
+    fun getAlbumCleanupCheckpointSavedAt(albumId: String): Long {
+        return albumCleanupPrefs.getLong("checkpoint_time_$albumId", 0L)
+    }
+
+    /**
+     * 整体替换图集清理断点并**保留原保存时刻**（C1/T03-GROUPID 复验轮三：
+     * 旧格式断点引用迁移的写回通道——重写引用时若刷新保存时刻，会使
+     * "分析晚于断点"的时序判据在迁移入口失效）。
+     */
+    fun replaceAlbumCleanupCheckpoint(
+        albumId: String,
+        groupIds: List<String>,
+        currentIndex: Int,
+        savedAtMs: Long
+    ) {
+        albumCleanupPrefs.edit()
+            .putStringSet("checkpoint_groups_$albumId", groupIds.toSet())
+            .putString("checkpoint_groups_order_$albumId", groupIds.joinToString(","))
+            .putInt("checkpoint_index_$albumId", currentIndex)
+            .putLong("checkpoint_time_$albumId", savedAtMs)
+            .apply()
+    }
+
+    /**
+     * 获取图集最近一次相似组分析的时刻（毫秒；C1/T03-GROUPID 复验轮三：
+     * 晚于断点保存时刻说明分析重跑过，批次组成/排序可能已变）。
+     *
+     * @param albumId 图集ID
+     * @return 分析时刻毫秒，从未分析返回 0
+     */
+    fun getAlbumAnalyzedAt(albumId: String): Long {
+        return albumCleanupPrefs.getLong("analyzed_$albumId", 0L)
+    }
+
+    /**
      * 获取图集清理断点
-     * 
+     *
      * @param albumId 图集ID
      * @return 断点信息 (组ID列表, 当前索引)，如果没有断点返回 null
      */
@@ -958,30 +1046,33 @@ class AppPreferences(context: Context) {
     }
     
     /**
-     * 批量保存多个组的图片 ID 列表
-     * 
+     * 批量保存多个组的成员列表（C1/T03-GROUPID：值为完整媒体身份键
+     * "卷|ID"；既有构建写入的旧格式为逗号分隔裸数字 ID，读取侧按
+     * 唯一性解析兼容，见 AlbumCleanupEngine.restoreGroupsFromPrefs）。
+     *
      * @param albumId 图集ID
-     * @param groupImageIds 组ID到图片ID列表的映射
+     * @param groupImageIds 组ID到成员身份键列表的映射
      */
-    fun saveGroupsImageIds(albumId: String, groupImageIds: Map<String, List<Long>>) {
+    fun saveGroupsImageIds(albumId: String, groupImageIds: Map<String, List<String>>) {
         val editor = albumCleanupPrefs.edit()
-        groupImageIds.forEach { (groupId, imageIds) ->
-            editor.putString("group_images_${albumId}_$groupId", imageIds.joinToString(","))
+        groupImageIds.forEach { (groupId, memberKeys) ->
+            editor.putString("group_images_${albumId}_$groupId", memberKeys.joinToString(","))
         }
         editor.apply()
     }
-    
+
     /**
-     * 获取单个组的图片 ID 列表
-     * 
+     * 获取单个组的成员列表（原始字符串：新格式为身份键"卷|ID"，
+     * 旧格式为裸数字 ID——由调用方按身份解析，此处不做语义过滤）。
+     *
      * @param albumId 图集ID
      * @param groupId 组ID
-     * @return 组内图片 ID 列表，如果不存在返回 null
+     * @return 组内成员键列表，如果不存在返回 null
      */
-    fun getGroupImageIds(albumId: String, groupId: String): List<Long>? {
+    fun getGroupImageIds(albumId: String, groupId: String): List<String>? {
         val idsString = albumCleanupPrefs.getString("group_images_${albumId}_$groupId", null)
             ?: return null
-        return idsString.split(",").mapNotNull { it.toLongOrNull() }
+        return idsString.split(",").filter { it.isNotBlank() }
     }
     
     /**
