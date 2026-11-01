@@ -452,35 +452,97 @@ class AlbumCleanupEngine(
      * @return 恢复的相似组列表，如果无法恢复返回 null
      */
     /**
-     * C1/T03-GROUPID：旧口径永久处理标记（"startTime_首张数字 ID"）迁移。
-     * 旧标记在当前组集合中能唯一映射（组的最早成员数字 ID 与 startTime 均
-     * 匹配）时替换为新身份 ID——用户已处理意图保留；命中多个候选组（跨卷
-     * 同数值 ID）或无候选（成员已变化）时**原样保留**歧义记录，不猜测、
-     * 不清空用户标记（待解析边界：用户重新处理该组时会写入新格式标记）。
-     * 幂等：迁移后旧格式条目被移除，重复调用无进一步变化。
+     * C1/T03-GROUPID：旧口径组 ID（"startTime_首张数字 ID"）到当前身份组的
+     * 唯一映射迁移。旧 ID 在当前组集合中能唯一映射（组的最早成员数字 ID 与
+     * startTime 均匹配）时，**全部**以其为主键的持久化记录一致改写为新身份
+     * ID——永久处理标记、组目录、组成员、组数量与 checkpoint 引用；命中多个
+     * 候选组（跨卷同数值 ID）或无候选（成员已变化）时**原样保留**歧义记录，
+     * 不猜测、不清空用户标记（待解析边界：用户重新处理该组时会写入新格式
+     * 标记）。幂等：迁移后旧格式条目被移除，重复调用无进一步变化。
      */
     private fun migrateLegacyProcessedGroupIds(albumId: String, groups: List<SimilarGroup>) {
-        val processed = preferences.getAlbumPermanentlyProcessedGroups(albumId)
-        val legacyIds = processed.filter { isLegacyGroupId(it) }
-        if (legacyIds.isEmpty()) return
-
-        val migrated = processed.toMutableSet()
-        var changed = false
-        for (legacyId in legacyIds) {
-            val (start, firstId) = parseLegacyGroupId(legacyId) ?: continue
+        // C1/T03-GROUPID 复验轮二：迁移必须覆盖**全部**以组 ID 为主键的持久化
+        // 记录（processed_ / groups_ / group_images_ / group_size_ / checkpoint
+        // 引用）——只改 processed_ 会使组目录与标记口径分裂：已处理数 1→0、
+        // 剩余数失真、完成状态错误。唯一可解析的旧 ID 全部一致改写；歧义/
+        // 失配条目原样保留（不猜选、不清空用户标记）。幂等：改写后旧键消失。
+        fun uniqueTarget(legacyId: String): SimilarGroup? {
+            val (start, firstId) = parseLegacyGroupId(legacyId) ?: return null
             val candidates = groups.filter { group ->
                 group.startTime == start && group.images.firstOrNull()?.id == firstId
             }
-            if (candidates.size == 1) {
-                migrated.remove(legacyId)
-                migrated.add(candidates.single().id)
-                changed = true
-                android.util.Log.d(TAG, "Migrated legacy processed marker $legacyId -> ${candidates.single().id}")
+            return candidates.singleOrNull()
+        }
+
+        var changed = false
+
+        // 1) 永久处理标记
+        val processed = preferences.getAlbumPermanentlyProcessedGroups(albumId)
+        val legacyProcessed = processed.filter { isLegacyGroupId(it) }
+        if (legacyProcessed.isNotEmpty()) {
+            val migrated = processed.toMutableSet()
+            for (legacyId in legacyProcessed) {
+                val target = uniqueTarget(legacyId)
+                if (target != null) {
+                    migrated.remove(legacyId)
+                    migrated.add(target.id)
+                    changed = true
+                    android.util.Log.d(TAG, "Migrated legacy processed marker $legacyId -> ${target.id}")
+                }
+                // 多候选（跨卷歧义）或无候选（成员已变化）：保留原样。
             }
-            // candidates.size >= 2（跨卷歧义）或 == 0（成员已变化）：保留原样。
+            if (changed) {
+                preferences.replaceAlbumPermanentlyProcessedGroups(albumId, migrated)
+            }
+        }
+
+        // 2) 组目录 / 成员 / 数量 / checkpoint 引用
+        val groupIds = preferences.getAlbumGroupIds(albumId)
+        val legacyInGroups = groupIds.filter { isLegacyGroupId(it) }
+        val mappings = legacyInGroups.mapNotNull { legacyId ->
+            uniqueTarget(legacyId)?.let { legacyId to it }
+        }
+        if (mappings.isNotEmpty()) {
+            val newGroupIds = groupIds.toMutableSet()
+            mappings.forEach { (legacyId, target) ->
+                newGroupIds.remove(legacyId)
+                newGroupIds.add(target.id)
+            }
+            preferences.replaceAlbumGroupIds(albumId, newGroupIds)
+            mappings.forEach { (legacyId, target) ->
+                preferences.renameGroupMembersKey(albumId, legacyId, target.id)
+                preferences.renameGroupSizeKey(albumId, legacyId, target.id)
+                // 成员值同步改写为完整身份键（与组目录/标记一致身份）：
+                // 旧裸数字 ID 按目标组成员对应；已不存在（无法对应）的成员
+                // 保留原字符串，由恢复端按既有缺失语义丢弃。
+                val members = preferences.getGroupImageIds(albumId, target.id)
+                if (!members.isNullOrEmpty()) {
+                    val rewritten = members.map { member ->
+                        val memberId = member.toLongOrNull()
+                        if (memberId != null) {
+                            target.images.find { it.id == memberId }?.mediaIdentityKey() ?: member
+                        } else {
+                            member
+                        }
+                    }
+                    preferences.saveGroupsImageIds(albumId, mapOf(target.id to rewritten))
+                }
+                android.util.Log.d(TAG, "Migrated legacy group keys $legacyId -> ${target.id}")
+            }
+            // checkpoint 中的引用同步改写（保序保 index；重复条目按原样逐条映射）。
+            val checkpoint = preferences.getAlbumCleanupCheckpoint(albumId)
+            if (checkpoint != null) {
+                val (order, index) = checkpoint
+                if (order.any { it in mappings.map { m -> m.first } }) {
+                    val mapping = mappings.toMap()
+                    val newOrder = order.map { mapping[it]?.id ?: it }
+                    preferences.saveAlbumCleanupCheckpoint(albumId, newOrder, index)
+                }
+            }
+            changed = true
         }
         if (changed) {
-            preferences.replaceAlbumPermanentlyProcessedGroups(albumId, migrated)
+            android.util.Log.d(TAG, "Legacy group identity migration complete for $albumId")
         }
     }
 
@@ -635,19 +697,29 @@ class AlbumCleanupEngine(
         
         if (groups.isEmpty()) return@withContext null
 
-        // C1/T03-GROUPID：与 getNextBatch 同口径——先迁移旧口径永久标记
+        // C1/T03-GROUPID：与 getNextBatch 同口径——先迁移旧口径持久化身份
         // （唯一映射→新身份 ID，歧义原样保留），升级窗口内断点记录的旧 ID
-        // 才不会漏掉已迁移的标记。
+        // 才不会漏掉已迁移的标记与组目录。
         migrateLegacyProcessedGroupIds(albumId, groups)
         // 获取已永久处理的组ID
         val permanentlyProcessedIds = preferences.getAlbumPermanentlyProcessedGroups(albumId)
 
         // 根据保存的组ID重建批次。
-        // C1/T03-GROUPID：升级前断点记录的是旧口径组 ID，恢复出的组已是
-        // 身份 ID——旧 ID 按其定义（startTime_首张数字 ID）作别名解析；
-        // 标记比对一律用解析后的新身份 ID（旧 ID 直接比对会漏掉已迁移标记）。
+        // C1/T03-GROUPID 复验轮一：新格式组 ID 精确匹配；旧口径别名仅在
+        // **唯一候选**时解析——两卷的不同组共用同一旧别名时，任何 last-wins
+        // 猜选都会把旧索引套到错误组上跳过照片。此时明确放弃续接并安全重算
+        // （仅清断点，不清除永久处理意图、不自动标记任一候选）。
+        val aliasGroups = groups.groupBy { group -> "${group.startTime}_${group.images.firstOrNull()?.id ?: 0}" }
+        val hasAmbiguousSavedId = savedGroupIds.any { savedId ->
+            groups.none { it.id == savedId } && (aliasGroups[savedId]?.size ?: 0) >= 2
+        }
+        if (hasAmbiguousSavedId) {
+            android.util.Log.w(TAG, "Ambiguous legacy checkpoint ids for $albumId; abandoning resume for safe re-detection")
+            clearCheckpoint(albumId)
+            return@withContext null
+        }
         val groupMap = groups.associateBy { it.id } +
-            groups.associateBy { group -> "${group.startTime}_${group.images.firstOrNull()?.id ?: 0}" }
+            aliasGroups.filterValues { it.size == 1 }.mapValues { it.value.single() }
         val batchImages = mutableListOf<ImageFile>()
         val batchGroupIds = mutableListOf<String>()
         val batchBoundaries = mutableListOf<Int>()

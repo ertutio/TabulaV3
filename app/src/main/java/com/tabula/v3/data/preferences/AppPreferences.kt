@@ -810,6 +810,43 @@ class AppPreferences(context: Context) {
     }
 
     /**
+     * 整体替换图集的组目录（C1/T03-GROUPID 复验轮：旧格式组 ID 唯一映射
+     * 迁移的组目录写回通道——groups_ 与 processed_ 口径必须一致，否则
+     * 已处理数/剩余数/完成状态失真）。
+     */
+    fun replaceAlbumGroupIds(albumId: String, groupIds: Set<String>) {
+        albumCleanupPrefs.edit()
+            .putStringSet("groups_$albumId", groupIds)
+            .apply()
+    }
+
+    /**
+     * 组成员持久化键改名（C1/T03-GROUPID 复验轮：group_images_ 与组目录
+     * 同步迁移；源键不存在时为无操作）。
+     */
+    fun renameGroupMembersKey(albumId: String, fromGroupId: String, toGroupId: String) {
+        val members = albumCleanupPrefs.getString("group_images_${albumId}_$fromGroupId", null)
+            ?: return
+        albumCleanupPrefs.edit()
+            .putString("group_images_${albumId}_$toGroupId", members)
+            .remove("group_images_${albumId}_$fromGroupId")
+            .apply()
+    }
+
+    /**
+     * 组数量持久化键改名（C1/T03-GROUPID 复验轮：group_size_ 与组目录
+     * 同步迁移；源键不存在时为无操作）。
+     */
+    fun renameGroupSizeKey(albumId: String, fromGroupId: String, toGroupId: String) {
+        if (!albumCleanupPrefs.contains("group_size_${albumId}_$fromGroupId")) return
+        val count = albumCleanupPrefs.getInt("group_size_${albumId}_$fromGroupId", 0)
+        albumCleanupPrefs.edit()
+            .putInt("group_size_${albumId}_$toGroupId", count)
+            .remove("group_size_${albumId}_$fromGroupId")
+            .apply()
+    }
+
+    /**
      * 批量永久标记图集中的组为已处理
      *
      * @param albumId 图集ID
