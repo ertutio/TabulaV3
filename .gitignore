@@ -20,3 +20,4 @@ app/build/
 build/
 
 .worktrees/
+.kotlin/
