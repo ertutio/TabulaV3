@@ -118,17 +118,26 @@ class RecycleBinManager internal constructor(
     /** Persist intent before handing any irreversible request to the system. */
     suspend fun beginDeletion(uris: List<Uri>) = transaction {
         loadUnlocked()
-        check(pendingUnlocked().isEmpty()) { "上次删除尚未核对" }
-        savePendingUnlocked(uris.distinct())
+        // C1-T03-LEGACY-PENDING-ISOLATION：合并登记而非要求空日志——升级前
+        // 遗留的未知条目保留在日志中，其他照片的删除照常进行且不覆盖旧日志。
+        savePendingUnlocked((pendingUnlocked() + uris.distinct()))
     }
 
     /** Commit the records first. If either write fails, recovery is safe to repeat. */
-    suspend fun finishDeletion(deleted: Set<Uri>, unknown: Set<Uri> = emptySet()) = transaction {
+    suspend fun finishDeletion(
+        deleted: Set<Uri>,
+        unknown: Set<Uri> = emptySet(),
+        covered: Set<Uri>? = null
+    ) = transaction {
         val pending = pendingUnlocked().toSet()
         require(deleted.all { it in pending } && unknown.all { it in pending })
+        // covered = 本次核验实际覆盖的 URI；null 视为全部 pending（旧语义）。
+        // journal 保留未被覆盖的条目（升级前遗留的未知项，每次对账重新核验）。
+        val coveredSet = covered ?: pending
+        require(deleted.all { it in coveredSet } && unknown.all { it in coveredSet })
         val items = loadUnlocked()
         if (deleted.isNotEmpty()) saveUnlocked(items.filterNot { it.uri in deleted })
-        savePendingUnlocked(unknown.toList())
+        savePendingUnlocked(((pending - coveredSet) + unknown).toList())
     }
 
     private fun pendingUnlocked(): List<Uri> {

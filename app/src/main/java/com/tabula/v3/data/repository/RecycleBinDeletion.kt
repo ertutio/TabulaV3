@@ -53,7 +53,7 @@ internal suspend fun reconcileRecycleBinDeletion(
     val records = manager.loadRecycleBin()
     val (confirmed, unconfirmed) = partitionByConfirmedIdentity(pending, records, resolveVolume)
     val state = verify(confirmed)
-    manager.finishDeletion(state.deleted, state.unknown + unconfirmed)
+    manager.finishDeletion(state.deleted, state.unknown + unconfirmed, covered = confirmed)
     return DeletionVerification(state.deleted, state.existing, state.unknown + unconfirmed)
 }
 
@@ -81,21 +81,21 @@ internal suspend fun deleteRecycleBinBatch(
     manager.beginDeletion(confirmedUris)
     val state = when (val result = request(confirmedUris)) {
         is FileOperationManager.DeleteResult.Error -> {
-            manager.finishDeletion(emptySet())
+            manager.finishDeletion(emptySet(), covered = confirmedUris.toSet())
             return result.asBatchFailure()
         }
         is FileOperationManager.DeleteResult.Success ->
             DeletionVerification(result.deleted, confirmedUris.toSet() - result.deleted, emptySet())
         is FileOperationManager.DeleteResult.NeedsPermission -> {
             if (!permission(result)) {
-                manager.finishDeletion(emptySet())
+                manager.finishDeletion(emptySet(), covered = confirmedUris.toSet())
                 return BatchDeleteResult.Cancelled
             }
             verify(result.pendingUris)
         }
     }
     try {
-        manager.finishDeletion(state.deleted, state.unknown)
+        manager.finishDeletion(state.deleted, state.unknown, covered = confirmedUris.toSet())
     } catch (e: RecycleBinPersistenceException) {
         throw RecycleBinCommitException(state.deleted, e)
     }

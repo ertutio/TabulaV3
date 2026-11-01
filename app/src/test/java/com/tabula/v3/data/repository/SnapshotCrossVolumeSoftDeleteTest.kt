@@ -207,8 +207,9 @@ class SnapshotCrossVolumeSoftDeleteTest {
             "剩余记录必须是第二卷那张",
             "external_secondary", remaining.single().volumeName
         )
-        // journal 提交完成：unknown 为空且 pending 已清空。
-        assertTrue(bin.pendingDeletionUris().isEmpty())
+        // journal 保留语义：仅主卷被确认删除，第二卷的删除仍待处理——
+        // 其 pending 条目必须保留（finishDeletion 不再丢弃未处理条目）。
+        assertEquals(listOf(secondary10.uri), bin.pendingDeletionUris())
 
         // 对照钉死：旧聚合 URI 语义（两记录共享同一 URI）下同一流程会双删——
         // 这就是卷限定 URI 修复的动机。
@@ -363,6 +364,47 @@ class SnapshotCrossVolumeSoftDeleteTest {
         val remainingRecords = bin.loadRecycleBin()
         assertEquals(1, remainingRecords.size)
         assertEquals(10L, remainingRecords.single().id)
+    }
+
+    @Test
+    fun pendingLegacyUnknownDoesNotBlockOtherDeletes() = runBlocking {
+        // C1-T03-LEGACY-PENDING-ISOLATION：升级前旧构建写下的 pending 日志
+        // （聚合 URI）在对账保持 UNKNOWN 后，不得阻断其他身份明确、无冲突
+        // 照片的删除；旧日志与旧记录保留、不重发删除、不被覆盖。
+        seedRow(10L, "external_primary", "DCIM/Camera/")
+        seedRow(11L, "external_primary", "DCIM/Camera/")
+        val loaded = repository.loadAllData()
+        val legacy = loaded.allImages.first { it.id == 10L && it.volumeName == "external_primary" }
+            .copy(uri = Uri.parse("content://media/external/images/media/10"))
+        val other = loaded.allImages.first { it.id == 11L && it.volumeName == "external_primary" }
+
+        val bin = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        bin.addAllToRecycleBin(listOf(legacy, other))
+        bin.beginDeletion(listOf(legacy.uri))       // 升级前旧构建写下的 pending 日志
+        provider.rows.remove(10L)                    // 旧聚合删除已物理生效（行消失）
+
+        // 对账：聚合 URI 身份无法确认（行已删）→ UNKNOWN，记录与日志保留。
+        val recovered = reconcileRecycleBinDeletion(bin, resolveVolume = { null }) {
+            DeletionVerification(emptySet(), it.toSet(), emptySet())
+        }
+        assertEquals(setOf(legacy.uri), recovered.unknown)
+        assertEquals(listOf(10L, 11L), bin.loadRecycleBin().map { it.id })
+
+        // 另一张身份明确、无冲突的照片删除：必须正常进行。
+        val requested = mutableListOf<Uri>()
+        val result = deleteRecycleBinBatch(
+            listOf(other.uri), bin,
+            request = {
+                requested += it
+                FileOperationManager.DeleteResult.Success(it.toSet())
+            },
+            permission = { error("Unexpected permission") },
+            verify = { DeletionVerification(it.toSet(), emptySet(), emptySet()) }
+        )
+        assertTrue("无冲突照片必须能正常删除", result is BatchDeleteResult.Completed)
+        assertEquals("只重发无冲突照片的删除", listOf(other.uri), requested)
+        assertEquals("另一张的记录正常移除", listOf(10L), bin.loadRecycleBin().map { it.id })
+        assertEquals("旧 pending 日志不得被覆盖或清除", listOf(legacy.uri), bin.pendingDeletionUris())
     }
 
     @Test

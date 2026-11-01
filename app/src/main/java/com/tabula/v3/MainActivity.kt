@@ -532,8 +532,9 @@ fun TabulaApp(
                 )
                 removeConfirmedFromState(recovered.deleted)
                 if (recovered.unknown.isNotEmpty()) {
-                    Toast.makeText(context, "上次删除结果无法确认，请检查完整照片访问权限和存储卷后重试核对", Toast.LENGTH_LONG).show()
-                    return@launch
+                    // C1-T03-LEGACY-PENDING-ISOLATION：遗留未知项保留记录与日志、
+                    // 不重发删除；与其无交集的其他照片照常删除（逐批身份分区隔离）。
+                    Toast.makeText(context, "上次删除尚有无法核对的照片，已保留；其余照片将继续处理", Toast.LENGTH_LONG).show()
                 }
                 val summary = deleteInBatches(
                     items = snapshot.filterNot { it.uri in recovered.deleted }.map { it.uri },
