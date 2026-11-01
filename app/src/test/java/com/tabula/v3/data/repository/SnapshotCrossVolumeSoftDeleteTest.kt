@@ -411,4 +411,56 @@ class SnapshotCrossVolumeSoftDeleteTest {
         val projected = projectSnapshot(loaded, listOf(legacyRecord))
         assertTrue(projected.allImages.none { it.id == 10L })
     }
+
+    @Test
+    fun albumBatchDeleteResolvesOnlyConfirmedIdentityRows() = runBlocking {
+        // O5③：图集批量永久删除（AlbumViewScreen 选择集 → MainActivity 删除请求）
+        // 必须按完整媒体身份（卷|ID）消费选择集——不同卷的同数值 ID 只解析确认
+        // 选中的那一行。旧口径按数值 ID 过滤（MainActivity
+        // allImages.filter { it.id in imageIds }），选择集无法区分卷，另一卷同 ID
+        // 行会被一并解析进删除请求并物理删除。
+        seedRow(10L, "external_primary", "DCIM/Camera/")
+        seedRow(11L, "external_primary", "DCIM/Camera/")
+        seedRow(10L, "external_secondary", "DCIM/Camera/")
+        seedRow(12L, "external_secondary", "DCIM/Camera/")
+        val loaded = repository.loadAllData()
+        assertEquals(
+            "聚合查询必须同时返回两卷的同数值 ID 行",
+            2, loaded.allImages.count { it.id == 10L }
+        )
+
+        // UI 选择集 = 确认行的身份键（mediaIdentityKey，"卷|ID"）。
+        val confirmedPrimary = loaded.allImages.first { it.id == 10L && it.volumeName == "external_primary" }
+        val resolved = resolveImagesByIdentitySelection(
+            loaded.allImages,
+            setOf(confirmedPrimary.mediaIdentityKey())
+        )
+
+        assertEquals(
+            "只解析确认选中（主卷）的那一行",
+            1, resolved.size
+        )
+        assertEquals(
+            "解析出的必须是主卷确认行，另一卷同 ID 行不得进入删除请求",
+            "external_primary", resolved.single().volumeName
+        )
+        assertEquals(
+            "删除目标必须携带确认行的卷限定 URI（下游 deleteInBatches 按此区分卷）",
+            confirmedPrimary.uri, resolved.single().uri
+        )
+
+        // 全选同 ID 两行：两行都被用户确认 → 都解析（确认集合固定，不扩大）。
+        val bothKeys = loaded.allImages.filter { it.id == 10L }
+            .map { it.mediaIdentityKey() }.toSet()
+        assertEquals(
+            "全选时两行都在确认集合内",
+            2, resolveImagesByIdentitySelection(loaded.allImages, bothKeys).size
+        )
+
+        // 空选择不解析任何行。
+        assertTrue(
+            "空选择不得解析出任何删除目标",
+            resolveImagesByIdentitySelection(loaded.allImages, emptySet()).isEmpty()
+        )
+    }
 }
