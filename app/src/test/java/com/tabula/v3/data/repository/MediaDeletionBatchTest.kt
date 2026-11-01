@@ -209,6 +209,53 @@ class MediaDeletionBatchTest {
         assertEquals(250, summary.remaining.size)
     }
 
+    @Test
+    fun twoThousandOneItemsSplitThroughProductionAdapterKeepingPartialSuccess() = runBlocking {
+        // TC17：2001 项经生产协调组合（deleteInBatches + deleteMediaUrisBatch，
+        // 即 performDeleteBatch/performDeleteUris 的实际形态）分批：每请求 ≤100 项、
+        // 逐批授权核验、末批服务错误停止后续，已确认 2000 项按批保留，
+        // 不把整体结果当每项结果。
+        val all = uris(2001)
+        val requests = mutableListOf<List<Uri>>()
+        val delivered = mutableListOf<Set<Uri>>()
+
+        val summary = deleteInBatches(
+            items = all,
+            deleteBatch = { batch ->
+                deleteMediaUrisBatch(
+                    batch,
+                    request = { uris ->
+                        requests += uris
+                        if (uris.size == 1) {
+                            // 末批（1 项）服务错误：分类为不可拆分失败并停止。
+                            FileOperationManager.DeleteResult.Error("删除服务不可用", DeleteFailureKind.SERVICE)
+                        } else {
+                            FileOperationManager.DeleteResult.NeedsPermission(createIntentSender(), uris)
+                        }
+                    },
+                    permission = { true },
+                    verify = { verification(it.toSet()) }
+                )
+            },
+            onDeleted = { delivered += it }
+        )
+
+        assertEquals(21, requests.size)
+        assertEquals((1..20).map { 100 }, requests.take(20).map { it.size })
+        assertEquals(1, requests.last().size)
+        assertEquals(all, requests.flatten())
+        assertEquals(all.dropLast(1).toSet(), summary.deleted)
+        assertEquals(setOf(all[2000]), summary.remaining)
+        assertEquals(false, summary.cancelled)
+        assertEquals("删除服务不可用", summary.error)
+        // 按项结果逐批更新 UI/持久状态：20 次增量交付，合计前 2000 项。
+        assertEquals(20, delivered.size)
+        assertEquals(all.dropLast(1), delivered.flatten())
+        assertEquals(2000, delivered.flatten().toSet().size)
+        assertTrue(mediaDeletionMessage(summary, "图片").contains("已确认删除 2000 张图片"))
+        assertTrue(mediaDeletionMessage(summary, "图片").contains("删除服务不可用"))
+    }
+
     private fun createIntentSender(): android.content.IntentSender {
         val pending = android.app.PendingIntent.getActivity(
             RuntimeEnvironment.getApplication(),
