@@ -40,16 +40,18 @@ fun coverImageRequest(
     rgb565: Boolean = false,
     inexact: Boolean = false
 ): ImageRequest {
-    // 基线（复验轮：两审计点的忠实现状形状）：请求仅以 URI 为数据源、无
-    // 显式缓存键——同 URI 不同内容版本共享 Coil 默认键（陈旧缩略图），
-    // 跨卷同 ID 行共享同一聚合/卷内 URI 时互相串图。身份+版本键在下一步
-    // 修复中接入。
+    // C1/T03-COVERKEY：显式缓存键 = 完整媒体身份 + 内容版本——同一照片
+    // 编辑内容（dateModified 变化）后请求与缓存身份随之变化；跨卷同数值
+    // ID 行彼此隔离。
+    val key = gridThumbnailCacheKey(prefix, coverImage)
     val builder = ImageRequest.Builder(context)
         .data(coverImage.uri)
     val sized = if (size != null) builder.size(size) else builder
     val precise = if (inexact) sized.precision(Precision.INEXACT) else sized
     val configed = if (rgb565) precise.bitmapConfig(Bitmap.Config.RGB_565) else precise
     return configed
+        .memoryCacheKey(key)
+        .diskCacheKey(key)
         .memoryCachePolicy(CachePolicy.ENABLED)
         .diskCachePolicy(CachePolicy.ENABLED)
         .allowHardware(allowHardware)
