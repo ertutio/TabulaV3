@@ -61,6 +61,32 @@ internal suspend fun reconcileRecycleBinDeletion(
     )
 }
 
+/** Shared by the recycle-bin UI and recovery regression tests. */
+internal suspend fun deleteRecycleBinSelection(
+    uris: List<Uri>,
+    manager: RecycleBinManager,
+    request: suspend (List<Uri>) -> FileOperationManager.DeleteResult,
+    permission: suspend (FileOperationManager.DeleteResult.NeedsPermission) -> Boolean,
+    verify: suspend (List<Uri>) -> DeletionVerification,
+    resolveVolume: suspend (Uri) -> String? = { null },
+    onRecovered: suspend (DeletionVerification) -> Unit = {},
+    onDeleted: suspend (Set<Uri>) -> Unit = {}
+): BatchDeleteSummary<Uri> {
+    val recovered = reconcileRecycleBinDeletion(manager, resolveVolume, verify)
+    onRecovered(recovered)
+    // A pending UNKNOWN has an unresolved earlier request. Only reconciliation may
+    // release it; another request could also clear its journal on error or denial.
+    val summary = deleteInBatches(
+        items = uris.filterNot { it in recovered.deleted || it in recovered.unknown },
+        deleteBatch = { batch ->
+            deleteRecycleBinBatch(batch, manager, request, permission, verify, resolveVolume)
+        },
+        onDeleted = onDeleted
+    )
+    // Report only selected unresolved items, rather than every historical UNKNOWN.
+    return summary.copy(remaining = summary.remaining + uris.toSet().intersect(recovered.unknown))
+}
+
 internal suspend fun deleteRecycleBinBatch(
     uris: List<Uri>,
     manager: RecycleBinManager,

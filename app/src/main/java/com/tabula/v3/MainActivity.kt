@@ -80,7 +80,7 @@ import com.tabula.v3.permission.MediaPermissionPolicy
 import com.tabula.v3.permission.DeletePermissionSession
 import com.tabula.v3.data.repository.RecycleBinPersistenceException
 import com.tabula.v3.data.repository.RecycleBinCommitException
-import com.tabula.v3.data.repository.deleteRecycleBinBatch
+import com.tabula.v3.data.repository.deleteRecycleBinSelection
 import com.tabula.v3.data.repository.reconcileRecycleBinDeletion
 import com.tabula.v3.ui.navigation.AppScreen
 import com.tabula.v3.ui.navigation.PredictiveBackContainer
@@ -525,36 +525,29 @@ fun TabulaApp(
         isDeletingRecycleBin = true
         scope.launch {
             try {
-                val recovered = reconcileRecycleBinDeletion(
-                    recycleBinManager,
+                var recoveredCount = 0
+                val summary = deleteRecycleBinSelection(
+                    snapshot.map { it.uri }, recycleBinManager,
+                    request = fileOperationManager::deleteImages,
                     resolveVolume = { resolveMediaVolumeName(context, it) },
-                    verify = fileOperationManager::verifyDeletionState
-                )
-                removeConfirmedFromState(recovered.deleted)
-                if (recovered.unknown.isNotEmpty()) {
-                    // C1-T03-LEGACY-PENDING-ISOLATION：遗留未知项保留记录与日志、
-                    // 不重发删除；与其无交集的其他照片照常删除（逐批身份分区隔离）。
-                    Toast.makeText(context, "上次删除尚有无法核对的照片，已保留；其余照片将继续处理", Toast.LENGTH_LONG).show()
-                }
-                val summary = deleteInBatches(
-                    items = snapshot.filterNot { it.uri in recovered.deleted }.map { it.uri },
-                    deleteBatch = { uris ->
-                        deleteRecycleBinBatch(
-                            uris, recycleBinManager, fileOperationManager::deleteImages,
-                            resolveVolume = { resolveMediaVolumeName(context, it) },
-                            permission = { result ->
-                                suspendCancellableCoroutine { continuation ->
-                                    onRequestDeletePermission(result.intentSender) { allowed ->
-                                        if (continuation.isActive) continuation.resume(allowed)
-                                    }
-                                }
-                            },
-                            verify = fileOperationManager::verifyDeletionState
-                        )
+                    permission = { result ->
+                        suspendCancellableCoroutine { continuation ->
+                            onRequestDeletePermission(result.intentSender) { allowed ->
+                                if (continuation.isActive) continuation.resume(allowed)
+                            }
+                        }
+                    },
+                    verify = fileOperationManager::verifyDeletionState,
+                    onRecovered = { recovered ->
+                        recoveredCount = recovered.deleted.size
+                        removeConfirmedFromState(recovered.deleted)
+                        if (recovered.unknown.isNotEmpty()) {
+                            Toast.makeText(context, "上次删除尚有无法核对的照片，已保留；其余照片将继续处理", Toast.LENGTH_LONG).show()
+                        }
                     },
                     onDeleted = { removeConfirmedFromState(it) }
                 )
-                val processed = summary.deleted.size + recovered.deleted.size
+                val processed = summary.deleted.size + recoveredCount
                 val message = when {
                     summary.cancelled -> "已取消，已处理 ${processed} 张，剩余 ${summary.remaining.size} 张"
                     summary.error != null -> "已处理 ${processed} 张，剩余 ${summary.remaining.size} 张；${summary.error}"
