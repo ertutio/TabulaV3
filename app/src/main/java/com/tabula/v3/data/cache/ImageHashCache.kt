@@ -2,6 +2,7 @@ package com.tabula.v3.data.cache
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.PerceptualHash
 
 /**
@@ -9,9 +10,10 @@ import com.tabula.v3.data.repository.PerceptualHash
  * 
  * 使用 SharedPreferences 存储图片的感知哈希值，避免重复计算。
  * 
- * 存储格式：
- * - "hash_{imageId}" -> Long (哈希值，使用 Long.MIN_VALUE 表示计算失败)
- * - "status_{imageId}" -> Int (状态：0=成功, 1=失败)
+ * 存储格式（键 = 完整媒体身份，C1/T03-HASHVOLUME）：
+ * - "hash_{volume}_{imageId}" / 旧裸 ID "hash_{imageId}"（卷未知）-> Long
+ *   (哈希值，使用 Long.MIN_VALUE 表示计算失败)
+ * - "status_…" -> Int (状态：0=成功, 1=失败)
  * 
  * 注意：Long.MIN_VALUE 作为失败标记是因为它作为真实哈希值的概率极低
  */
@@ -75,159 +77,8 @@ class ImageHashCache(context: Context) {
         Context.MODE_PRIVATE
     )
     
-    /**
-     * 获取单个图片的缓存哈希
-     * 
-     * @param imageId 图片 ID
-     * @return CachedHash，如果未缓存则返回 null
-     */
-    fun getHash(imageId: Long, contentVersion: Long? = null): CachedHash? {
-        val hashKey = "$PREFIX_HASH$imageId"
-        val statusKey = "$PREFIX_STATUS$imageId"
-        if (!prefs.contains(hashKey)) return null
-        if (contentVersion != null && !isVersionCurrent(imageId, contentVersion)) return null
-        
-        val hashValue = prefs.getLong(hashKey, NO_HASH_MARKER)
-        val status = prefs.getInt(statusKey, STATUS_FAILED)
-        
-        val hash = if (hashValue == NO_HASH_MARKER) null else hashValue
-        return CachedHash(hash, status)
-    }
-    
-    /**
-     * 批量获取图片的缓存哈希
-     * 
-     * @param imageIds 图片 ID 列表
-     * @return Map<imageId, CachedHash>，未缓存的图片不包含在结果中
-     */
-    fun getHashesBatch(imageIds: List<Long>, contentVersions: Map<Long, Long>? = null): Map<Long, CachedHash> {
-        if (imageIds.isEmpty()) return emptyMap()
-        
-        val result = mutableMapOf<Long, CachedHash>()
-        
-        // SharedPreferences 的 getAll() 比多次 get 更高效
-        val allEntries = prefs.all
-        
-        for (imageId in imageIds) {
-            val hashKey = "$PREFIX_HASH$imageId"
-            val statusKey = "$PREFIX_STATUS$imageId"
-            
-            val hashValue = allEntries[hashKey] as? Long
-            val status = allEntries[statusKey] as? Int
-            
-            if (hashValue != null) {
-                if (contentVersions != null && !isVersionCurrent(imageId, contentVersions[imageId])) continue
-                val hash = if (hashValue == NO_HASH_MARKER) null else hashValue
-                result[imageId] = CachedHash(hash, status ?: STATUS_FAILED)
-            }
-        }
-        
-        return result
-    }
-    
-    /**
-     * 保存单个哈希计算结果
-     * 
-     * @param imageId 图片 ID
-     * @param result 计算结果
-     */
-    fun saveHash(imageId: Long, result: PerceptualHash.HashResult, contentVersion: Long? = null) {
-        val hashKey = "$PREFIX_HASH$imageId"
-        val statusKey = "$PREFIX_STATUS$imageId"
-        
-        val editor = prefs.edit()
-        
-        when (result) {
-            is PerceptualHash.HashResult.Success -> {
-                editor.putLong(hashKey, result.hash)
-                editor.putInt(statusKey, STATUS_SUCCESS)
-            }
-            is PerceptualHash.HashResult.Failed -> {
-                editor.putLong(hashKey, NO_HASH_MARKER)
-                editor.putInt(statusKey, STATUS_FAILED)
-            }
-        }
-        if (contentVersion != null) {
-            editor.putLong("$PREFIX_VERSION$imageId", contentVersion)
-        }
-        editor.apply()
-    }
-    
-    /**
-     * 批量保存哈希计算结果
-     * 
-     * @param results Map<imageId, HashResult>
-     */
-    fun saveHashesBatch(results: Map<Long, PerceptualHash.HashResult>, contentVersions: Map<Long, Long>? = null) {
-        if (results.isEmpty()) return
-        
-        val editor = prefs.edit()
-        
-        for ((imageId, result) in results) {
-            val hashKey = "$PREFIX_HASH$imageId"
-            val statusKey = "$PREFIX_STATUS$imageId"
-            
-            when (result) {
-                is PerceptualHash.HashResult.Success -> {
-                    editor.putLong(hashKey, result.hash)
-                    editor.putInt(statusKey, STATUS_SUCCESS)
-                }
-                is PerceptualHash.HashResult.Failed -> {
-                    editor.putLong(hashKey, NO_HASH_MARKER)
-                    editor.putInt(statusKey, STATUS_FAILED)
-                }
-            }
-            contentVersions?.get(imageId)?.let { editor.putLong("$PREFIX_VERSION$imageId", it) }
-        }
-        
-        editor.apply()
-    }
-    
-    /**
-     * 清理已不存在的图片的缓存
-     * 
-     * @param validImageIds 当前有效的图片 ID 集合
-     */
-    fun cleanupStaleHashes(validImageIds: Set<Long>) {
-        val allEntries = prefs.all
-        val editor = prefs.edit()
-        var cleanupCount = 0
-        
-        // 找出所有缓存的 imageId
-        val cachedIds = mutableSetOf<Long>()
-        for (key in allEntries.keys) {
-            if (key.startsWith(PREFIX_HASH)) {
-                val idStr = key.removePrefix(PREFIX_HASH)
-                idStr.toLongOrNull()?.let { cachedIds.add(it) }
-            }
-        }
-        
-        // 删除不在有效集合中的缓存
-        for (cachedId in cachedIds) {
-            if (cachedId !in validImageIds) {
-                editor.remove("$PREFIX_HASH$cachedId")
-                editor.remove("$PREFIX_STATUS$cachedId")
-                editor.remove("$PREFIX_VERSION$cachedId")
-                cleanupCount++
-            }
-        }
-        
-        if (cleanupCount > 0) {
-            editor.apply()
-            android.util.Log.d("ImageHashCache", "Cleaned up $cleanupCount stale hash entries")
-        }
-    }
-    
-    /** 版本化读取：无 ver 键的旧条目按过期处理（保守重算，TC58）。 */
-    private fun isVersionCurrent(imageId: Long, contentVersion: Long?): Boolean {
-        if (contentVersion == null) return true
-        if (!prefs.contains("$PREFIX_VERSION$imageId")) return false
-        return prefs.getLong("$PREFIX_VERSION$imageId", Long.MIN_VALUE) == contentVersion
-    }
 
-    // ========== T03 身份键 API（HashKey） ==========
-    // 语义与 Long 版一一对应，只是键从裸数值 ID 升级为完整媒体身份键；
-    // 旧 Long API 在全部消费者迁移完成后移除。
+    // ========== T03 身份键 API（HashKey）：全部消费者已迁移，唯一键面。
 
     /** 按身份键读取缓存哈希（语义同 getHash(Long, …)）。 */
     fun getHash(key: HashKey, contentVersion: Long? = null): CachedHash? {
@@ -244,7 +95,6 @@ class ImageHashCache(context: Context) {
     }
 
     /** 按身份键批量读取（语义同 getHashesBatch(List<Long>, …)）。 */
-    @JvmName("getHashesBatchByIdentity")
     fun getHashesBatch(
         keys: Collection<HashKey>,
         contentVersions: Map<HashKey, Long>? = null
@@ -295,7 +145,6 @@ class ImageHashCache(context: Context) {
     }
 
     /** 按身份键批量保存（语义同 saveHashesBatch(Map<Long, …>, …)）。 */
-    @JvmName("saveHashesBatchByIdentity")
     fun saveHashesBatch(
         results: Map<HashKey, PerceptualHash.HashResult>,
         contentVersions: Map<HashKey, Long>? = null
@@ -330,7 +179,6 @@ class ImageHashCache(context: Context) {
      * 旧裸 ID 条目在有效集合（卷限定）中无对应项时按既有清理语义移除
      * （派生缓存，重算有界，TC58 一致）。
      */
-    @JvmName("cleanupStaleHashesByIdentity")
     fun cleanupStaleHashes(validKeys: Set<HashKey>) {
         val validStorageKeys = validKeys.map { it.storageKey }.toSet()
         val allEntries = prefs.all
@@ -407,3 +255,9 @@ class ImageHashCache(context: Context) {
         val failedCount: Int
     )
 }
+
+/**
+ * C1/T03-HASHVOLUME：ImageFile 的哈希缓存身份键（卷|ID，卷未知退化裸 ID）。
+ */
+fun ImageFile.toHashKey(): ImageHashCache.HashKey =
+    ImageHashCache.HashKey(volumeName, id)

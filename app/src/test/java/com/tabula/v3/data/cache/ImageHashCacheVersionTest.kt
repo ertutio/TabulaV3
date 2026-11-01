@@ -19,6 +19,9 @@ class ImageHashCacheVersionTest {
 
     private fun success(hash: Long = 42L) = PerceptualHash.HashResult.Success(hash)
 
+    // 卷未知键 = 裸 ID 存储键（T03 前旧条目路径），既有版本语义不变。
+    private fun key(imageId: Long) = ImageHashCache.HashKey(null, imageId)
+
     @Before
     fun setUp() {
         cache.clearAll()
@@ -26,60 +29,60 @@ class ImageHashCacheVersionTest {
 
     @Test
     fun versionedRoundTripAndStaleInvalidation() {
-        cache.saveHash(1L, success(), contentVersion = 1000L)
+        cache.saveHash(key(1L), success(), contentVersion = 1000L)
 
-        assertNotNull(cache.getHash(1L, contentVersion = 1000L))
-        assertNull(cache.getHash(1L, contentVersion = 2000L))
+        assertNotNull(cache.getHash(key(1L), contentVersion = 1000L))
+        assertNull(cache.getHash(key(1L), contentVersion = 2000L))
     }
 
     @Test
     fun legacyEntryWithoutVersionIsStaleForVersionedReads() {
-        cache.saveHash(1L, success()) // 旧格式：无版本键
+        cache.saveHash(key(1L), success()) // 旧格式：无版本键
 
-        assertNull(cache.getHash(1L, contentVersion = 1000L))
-        assertNotNull(cache.getHash(1L)) // 旧调用方兼容读取
+        assertNull(cache.getHash(key(1L), contentVersion = 1000L))
+        assertNotNull(cache.getHash(key(1L))) // 卷未知（旧路径）兼容读取
     }
 
     @Test
     fun failedEntryStaysQueryableAtSameVersion() {
-        cache.saveHash(2L, PerceptualHash.HashResult.Failed("io"), contentVersion = 1000L)
+        cache.saveHash(key(2L), PerceptualHash.HashResult.Failed("io"), contentVersion = 1000L)
 
-        val entry = cache.getHash(2L, contentVersion = 1000L)
+        val entry = cache.getHash(key(2L), contentVersion = 1000L)
         assertNotNull(entry)
         assertTrue(entry!!.isFailed)
-        assertNull(cache.getHash(2L, contentVersion = 2000L))
+        assertNull(cache.getHash(key(2L), contentVersion = 2000L))
     }
 
     @Test
     fun batchVersionFiltering() {
         cache.saveHashesBatch(
-            mapOf(1L to success(11L), 2L to success(22L)),
-            contentVersions = mapOf(1L to 100L, 2L to 200L)
+            mapOf(key(1L) to success(11L), key(2L) to success(22L)),
+            contentVersions = mapOf(key(1L) to 100L, key(2L) to 200L)
         )
 
-        val fresh = cache.getHashesBatch(listOf(1L, 2L), contentVersions = mapOf(1L to 100L, 2L to 200L))
+        val fresh = cache.getHashesBatch(listOf(key(1L), key(2L)), contentVersions = mapOf(key(1L) to 100L, key(2L) to 200L))
         assertEquals(2, fresh.size)
 
-        val stale = cache.getHashesBatch(listOf(1L, 2L), contentVersions = mapOf(1L to 999L, 2L to 200L))
-        assertNull(stale[1L])
-        assertNotNull(stale[2L])
+        val stale = cache.getHashesBatch(listOf(key(1L), key(2L)), contentVersions = mapOf(key(1L) to 999L, key(2L) to 200L))
+        assertNull(stale[key(1L)])
+        assertNotNull(stale[key(2L)])
     }
 
     @Test
     fun cleanupRemovesVersionKeys() {
-        cache.saveHash(1L, success(), contentVersion = 1000L)
+        cache.saveHash(key(1L), success(), contentVersion = 1000L)
 
-        cache.cleanupStaleHashes(validImageIds = emptySet())
+        cache.cleanupStaleHashes(validKeys = emptySet())
 
-        assertNull(cache.getHash(1L, contentVersion = 1000L))
+        assertNull(cache.getHash(key(1L), contentVersion = 1000L))
     }
 
     @Test
     fun overwriteWithSameVersionUpdatesHash() {
-        cache.saveHash(1L, success(1L), contentVersion = 1000L)
-        cache.saveHash(1L, success(2L), contentVersion = 1000L)
+        cache.saveHash(key(1L), success(1L), contentVersion = 1000L)
+        cache.saveHash(key(1L), success(2L), contentVersion = 1000L)
 
-        assertEquals(2L, cache.getHash(1L, contentVersion = 1000L)!!.hash)
+        assertEquals(2L, cache.getHash(key(1L), contentVersion = 1000L)!!.hash)
     }
 
     @Test
