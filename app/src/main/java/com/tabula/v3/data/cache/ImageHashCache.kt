@@ -16,7 +16,18 @@ import com.tabula.v3.data.repository.PerceptualHash
  * 注意：Long.MIN_VALUE 作为失败标记是因为它作为真实哈希值的概率极低
  */
 class ImageHashCache(context: Context) {
-    
+
+    /**
+     * 哈希缓存身份键。T03：不同卷的同数值 ID 是不同照片，缓存条目必须按
+     * 完整媒体身份隔离；卷未知（T03 前旧数据路径）退化为裸 ID 键，保持
+     * 旧条目可读、可按既有语义清理。
+     */
+    data class HashKey(val volumeName: String?, val imageId: Long) {
+        // 旧口径基线：存储键暂按数值 ID（卷段被忽略）——跨卷同 ID 行会
+        // 互相覆盖哈希与版本键。身份隔离在下一步修复中接入。
+        internal val storageKey: String get() = "$imageId"
+    }
+
     companion object {
         private const val PREFS_NAME = "tabula_image_hash_cache"
         private const val PREFIX_HASH = "hash_"
@@ -210,6 +221,148 @@ class ImageHashCache(context: Context) {
         if (contentVersion == null) return true
         if (!prefs.contains("$PREFIX_VERSION$imageId")) return false
         return prefs.getLong("$PREFIX_VERSION$imageId", Long.MIN_VALUE) == contentVersion
+    }
+
+    // ========== T03 身份键 API（HashKey） ==========
+    // 语义与 Long 版一一对应，只是键从裸数值 ID 升级为完整媒体身份键；
+    // 旧 Long API 在全部消费者迁移完成后移除。
+
+    /** 按身份键读取缓存哈希（语义同 getHash(Long, …)）。 */
+    fun getHash(key: HashKey, contentVersion: Long? = null): CachedHash? {
+        val hashKey = "$PREFIX_HASH${key.storageKey}"
+        val statusKey = "$PREFIX_STATUS${key.storageKey}"
+        if (!prefs.contains(hashKey)) return null
+        if (contentVersion != null && !isVersionCurrent(key, contentVersion)) return null
+
+        val hashValue = prefs.getLong(hashKey, NO_HASH_MARKER)
+        val status = prefs.getInt(statusKey, STATUS_FAILED)
+
+        val hash = if (hashValue == NO_HASH_MARKER) null else hashValue
+        return CachedHash(hash, status)
+    }
+
+    /** 按身份键批量读取（语义同 getHashesBatch(List<Long>, …)）。 */
+    @JvmName("getHashesBatchByIdentity")
+    fun getHashesBatch(
+        keys: Collection<HashKey>,
+        contentVersions: Map<HashKey, Long>? = null
+    ): Map<HashKey, CachedHash> {
+        if (keys.isEmpty()) return emptyMap()
+
+        val result = mutableMapOf<HashKey, CachedHash>()
+        val allEntries = prefs.all
+
+        for (key in keys) {
+            val hashKey = "$PREFIX_HASH${key.storageKey}"
+            val statusKey = "$PREFIX_STATUS${key.storageKey}"
+
+            val hashValue = allEntries[hashKey] as? Long
+            val status = allEntries[statusKey] as? Int
+
+            if (hashValue != null) {
+                if (contentVersions != null && !isVersionCurrent(key, contentVersions[key])) continue
+                val hash = if (hashValue == NO_HASH_MARKER) null else hashValue
+                result[key] = CachedHash(hash, status ?: STATUS_FAILED)
+            }
+        }
+
+        return result
+    }
+
+    /** 按身份键保存单个哈希结果（语义同 saveHash(Long, …)）。 */
+    fun saveHash(key: HashKey, result: PerceptualHash.HashResult, contentVersion: Long? = null) {
+        val hashKey = "$PREFIX_HASH${key.storageKey}"
+        val statusKey = "$PREFIX_STATUS${key.storageKey}"
+
+        val editor = prefs.edit()
+
+        when (result) {
+            is PerceptualHash.HashResult.Success -> {
+                editor.putLong(hashKey, result.hash)
+                editor.putInt(statusKey, STATUS_SUCCESS)
+            }
+            is PerceptualHash.HashResult.Failed -> {
+                editor.putLong(hashKey, NO_HASH_MARKER)
+                editor.putInt(statusKey, STATUS_FAILED)
+            }
+        }
+        if (contentVersion != null) {
+            editor.putLong("$PREFIX_VERSION${key.storageKey}", contentVersion)
+        }
+        editor.apply()
+    }
+
+    /** 按身份键批量保存（语义同 saveHashesBatch(Map<Long, …>, …)）。 */
+    @JvmName("saveHashesBatchByIdentity")
+    fun saveHashesBatch(
+        results: Map<HashKey, PerceptualHash.HashResult>,
+        contentVersions: Map<HashKey, Long>? = null
+    ) {
+        if (results.isEmpty()) return
+
+        val editor = prefs.edit()
+
+        for ((key, result) in results) {
+            val hashKey = "$PREFIX_HASH${key.storageKey}"
+            val statusKey = "$PREFIX_STATUS${key.storageKey}"
+
+            when (result) {
+                is PerceptualHash.HashResult.Success -> {
+                    editor.putLong(hashKey, result.hash)
+                    editor.putInt(statusKey, STATUS_SUCCESS)
+                }
+                is PerceptualHash.HashResult.Failed -> {
+                    editor.putLong(hashKey, NO_HASH_MARKER)
+                    editor.putInt(statusKey, STATUS_FAILED)
+                }
+            }
+            contentVersions?.get(key)?.let { editor.putLong("$PREFIX_VERSION${key.storageKey}", it) }
+        }
+
+        editor.apply()
+    }
+
+    /**
+     * 按身份键清理失效条目：条目存储键不在有效身份键集合内即整组移除
+     * （hash/status/ver 三键）。卷限定键使跨卷同 ID 行各自独立保留；
+     * 旧裸 ID 条目在有效集合（卷限定）中无对应项时按既有清理语义移除
+     * （派生缓存，重算有界，TC58 一致）。
+     */
+    @JvmName("cleanupStaleHashesByIdentity")
+    fun cleanupStaleHashes(validKeys: Set<HashKey>) {
+        val validStorageKeys = validKeys.map { it.storageKey }.toSet()
+        val allEntries = prefs.all
+        val editor = prefs.edit()
+        var cleanupCount = 0
+
+        val cachedSuffixes = mutableSetOf<String>()
+        for (key in allEntries.keys) {
+            if (key.startsWith(PREFIX_HASH)) {
+                cachedSuffixes.add(key.removePrefix(PREFIX_HASH))
+            }
+        }
+
+        for (suffix in cachedSuffixes) {
+            if (suffix !in validStorageKeys) {
+                editor.remove("$PREFIX_HASH$suffix")
+                editor.remove("$PREFIX_STATUS$suffix")
+                editor.remove("$PREFIX_VERSION$suffix")
+                cleanupCount++
+            }
+        }
+
+        if (cleanupCount > 0) {
+            editor.apply()
+            android.util.Log.d("ImageHashCache", "Cleaned up $cleanupCount stale hash entries")
+        }
+    }
+
+    /** 版本化读取（身份键版）：无 ver 键的旧条目按过期处理（保守重算，TC58）。 */
+    private fun isVersionCurrent(key: HashKey, contentVersion: Long?): Boolean {
+        if (contentVersion == null) return true
+        val versionKey = "$PREFIX_VERSION${key.storageKey}"
+        if (!prefs.contains(versionKey)) return false
+        return prefs.getLong(versionKey, Long.MIN_VALUE) == contentVersion
     }
 
     /**
