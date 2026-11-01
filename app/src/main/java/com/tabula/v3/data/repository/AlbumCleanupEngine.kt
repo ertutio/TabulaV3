@@ -503,12 +503,10 @@ class AlbumCleanupEngine(
             uniqueTarget(legacyId)?.let { legacyId to it }
         }
         if (mappings.isNotEmpty()) {
-            val newGroupIds = groupIds.toMutableSet()
-            mappings.forEach { (legacyId, target) ->
-                newGroupIds.remove(legacyId)
-                newGroupIds.add(target.id)
-            }
-            preferences.replaceAlbumGroupIds(albumId, newGroupIds)
+            // 复审顺序要求：**先改名成员/数量、最后改写组目录**——groups_ 中的
+            // 旧 ID 条目保留到最后才消失，充当进程死后自愈的迁移触发器
+            // （若先改组目录，崩溃窗口内成员/数量将永久滞留旧键，只能靠
+            // 重新分析自愈）。rename 对缺失源键为无操作，重复执行安全。
             mappings.forEach { (legacyId, target) ->
                 preferences.renameGroupMembersKey(albumId, legacyId, target.id)
                 preferences.renameGroupSizeKey(albumId, legacyId, target.id)
@@ -539,6 +537,13 @@ class AlbumCleanupEngine(
                     preferences.saveAlbumCleanupCheckpoint(albumId, newOrder, index)
                 }
             }
+            // 组目录最后改写（迁移完成标志；崩溃后旧条目仍在→下次入口续跑自愈）。
+            val newGroupIds = groupIds.toMutableSet()
+            mappings.forEach { (legacyId, target) ->
+                newGroupIds.remove(legacyId)
+                newGroupIds.add(target.id)
+            }
+            preferences.replaceAlbumGroupIds(albumId, newGroupIds)
             changed = true
         }
         if (changed) {
