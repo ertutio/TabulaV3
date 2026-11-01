@@ -178,6 +178,11 @@ class ImageHashCache(context: Context) {
      * （hash/status/ver 三键）。卷限定键使跨卷同 ID 行各自独立保留；
      * 旧裸 ID 条目在有效集合（卷限定）中无对应项时按既有清理语义移除
      * （派生缓存，重算有界，TC58 一致）。
+     *
+     * 注意：当前生产代码没有调用点（仅测试使用）。升级后遗留的旧裸 ID
+     * 条目实际以孤儿形式留存（每图约 3 键）——缓存是纯派生数据，孤儿
+     * 条目只会被身份键读取路径自然忽略，无正确性影响；如需回收存储，
+     * 后续可加一次性旧键迁移清理。
      */
     fun cleanupStaleHashes(validKeys: Set<HashKey>) {
         val validStorageKeys = validKeys.map { it.storageKey }.toSet()
