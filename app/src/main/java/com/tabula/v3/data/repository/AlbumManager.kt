@@ -565,6 +565,38 @@ class AlbumManager(private val context: Context) {
     // ========== 移动/复制图片到其他图集（系统相册集成版） ==========
 
     /**
+     * 按完整媒体身份（卷|ID 选择键）批量移动到另一个图集。
+     *
+     * C1/T03-MOVECOPY-IDENTITY：执行前按完整身份从当前媒体集合重新解析；
+     * 所选身份已失效（行已不在库中）时跳过计数，绝不回退到同数值 ID 的
+     * 另一卷照片。图集目标仍按名称定位（按名合并是显式产品语义）。
+     */
+    suspend fun moveImagesByIdentity(
+        selectedIdentityKeys: Collection<String>,
+        fromAlbumId: String,
+        toAlbumId: String
+    ): MoveImagesResult = withContext(Dispatchers.IO) {
+        // 基线（旧口径忠实形状）：按数值 ID 解析、身份键的卷段被忽略——
+        // 跨卷同数值 ID 行会折叠到查询序首行。身份隔离在下一步修复中接入。
+        val imageIds = selectedIdentityKeys.map { it.substringAfterLast('|').toLong() }
+        moveImagesToAlbum(imageIds, fromAlbumId, toAlbumId)
+    }
+
+    /**
+     * 按完整媒体身份（卷|ID 选择键）批量复制到另一个图集。
+     * 语义同 moveImagesByIdentity：当前媒体集合按完整身份重新解析，
+     * 失效选择跳过、不回退同数值 ID 的另一卷。
+     */
+    suspend fun copyImagesByIdentity(
+        selectedIdentityKeys: Collection<String>,
+        toAlbumId: String
+    ) = withContext(Dispatchers.IO) {
+        // 基线（旧口径忠实形状）：见 moveImagesByIdentity 注释。
+        val imageIds = selectedIdentityKeys.map { it.substringAfterLast('|').toLong() }
+        copyImagesToAlbum(imageIds, toAlbumId)
+    }
+
+    /**
      * 批量将图片移动到另一个图集
      */
     suspend fun moveImagesToAlbum(
