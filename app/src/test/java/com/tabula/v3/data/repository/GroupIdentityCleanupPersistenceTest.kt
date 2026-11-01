@@ -341,4 +341,90 @@ class GroupIdentityCleanupPersistenceTest {
             processed.contains(expectedGroupA().id)
         )
     }
+
+    // ========== 复验轮一：旧 checkpoint 歧义不得猜选组 ==========
+
+    @Test
+    fun ambiguousLegacyCheckpointAbandonsResumeWithoutGuessing() = runBlocking {
+        // 两卷两组共用旧别名（T_10）、旧断点 index=1（order 含两次别名）：
+        // 旧别名在重检组集合中有两个候选——不得取第一/最后一组、不得把旧
+        // 索引套到任一候选。明确放弃续接并安全重算；不清除永久处理意图、
+        // 不自动标记任一候选。
+        seedLegacyGroup("ambig", legacyGroupId, listOf(10L), withCheckpoint = false)
+        preferences.saveAlbumCleanupCheckpoint("ambig", listOf(legacyGroupId, legacyGroupId), 1)
+        val engine = AlbumCleanupEngine(context)
+        val restored = engine.getCheckpointBatch("ambig", allImages)
+        assertNull(
+            "歧义旧断点必须放弃续接，不得返回猜选组＋旧索引",
+            restored
+        )
+
+        // 安全重算：完整成员可用（不跳过任何一卷的照片）。
+        val batch = engine.getNextBatch("ambig", allImages)
+        assertNotNull("放弃续接后必须能安全重算出完整批次", batch)
+        assertEquals(
+            "重算批次必须覆盖两卷全部照片（不跳过）",
+            setOf(p10.uri, p11.uri, s10.uri, s12.uri),
+            batch!!.images.map { it.uri }.toSet()
+        )
+        // 不自动标记任一候选已处理（无标记写入）。
+        assertEquals(
+            "放弃续接不得写入任何永久处理标记",
+            emptySet<String>(),
+            preferences.getAlbumPermanentlyProcessedGroups("ambig")
+        )
+    }
+
+    // ========== 复验轮二：迁移后持久化主键和统计一致 ==========
+
+    @Test
+    fun legacyMigrationRewritesAllGroupKeysConsistently() = runBlocking {
+        // 唯一可解析的旧数据迁移后：组目录（groups_）、成员（group_images_）、
+        // 数量（group_size_）、永久标记（processed_）必须使用一致的新身份——
+        // 否则已处理数 1→0、剩余数失真、完成状态错误。
+        seedLegacyGroup(album.id, legacyGroupId, listOf(10L, 11L), withCheckpoint = false, processedMarker = true)
+        preferences.saveGroupImageCounts(album.id, mapOf(legacyGroupId to 2))
+        val singleVolume = listOf(p10, p11)
+        val engine = AlbumCleanupEngine(context)
+        engine.getNextBatch(album.id, singleVolume)
+
+        val newId = expectedGroupA().id
+        assertEquals(
+            "永久标记必须迁移到新身份",
+            setOf(newId), preferences.getAlbumPermanentlyProcessedGroups(album.id)
+        )
+        assertEquals(
+            "组目录必须改写为新身份（旧 ID 不得残留）",
+            setOf(newId), preferences.getAlbumGroupIds(album.id)
+        )
+        assertNull(
+            "旧键下的成员数据必须迁移走",
+            preferences.getGroupImageIds(album.id, legacyGroupId)
+        )
+        assertEquals(
+            "成员数据必须落在新身份键下",
+            listOf("external_primary|10", "external_primary|11"),
+            preferences.getGroupImageIds(album.id, newId)
+        )
+        assertEquals(
+            "组数量必须落在新身份键下",
+            2, preferences.getGroupImageCount(album.id, newId)
+        )
+        assertEquals(
+            "旧键的数量键必须清除",
+            0, preferences.getGroupImageCount(album.id, legacyGroupId)
+        )
+        assertEquals(
+            "已处理数必须一致（修复前组目录与标记口径分裂导致 1→0）",
+            1, preferences.getAlbumProcessedGroups(album.id)
+        )
+        assertTrue(
+            "全部组已处理时完成状态必须成立",
+            preferences.isAlbumCleanupCompleted(album.id)
+        )
+        assertEquals(
+            "剩余照片数必须一致",
+            0, preferences.getAlbumRemainingImages(album.id)
+        )
+    }
 }
