@@ -48,6 +48,7 @@ import coil.request.ImageRequest
 import coil.size.Precision
 import coil.size.Size
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.di.CoilSetup
 import com.tabula.v3.ui.components.SourceRect
 import com.tabula.v3.ui.components.SwipeableViewerOverlay
@@ -145,7 +146,10 @@ fun SystemAlbumViewScreen(
                 state = gridState,
                 modifier = Modifier.weight(1f)
             ) {
-                items(images, key = { it.id }) { image ->
+                // C1/T03-THUMBKEY：列表 key 用完整媒体身份键——bucket 视图
+                // 跨卷同数值 ID 两行共存时不再重复 key 崩溃（与图集网格/
+                // 回收站网格同修法；Compose 重组行为无单测基建，见 PR 范围声明）。
+                items(images, key = { it.mediaIdentityKey() }) { image ->
                     PhotoGridItem(
                         image = image,
                         showHdrBadge = showHdrBadges,

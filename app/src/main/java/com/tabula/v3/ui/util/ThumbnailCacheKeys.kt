@@ -1,6 +1,7 @@
 package com.tabula.v3.ui.util
 
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.repository.mediaIdentityKey
 
 /**
  * 图集/系统图集网格缩略图的 Coil memory/disk 缓存键。
@@ -11,7 +12,7 @@ import com.tabula.v3.data.model.ImageFile
  * （album_grid_ / sys_grid_），避免不同网格互相挤占缓存。
  */
 internal fun gridThumbnailCacheKey(prefix: String, image: ImageFile): String =
-    // 旧口径基线（原 "prefix_${image.id}" 的忠实形状）：键只含数值 ID——
-    // 跨卷同 ID 行共享条目（串图），内容编辑后键不变（陈旧缩略图）。
-    // 身份与内容版本接入在下一步修复中完成。
-    "$prefix${image.id}"
+    // C1/T03-THUMBKEY：完整媒体身份键（卷|ID，跨卷同数值 ID 行不串图）+
+    // 内容版本（DATE_MODIFIED 毫秒，编辑后重新加载；与 ImageHashCache
+    // ver_ 的内容版本币制一致）。
+    "$prefix${image.mediaIdentityKey()}_${image.dateModified}"
