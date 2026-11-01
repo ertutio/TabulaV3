@@ -50,6 +50,20 @@ PR25 的本地执行证据保存于 `C:/Users/yuxuan/Documents/Codex/2026-10-31/
 | C4/T07；C6/T10、T11b | 受影响身份/结果契约或有效测量前置未闭环 | 权限/外部修改同步、真实移动结果；统计刷新与有界缓存优化。先核对实际依赖，稳定后继续，未取得有效基线不预写性能提升。 |
 | C5/T09；C7/T12、T13 | `ready`（兼容/交付映射）；实际变更按原门控 | 工具链、依赖逐组核实必要性，Release/R8、签名、旧数据及覆盖安装验收；真照片、正式发布及扩围另按授权。 |
 
+### C1/T03 后续消费者盘点（2026-11-01，现场基于 49fc1ad）
+
+| 簇 | 现状（读写者） | 缺口与建议 |
+| --- | --- | --- |
+| A1 系统图集网格 key | SystemAlbumViewScreen.kt:147 `items(images, key={it.id})`；无选择/删除路径 | 跨卷同名桶两行同 ID → 重复 LazyGrid key 崩溃（进桶即触发，先于查看器）。一行身份键修复；Compose key 行为无单测基建，断言落在 mediaIdentityKey 语义+审读，需声明该证据边界 |
+| A2 详情死代码回退路径 | AlbumViewScreen.kt:214 `allImages.filter { it.id in imageIds }`（getAlbumImages 恒提供，生产不可达） | 改身份键或标注口径；无行为断言可立（不可达），随 A1 或独立小提交 |
+| A3 缩略图缓存键 | PhotoGridItem（AlbumViewScreen ~:1300）`album_grid_${image.id}` | 跨卷同 ID 串图（仅显示）；改身份键需核对 Coil 键稳定性与预加载键（CardStack cardMemoryCacheKey 同族） |
+| A4 拖选边界残留 | StringDragSelectState.itemBounds 离场行不清理（共享组件，回收站/图集/分类视图共用） | 极端时序命中离场键；解析端天然兜底（不在候选列表即空）。低优先，单独小提交可清理离场 bounds |
+| B 哈希/相似组（真实行为缺口） | ImageHashCache 全 API 键=`imageId: Long` 无卷（getHash/saveHash/ver_ 版本键）；消费者 SimilarGroupDetector、RecommendationEngine、AlbumCleanupEngine（专清） | 跨卷同 ID 行共享缓存条目：哈希互相污染+dateModified 版本互踢颠簸，相似推荐/专清对错照片判定。C1.1（PR15）只解决内容版本失效，未按卷消歧。**下一个生产行为单元**：Robolectric 可立有效 FAIL（两卷同 ID 不同内容，缓存读取互相错乱）→ 键迁移 `mediaIdentityKey`（或 (volume,id) 复合键）+ 版本键兼容旧条目 → 三消费者接线 + cleanupStaleHashes 语义核对 |
+| C 封面按 ID | onSetCover(image.id)→Album.coverImageId；AlbumPickerDialog/投影封面 `find { it.id == coverId }` | 跨卷同 ID 封面显示错行（ Album 元数据按名合并语义内）；随 Album 身份簇（如有）再议，先登记 |
+| D 按名合并簇（显式保留） | albums_metadata.json、AlbumUsageTracker、AppPreferences 冷却/专清、StorageStatsManager、UI 持久选择 | 2026-10-28 C1 盘点表已给保留决定（与 Album 按名合并一致），不迁移；桶拆分时再议 |
+
+
+
 ### 后续候选：先确认缺口再立单元
 
 `resolveMediaVolumeName` 的可注入测试边界、恢复 LaunchedEffect 的实际并发窗口、journal Atomic 跨进程证据均需核对现有机制与实际故障；不预定新增保护层。MediaStore 返回 0 行不能直接等同已确认 missing：先证明查询身份与授权/可读性，保留 UNKNOWN 的安全语义；无法证明则登记待决策，转独立项。PR26 独立复审新增候选（均显示层或低风险，逐项确认缺口后接入 T03 后续簇）：① SystemAlbumViewScreen.kt:147 网格纯 ID key（bucket 视图跨卷同 ID 重复 key 崩溃残余）；② AlbumViewScreen.kt:214 纯 ID 回退路径为生产不可达死代码，标注口径或改身份键；③ PhotoGridItem 缩略图缓存键跨卷串图；④ StringDragSelectState itemBounds 离场行残留（解析端已天然兜底）。
