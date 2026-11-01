@@ -226,7 +226,9 @@ private fun PhotoGridItem(
             }
     ) {
         // 缩略图缓存键：完整媒体身份 + 内容版本（C1/T03-THUMBKEY）。
-        val cacheKey = remember(image.id, image.dateModified) { gridThumbnailCacheKey("sys_grid_", image) }
+        // 两网格与查看器共用 grid_ 命名空间（请求规格一致），查看器首开
+        // 直接温命中网格缩略图。
+        val cacheKey = remember(image.id, image.dateModified) { gridThumbnailCacheKey("grid_", image) }
         
         // 先绘制占位符背景
         Box(
