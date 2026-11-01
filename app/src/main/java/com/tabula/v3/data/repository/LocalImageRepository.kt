@@ -6,6 +6,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -688,14 +689,42 @@ internal fun imageItemUri(volumeName: String?, id: Long): Uri =
  * 物理删除链卷限定 URI 与旧聚合记录分区（RecycleBinDeletion）、
  * 图集批量永久删除选择集（resolveImagesByIdentitySelection）与
  * 图集详情列表 key/选择/回写剪裁（AlbumViewScreen）、查看器 Pager key。
- * 显示名/封面/哈希缓存等 Album 层消费簇仍按名或纯 ID（显式产品语义或
- * 后续簇，见进度文件 C1/T03）。
+ * 显示名/哈希缓存等 Album 层消费簇仍按名或纯 ID（显式产品语义或
+ * 后续簇，见进度文件 C1/T03）；封面指针/展示/缓存已于 C1/T03-COVER
+ * 迁移到完整媒体身份（Album.coverVolumeName + resolveAlbumCoverImage）。
+ * 已知残留：AlbumManager.getImageUrisForIds（无生产调用者，死代码）
+ * 与 metadata 按名键控（改名后旧条目被同名新图集继承）登记为后续。
  */
 internal fun ImageFile.matchesSameMediaIdentity(other: ImageFile): Boolean =
     id == other.id && (volumeName == null || other.volumeName == null || volumeName == other.volumeName)
 
 /** T03：UI 列表 key/选择集用的稳定身份键（卷|ID）；卷未知行退化为纯 ID 键。 */
 internal fun ImageFile.mediaIdentityKey(): String = "${volumeName ?: ""}|$id"
+
+/**
+ * C1/T03-COVER：图集封面行解析——按完整媒体身份 (coverVolumeName, coverImageId)
+ * 匹配。卷已知：精确匹配该卷行；卷未知（旧口径）：库内该 ID 唯一时兼容解析，
+ * 跨卷歧义不猜选（返回 null，展示回退占位，封面指针保留）。封面行缺失/
+ * 暂时不可读同样返回 null（占位展示，不抛错、不清指针）。
+ */
+internal fun resolveAlbumCoverImage(album: Album, images: List<ImageFile>): ImageFile? {
+    val coverId = album.coverImageId ?: return null
+    return resolveCoverRow(album.coverVolumeName, coverId, images.filter { it.id == coverId })
+}
+
+/**
+ * C1/T03-COVER：封面行解析核心——同 ID 候选行 + 封面卷归属 → 命中行或 null。
+ * 卷已知：精确匹配该卷行；卷未知（旧口径）：候选唯一才解析，跨卷歧义不猜选
+ * （展示回退占位，封面指针保留）。缺失/暂时不可读同样返回 null。
+ */
+internal fun resolveCoverRow(
+    coverVolumeName: String?,
+    coverImageId: Long,
+    sameIdRows: List<ImageFile>
+): ImageFile? = when (coverVolumeName) {
+    null -> if (sameIdRows.size == 1) sameIdRows.single() else null
+    else -> sameIdRows.find { it.volumeName == coverVolumeName }
+}
 
 /**
  * O5③：图集批量永久删除（AlbumViewScreen 选择集 → MainActivity 删除请求）的

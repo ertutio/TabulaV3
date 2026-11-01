@@ -133,7 +133,11 @@ class AlbumManager(private val context: Context) {
         val order: Int = 0,
         val createdAt: Long = System.currentTimeMillis(),
         val isHidden: Boolean = false,  // 是否隐藏此图集
-        val isExcludedFromRecommend: Boolean = false  // 是否从推荐中排除（屏蔽图集）
+        val isExcludedFromRecommend: Boolean = false,  // 是否从推荐中排除（屏蔽图集）
+        // C1/T03-COVER：用户设置的封面完整媒体身份（卷+数值 ID）。
+        // coverVolumeName=null 为旧口径（卷未知，展示端唯一解析/歧义回退）。
+        val coverImageId: Long? = null,
+        val coverVolumeName: String? = null
     )
 
     // ========== 系统相册同步管理器 ==========
@@ -211,20 +215,54 @@ class AlbumManager(private val context: Context) {
      * 更新相册元数据（颜色等）
      */
     suspend fun updateAlbum(album: Album) = withContext(Dispatchers.IO) {
-        // 更新元数据
+        // 更新元数据。C1/T03-COVER 复验轮四：名称/颜色等属性编辑**不得**把
+        // 显示态的桶默认封面持久化为用户封面（否则自动封面被冻结）——封面
+        // 字段保留元数据中已持久化的用户设置（无则继续走桶默认）。
+        // 显式设置封面走 setAlbumCover。
         val currentMetadata = loadMetadata()
+        val existing = currentMetadata[album.name]
         val metadata = AlbumMetadata(
             name = album.name,
             color = album.color,
             textColor = album.textColor,
             order = album.order,
-            createdAt = album.createdAt
+            createdAt = album.createdAt,
+            isHidden = existing?.isHidden ?: false,
+            isExcludedFromRecommend = existing?.isExcludedFromRecommend ?: false,
+            coverImageId = existing?.coverImageId,
+            coverVolumeName = existing?.coverVolumeName
         )
         val updatedMetadata = currentMetadata + (album.name to metadata)
         saveMetadata(updatedMetadata)
         _metadata.value = updatedMetadata
-        
+
         // 刷新图集列表
+        refreshAlbumsFromSystem()
+    }
+
+    /**
+     * 显式设置图集封面（C1/T03-COVER 复验轮四）：完整媒体身份（卷+ID）随
+     * 元数据持久化，其余属性保留既有值；刷新后用户封面优先于桶默认封面，
+     * 重启/刷新均保持。升级前无此通道（设置即被桶默认覆盖，从不生效）。
+     */
+    suspend fun setAlbumCover(albumName: String, image: ImageFile) = withContext(Dispatchers.IO) {
+        val currentMetadata = loadMetadata()
+        val existing = currentMetadata[albumName]
+        val metadata = AlbumMetadata(
+            name = albumName,
+            color = existing?.color,
+            textColor = existing?.textColor,
+            order = existing?.order ?: Int.MAX_VALUE,
+            createdAt = existing?.createdAt ?: System.currentTimeMillis(),
+            isHidden = existing?.isHidden ?: false,
+            isExcludedFromRecommend = existing?.isExcludedFromRecommend ?: false,
+            coverImageId = image.id,
+            coverVolumeName = image.volumeName
+        )
+        saveMetadata(currentMetadata + (albumName to metadata))
+        _metadata.value = currentMetadata + (albumName to metadata)
+
+        // 刷新图集列表（用户封面优先于桶默认封面）
         refreshAlbumsFromSystem()
     }
 
@@ -724,12 +762,21 @@ class AlbumManager(private val context: Context) {
             val metadata = loadMetadata()
             
             // 3. 从系统 bucket 创建 Album 列表
+            // C1/T03-COVER：封面身份来源优先级 = 用户设置（metadata 持久化，
+            // 卷+ID）> 桶默认封面（该卷最新照片，卷随桶携带）。旧口径（metadata
+            // 无封面字段）行为与升级前一致。
             val albumsFromSystem = systemBuckets.map { bucket ->
                 val meta = metadata[bucket.name]
+                val userCover = meta?.coverImageId
                 Album(
                     id = bucket.name,  // 使用 bucket 名称作为 ID
                     name = bucket.name,
-                    coverImageId = bucket.coverImageId,
+                    coverImageId = userCover ?: bucket.coverImageId,
+                    coverVolumeName = if (userCover != null) {
+                        meta.coverVolumeName
+                    } else {
+                        bucket.volumeName
+                    },
                     color = meta?.color,
                     textColor = meta?.textColor,
                     order = meta?.order ?: Int.MAX_VALUE,  // 无元数据的排在最后
@@ -1010,7 +1057,12 @@ class AlbumManager(private val context: Context) {
                     order = obj.optInt("order", Int.MAX_VALUE),
                     createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
                     isHidden = obj.optBoolean("isHidden", false),
-                    isExcludedFromRecommend = obj.optBoolean("isExcludedFromRecommend", false)
+                    isExcludedFromRecommend = obj.optBoolean("isExcludedFromRecommend", false),
+                    // C1/T03-COVER：旧 JSON 无封面字段 → opt 兜底 null（升级
+                    // 前行为=桶默认封面，兼容）；卷缺失为旧口径（展示端唯一
+                    // 解析/歧义回退）。
+                    coverImageId = obj.optLong("coverImageId", -1).takeIf { it != -1L },
+                    coverVolumeName = obj.optString("coverVolumeName", "").takeIf { it.isNotEmpty() }
                 )
             }
 
@@ -1033,6 +1085,9 @@ class AlbumManager(private val context: Context) {
                     put("createdAt", meta.createdAt)
                     put("isHidden", meta.isHidden)
                     put("isExcludedFromRecommend", meta.isExcludedFromRecommend)
+                    // C1/T03-COVER：封面完整媒体身份持久化（-1/空串 = 无封面）。
+                    put("coverImageId", meta.coverImageId ?: -1)
+                    put("coverVolumeName", meta.coverVolumeName ?: "")
                 }
                 jsonArray.put(obj)
             }

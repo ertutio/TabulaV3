@@ -104,6 +104,7 @@ import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.model.SyncMode
 import com.tabula.v3.data.repository.mediaIdentityKey
+import com.tabula.v3.data.repository.resolveAlbumCoverImage
 import com.tabula.v3.di.CoilSetup
 import com.tabula.v3.ui.components.AlbumDeleteConfirmDialog
 import com.tabula.v3.ui.components.AlbumEditDialog
@@ -114,6 +115,7 @@ import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import com.tabula.v3.ui.util.gridDragHandlerString
 import com.tabula.v3.ui.util.HapticFeedback
 import com.tabula.v3.ui.util.gridThumbnailCacheKey
+import com.tabula.v3.ui.util.coverImageRequest
 import com.tabula.v3.ui.util.ItemBounds
 import com.tabula.v3.ui.util.rememberStringDragSelectState
 
@@ -136,6 +138,7 @@ fun AlbumViewScreen(
     getAlbumImages: (suspend (String) -> List<ImageFile>)? = null,
     onCreateAlbum: (name: String, color: Long?, emoji: String?) -> Unit,
     onUpdateAlbum: (Album) -> Unit,
+    onSetCover: ((albumName: String, image: ImageFile) -> Unit)? = null,
     onDeleteAlbum: (String) -> Unit,
     onHideAlbum: ((String) -> Unit)? = null,
     onUnhideAlbum: ((String) -> Unit)? = null,
@@ -278,10 +281,9 @@ fun AlbumViewScreen(
                     { excluded: Boolean -> callback(currentAlbum.id, excluded) }
                 },
                 isExcludedFromRecommend = isAlbumExcludedFromRecommend?.invoke(currentAlbum.id) ?: false,
-                onSetCover = if (onUpdateAlbum != null) { imageId ->
-                    val updatedAlbum = currentAlbum.copy(coverImageId = imageId)
-                    onUpdateAlbum(updatedAlbum)
-                } else null,
+                onSetCover = onSetCover?.let { callback ->
+                    { image: ImageFile -> callback(currentAlbum.name, image) }
+                },
                 onNavigateBack = onNavigateBack,
                 albums = albums,
                 allImages = allImages,
@@ -374,7 +376,7 @@ private fun AlbumContentView(
     onDeleteEmptyClick: (() -> Unit)? = null,
     onExcludeFromRecommend: ((Boolean) -> Unit)? = null,
     isExcludedFromRecommend: Boolean = false,
-    onSetCover: ((Long) -> Unit)? = null,
+    onSetCover: ((ImageFile) -> Unit)? = null,  // C1/T03-COVER：album 名由外层闭包绑定
     onNavigateBack: () -> Unit,
     albums: List<Album> = emptyList(),
     allImages: List<ImageFile> = emptyList(),
@@ -907,7 +909,7 @@ private fun AlbumContentView(
                                 onImageClick(image, sourceRect, sortedImages)
                             },
                             onSetCover = onSetCover?.let { callback ->
-                                { callback(image.id) }
+                                { callback(image) }
                             },
                             isSelectionMode = isSelectionMode,
                             isSelected = identityKey in selectedImageKeys,
@@ -1576,11 +1578,9 @@ private fun AlbumPickerDialog(
                     ) {
                         items(albums.size) { index ->
                             val album = albums[index]
-                            // 查找封面图片
-                            val coverImage = album.coverImageId?.let { coverId ->
-                                allImages.find { it.id == coverId }
-                            }
-                            
+                            // 查找封面图片（C1/T03-COVER：按完整媒体身份解析）
+                            val coverImage = resolveAlbumCoverImage(album, allImages)
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1603,14 +1603,13 @@ private fun AlbumPickerDialog(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (coverImage != null) {
-                                        // 显示封面图片
+                                        // C1/T03-COVERKEY：封面请求经生产构造器（身份+内容版本键）。
                                         AsyncImage(
-                                            model = ImageRequest.Builder(context)
-                                                .data(coverImage.uri)
-                                                .size(coil.size.Size(144, 144))
-                                                .precision(Precision.INEXACT)
-                                                .crossfade(true)
-                                                .build(),
+                                            model = coverImageRequest(
+                                                context, coverImage, "album_list_cover_",
+                                                size = coil.size.Size(144, 144),
+                                                crossfade = true, inexact = true
+                                            ),
                                             contentDescription = album.name,
                                             imageLoader = imageLoader,
                                             contentScale = ContentScale.Crop,
