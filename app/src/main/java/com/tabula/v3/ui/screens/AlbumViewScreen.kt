@@ -115,6 +115,7 @@ import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import com.tabula.v3.ui.util.gridDragHandlerString
 import com.tabula.v3.ui.util.HapticFeedback
 import com.tabula.v3.ui.util.gridThumbnailCacheKey
+import com.tabula.v3.ui.util.coverImageRequest
 import com.tabula.v3.ui.util.ItemBounds
 import com.tabula.v3.ui.util.rememberStringDragSelectState
 
@@ -1602,14 +1603,13 @@ private fun AlbumPickerDialog(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (coverImage != null) {
-                                        // 显示封面图片
+                                        // C1/T03-COVERKEY：封面请求经生产构造器（身份+内容版本键）。
                                         AsyncImage(
-                                            model = ImageRequest.Builder(context)
-                                                .data(coverImage.uri)
-                                                .size(coil.size.Size(144, 144))
-                                                .precision(Precision.INEXACT)
-                                                .crossfade(true)
-                                                .build(),
+                                            model = coverImageRequest(
+                                                context, coverImage, "album_list_cover_",
+                                                size = coil.size.Size(144, 144),
+                                                crossfade = true, inexact = true
+                                            ),
                                             contentDescription = album.name,
                                             imageLoader = imageLoader,
                                             contentScale = ContentScale.Crop,

@@ -55,6 +55,7 @@ import com.tabula.v3.R
 import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.resolveCoverRow
+import com.tabula.v3.ui.util.coverImageRequest
 
 import com.tabula.v3.ui.util.HapticFeedback
 import kotlinx.coroutines.launch
@@ -294,11 +295,11 @@ private fun AlbumGridItem(
                 }
         ) {
             if (coverUri != null && !loadFailed) {
+                // C1/T03-COVERKEY：封面请求经生产构造器（身份+内容版本键）。
                 AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(coverUri)
-                        .crossfade(true)
-                        .build(),
+                    model = coverImageRequest(
+                        context, coverImage!!, "draggable_album_cover_", crossfade = true
+                    ),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
