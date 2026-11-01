@@ -8,11 +8,11 @@
 | --- | --- |
 | 总任务状态 | `in_progress`；[PR25](https://github.com/ertutio/TabulaV3/pull/25)、[PR26](https://github.com/ertutio/TabulaV3/pull/26)、[PR27](https://github.com/ertutio/TabulaV3/pull/27) 已按用户授权合并进 master（跨卷软删除全链+O5③ 图集删除/移动/复制身份消费+哈希/相似组按卷消歧），O5④ 经盘点确认由 PR25 闭环。其余约 12 个原 T 组仍有实现或组级验收差额。 |
 | 计划 ref | [PR #12](https://github.com/ertutio/TabulaV3/pull/12)，`docs/continuous-development-2026-10-28`；本次更新前父版本 `dc51efb`。PR12 保持开放、不能整体合并；PR6/PR9 不在本次合并范围（未动）。 |
-| 已合并基线 | **`master@e6bd2cc062b95993479ba1f18afe2eae5741ed2d`**（2026-11-01 合并 #25/#26/#27：merge 顺序 `908a4eca`(#25, head 5c0645af) → `2c90b2b2`(#26, head 48f24404，base 已切回 master 进入 master) → `e6bd2cc0`(#27, head fad160a)；三个指定 head 均为 master 祖先）。其上叠加 PR23/PR24。合并后组合态 CI [run 41296460452](https://github.com/ertutio/TabulaV3/actions/runs/41296460452)（head e6bd2cc）三 job 全绿。此前基线 b455f45 上的已交付边界描述继续成立（#24 限制说明保留）。 |
-| 当前依赖候选 | [PR28](https://github.com/ertutio/TabulaV3/pull/28)（C1/T03-GROUPID-CLEANUP，**复验三轮后 head `464cd23`**）、[PR29](https://github.com/ertutio/TabulaV3/pull/29)（C1/T03-THUMBKEY，`fix/system-album-grid-thumb-identity-2026-11-01@8dcfc11`）——均独立基于 master e6bd2cc，待人工评审合并。PR12 保持开放仅作计划。 |
+| 已合并基线 | **`master@a91db5dacd28dcb404af5cdf6177c4d8c9fafc90`**（2026-11-02 合并 PR28/PR29：merge `921ee112`(#28, head 464cd23) → `a91db5da`(#29, head 8dcfc11)；两 head 均为 master 祖先；合并后组合态 CI [run 41328257430](https://github.com/ertutio/TabulaV3/actions/runs/41328257430)（head a91db5d）三 job 全绿、双设备各 16 项零 skip）。**`e6bd2cc062b95993479ba1f18afe2eae5741ed2d`**（2026-11-01 合并 #25/#26/#27：merge 顺序 `908a4eca`(#25, head 5c0645af) → `2c90b2b2`(#26, head 48f24404，base 已切回 master 进入 master) → `e6bd2cc0`(#27, head fad160a)；三个指定 head 均为 master 祖先）。其上叠加 PR23/PR24 与本轮 PR28/PR29。组合态 CI run 41296460452（head e6bd2cc）三 job 全绿。此前基线 b455f45 上的已交付边界描述继续成立（#24 限制说明保留）。 |
+| 当前依赖候选 | 无开放依赖候选。[PR28](https://github.com/ertutio/TabulaV3/pull/28)（merge `921ee112`，head `464cd23`）与 [PR29](https://github.com/ertutio/TabulaV3/pull/29)（merge `a91db5da`，head `8dcfc11`）已按用户授权于 2026-11-02 按序合并进 master（28→29，无冲突，head 均未变、检查均 success）。PR12 保持开放仅作计划。后续单元从新 master 建。 |
 | 当前检查点 | C1/T03 后续消费簇（剩余：封面簇迁移——CategorizedAlbumsView/AlbumSelectionSheet/AlbumTagManagementScreen 裸 coverImageId 与 tag_cover_/exclude_cover_；deck ViewerOverlay 读 album_grid_ 而 deck 写 card_ 键的既有错配属 deck/T06 簇）、C2/T04 其余删除入口。C0 已有逻辑覆盖清单可复用，真实设备等缺口仍保留；本轮不关闭整个 T03/T04。 |
-| next_action | **继续最早 ready 项：C2/T04 其余删除入口逐入口复用既有分批协议（按稳定簇接入）**，或封面簇身份迁移（若用户优先）。PR28/PR29 均待人工评审合并；合并前生产分支从 master e6bd2cc 或按堆叠需要建立。 |
-| 执行状态 / 所有权 | 本轮：U1 交付（PR28 四提交）+ U2 交付（PR29 四提交：b9289b0 基线 FAIL×2 → 0e3b1c7 噪音 → 7a77052 修复 → 8dcfc11 复审连带闭环）。恢复时核对实际 refs、未提交文件、写者及运行中 CI；本快照不代替现场检查。 |
+| next_action | **继续最早 ready 项：C2/T04 其余删除入口逐入口复用既有分批协议（按稳定簇接入）**，或封面簇身份迁移（若用户优先；封面清单已含 AlbumTagManagementScreen tag_cover_/exclude_cover_）。生产分支从 master `a91db5d` 建立。 |
+| 执行状态 / 所有权 | 本轮：用户授权合并 PR28/PR29（head 核对一致、CI 均 success、按序 28→29 合并无冲突）；合并后组合态 CI 绿。PR28 经三轮复验（复验轮二：断点歧义猜选+迁移口径分裂；复验轮三：断点位置有效性）最终 head `464cd23`；PR29 head `8dcfc11`（复审连带闭环已含）。恢复时核对实际 refs、未提交文件、写者及运行中 CI；本快照不代替现场检查。 |
 
 ## 分支和依赖处理
 
