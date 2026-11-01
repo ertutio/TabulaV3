@@ -695,6 +695,22 @@ internal fun ImageFile.matchesSameMediaIdentity(other: ImageFile): Boolean =
 /** T03：UI 列表 key/选择集用的稳定身份键（卷|ID）；卷未知行退化为纯 ID 键。 */
 internal fun ImageFile.mediaIdentityKey(): String = "${volumeName ?: ""}|$id"
 
+/**
+ * O5③：图集批量永久删除（AlbumViewScreen 选择集 → MainActivity 删除请求）的
+ * 确认行解析。选择集携带确认行的完整媒体身份键（mediaIdentityKey），
+ * 从候选列表（MainActivity 级 allImages）解析出待删除行。
+ */
+internal fun resolveImagesByIdentitySelection(
+    images: List<ImageFile>,
+    selectedIdentityKeys: Collection<String>
+): List<ImageFile> {
+    // 旧口径基线（MainActivity 原 allImages.filter { it.id in imageIds } 的忠实
+    // 提取）：按数值 ID 过滤、身份键的卷段被忽略——不同卷的同数值 ID 行会被
+    // 一并解析进删除请求。
+    val ids = selectedIdentityKeys.map { it.substringAfterLast('|').toLong() }
+    return images.filter { it.id in ids }
+}
+
 internal class BucketGroupData(
     val ids: MutableList<Long>,
     val relativePath: String?,
