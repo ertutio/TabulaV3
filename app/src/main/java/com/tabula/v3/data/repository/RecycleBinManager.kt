@@ -120,7 +120,7 @@ class RecycleBinManager internal constructor(
         loadUnlocked()
         // C1-T03-LEGACY-PENDING-ISOLATION：合并登记而非要求空日志——升级前
         // 遗留的未知条目保留在日志中，其他照片的删除照常进行且不覆盖旧日志。
-        savePendingUnlocked((pendingUnlocked() + uris.distinct()))
+        savePendingUnlocked((pendingUnlocked() + uris.distinct()).distinct())
     }
 
     /**
