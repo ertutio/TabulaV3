@@ -77,6 +77,7 @@ import com.tabula.v3.ui.util.StringDragSelectState
 import com.tabula.v3.ui.util.gridDragHandlerString
 import com.tabula.v3.ui.util.itemDragReceiverString
 import com.tabula.v3.ui.util.rememberStringDragSelectState
+import com.tabula.v3.ui.util.coverImageRequest
 import com.tabula.v3.ui.util.toggleSelection
 import kotlin.math.roundToInt
 
@@ -771,11 +772,11 @@ private fun SystemBucketRow(
                 .background(if (isDarkTheme) Color(0xFF2C2C2E) else Color(0xFFE5E5EA))
         ) {
             if (coverImage != null) {
+                // C1/T03-COVERKEY：请求经生产构造器（身份+内容版本缓存键）。
                 AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(coverImage.uri)
-                        .crossfade(true)
-                        .build(),
+                    model = coverImageRequest(
+                        context, coverImage, "system_bucket_cover_", crossfade = true
+                    ),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()

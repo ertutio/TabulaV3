@@ -42,6 +42,7 @@ import coil.request.ImageRequest
 import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.resolveCoverRow
+import com.tabula.v3.ui.util.coverImageRequest
 
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import com.tabula.v3.ui.util.HapticFeedback
@@ -192,15 +193,13 @@ private fun OtherAlbumRow(
                 .clip(RoundedCornerShape(8.dp))
                 .background(if (isDarkTheme) Color(0xFF2C2C2E) else Color(0xFFE5E5EA))
         ) {
-            if (coverUri != null) {
+            if (coverImage != null) {
+                // C1/T03-COVERKEY：请求经生产构造器（身份+内容版本缓存键）。
                 AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(coverUri)
-                        .size(coil.size.Size(120, 120))
-                        .precision(coil.size.Precision.INEXACT)
-                        .bitmapConfig(android.graphics.Bitmap.Config.RGB_565)
-                        .crossfade(false)
-                        .build(),
+                    model = coverImageRequest(
+                        context, coverImage, "other_albums_cover_",
+                        size = coil.size.Size(120, 120), inexact = true, rgb565 = true
+                    ),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
