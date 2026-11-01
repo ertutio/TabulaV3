@@ -242,7 +242,6 @@ private fun AlbumGridItem(
     
     // 如果 coverImage 为 null 但有 coverImageId，直接用 ID 构建 URI 作为 fallback
     val coverUri = coverImage?.uri 
-        ?: album.coverImageId?.let { android.net.Uri.parse("content://media/external/images/media/$it") }
     
     // 跟踪图片加载状态
     var loadFailed by remember { mutableStateOf(false) }

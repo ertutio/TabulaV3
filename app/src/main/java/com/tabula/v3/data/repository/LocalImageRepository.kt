@@ -689,8 +689,11 @@ internal fun imageItemUri(volumeName: String?, id: Long): Uri =
  * 物理删除链卷限定 URI 与旧聚合记录分区（RecycleBinDeletion）、
  * 图集批量永久删除选择集（resolveImagesByIdentitySelection）与
  * 图集详情列表 key/选择/回写剪裁（AlbumViewScreen）、查看器 Pager key。
- * 显示名/封面/哈希缓存等 Album 层消费簇仍按名或纯 ID（显式产品语义或
- * 后续簇，见进度文件 C1/T03）。
+ * 显示名/哈希缓存等 Album 层消费簇仍按名或纯 ID（显式产品语义或
+ * 后续簇，见进度文件 C1/T03）；封面指针/展示/缓存已于 C1/T03-COVER
+ * 迁移到完整媒体身份（Album.coverVolumeName + resolveAlbumCoverImage）。
+ * 已知残留：AlbumManager.getImageUrisForIds（无生产调用者，死代码）
+ * 与 metadata 按名键控（改名后旧条目被同名新图集继承）登记为后续。
  */
 internal fun ImageFile.matchesSameMediaIdentity(other: ImageFile): Boolean =
     id == other.id && (volumeName == null || other.volumeName == null || volumeName == other.volumeName)

@@ -80,6 +80,26 @@ class AlbumCoverIdentityTest {
     }
 
     @Test
+    fun coverReSetToDifferentVolumeReplacesIdentity() = runBlocking {
+        // 跨卷换封面：先设第二卷封面，再改设主卷同数值 ID 行——持久化身份
+        // 必须跟随新选择整体替换（不得保留旧卷致串图）。
+        val manager = AlbumManager(context)
+        manager.updateAlbum(albumWithCoverSet())
+        manager.updateAlbum(albumWithCoverSet().copy(coverVolumeName = "external_primary"))
+
+        val restarted = AlbumManager(context)
+        restarted.refreshAlbumsFromSystem(
+            preloadedBuckets = listOf(primaryBucket, secondaryBucket)
+        )
+        val album = restarted.albums.value.first { it.name == "Camera" }
+        assertEquals(
+            "换封面后身份必须跟随新选择（卷替换）",
+            "external_primary", album.coverVolumeName
+        )
+        assertEquals(10L, album.coverImageId)
+    }
+
+    @Test
     fun legacyMetadataWithoutCoverFallsBackToBucketDefault() = runBlocking {
         // 旧格式（metadata 无封面字段）：行为与升级前一致——桶默认封面，
         // 且默认封面必须携带其所属卷（跨卷同名桶不串）。

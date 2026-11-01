@@ -279,8 +279,13 @@ fun AlbumViewScreen(
                     { excluded: Boolean -> callback(currentAlbum.id, excluded) }
                 },
                 isExcludedFromRecommend = isAlbumExcludedFromRecommend?.invoke(currentAlbum.id) ?: false,
-                onSetCover = if (onUpdateAlbum != null) { imageId ->
-                    val updatedAlbum = currentAlbum.copy(coverImageId = imageId)
+                onSetCover = if (onUpdateAlbum != null) { image ->
+                    // C1/T03-COVER：封面完整媒体身份（卷+ID）随设置写入，
+                    // copy 不再保留旧卷（跨卷换封面不串身份）。
+                    val updatedAlbum = currentAlbum.copy(
+                        coverImageId = image.id,
+                        coverVolumeName = image.volumeName
+                    )
                     onUpdateAlbum(updatedAlbum)
                 } else null,
                 onNavigateBack = onNavigateBack,
@@ -375,7 +380,7 @@ private fun AlbumContentView(
     onDeleteEmptyClick: (() -> Unit)? = null,
     onExcludeFromRecommend: ((Boolean) -> Unit)? = null,
     isExcludedFromRecommend: Boolean = false,
-    onSetCover: ((Long) -> Unit)? = null,
+    onSetCover: ((ImageFile) -> Unit)? = null,
     onNavigateBack: () -> Unit,
     albums: List<Album> = emptyList(),
     allImages: List<ImageFile> = emptyList(),
@@ -908,7 +913,7 @@ private fun AlbumContentView(
                                 onImageClick(image, sourceRect, sortedImages)
                             },
                             onSetCover = onSetCover?.let { callback ->
-                                { callback(image.id) }
+                                { callback(image) }
                             },
                             isSelectionMode = isSelectionMode,
                             isSelected = identityKey in selectedImageKeys,

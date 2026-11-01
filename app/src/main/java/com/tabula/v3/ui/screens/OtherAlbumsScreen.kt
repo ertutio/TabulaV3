@@ -169,7 +169,7 @@ private fun OtherAlbumRow(
 ) {
     val context = LocalContext.current
 
-    // 封面 URI（优先用 imageMap，fallback 用 coverImageId 构建 URI）
+    // C1/T03-COVER：封面 URI = 解析行的卷限定 URI（解析失败 → 占位）。
     val coverUri = coverImage?.uri
 
     Row(
