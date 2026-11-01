@@ -649,6 +649,7 @@ private fun AlbumCleanupItem(
                         .data(coverRow?.uri)
                         .crossfade(true)
                         .memoryCacheKey(coverRow?.let { gridThumbnailCacheKey("cleanup_cover_", it) })
+                        .diskCacheKey(coverRow?.let { gridThumbnailCacheKey("cleanup_cover_", it) })
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -1000,6 +1001,7 @@ private fun MonthCleanupItem(
                         .data(coverRow?.uri)
                         .crossfade(true)
                         .memoryCacheKey(coverRow?.let { gridThumbnailCacheKey("month_cover_", it) })
+                        .diskCacheKey(coverRow?.let { gridThumbnailCacheKey("month_cover_", it) })
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,

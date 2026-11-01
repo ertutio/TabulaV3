@@ -912,6 +912,7 @@ private fun TagOrderItem(
                         .size(120, 120)
                         .crossfade(100)
                         .memoryCacheKey(gridThumbnailCacheKey("tag_cover_", tagCoverImage))
+                        .diskCacheKey(gridThumbnailCacheKey("tag_cover_", tagCoverImage))
                         .allowHardware(true)
                         .build(),
                     contentDescription = album.name,
@@ -1016,6 +1017,7 @@ private fun ExcludeAlbumItem(
                         .size(120, 120)
                         .crossfade(100)
                         .memoryCacheKey(gridThumbnailCacheKey("exclude_cover_", excludeCoverImage))
+                        .diskCacheKey(gridThumbnailCacheKey("exclude_cover_", excludeCoverImage))
                         .allowHardware(true)
                         .build(),
                     contentDescription = album.name,
