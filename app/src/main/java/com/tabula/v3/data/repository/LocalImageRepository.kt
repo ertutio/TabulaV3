@@ -703,13 +703,11 @@ internal fun ImageFile.mediaIdentityKey(): String = "${volumeName ?: ""}|$id"
 internal fun resolveImagesByIdentitySelection(
     images: List<ImageFile>,
     selectedIdentityKeys: Collection<String>
-): List<ImageFile> {
-    // 旧口径基线（MainActivity 原 allImages.filter { it.id in imageIds } 的忠实
-    // 提取）：按数值 ID 过滤、身份键的卷段被忽略——不同卷的同数值 ID 行会被
-    // 一并解析进删除请求。
-    val ids = selectedIdentityKeys.map { it.substringAfterLast('|').toLong() }
-    return images.filter { it.id in ids }
-}
+): List<ImageFile> =
+    // O5③：按完整媒体身份键匹配——不同卷的同数值 ID 行只有被确认选中的
+    // 那一行进入删除请求；键内的卷段对活查询行恒有值（minSdk 31 起
+    // VOLUME_NAME 列存在），卷未知退化键仅见于跨列表同源旧数据。
+    images.filter { it.mediaIdentityKey() in selectedIdentityKeys }
 
 internal class BucketGroupData(
     val ids: MutableList<Long>,
