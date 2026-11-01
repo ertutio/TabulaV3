@@ -3,6 +3,7 @@ package com.tabula.v3.data.repository
 import android.content.Context
 import android.net.Uri
 import com.tabula.v3.data.repository.LocalImageRepository.LoadResult
+import com.tabula.v3.data.repository.FileOperationManager
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -222,6 +223,89 @@ class SnapshotCrossVolumeSoftDeleteTest {
         legacyBin.beginDeletion(listOf(aggregateUri))
         legacyBin.finishDeletion(deleted = setOf(aggregateUri))
         assertEquals("聚合 URI 下两条记录会被一并清除（修复前行为对照）", 0, legacyBin.loadRecycleBin().size)
+    }
+
+    @Test
+    fun legacyAggregateDeleteStopsWhenCrossVolumeSameIdRecordsCoexist() = runBlocking {
+        // C1-T03-LEGACY-AGGREGATE-DELETE（升级兼容）：主分支代记录 = 已知卷名 +
+        // 聚合 external URI。两卷同 ID 记录混存时，聚合 URI 无法确认身份——
+        // 永久删除必须保留记录并停止操作，不得双删另一卷照片。
+        seedRow(10L, "external_primary", "DCIM/Camera/")
+        seedRow(10L, "external_secondary", "DCIM/Camera/")
+        val loaded = repository.loadAllData()
+        val primary10 = loaded.allImages.first { it.id == 10L && it.volumeName == "external_primary" }
+        val secondary10 = loaded.allImages.first { it.id == 10L && it.volumeName == "external_secondary" }
+        // 主分支代记录：卷名有值 + 聚合 URI（旧构建写入）。
+        val legacyA = primary10.copy(uri = Uri.parse("content://media/external/images/media/10"))
+        val legacyB = secondary10.copy(uri = Uri.parse("content://media/external/images/media/10"))
+        assertEquals("两条记录共享同一聚合 URI（升级前形态）", legacyA.uri, legacyB.uri)
+
+        val bin = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        bin.addAllToRecycleBin(listOf(legacyA, legacyB))
+
+        // 主卷文件被物理删除（提供者只报主卷行存在性），身份解析返回主卷：
+        // 但同一聚合 URI 同时被第二卷记录引用 → 身份无法唯一确认 → 必须停止。
+        val result = deleteRecycleBinBatch(
+            listOf(legacyA.uri), bin,
+            request = { FileOperationManager.DeleteResult.Success(it.toSet()) },
+            permission = { error("Unexpected permission") },
+            verify = { error("Unexpected query before identity confirmation") }
+        )
+        // 修复前：无身份确认 → 日志+双删（本断言的有效反例点）。
+        assertTrue(
+            "身份无法唯一确认时必须停止操作而非删除", result is BatchDeleteResult.Failed
+        )
+        assertEquals("两条旧记录都必须保留", 2, bin.loadRecycleBin().size)
+        assertTrue(bin.pendingDeletionUris().isEmpty())
+    }
+
+    @Test
+    fun legacyAggregateReconcileKeepsRecordsWhenIdentityUnconfirmed() = runBlocking {
+        // 升级前 pending 日志（聚合 URI）+ 两卷同 ID 记录混存：对账核验时
+        // 身份无法唯一确认 → 保留全部记录并保留 journal（停止），不得双删。
+        seedRow(10L, "external_primary", "DCIM/Camera/")
+        seedRow(10L, "external_secondary", "DCIM/Camera/")
+        val loaded = repository.loadAllData()
+        val legacyA = loaded.allImages.first { it.id == 10L && it.volumeName == "external_primary" }
+            .copy(uri = Uri.parse("content://media/external/images/media/10"))
+        val legacyB = loaded.allImages.first { it.id == 10L && it.volumeName == "external_secondary" }
+            .copy(uri = Uri.parse("content://media/external/images/media/10"))
+
+        val bin = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        bin.addAllToRecycleBin(listOf(legacyA, legacyB))
+        bin.beginDeletion(listOf(legacyA.uri))  // 升级前旧构建写下的日志
+
+        val recovered = reconcileRecycleBinDeletion(bin) {
+            // 旧核验：系统上报聚合 URI 已删除（单行裁决，无法区分卷）。
+            DeletionVerification(it.toSet(), emptySet(), emptySet())
+        }
+        assertTrue(
+            "无法确认身份的 URI 必须归入 unknown（保留记录）",
+            legacyA.uri in recovered.unknown
+        )
+        assertEquals(2, bin.loadRecycleBin().size)
+        assertEquals(listOf(legacyA.uri), bin.pendingDeletionUris())
+    }
+
+    @Test
+    fun legacyAggregateDeleteProceedsWhenIdentityConfirmed() = runBlocking {
+        // 单条旧记录 + 解析卷与记录卷一致 → 身份确认 → 正常删除（不回归旧数据）。
+        seedRow(10L, "external_primary", "DCIM/Camera/")
+        val loaded = repository.loadAllData()
+        val legacyOnly = loaded.allImages.first { it.id == 10L && it.volumeName == "external_primary" }
+            .copy(uri = Uri.parse("content://media/external/images/media/10"))
+
+        val bin = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        bin.addAllToRecycleBin(listOf(legacyOnly))
+        val result = deleteRecycleBinBatch(
+            listOf(legacyOnly.uri), bin,
+            request = { FileOperationManager.DeleteResult.Success(it.toSet()) },
+            permission = { error("Unexpected permission") },
+            verify = { DeletionVerification(it.toSet(), emptySet(), emptySet()) },
+            resolveVolume = { "external_primary" }
+        )
+        assertTrue(result is BatchDeleteResult.Completed)
+        assertTrue(bin.loadRecycleBin().isEmpty())
     }
 
     @Test

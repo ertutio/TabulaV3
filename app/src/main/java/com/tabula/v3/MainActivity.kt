@@ -70,6 +70,7 @@ import com.tabula.v3.data.repository.DeletionVerification
 import com.tabula.v3.data.repository.FileOperationManager
 import com.tabula.v3.data.repository.LocalImageRepository
 import com.tabula.v3.data.repository.matchesSameMediaIdentity
+import com.tabula.v3.data.repository.partitionByConfirmedIdentity
 import com.tabula.v3.data.repository.projectSnapshot
 import com.tabula.v3.data.repository.RecycleBinManager
 import com.tabula.v3.data.repository.RecommendationEngine
@@ -110,7 +111,9 @@ import com.tabula.v3.ui.util.HapticFeedback
 import com.tabula.v3.ui.theme.TabulaTheme
 import com.tabula.v3.ui.components.LocalLiquidGlassEnabled
 import com.tabula.v3.service.FluidCloudService
+import android.content.Context
 import android.net.Uri
+import android.provider.MediaStore
 import android.widget.Toast
 import com.tabula.v3.ui.components.isBackdropLiquidGlassSupported
 import kotlinx.coroutines.Dispatchers
@@ -146,6 +149,16 @@ fun decideRestoreAction(uri: Uri, verification: DeletionVerification): RestoreDe
  * 3. 简单路由管理
  * 4. ColorOS 16 风格预测性返回
  */
+/** T03 升级兼容：解析 URI 当前指向的卷（聚合 URI 经现场查询确认身份）。 */
+private suspend fun resolveMediaVolumeName(context: Context, uri: Uri): String? =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            context.contentResolver.query(
+                uri, arrayOf(MediaStore.MediaColumns.VOLUME_NAME), null, null, null
+            )?.use { c -> if (c.moveToFirst()) c.getString(0)?.takeIf { it.isNotBlank() } else null }
+        }.getOrNull()
+    }
+
 class MainActivity : ComponentActivity() {
 
     private var hasPermission by mutableStateOf(false)
@@ -455,7 +468,11 @@ fun TabulaApp(
         if (isDeletingRecycleBin) return@LaunchedEffect
         try {
             if (!deletePermissionInFlight) {
-                val recovered = reconcileRecycleBinDeletion(recycleBinManager, fileOperationManager::verifyDeletionState)
+                val recovered = reconcileRecycleBinDeletion(
+                    recycleBinManager,
+                    resolveVolume = { resolveMediaVolumeName(context, it) },
+                    verify = fileOperationManager::verifyDeletionState
+                )
                 if (recovered.unknown.isNotEmpty()) {
                     Toast.makeText(context, "上次删除尚有无法核对的照片，请检查照片访问权限或存储卷后重试", Toast.LENGTH_LONG).show()
                 }
@@ -501,7 +518,11 @@ fun TabulaApp(
         isDeletingRecycleBin = true
         scope.launch {
             try {
-                val recovered = reconcileRecycleBinDeletion(recycleBinManager, fileOperationManager::verifyDeletionState)
+                val recovered = reconcileRecycleBinDeletion(
+                    recycleBinManager,
+                    resolveVolume = { resolveMediaVolumeName(context, it) },
+                    verify = fileOperationManager::verifyDeletionState
+                )
                 removeConfirmedFromState(recovered.deleted)
                 if (recovered.unknown.isNotEmpty()) {
                     Toast.makeText(context, "上次删除结果无法确认，请检查完整照片访问权限和存储卷后重试核对", Toast.LENGTH_LONG).show()
@@ -512,6 +533,7 @@ fun TabulaApp(
                     deleteBatch = { uris ->
                         deleteRecycleBinBatch(
                             uris, recycleBinManager, fileOperationManager::deleteImages,
+                            resolveVolume = { resolveMediaVolumeName(context, it) },
                             permission = { result ->
                                 suspendCancellableCoroutine { continuation ->
                                     onRequestDeletePermission(result.intentSender) { allowed ->
@@ -556,15 +578,25 @@ fun TabulaApp(
         if (images.isEmpty() || isDeletingRecycleBin || deletePermissionInFlight) return
         scope.launch {
             try {
-                val recovered = reconcileRecycleBinDeletion(recycleBinManager, fileOperationManager::verifyDeletionState)
+                val recovered = reconcileRecycleBinDeletion(
+                    recycleBinManager,
+                    resolveVolume = { resolveMediaVolumeName(context, it) },
+                    verify = fileOperationManager::verifyDeletionState
+                )
                 removeConfirmedFromState(recovered.deleted)
                 val candidates = images.filter { it.uri !in recovered.unknown && it.uri !in recovered.deleted }
+                // 升级兼容：聚合 URI 无法唯一确认身份的候选（跨卷同 ID 混存）
+                // 归入保留（UNKNOWN 语义），不参与缺失裁决。
+                val (confirmedUris, unconfirmedUris) = partitionByConfirmedIdentity(
+                    candidates.map { it.uri }, candidates
+                ) { resolveMediaVolumeName(context, it) }
+                val confirmedSet = confirmedUris.toSet()
                 val verification = withContext(Dispatchers.IO) {
-                    fileOperationManager.verifyDeletionState(candidates.map { it.uri })
+                    fileOperationManager.verifyDeletionState(confirmedUris)
                 }
                 val restorable = mutableListOf<ImageFile>()
                 val missing = mutableListOf<ImageFile>()
-                var keptUnknown = images.count { it.uri in recovered.unknown }
+                var keptUnknown = images.count { it.uri in recovered.unknown } + unconfirmedUris.size
                 candidates.forEach { image ->
                     when (decideRestoreAction(image.uri, verification)) {
                         RestoreDecision.PROCEED_RESTORE -> restorable += image
