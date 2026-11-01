@@ -209,4 +209,34 @@ class AlbumCoverIdentityTest {
             resolveAlbumCoverImage(album, library)
         )
     }
+
+    // ========== 复验轮四：用户封面与自动封面的区分 ==========
+
+    @Test
+    fun propertyEditDoesNotFreezeBucketDefaultCover() = runBlocking {
+        // 审计复现场景：updateAlbum 只改名称/颜色等属性时不得把显示态的
+        // 桶默认封面持久化为用户封面——否则自动封面被冻结（新照片入桶后
+        // 默认封面本应跟随最新，却被旧 ID 固定）。
+        val manager = AlbumManager(context)
+        manager.refreshAlbumsFromSystem(preloadedBuckets = listOf(primaryBucket, secondaryBucket))
+        val displayAlbum = manager.albums.value.first { it.name == "Camera" }
+        assertEquals(10L, displayAlbum.coverImageId)
+
+        // 属性编辑（排序）——携带显示态封面的 Album 对象走 updateAlbum。
+        manager.updateAlbum(displayAlbum.copy(order = 5))
+
+        // 桶内容变化：新照片 id=11 成为该桶最新（默认封面应跟随）。
+        val newBuckets = listOf(
+            primaryBucket.copy(coverImageId = 11L),
+            secondaryBucket
+        )
+        val restarted = AlbumManager(context)
+        restarted.refreshAlbumsFromSystem(preloadedBuckets = newBuckets)
+        val album = restarted.albums.value.first { it.name == "Camera" }
+        assertEquals(
+            "属性编辑不得冻结自动封面（桶默认封面必须跟随最新照片）",
+            11L, album.coverImageId
+        )
+    }
+
 }
