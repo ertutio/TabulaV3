@@ -962,6 +962,25 @@ class AppPreferences(context: Context) {
     }
 
     /**
+     * 整体替换图集清理断点并**保留原保存时刻**（C1/T03-GROUPID 复验轮三：
+     * 旧格式断点引用迁移的写回通道——重写引用时若刷新保存时刻，会使
+     * "分析晚于断点"的时序判据在迁移入口失效）。
+     */
+    fun replaceAlbumCleanupCheckpoint(
+        albumId: String,
+        groupIds: List<String>,
+        currentIndex: Int,
+        savedAtMs: Long
+    ) {
+        albumCleanupPrefs.edit()
+            .putStringSet("checkpoint_groups_$albumId", groupIds.toSet())
+            .putString("checkpoint_groups_order_$albumId", groupIds.joinToString(","))
+            .putInt("checkpoint_index_$albumId", currentIndex)
+            .putLong("checkpoint_time_$albumId", savedAtMs)
+            .apply()
+    }
+
+    /**
      * 获取图集最近一次相似组分析的时刻（毫秒；C1/T03-GROUPID 复验轮三：
      * 晚于断点保存时刻说明分析重跑过，批次组成/排序可能已变）。
      *

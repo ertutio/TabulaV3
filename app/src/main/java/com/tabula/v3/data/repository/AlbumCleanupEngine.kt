@@ -527,14 +527,21 @@ class AlbumCleanupEngine(
                 }
                 android.util.Log.d(TAG, "Migrated legacy group keys $legacyId -> ${target.id}")
             }
-            // checkpoint 中的引用同步改写（保序保 index；重复条目按原样逐条映射）。
+            // checkpoint 中的引用同步改写（保序保 index；重复条目按原样逐条
+            // 映射）。**保留原保存时刻**——刷新 checkpoint_time_ 会使
+            // "分析晚于断点"的时序判据在迁移入口失效（复审 CONCERN 闭环）。
             val checkpoint = preferences.getAlbumCleanupCheckpoint(albumId)
             if (checkpoint != null) {
                 val (order, index) = checkpoint
                 if (order.any { it in mappings.map { m -> m.first } }) {
                     val mapping = mappings.toMap()
                     val newOrder = order.map { mapping[it]?.id ?: it }
-                    preferences.saveAlbumCleanupCheckpoint(albumId, newOrder, index)
+                    preferences.replaceAlbumCleanupCheckpoint(
+                        albumId,
+                        newOrder,
+                        index,
+                        preferences.getAlbumCleanupCheckpointSavedAt(albumId)
+                    )
                 }
             }
             // 组目录最后改写（迁移完成标志；崩溃后旧条目仍在→下次入口续跑自愈）。
