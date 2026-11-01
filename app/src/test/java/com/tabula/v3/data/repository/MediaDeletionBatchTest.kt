@@ -213,8 +213,12 @@ class MediaDeletionBatchTest {
     fun twoThousandOneItemsSplitThroughProductionAdapterKeepingPartialSuccess() = runBlocking {
         // TC17：2001 项经生产协调组合（deleteInBatches + deleteMediaUrisBatch，
         // 即 performDeleteBatch/performDeleteUris 的实际形态）分批：每请求 ≤100 项、
-        // 逐批授权核验、末批服务错误停止后续，已确认 2000 项按批保留，
-        // 不把整体结果当每项结果。
+        // 逐批授权核验、已确认 2000 项按批保留，不把整体结果当每项结果。
+        // 本测试失败批即末批，"SERVICE 错误停止后续批"与"SERVICE 不可拆分"
+        // 分别由 BatchDeletionTest.globalFailureStopsAllLaterBatches（10000 项
+        // calls==1）与 onlyInvalidRequestFailuresAreSplittable /
+        // RecycleBinDeletionTest.globalErrorsAreNotSplitAndStopAfterOneRequest
+        // 在套件层钉死，此处不再空真重复。
         val all = uris(2001)
         val requests = mutableListOf<List<Uri>>()
         val delivered = mutableListOf<Set<Uri>>()
