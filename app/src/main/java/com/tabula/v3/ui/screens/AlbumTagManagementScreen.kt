@@ -80,6 +80,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tabula.v3.data.model.Album
+import com.tabula.v3.data.repository.imageItemUri
+
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import com.tabula.v3.ui.theme.TabulaColors
@@ -892,10 +894,16 @@ private fun TagOrderItem(
                 // 显示封面图 — 性能优化：指定小尺寸 + 启用硬件位图 + 缓存
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data("content://media/external/images/media/${album.coverImageId}")
+                        .data(
+                            com.tabula.v3.data.repository.imageItemUri(
+                                album.coverVolumeName, album.coverImageId
+                            )
+                        )
                         .size(120, 120)
                         .crossfade(100)
-                        .memoryCacheKey("tag_cover_${album.coverImageId}")
+                        .memoryCacheKey(
+                            "tag_cover_" + (album.coverVolumeName ?: "") + "_${album.coverImageId}"
+                        )
                         .allowHardware(true)
                         .build(),
                     contentDescription = album.name,
@@ -988,10 +996,16 @@ private fun ExcludeAlbumItem(
                 // 显示封面图 — 性能优化：指定小尺寸 + 启用硬件位图 + 缓存
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data("content://media/external/images/media/${album.coverImageId}")
+                        .data(
+                            com.tabula.v3.data.repository.imageItemUri(
+                                album.coverVolumeName, album.coverImageId
+                            )
+                        )
                         .size(120, 120)
                         .crossfade(100)
-                        .memoryCacheKey("exclude_cover_${album.coverImageId}")
+                        .memoryCacheKey(
+                            "exclude_cover_" + (album.coverVolumeName ?: "") + "_${album.coverImageId}"
+                        )
                         .allowHardware(true)
                         .build(),
                     contentDescription = album.name,

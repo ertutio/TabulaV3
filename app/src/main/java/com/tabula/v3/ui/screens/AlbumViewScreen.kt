@@ -104,6 +104,7 @@ import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.model.SyncMode
 import com.tabula.v3.data.repository.mediaIdentityKey
+import com.tabula.v3.data.repository.resolveAlbumCoverImage
 import com.tabula.v3.di.CoilSetup
 import com.tabula.v3.ui.components.AlbumDeleteConfirmDialog
 import com.tabula.v3.ui.components.AlbumEditDialog
@@ -1576,11 +1577,9 @@ private fun AlbumPickerDialog(
                     ) {
                         items(albums.size) { index ->
                             val album = albums[index]
-                            // 查找封面图片
-                            val coverImage = album.coverImageId?.let { coverId ->
-                                allImages.find { it.id == coverId }
-                            }
-                            
+                            // 查找封面图片（C1/T03-COVER：按完整媒体身份解析）
+                            val coverImage = resolveAlbumCoverImage(album, allImages)
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()

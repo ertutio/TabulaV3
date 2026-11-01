@@ -41,6 +41,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.repository.resolveCoverRow
+
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import com.tabula.v3.ui.util.HapticFeedback
 
@@ -68,7 +70,8 @@ fun OtherAlbumsScreen(
     val secondaryTextColor = Color(0xFF8E8E93)
     val accentColor = Color(0xFF007AFF)
 
-    val imageMap = androidx.compose.runtime.remember(allImages) { allImages.associateBy { it.id } }
+    // C1/T03-COVER：多值映射——跨卷同 ID 行不折叠。
+    val imageMap = androidx.compose.runtime.remember(allImages) { allImages.groupBy { it.id } }
 
     // 按图片数量降序排序
     val sortedAlbums = androidx.compose.runtime.remember(albums) {
@@ -132,7 +135,9 @@ fun OtherAlbumsScreen(
             items(sortedAlbums, key = { it.id }) { album ->
                 OtherAlbumRow(
                     album = album,
-                    coverImage = album.coverImageId?.let { imageMap[it] },
+                    coverImage = album.coverImageId?.let { coverId ->
+                        resolveCoverRow(album.coverVolumeName, coverId, imageMap[coverId].orEmpty())
+                    },
                     onClick = { onAlbumClick(album) },
                     onPin = { onPinAlbum(album.name) },
                     cardColor = cardColor,
@@ -166,7 +171,6 @@ private fun OtherAlbumRow(
 
     // 封面 URI（优先用 imageMap，fallback 用 coverImageId 构建 URI）
     val coverUri = coverImage?.uri
-        ?: album.coverImageId?.let { android.net.Uri.parse("content://media/external/images/media/$it") }
 
     Row(
         modifier = Modifier

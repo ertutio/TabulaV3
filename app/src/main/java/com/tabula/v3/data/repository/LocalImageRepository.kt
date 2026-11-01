@@ -706,15 +706,21 @@ internal fun ImageFile.mediaIdentityKey(): String = "${volumeName ?: ""}|$id"
  */
 internal fun resolveAlbumCoverImage(album: Album, images: List<ImageFile>): ImageFile? {
     val coverId = album.coverImageId ?: return null
-    val sameId = images.filter { it.id == coverId }
-    return if (album.coverVolumeName != null) {
-        // 卷已知：精确匹配封面卷的行（跨卷同数值 ID 不串图）。
-        sameId.find { it.volumeName == album.coverVolumeName }
-    } else {
-        // 卷未知（旧口径）：库内唯一才解析；跨卷歧义不猜选（展示回退占位，
-        // 封面指针保留）。缺失/暂时不可读同样返回 null。
-        if (sameId.size == 1) sameId.single() else null
-    }
+    return resolveCoverRow(album.coverVolumeName, coverId, images.filter { it.id == coverId })
+}
+
+/**
+ * C1/T03-COVER：封面行解析核心——同 ID 候选行 + 封面卷归属 → 命中行或 null。
+ * 卷已知：精确匹配该卷行；卷未知（旧口径）：候选唯一才解析，跨卷歧义不猜选
+ * （展示回退占位，封面指针保留）。缺失/暂时不可读同样返回 null。
+ */
+internal fun resolveCoverRow(
+    coverVolumeName: String?,
+    coverImageId: Long,
+    sameIdRows: List<ImageFile>
+): ImageFile? = when (coverVolumeName) {
+    null -> if (sameIdRows.size == 1) sameIdRows.single() else null
+    else -> sameIdRows.find { it.volumeName == coverVolumeName }
 }
 
 /**

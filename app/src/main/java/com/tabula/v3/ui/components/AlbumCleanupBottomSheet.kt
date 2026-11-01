@@ -97,6 +97,8 @@ data class MonthInfo(
     val month: Int,  // 1-12
     val imageCount: Int,
     val coverImageId: Long?,
+    // C1/T03-COVER：封面行所属卷（封面完整媒体身份 = 卷+ID）。
+    val coverVolumeName: String?,
     val images: List<ImageFile>
 ) {
     val id: String get() = "$year-$month"
@@ -121,6 +123,7 @@ data class MonthInfo(
             id = cleanupAlbumId,
             name = displayName,
             coverImageId = coverImageId,
+            coverVolumeName = coverVolumeName,
             imageCount = imageCount
         )
     }
@@ -146,6 +149,7 @@ fun buildMonthInfos(allImages: List<ImageFile>): List<MonthInfo> {
             month = month,
             imageCount = images.size,
             coverImageId = sortedImages.firstOrNull()?.id,
+            coverVolumeName = sortedImages.firstOrNull()?.volumeName,
             images = sortedImages
         )
     }.sortedWith(compareByDescending<MonthInfo> { it.year }.thenByDescending { it.month })
@@ -632,7 +636,11 @@ private fun AlbumCleanupItem(
             album.coverImageId?.let { coverId ->
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data("content://media/external/images/media/$coverId")
+                        .data(
+                            com.tabula.v3.data.repository.imageItemUri(
+                                album.coverVolumeName, coverId
+                            )
+                        )
                         .crossfade(true)
                         .build(),
                     contentDescription = null,
@@ -976,7 +984,11 @@ private fun MonthCleanupItem(
             monthInfo.coverImageId?.let { coverId ->
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data("content://media/external/images/media/$coverId")
+                        .data(
+                            com.tabula.v3.data.repository.imageItemUri(
+                                monthInfo.coverVolumeName, coverId
+                            )
+                        )
                         .crossfade(true)
                         .build(),
                     contentDescription = null,
