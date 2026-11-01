@@ -123,7 +123,15 @@ class RecycleBinManager internal constructor(
         savePendingUnlocked((pendingUnlocked() + uris.distinct()))
     }
 
-    /** Commit the records first. If either write fails, recovery is safe to repeat. */
+    /**
+     * Commit the records first. If either write fails, recovery is safe to repeat.
+     *
+     * covered = 本次核验实际覆盖的 URI；null 视为全部 pending（旧调用语义）。
+     * journal 结果 = 未被 covered 覆盖的条目（升级前遗留/未覆盖项，保留待
+     * 重新核验）+ 本次 unknown（须 ⊆ covered，逐项裁决过）。核验为 existing
+     * 的条目随 covered 一并移出 journal：记录保留、删除意图已解除，后续
+     * 再删除会重新登记。
+     */
     suspend fun finishDeletion(
         deleted: Set<Uri>,
         unknown: Set<Uri> = emptySet(),
@@ -131,13 +139,11 @@ class RecycleBinManager internal constructor(
     ) = transaction {
         val pending = pendingUnlocked().toSet()
         require(deleted.all { it in pending } && unknown.all { it in pending })
-        // covered = 本次核验实际覆盖的 URI；null 视为全部 pending（旧语义）。
-        // journal 保留未被覆盖的条目（升级前遗留的未知项，每次对账重新核验）。
         val coveredSet = covered ?: pending
         require(deleted.all { it in coveredSet } && unknown.all { it in coveredSet })
         val items = loadUnlocked()
         if (deleted.isNotEmpty()) saveUnlocked(items.filterNot { it.uri in deleted })
-        savePendingUnlocked(((pending - coveredSet) + unknown).toList())
+        savePendingUnlocked(((pending - coveredSet) + unknown).distinct().toList())
     }
 
     private fun pendingUnlocked(): List<Uri> {

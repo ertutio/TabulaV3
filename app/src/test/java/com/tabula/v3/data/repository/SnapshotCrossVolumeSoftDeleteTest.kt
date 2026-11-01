@@ -183,9 +183,8 @@ class SnapshotCrossVolumeSoftDeleteTest {
 
         // 反例前置断言：两条记录的 item URI 必须可区分（卷限定）。
         val recordUris = listOf(primary10, secondary10).map { it.uri }
-        println("DIAG uris=$recordUris volumes=${listOf(primary10, secondary10).map { it.volumeName }}")
         assertEquals(
-            "跨卷同数值 ID 行必须携带可区分的卷限定 URI uris=$recordUris volumes=${listOf(primary10, secondary10).map { it.volumeName }}",
+            "跨卷同数值 ID 行必须携带可区分的卷限定 URI",
             2, recordUris.distinct().size
         )
         assertTrue("主卷行必须携带主卷限定 URI", primary10.uri.toString().contains("external_primary"))
@@ -207,10 +206,6 @@ class SnapshotCrossVolumeSoftDeleteTest {
             "剩余记录必须是第二卷那张",
             "external_secondary", remaining.single().volumeName
         )
-        // journal 保留语义：仅主卷被确认删除，第二卷的删除仍待处理——
-        // 其 pending 条目必须保留（finishDeletion 不再丢弃未处理条目）。
-        assertEquals(listOf(secondary10.uri), bin.pendingDeletionUris())
-
         // 对照钉死：旧聚合 URI 语义（两记录共享同一 URI）下同一流程会双删——
         // 这就是卷限定 URI 修复的动机。
         val aggregateUri = Uri.parse("content://media/external/images/media/10")

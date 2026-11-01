@@ -53,8 +53,12 @@ internal suspend fun reconcileRecycleBinDeletion(
     val records = manager.loadRecycleBin()
     val (confirmed, unconfirmed) = partitionByConfirmedIdentity(pending, records, resolveVolume)
     val state = verify(confirmed)
-    manager.finishDeletion(state.deleted, state.unknown + unconfirmed, covered = confirmed)
-    return DeletionVerification(state.deleted, state.existing, state.unknown + unconfirmed)
+    // unconfirmed 不在 covered 内：由 journal 保留公式自动留存（记录不动、
+    // journal 保留），下次对账重新核验；unknown 仅上报已核验部分。
+    manager.finishDeletion(state.deleted, state.unknown, covered = confirmed.toSet())
+    return DeletionVerification(
+        state.deleted, state.existing, state.unknown + unconfirmed.toSet()
+    )
 }
 
 internal suspend fun deleteRecycleBinBatch(
