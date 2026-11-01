@@ -64,6 +64,7 @@ import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.di.CoilSetup
 import com.tabula.v3.ui.util.findActivity
+import com.tabula.v3.ui.util.gridThumbnailCacheKey
 import com.tabula.v3.ui.util.rememberImageFeatures
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -412,7 +413,11 @@ private fun SwipeableImagePage(
     // 高清图加载状态
     var shouldLoadUltraHd by remember { mutableStateOf(false) }
     
-    val thumbnailCacheKey = remember(image.id) { "album_grid_${image.id}" }
+    // 缩略图缓存键（C1/T03-THUMBKEY）：与网格共用 grid_ 命名空间——身份 +
+    // 内容版本，跨卷同 ID 不串图、编辑后重载；首开温命中网格缩略图。
+    val thumbnailCacheKey = remember(image.id, image.dateModified) {
+        gridThumbnailCacheKey("grid_", image)
+    }
 
     LaunchedEffect(currentScale) {
         if (currentScale > 1.5f && !shouldLoadUltraHd) {
