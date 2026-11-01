@@ -6,6 +6,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -696,6 +697,19 @@ internal fun ImageFile.matchesSameMediaIdentity(other: ImageFile): Boolean =
 
 /** T03：UI 列表 key/选择集用的稳定身份键（卷|ID）；卷未知行退化为纯 ID 键。 */
 internal fun ImageFile.mediaIdentityKey(): String = "${volumeName ?: ""}|$id"
+
+/**
+ * C1/T03-COVER：图集封面行解析——按完整媒体身份 (coverVolumeName, coverImageId)
+ * 匹配。卷已知：精确匹配该卷行；卷未知（旧口径）：库内该 ID 唯一时兼容解析，
+ * 跨卷歧义不猜选（返回 null，展示回退占位，封面指针保留）。封面行缺失/
+ * 暂时不可读同样返回 null（占位展示，不抛错、不清指针）。
+ */
+internal fun resolveAlbumCoverImage(album: Album, images: List<ImageFile>): ImageFile? {
+    val coverId = album.coverImageId ?: return null
+    // 旧口径基线（imageMap[裸 ID] 的忠实形状）：按数值 ID 取首个同 ID 行——
+    // 卷段被忽略：跨卷同 ID 串图、歧义猜选。身份解析在下一步修复中接入。
+    return images.find { it.id == coverId }
+}
 
 /**
  * O5③：图集批量永久删除（AlbumViewScreen 选择集 → MainActivity 删除请求）的
