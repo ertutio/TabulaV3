@@ -113,6 +113,7 @@ import com.tabula.v3.ui.components.SwipeableViewerState
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import com.tabula.v3.ui.util.gridDragHandlerString
 import com.tabula.v3.ui.util.HapticFeedback
+import com.tabula.v3.ui.util.gridThumbnailCacheKey
 import com.tabula.v3.ui.util.ItemBounds
 import com.tabula.v3.ui.util.rememberStringDragSelectState
 
@@ -1293,9 +1294,9 @@ private fun PhotoGridItem(
                 }
             )
     ) {
-        // 使用稳定的缓存键，基于图片 ID
-        val cacheKey = remember(image.id) { "album_grid_${image.id}" }
-        
+        // 缩略图缓存键：完整媒体身份 + 内容版本（C1/T03-THUMBKEY）。
+        val cacheKey = remember(image.id, image.dateModified) { gridThumbnailCacheKey("album_grid_", image) }
+
         // 占位符背景色 - 在图片加载前显示，避免空白闪烁
         val isDarkTheme = LocalIsDarkTheme.current
         val placeholderColor = if (isDarkTheme) Color(0xFF2C2C2E) else Color(0xFFE5E5EA)

@@ -54,6 +54,7 @@ import com.tabula.v3.ui.components.SwipeableViewerOverlay
 import com.tabula.v3.ui.components.SwipeableViewerState
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import com.tabula.v3.ui.util.HapticFeedback
+import com.tabula.v3.ui.util.gridThumbnailCacheKey
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -220,8 +221,8 @@ private fun PhotoGridItem(
                 onClick(sourceRect)
             }
     ) {
-        // 使用稳定的缓存键，基于图片 ID
-        val cacheKey = remember(image.id) { "sys_grid_${image.id}" }
+        // 缩略图缓存键：完整媒体身份 + 内容版本（C1/T03-THUMBKEY）。
+        val cacheKey = remember(image.id, image.dateModified) { gridThumbnailCacheKey("sys_grid_", image) }
         
         // 先绘制占位符背景
         Box(
