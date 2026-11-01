@@ -14,15 +14,31 @@ internal class SimilarGroupsCache(private val validityMs: Long = DEFAULT_VALIDIT
 
     private var cached: List<SimilarGroup>? = null
     private var cacheTimestamp: Long = 0L
-    private var cacheFingerprint: List<Triple<Long, Long, Long>>? = null
+    private var cacheFingerprint: List<MemberFingerprint>? = null
+
+    /**
+     * 成员指纹条目 = (卷, 数值 ID, 内容版本, 大小)。
+     * C1/T03-GROUPCACHE-VOLUME：卷参与相等性——A 卷照片被 B 卷同
+     * (id, dateModified, size) 照片替换时指纹必须变化，缓存组不得
+     * 继续携带 A 卷旧 URI；null 卷（T03 前旧数据路径）与具名卷不等。
+     */
+    internal data class MemberFingerprint(
+        val volumeName: String?,
+        val id: Long,
+        val dateModified: Long,
+        val size: Long
+    )
 
     /**
      * 输入列表的身份+内容版本：按所有字段排序后精确比较。
-     * 顺序不敏感，避免数值折叠导致不同版本碰撞。
+     * 顺序不敏感，避免数值折叠导致不同版本碰撞；重复成员保留
+     * （两卷同数值 ID 行是指纹中的两条不同条目）。
      */
-    internal fun fingerprintOf(images: List<ImageFile>): List<Triple<Long, Long, Long>> =
-        images.map { Triple(it.id, it.dateModified, it.size) }
-            .sortedWith(compareBy({ it.first }, { it.second }, { it.third }))
+    internal fun fingerprintOf(images: List<ImageFile>): List<MemberFingerprint> =
+        images.map { MemberFingerprint(it.volumeName, it.id, it.dateModified, it.size) }
+            .sortedWith(
+                compareBy({ it.volumeName ?: "" }, { it.id }, { it.dateModified }, { it.size })
+            )
 
     /** TTL 内且指纹匹配才返回缓存组；内容变更、成员变化或过期返回 null。 */
     @Synchronized
