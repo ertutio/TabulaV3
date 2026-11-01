@@ -149,13 +149,20 @@ fun decideRestoreAction(uri: Uri, verification: DeletionVerification): RestoreDe
  * 3. 简单路由管理
  * 4. ColorOS 16 风格预测性返回
  */
-/** T03 升级兼容：解析 URI 当前指向的卷（聚合 URI 经现场查询确认身份）。 */
+/** T03 升级兼容：解析 URI 当前指向的卷。查询返回多行（跨卷同 ID 的聚合
+ *  二义）或失败时返回 null → 分区判为未确认（保留记录并停止）。 */
 private suspend fun resolveMediaVolumeName(context: Context, uri: Uri): String? =
     withContext(Dispatchers.IO) {
         runCatching {
             context.contentResolver.query(
                 uri, arrayOf(MediaStore.MediaColumns.VOLUME_NAME), null, null, null
-            )?.use { c -> if (c.moveToFirst()) c.getString(0)?.takeIf { it.isNotBlank() } else null }
+            )?.use { c ->
+                when {
+                    c.count != 1 -> null
+                    c.moveToFirst() -> c.getString(0)?.takeIf { it.isNotBlank() }
+                    else -> null
+                }
+            }
         }.getOrNull()
     }
 
@@ -591,13 +598,16 @@ fun TabulaApp(
                     candidates.map { it.uri }, candidates
                 ) { resolveMediaVolumeName(context, it) }
                 val confirmedSet = confirmedUris.toSet()
+                // 未确认身份的候选不参与核验与裁决：保留在回收站（UNKNOWN 语义）。
+                val verifiable = candidates.filter { it.uri in confirmedSet }
                 val verification = withContext(Dispatchers.IO) {
-                    fileOperationManager.verifyDeletionState(confirmedUris)
+                    fileOperationManager.verifyDeletionState(verifiable.map { it.uri })
                 }
                 val restorable = mutableListOf<ImageFile>()
                 val missing = mutableListOf<ImageFile>()
                 var keptUnknown = images.count { it.uri in recovered.unknown } + unconfirmedUris.size
                 candidates.forEach { image ->
+                    if (image.uri !in confirmedSet) return@forEach
                     when (decideRestoreAction(image.uri, verification)) {
                         RestoreDecision.PROCEED_RESTORE -> restorable += image
                         RestoreDecision.DROP_MISSING -> missing += image

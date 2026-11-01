@@ -70,9 +70,12 @@ internal suspend fun deleteRecycleBinBatch(
     val (confirmedUris, unconfirmedUris) =
         partitionByConfirmedIdentity(uris, manager.loadRecycleBin(), resolveVolume)
     if (unconfirmedUris.isNotEmpty()) {
+        // canSplit=true：deleteInBatches 拆分隔离后，已确认项照常删除，未确认项
+        // 单独成批再次失败并留在 remaining——避免一条无法确认的死记录永久阻断
+        // 整批清空；未确认记录本身保留并停止操作。
         return BatchDeleteResult.Failed(
-            "部分照片身份无法确认（可能来自其他存储卷的同名项），已保留全部记录并停止删除",
-            canSplit = false
+            "部分照片身份无法确认（可能来自其他存储卷的同名项），已保留记录并停止其删除",
+            canSplit = true
         )
     }
     manager.beginDeletion(confirmedUris)

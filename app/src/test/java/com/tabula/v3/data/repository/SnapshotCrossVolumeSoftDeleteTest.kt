@@ -243,13 +243,14 @@ class SnapshotCrossVolumeSoftDeleteTest {
         val bin = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
         bin.addAllToRecycleBin(listOf(legacyA, legacyB))
 
-        // 主卷文件被物理删除（提供者只报主卷行存在性），身份解析返回主卷：
-        // 但同一聚合 URI 同时被第二卷记录引用 → 身份无法唯一确认 → 必须停止。
+        // 卷不一致分支：解析返回主卷，但同一聚合 URI 同时被第二卷记录引用
+        // （knownVolumes=[primary, secondary] 不一致）→ 无法唯一确认 → 必须停止。
         val result = deleteRecycleBinBatch(
             listOf(legacyA.uri), bin,
             request = { FileOperationManager.DeleteResult.Success(it.toSet()) },
             permission = { error("Unexpected permission") },
-            verify = { error("Unexpected query before identity confirmation") }
+            verify = { error("Unexpected query before identity confirmation") },
+            resolveVolume = { "external_primary" }
         )
         // 修复前：无身份确认 → 日志+双删（本断言的有效反例点）。
         assertTrue(
@@ -306,6 +307,62 @@ class SnapshotCrossVolumeSoftDeleteTest {
         )
         assertTrue(result is BatchDeleteResult.Completed)
         assertTrue(bin.loadRecycleBin().isEmpty())
+    }
+
+    @Test
+    fun mixedNullAndKnownVolumeLegacyRecordsFollowUriSemantics() = runBlocking {
+        // 混合代际对照（钉死取舍）：主分支代（已知卷+聚合 URI）与 T03 前代
+        // （null 卷+同聚合 URI）共享同一聚合 URI 且解析一致时 → 确认 → 按 URI
+        // 清除连带移除 null 卷记录——与 T03 前纯 ID 语义一致，是显式保留的
+        // 兼容取舍而非疏漏。
+        seedRow(10L, "external_primary", "DCIM/Camera/")
+        val loaded = repository.loadAllData()
+        val known = loaded.allImages.first { it.id == 10L && it.volumeName == "external_primary" }
+        val aggregateUri = Uri.parse("content://media/external/images/media/10")
+        val knownLegacy = known.copy(uri = aggregateUri)
+        val nullLegacy = known.copy(uri = aggregateUri, volumeName = null)
+        assertEquals(knownLegacy.uri, nullLegacy.uri)
+
+        val bin = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        bin.addAllToRecycleBin(listOf(knownLegacy, nullLegacy))
+        bin.beginDeletion(listOf(aggregateUri))
+        bin.finishDeletion(deleted = setOf(aggregateUri))
+        assertEquals("按 URI 清除连带 null 卷记录（T03 前语义）", 0, bin.loadRecycleBin().size)
+    }
+
+    @Test
+    fun deadLegacyRecordIsIsolatedWithoutBlockingConfirmedDeletes() = runBlocking {
+        // 死行逃逸：无法确认的聚合 URI 记录（解析失败）在 canSplit=true 下被
+        // 拆分隔离——已确认项照常删除，未确认项留在 remaining 且记录保留。
+        seedRow(11L, "external_primary", "DCIM/Camera/")
+        seedRow(12L, "external_primary", "DCIM/Camera/")
+        seedRow(10L, "external_primary", "DCIM/Camera/")
+        val loaded = repository.loadAllData()
+        val dead = loaded.allImages.first { it.id == 10L }
+            .copy(uri = Uri.parse("content://media/external/images/media/10"))
+        val confirmed1 = loaded.allImages.first { it.id == 11L }
+        val confirmed2 = loaded.allImages.first { it.id == 12L }
+
+        val bin = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        bin.addAllToRecycleBin(listOf(dead, confirmed1, confirmed2))
+        val summary = deleteInBatches(
+            listOf(dead, confirmed1, confirmed2).map { it.uri },
+            deleteBatch = { batch ->
+                deleteRecycleBinBatch(
+                    batch, bin,
+                    request = { FileOperationManager.DeleteResult.Success(it.toSet()) },
+                    permission = { error("Unexpected permission") },
+                    verify = { DeletionVerification(it.toSet(), emptySet(), emptySet()) },
+                    resolveVolume = { uri -> if (uri == dead.uri) null else "external_primary" }
+                )
+            },
+            onDeleted = {}
+        )
+        assertEquals("未确认死行必须留在 remaining", setOf(dead.uri), summary.remaining)
+        assertEquals("已确认项必须照常删除", setOf(confirmed1.uri, confirmed2.uri), summary.deleted)
+        val remainingRecords = bin.loadRecycleBin()
+        assertEquals(1, remainingRecords.size)
+        assertEquals(10L, remainingRecords.single().id)
     }
 
     @Test
