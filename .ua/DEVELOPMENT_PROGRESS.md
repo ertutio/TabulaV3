@@ -6,13 +6,13 @@
 
 | 字段 | 当前值 |
 | --- | --- |
-| 总任务状态 | `in_progress`；T05 已完成，其余约 12 个原 T 组仍有实现或组级验收差额。该数量包含部分已实现、等待验证的工作。本次仅更新远端计划，未启动新生产单元或自动化。 |
-| 计划 ref | [PR #12](https://github.com/ertutio/TabulaV3/pull/12)，`docs/continuous-development-2026-10-28`；本次更新父版本 `6bd06822d7f5671224e07440bd228d15df50c8be`。PR12 保持开放、不能整体合并；其旧生产代码只作历史。 |
+| 总任务状态 | `in_progress`；O5③ 已交付（[PR #26](https://github.com/ertutio/TabulaV3/pull/26) 待人工评审合并），O5④ 经现场盘点确认已由 PR25 闭环（见已交付边界表），只登记不另立单元。其余约 12 个原 T 组仍有实现或组级验收差额。 |
+| 计划 ref | [PR #12](https://github.com/ertutio/TabulaV3/pull/12)，`docs/continuous-development-2026-10-28`；本次更新前父版本 `c3739ba1eb095a0c1d3fa3d51b0ac286aeb00097`。PR12 保持开放、不能整体合并；其旧生产代码只作历史。 |
 | 已合并基线 | `master@b455f45044476cc2696083df5ef0a4634d2e7998` 已包含 PR23 与 [PR24](https://github.com/ertutio/TabulaV3/pull/24)。PR24 是未使用 helper 的 volume/path 透传一致性修正，不代表实际 deck 消费者或同数值 ID 跨卷场景整体验收。 |
-| 当前依赖候选 | [PR25](https://github.com/ertutio/TabulaV3/pull/25)，`fix/snapshot-crossvolume-softdelete-2026-11-01@5c0645af5d5ed9f24555f5c8f1e14b23db2eeeb8`，已修复并推送、独立增量审计无新增阻塞、精确 CI 通过；PR 仍开放，等待人工评审/合并。它尚未进入上述 master。 |
-| 当前检查点 | C1/T03、C2/T04 的剩余真实消费者。C0 已有逻辑覆盖清单可复用，真实设备等缺口仍保留；PR25 的局部闭环不关闭整个 T03/T04。 |
-| next_action | **O5③：图集批量永久删除按完整媒体身份消费选择集。** 首查实际图集选择/UI → MainActivity `onDeleteImages` → 删除请求及结果回写，建立“不同卷同数值 ID 只删除确认选中项”的有效旧行为 FAIL，再最小修复并验收。通过后盘点 O5④ 恢复回填的实际差额；PR25 已修复回插匹配，不能预设它仍有缺陷。先按下节处理 PR25 精确依赖，不重复修复已通过的 UNKNOWN 隔离。 |
-| 执行状态 / 所有权 | 本次只修改进度与续接两份文档；上一生产补丁已冻结并推送。恢复时核对实际 refs、未提交文件、写者及运行中 CI；本快照不代替现场检查。 |
+| 当前依赖候选 | [PR25](https://github.com/ertutio/TabulaV3/pull/25)（`fix/snapshot-crossvolume-softdelete-2026-11-01@5c0645af5d5ed9f24555f5c8f1e14b23db2eeeb8`，仍开放待人工评审）与其上的堆叠 [PR26](https://github.com/ertutio/TabulaV3/pull/26)（`fix/album-batch-delete-identity-2026-11-01@49fc1adab159aec80a489e86ea38e5f6c6a1d62b`，三提交：cc75e66 基线 FAIL → 0bcb799 身份修复 → 49fc1ad 端到端接线）。两 PR 均未进入 master；合并顺序 #25 → #26。 |
+| 当前检查点 | C1/T03 后续消费簇（Album 元数据/使用统计/冷却专清/哈希缓存/UI 选择等，按名合并为显式产品语义）、C2/T04 其余删除入口。C0 已有逻辑覆盖清单可复用，真实设备等缺口仍保留；PR25+PR26 的局部闭环不关闭整个 T03/T04。 |
+| next_action | **队列 3：C1/T03 后续消费者逐簇盘点。** 从已交付的 identity 消费面（matchesSameMediaIdentity/mediaIdentityKey/卷限定 URI）出发，逐簇列读写者与缺失断言：SystemAlbumViewScreen.kt:147 网格纯 ID key（跨卷同 ID 重复 key 崩溃残余，PR26 复审建议①）、AlbumViewScreen.kt:214 纯 ID 回退路径（死代码）、PhotoGridItem 缩略图缓存键跨卷串图、onSetCover/AlbumPickerDialog 封面按 ID、StringDragSelectState itemBounds 离场残留。先立盘点清单再逐簇接入，不重复已验收边界。 |
+| 执行状态 / 所有权 | 上一轮交付 O5③ 生产修复（PR26 三提交已冻结推送）+ O5④ 盘点登记；本轮文档更新后无未提交产品文件。恢复时核对实际 refs、未提交文件、写者及运行中 CI；本快照不代替现场检查。 |
 
 ## 分支和依赖处理
 
@@ -32,6 +32,8 @@
 | PR25 / 最终 Linux CI | [run 41274727140](https://github.com/ertutio/TabulaV3/actions/runs/41274727140) 对上述最终 SHA build/API36/API37 全成功；41 JUnit XML、244 units、0 failure/error/skip，RecycleBinDeletionTest 14/14、RecycleBinManagerTest 10/10。Windows `atomicReadRestoresLegacyBackup` 失败已由同源 Linux PASS 定位为本地 AtomicFile rename 夹具差异，未修改/跳过测试；不再列为活动产品失败。 |
 | PR25 / 设备范围 | API36 与 API37 各 VolumeDeletionDeviceTest 3/3，逐例成功、无 skip；自有合成 JPEG + 真实 MediaStore/journal 对账。两台 external_primary mounted，actuallyUnmounted=[]；**没有实际卸载卷**，不外推为真跨卷热拔插验收。该 run 的逐例核验只确认每 API 这 3 项，不沿用 PR23 的 16 项作为本次执行数量。 |
 | PR25 / 独立审计与卡点记录 | 未参与实现的原独立审计者对最终冻结补丁未发现新增阻塞。旧 cf7 “全绿/可合并”仍存在实际入口重发 UNKNOWN、失败/取消可清旧 journal 的缺陷，其结论已失效。该隔离目标曾有 cf7 一次针对性修正未达条件（源码审查），本次唯一局部修正已有效通过；卡点已解决。环境锁/临时目录失败与预期 baseline FAIL 单列，未计产品修正失败。新单元的新问题另立条件，未解决的旧卡点仍跨会话累计。 |
+| O5③ / PR26 图集批量删除身份消费 | tested `49fc1adab159aec80a489e86ea38e5f6c6a1d62b`（父 `5c0645af`，祖先 master `b455f45`）。有效基线 FAIL（cc75e66）：`SnapshotCrossVolumeSoftDeleteTest.albumBatchDeleteResolvesOnlyConfirmedIdentityRows` →「只解析确认选中（主卷）的那一行 expected:<1> but was:<2>」（旧口径按数值 ID 解析，另一卷同 ID 行进入删除请求）；修复后同门禁 11/11。全量 Windows 本地 `:app:testReleaseUnitTest` 245 units 唯一失败 = 已知 `atomicReadRestoresLegacyBackup`（AtomicFile 环境差异，CI 绿）；`compileDebugAndroidTestKotlin` 通过。**CI [run 41277892304](https://github.com/ertutio/TabulaV3/actions/runs/41277892304)**（head 49fc1ad）三 job 全绿，双设备各 Volume 3 + Cleanup 8 + Restore 3 + CreateAlbum 2 = 16 项零 skip。改动面：AlbumViewScreen 选择集/网格 key/边界注册/回写剪裁与移动复制解析、MainActivity onDeleteImages 消费、SwipeableViewerOverlay Pager key、LocalImageRepository 新增 `resolveImagesByIdentitySelection`。独立只读复审（未参与实现新会话）：**可合并，A–E 全 PASS**，非阻塞建议 4 条已转入后续候选。回退：逐个 revert cc75e66/0bcb799/49fc1ad 或整体 revert 合并提交。 |
+| O5④ 恢复回填 / 盘点闭环（不另立单元） | 现场（49fc1ad）核对：MainActivity 恢复路径三处（内存态移除/回插门槛/待整理回插门槛）均已用 `matchesSameMediaIdentity`，纯 ID 版 `removedIds` 已不存在——原 O5④ 缺陷已由 PR25 消除。跨卷判重既有回归钉死（`recycleBinKeepsCrossVolumeSameIdRecordsIndependently`“恢复一条只移除对应记录”）；未知卷兼容由退化语义+`legacyNullVolumeRecordStillFiltersById`+f6a4e81 恢复候选分区覆盖；重复恢复幂等由同款身份门槛保护（二次恢复 `none` 检查跳过回插）；进程死亡/重建与真实设备场景仍属既有 blocked 簇（C0 表），不因本盘点关闭或新增。按队列指示登记并继续，不重复造测试。 |
 
 PR25 的本地执行证据保存于 `C:/Users/yuxuan/Documents/Codex/2026-10-31/wi/work/tabula25-validation/HANDOFF.md` 及同目录 XML/artifacts；远端执行者可用上方精确 run/artifact，不要求访问此本机路径。build artifact ID `13071440539`，SHA-256 `462e5f16e905401f03c1b0f4d4f5c007f781eb786b490a60d1f3ccd6209e1043`。复用前核对输入、代码和环境，文档变更本身不触发产品全量重跑。
 
@@ -39,9 +41,9 @@ PR25 的本地执行证据保存于 `C:/Users/yuxuan/Documents/Codex/2026-10-31/
 
 | 顺序 / 范围 | 状态 | 行为边界与通过条件 |
 | --- | --- | --- |
-| 1：C1/C2，O5③ 图集批量永久删除 | `ready`，按上述父候选条件接入 | 实际选择集、过滤、目标 URI、请求与回写都能区分不同卷同数值 ID；只处理用户确认的完整身份，另卷项不受影响。覆盖部分成功、取消/拒绝、UNKNOWN 保留、旧记录兼容；确认集合固定。目标断言走真实生产协调路径，不能只测新 key helper。 |
-| 2：C1，O5④ 恢复回填差额盘点 | `ready`（先核已有闭环），受影响身份契约稳定后 | PR25 已将 MainActivity 恢复回插改为 matchesSameMediaIdentity；先查实际调用与既有回归，若已充分闭环则登记并继续，不重复造测试。只对仍缺的跨卷判重、重复恢复幂等、未知卷兼容、重建/重复回调及 UI/记录/持久态一致性立新单元。源码行号重新定位。 |
-| 3：C1/T03 后续消费者 | `ready`（逐簇盘点） | Album/元数据、使用统计、冷却/专清、哈希/推荐、存储统计、UI 持久选择。先列读写者与缺失断言，再逐簇迁移；按名合并保留为产品语义，旧键冲突待解析，兼容/幂等/中断可恢复。 |
+| 1：C1/C2，O5③ 图集批量永久删除 | **已交付 → [PR #26](https://github.com/ertutio/TabulaV3/pull/26) 待人工评审合并**（证据见已交付边界表 O5③ 行） | 实际选择集、过滤、目标 URI、请求与回写都能区分不同卷同数值 ID；只处理用户确认的完整身份，另卷项不受影响。目标断言走真实生产协调路径（`resolveImagesByIdentitySelection`+端到端接线），部分成功/取消/UNKNOWN 隔离沿用 C2/T04 既有门禁未变。 |
+| 2：C1，O5④ 恢复回填差额盘点 | **已闭环登记**（不另立单元，见已交付边界表 O5④ 行） | 现场核对原缺陷已由 PR25 消除；跨卷判重/未知卷兼容/重复恢复幂等均有既有证据；进程死亡/重建属既有真实设备 blocked 簇。 |
+| 3：C1/T03 后续消费者 | `ready`（逐簇盘点；含 PR26 复审建议①–④与 C1 盘点表遗留） | Album/元数据、使用统计、冷却/专清、哈希/推荐、存储统计、UI 持久选择。先列读写者与缺失断言，再逐簇迁移；按名合并保留为产品语义，旧键冲突待解析，兼容/幂等/中断可恢复。首查：SystemAlbumViewScreen 网格 key、AlbumViewScreen.kt:214 死代码口径、PhotoGridItem 缓存键、onSetCover 封面 ID、StringDragSelectState itemBounds 残留。 |
 | 4：C2/T04 其余删除入口 | `ready`（按稳定簇接入） | 逐入口复用既有分批协议，覆盖 2001 项、部分成功、取消不发后续批次、权限/服务错误与日志故障。保留 PR25 UNKNOWN 按项隔离；不能以 Boolean 替代每项结果。 |
 | 独立：C3/T06；C5/T08 | `ready`（先定位缺口） | 两种卡片模式生命周期/取消重试/旧回调，或工具成功与失败 fixture、验收映射。复用已有测试；PR6 的历史真实测量另需授权及有效协议。 |
 | C0/T01、T02 | 已有逻辑层覆盖清单可复用；真实设备差额 `blocked` | 既有清单仅作覆盖依据；出现新的具体反例再修。真跨卷/其他应用授权、进程死亡/断电及完整持久故障仍逐条留缺口，不能拿合成测试关闭。 |
@@ -50,7 +52,7 @@ PR25 的本地执行证据保存于 `C:/Users/yuxuan/Documents/Codex/2026-10-31/
 
 ### 后续候选：先确认缺口再立单元
 
-`resolveMediaVolumeName` 的可注入测试边界、恢复 LaunchedEffect 的实际并发窗口、journal Atomic 跨进程证据均需核对现有机制与实际故障；不预定新增保护层。MediaStore 返回 0 行不能直接等同已确认 missing：先证明查询身份与授权/可读性，保留 UNKNOWN 的安全语义；无法证明则登记待决策，转独立项。
+`resolveMediaVolumeName` 的可注入测试边界、恢复 LaunchedEffect 的实际并发窗口、journal Atomic 跨进程证据均需核对现有机制与实际故障；不预定新增保护层。MediaStore 返回 0 行不能直接等同已确认 missing：先证明查询身份与授权/可读性，保留 UNKNOWN 的安全语义；无法证明则登记待决策，转独立项。PR26 独立复审新增候选（均显示层或低风险，逐项确认缺口后接入 T03 后续簇）：① SystemAlbumViewScreen.kt:147 网格纯 ID key（bucket 视图跨卷同 ID 重复 key 崩溃残余）；② AlbumViewScreen.kt:214 纯 ID 回退路径为生产不可达死代码，标注口径或改身份键；③ PhotoGridItem 缩略图缓存键跨卷串图；④ StringDragSelectState itemBounds 离场行残留（解析端已天然兜底）。
 
 ## 持续执行与交付
 
