@@ -23,9 +23,11 @@ class ImageHashCache(context: Context) {
      * 旧条目可读、可按既有语义清理。
      */
     data class HashKey(val volumeName: String?, val imageId: Long) {
-        // 旧口径基线：存储键暂按数值 ID（卷段被忽略）——跨卷同 ID 行会
-        // 互相覆盖哈希与版本键。身份隔离在下一步修复中接入。
-        internal val storageKey: String get() = "$imageId"
+        // C1/T03-HASHVOLUME：卷已知行使用卷限定存储键（跨卷同 ID 行互不
+        // 覆盖、版本键各自独立、清理可按卷判定）；卷未知行退化为裸 ID 键，
+        // 与 T03 前旧条目（hash_{id}）同形，保持旧数据可读、可清。
+        internal val storageKey: String
+            get() = if (volumeName != null) "${volumeName}_$imageId" else "$imageId"
     }
 
     companion object {
