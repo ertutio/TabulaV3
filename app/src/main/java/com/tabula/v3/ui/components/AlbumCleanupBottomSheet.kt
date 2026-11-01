@@ -73,6 +73,8 @@ import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.AlbumCleanupEngine
 import com.tabula.v3.data.repository.AlbumCleanupInfo
+import com.tabula.v3.data.repository.resolveCoverRow
+import com.tabula.v3.ui.util.gridThumbnailCacheKey
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import com.tabula.v3.ui.theme.TabulaColors
 import com.tabula.v3.ui.util.HapticFeedback
@@ -349,6 +351,7 @@ fun AlbumCleanupBottomSheet(
                                 
                                 AlbumCleanupItem(
                                     album = album,
+                                    allImages = allImages,
                                     info = info,
                                     isSelected = isSelected,
                                     isAnalyzing = isAnalyzing,
@@ -581,6 +584,7 @@ fun AlbumCleanupBottomSheet(
 @Composable
 private fun AlbumCleanupItem(
     album: Album,
+    allImages: List<ImageFile>,
     info: AlbumCleanupInfo?,
     isSelected: Boolean,
     isAnalyzing: Boolean,
@@ -633,15 +637,18 @@ private fun AlbumCleanupItem(
                 .clip(RoundedCornerShape(8.dp))
                 .background(if (isDarkTheme) Color(0xFF2C2C2E) else Color(0xFFF2F2F7))
         ) {
+            // C1/T03-COVER：封面解析按完整媒体身份（卷已知精确匹配；旧口径
+            // 唯一解析；歧义/缺失 → 占位，不猜卷）。
             album.coverImageId?.let { coverId ->
+                val coverRow = resolveCoverRow(
+                    album.coverVolumeName, coverId,
+                    allImages.filter { it.id == coverId }
+                )
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(
-                            com.tabula.v3.data.repository.imageItemUri(
-                                album.coverVolumeName, coverId
-                            )
-                        )
+                        .data(coverRow?.uri)
                         .crossfade(true)
+                        .memoryCacheKey(coverRow?.let { gridThumbnailCacheKey("cleanup_cover_", it) })
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -981,15 +988,18 @@ private fun MonthCleanupItem(
                 .clip(RoundedCornerShape(8.dp))
                 .background(if (isDarkTheme) Color(0xFF2C2C2E) else Color(0xFFF2F2F7))
         ) {
+            // C1/T03-COVER：封面行在月份组成员内——按身份解析（卷已知精确/
+            // 旧口径唯一/歧义占位）。
             monthInfo.coverImageId?.let { coverId ->
+                val coverRow = resolveCoverRow(
+                    monthInfo.coverVolumeName, coverId,
+                    monthInfo.images.filter { it.id == coverId }
+                )
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(
-                            com.tabula.v3.data.repository.imageItemUri(
-                                monthInfo.coverVolumeName, coverId
-                            )
-                        )
+                        .data(coverRow?.uri)
                         .crossfade(true)
+                        .memoryCacheKey(coverRow?.let { gridThumbnailCacheKey("month_cover_", it) })
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,

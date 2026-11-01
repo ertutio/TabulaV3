@@ -53,6 +53,30 @@ class AlbumCoverIdentityTest {
         imageCount = 4
     )
 
+    private val primaryCoverRow = ImageFile(
+        id = 10L,
+        uri = Uri.parse("content://media/external_primary/images/media/10"),
+        displayName = "cover-primary.jpg",
+        dateModified = 1_000L,
+        size = 100L,
+        width = 64,
+        height = 64,
+        bucketDisplayName = "Camera",
+        volumeName = "external_primary"
+    )
+
+    private val secondaryCoverRow = ImageFile(
+        id = 10L,
+        uri = Uri.parse("content://media/external_secondary/images/media/10"),
+        displayName = "cover-secondary.jpg",
+        dateModified = 1_000L,
+        size = 100L,
+        width = 64,
+        height = 64,
+        bucketDisplayName = "Camera",
+        volumeName = "external_secondary"
+    )
+
     @Before
     fun setUp() {
         // metadata 文件为真实磁盘状态，逐用例清理。
@@ -65,7 +89,8 @@ class AlbumCoverIdentityTest {
         // 用户设置封面（第二卷行）→ 持久化 → 重启（新实例）+ 刷新（桶封面
         // 默认为主卷行）→ 用户封面必须以完整身份恢复，不得被桶默认覆盖。
         val manager = AlbumManager(context)
-        manager.updateAlbum(albumWithCoverSet())
+        // 显式设置封面走 setAlbumCover（updateAlbum 属性编辑不写封面字段）。
+        manager.setAlbumCover("Camera", secondaryCoverRow)
 
         val restarted = AlbumManager(context)
         restarted.refreshAlbumsFromSystem(
@@ -84,8 +109,8 @@ class AlbumCoverIdentityTest {
         // 跨卷换封面：先设第二卷封面，再改设主卷同数值 ID 行——持久化身份
         // 必须跟随新选择整体替换（不得保留旧卷致串图）。
         val manager = AlbumManager(context)
-        manager.updateAlbum(albumWithCoverSet())
-        manager.updateAlbum(albumWithCoverSet().copy(coverVolumeName = "external_primary"))
+        manager.setAlbumCover("Camera", secondaryCoverRow)
+        manager.setAlbumCover("Camera", primaryCoverRow)
 
         val restarted = AlbumManager(context)
         restarted.refreshAlbumsFromSystem(

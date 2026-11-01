@@ -80,7 +80,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tabula.v3.data.model.Album
-import com.tabula.v3.data.repository.imageItemUri
+import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.repository.resolveCoverRow
+import com.tabula.v3.ui.util.gridThumbnailCacheKey
 
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
@@ -106,6 +108,7 @@ import kotlin.math.roundToInt
 @Composable
 fun AlbumTagManagementScreen(
     albums: List<Album>,
+    allImages: List<ImageFile>,
     excludedAlbumIds: Set<String>,
     preferences: AppPreferences,
     onReorderAlbums: (List<String>) -> Unit,
@@ -239,6 +242,7 @@ fun AlbumTagManagementScreen(
                         ) {
                             TagOrderItem(
                                 album = album,
+                                allImages = allImages,
                                 isFirst = index == 0,
                                 isLast = index == orderedAlbums.lastIndex,
                                 isVisible = !album.isHidden,
@@ -339,6 +343,7 @@ fun AlbumTagManagementScreen(
                         ) {
                             ExcludeAlbumItem(
                                 album = album,
+                                allImages = allImages,
                                 isExcluded = isExcluded,
                                 textColor = textColor,
                                 secondaryTextColor = secondaryTextColor,
@@ -821,6 +826,7 @@ private fun TagEmptyCard(
 @Composable
 private fun TagOrderItem(
     album: Album,
+    allImages: List<ImageFile>,
     isFirst: Boolean,
     isLast: Boolean,
     isVisible: Boolean,
@@ -890,20 +896,22 @@ private fun TagOrderItem(
                 .alpha(itemAlpha),
             contentAlignment = Alignment.Center
         ) {
-            if (album.coverImageId != null) {
+            // C1/T03-COVER：封面解析按完整媒体身份——旧口径（卷未知）仅库内
+            // 唯一才解析，歧义/缺失回退 Emoji 占位（不猜卷、不借用另一卷同 ID）。
+            val tagCoverImage = album.coverImageId?.let { coverId ->
+                resolveCoverRow(
+                    album.coverVolumeName, coverId,
+                    allImages.filter { it.id == coverId }
+                )
+            }
+            if (tagCoverImage != null) {
                 // 显示封面图 — 性能优化：指定小尺寸 + 启用硬件位图 + 缓存
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(
-                            com.tabula.v3.data.repository.imageItemUri(
-                                album.coverVolumeName, album.coverImageId
-                            )
-                        )
+                        .data(tagCoverImage.uri)
                         .size(120, 120)
                         .crossfade(100)
-                        .memoryCacheKey(
-                            "tag_cover_" + (album.coverVolumeName ?: "") + "_${album.coverImageId}"
-                        )
+                        .memoryCacheKey(gridThumbnailCacheKey("tag_cover_", tagCoverImage))
                         .allowHardware(true)
                         .build(),
                     contentDescription = album.name,
@@ -964,6 +972,7 @@ private fun TagOrderItem(
 @Composable
 private fun ExcludeAlbumItem(
     album: Album,
+    allImages: List<ImageFile>,
     isExcluded: Boolean,
     textColor: Color,
     secondaryTextColor: Color,
@@ -992,20 +1001,21 @@ private fun ExcludeAlbumItem(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (album.coverImageId != null) {
+            // C1/T03-COVER：解析同 tag_cover_（身份精确/旧口径唯一/歧义占位）。
+            val excludeCoverImage = album.coverImageId?.let { coverId ->
+                resolveCoverRow(
+                    album.coverVolumeName, coverId,
+                    allImages.filter { it.id == coverId }
+                )
+            }
+            if (excludeCoverImage != null) {
                 // 显示封面图 — 性能优化：指定小尺寸 + 启用硬件位图 + 缓存
                 AsyncImage(
                     model = ImageRequest.Builder(context)
-                        .data(
-                            com.tabula.v3.data.repository.imageItemUri(
-                                album.coverVolumeName, album.coverImageId
-                            )
-                        )
+                        .data(excludeCoverImage.uri)
                         .size(120, 120)
                         .crossfade(100)
-                        .memoryCacheKey(
-                            "exclude_cover_" + (album.coverVolumeName ?: "") + "_${album.coverImageId}"
-                        )
+                        .memoryCacheKey(gridThumbnailCacheKey("exclude_cover_", excludeCoverImage))
                         .allowHardware(true)
                         .build(),
                     contentDescription = album.name,

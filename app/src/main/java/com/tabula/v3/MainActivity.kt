@@ -1219,6 +1219,7 @@ fun TabulaApp(
         
         AlbumTagManagementScreen(
             albums = albums,
+            allImages = allImages,
             excludedAlbumIds = excludedIds,
             preferences = preferences,
             onReorderAlbums = { newOrder ->
@@ -1348,6 +1349,9 @@ fun TabulaApp(
             },
             onUpdateAlbum = { album ->
                 scope.launch { albumManager.updateAlbum(album) }
+            },
+            onSetCover = { albumName, image ->
+                scope.launch { albumManager.setAlbumCover(albumName, image) }
             },
             onDeleteAlbum = { albumId ->
                 scope.launch { albumManager.deleteAlbum(albumId) }

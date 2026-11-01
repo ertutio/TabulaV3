@@ -137,6 +137,7 @@ fun AlbumViewScreen(
     getAlbumImages: (suspend (String) -> List<ImageFile>)? = null,
     onCreateAlbum: (name: String, color: Long?, emoji: String?) -> Unit,
     onUpdateAlbum: (Album) -> Unit,
+    onSetCover: ((albumName: String, image: ImageFile) -> Unit)? = null,
     onDeleteAlbum: (String) -> Unit,
     onHideAlbum: ((String) -> Unit)? = null,
     onUnhideAlbum: ((String) -> Unit)? = null,
@@ -279,15 +280,9 @@ fun AlbumViewScreen(
                     { excluded: Boolean -> callback(currentAlbum.id, excluded) }
                 },
                 isExcludedFromRecommend = isAlbumExcludedFromRecommend?.invoke(currentAlbum.id) ?: false,
-                onSetCover = if (onUpdateAlbum != null) { image ->
-                    // C1/T03-COVER：封面完整媒体身份（卷+ID）随设置写入，
-                    // copy 不再保留旧卷（跨卷换封面不串身份）。
-                    val updatedAlbum = currentAlbum.copy(
-                        coverImageId = image.id,
-                        coverVolumeName = image.volumeName
-                    )
-                    onUpdateAlbum(updatedAlbum)
-                } else null,
+                onSetCover = onSetCover?.let { callback ->
+                    { image: ImageFile -> callback(currentAlbum.name, image) }
+                },
                 onNavigateBack = onNavigateBack,
                 albums = albums,
                 allImages = allImages,
@@ -380,7 +375,7 @@ private fun AlbumContentView(
     onDeleteEmptyClick: (() -> Unit)? = null,
     onExcludeFromRecommend: ((Boolean) -> Unit)? = null,
     isExcludedFromRecommend: Boolean = false,
-    onSetCover: ((ImageFile) -> Unit)? = null,
+    onSetCover: ((ImageFile) -> Unit)? = null,  // C1/T03-COVER：album 名由外层闭包绑定
     onNavigateBack: () -> Unit,
     albums: List<Album> = emptyList(),
     allImages: List<ImageFile> = emptyList(),
