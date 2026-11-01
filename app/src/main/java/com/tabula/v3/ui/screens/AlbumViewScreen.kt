@@ -147,8 +147,8 @@ fun AlbumViewScreen(
     showMotionBadges: Boolean = false,
     playMotionSound: Boolean = false,
     motionSoundVolume: Int = 100,
-    onMoveToAlbum: ((List<Long>, String) -> Unit)? = null,
-    onCopyToAlbum: ((List<Long>, String) -> Unit)? = null,
+    onMoveToAlbum: ((List<String>, String) -> Unit)? = null,
+    onCopyToAlbum: ((List<String>, String) -> Unit)? = null,
     onDeleteImages: ((List<String>) -> Unit)? = null
 ) {
     val isDarkTheme = LocalIsDarkTheme.current
@@ -377,8 +377,8 @@ private fun AlbumContentView(
     onNavigateBack: () -> Unit,
     albums: List<Album> = emptyList(),
     allImages: List<ImageFile> = emptyList(),
-    onMoveToAlbum: ((List<Long>, String) -> Unit)? = null,
-    onCopyToAlbum: ((List<Long>, String) -> Unit)? = null,
+    onMoveToAlbum: ((List<String>, String) -> Unit)? = null,
+    onCopyToAlbum: ((List<String>, String) -> Unit)? = null,
     onDeleteImages: ((List<String>) -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -1108,16 +1108,13 @@ private fun AlbumContentView(
                 title = if (isCopyMode) "复制到图集" else "移动到图集",
                 onAlbumSelected = { targetAlbumId ->
                     // 根据模式执行复制或移动操作。
-                    // 移动/复制仍按数值 ID（图集按名合并语义，身份消费迁移属
-                    // T03 后续簇）；从确认行解析 ID 并去重，保持旧 Set<Long> 语义。
-                    val selectedIds = sortedImages
-                        .filter { it.mediaIdentityKey() in selectedImageKeys }
-                        .map { it.id }
-                        .distinct()
+                    // C1/T03-MOVECOPY-IDENTITY：确认集合按完整媒体身份键传递，
+                    // 消费端（AlbumManager）从当前媒体集合按身份重新解析——
+                    // 不再压缩成数值 ID（跨卷同 ID 不折叠、不串卷）。
                     if (isCopyMode) {
-                        onCopyToAlbum?.invoke(selectedIds, targetAlbumId)
+                        onCopyToAlbum?.invoke(selectedImageKeys.toList(), targetAlbumId)
                     } else {
-                        onMoveToAlbum?.invoke(selectedIds, targetAlbumId)
+                        onMoveToAlbum?.invoke(selectedImageKeys.toList(), targetAlbumId)
                     }
                     showAlbumPicker = false
                     exitSelectionMode()

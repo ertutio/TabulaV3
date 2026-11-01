@@ -576,10 +576,38 @@ class AlbumManager(private val context: Context) {
         fromAlbumId: String,
         toAlbumId: String
     ): MoveImagesResult = withContext(Dispatchers.IO) {
-        // 基线（旧口径忠实形状）：按数值 ID 解析、身份键的卷段被忽略——
-        // 跨卷同数值 ID 行会折叠到查询序首行。身份隔离在下一步修复中接入。
-        val imageIds = selectedIdentityKeys.map { it.substringAfterLast('|').toLong() }
-        moveImagesToAlbum(imageIds, fromAlbumId, toAlbumId)
+        if (selectedIdentityKeys.isEmpty()) return@withContext MoveImagesResult(0, 0)
+
+        val targetBucket = _albums.value.find { it.name == toAlbumId }
+        val targetPath = targetBucket?.systemAlbumPath
+
+        Log.d(TAG, "Moving ${selectedIdentityKeys.size} identity-selected images from $fromAlbumId to $toAlbumId")
+
+        // C1/T03-MOVECOPY-IDENTITY：执行前按完整媒体身份从当前媒体集合重新
+        // 解析确认行——只操作身份键精确匹配的行；选择已失效（行已不在库中）
+        // 跳过计数，绝不回退到同数值 ID 的另一卷照片。
+        val keySet = selectedIdentityKeys.toSet()
+        val resolvedRows = imageRepository.getAllImages().filter { it.mediaIdentityKey() in keySet }
+
+        var movedCount = 0
+        // Includes failed moves, stale selections and missing rows; this count does not
+        // assert their URIs remain readable.
+        var retainedCount = selectedIdentityKeys.size - resolvedRows.size
+        for (image in resolvedRows) {
+            if (syncManager.moveImageToBucket(image.uri, toAlbumId, targetPath) != null) {
+                movedCount++
+            } else {
+                retainedCount++
+            }
+        }
+
+        if (movedCount > 0) {
+            // 只在有成功移动时刷新图集列表，失败项仍保留在原图集中。
+            refreshAlbumsFromSystem()
+        }
+
+        Log.d(TAG, "Moved $movedCount identity-selected images to $toAlbumId; retained $retainedCount at source")
+        MoveImagesResult(movedCount = movedCount, retainedCount = retainedCount)
     }
 
     /**
@@ -591,9 +619,22 @@ class AlbumManager(private val context: Context) {
         selectedIdentityKeys: Collection<String>,
         toAlbumId: String
     ) = withContext(Dispatchers.IO) {
-        // 基线（旧口径忠实形状）：见 moveImagesByIdentity 注释。
-        val imageIds = selectedIdentityKeys.map { it.substringAfterLast('|').toLong() }
-        copyImagesToAlbum(imageIds, toAlbumId)
+        if (selectedIdentityKeys.isEmpty()) return@withContext
+
+        Log.d(TAG, "Copying ${selectedIdentityKeys.size} identity-selected images to $toAlbumId")
+
+        // C1/T03-MOVECOPY-IDENTITY：与移动同口径——按完整身份解析确认行，
+        // 每行复制各自的卷限定源；失效选择跳过，不回退同数值 ID 的另一卷。
+        val keySet = selectedIdentityKeys.toSet()
+        val resolvedRows = imageRepository.getAllImages().filter { it.mediaIdentityKey() in keySet }
+        for (image in resolvedRows) {
+            syncManager.addImageToSystemAlbum(image.uri, toAlbumId)
+        }
+
+        // 刷新图集列表
+        refreshAlbumsFromSystem()
+
+        Log.d(TAG, "Copied ${resolvedRows.size}/${selectedIdentityKeys.size} identity-selected images to $toAlbumId")
     }
 
     /**

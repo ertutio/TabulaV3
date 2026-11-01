@@ -1390,10 +1390,12 @@ fun TabulaApp(
             showMotionBadges = showMotionBadges,
             playMotionSound = playMotionSound,
             motionSoundVolume = motionSoundVolume,
-            onMoveToAlbum = { imageIds, targetAlbumId ->
+            onMoveToAlbum = { identityKeys, targetAlbumId ->
                 scope.launch {
                     selectedAlbumId?.let { currentAlbumId ->
-                        val result = albumManager.moveImagesToAlbum(imageIds, currentAlbumId, targetAlbumId)
+                        // C1/T03-MOVECOPY-IDENTITY：完整身份选择键直达消费端，
+                        // AlbumManager 从当前媒体集合按身份重新解析。
+                        val result = albumManager.moveImagesByIdentity(identityKeys, currentAlbumId, targetAlbumId)
                         val message = if (result.retainedCount > 0) {
                             "已移动 ${result.movedCount} 张，${result.retainedCount} 张未移动"
                         } else {
@@ -1403,9 +1405,9 @@ fun TabulaApp(
                     }
                 }
             },
-            onCopyToAlbum = { imageIds, targetAlbumId ->
+            onCopyToAlbum = { identityKeys, targetAlbumId ->
                 scope.launch {
-                    albumManager.copyImagesToAlbum(imageIds, targetAlbumId)
+                    albumManager.copyImagesByIdentity(identityKeys, targetAlbumId)
                 }
             },
             onDeleteImages = { identityKeys ->
