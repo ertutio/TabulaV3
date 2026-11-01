@@ -706,9 +706,15 @@ internal fun ImageFile.mediaIdentityKey(): String = "${volumeName ?: ""}|$id"
  */
 internal fun resolveAlbumCoverImage(album: Album, images: List<ImageFile>): ImageFile? {
     val coverId = album.coverImageId ?: return null
-    // 旧口径基线（imageMap[裸 ID] 的忠实形状）：按数值 ID 取首个同 ID 行——
-    // 卷段被忽略：跨卷同 ID 串图、歧义猜选。身份解析在下一步修复中接入。
-    return images.find { it.id == coverId }
+    val sameId = images.filter { it.id == coverId }
+    return if (album.coverVolumeName != null) {
+        // 卷已知：精确匹配封面卷的行（跨卷同数值 ID 不串图）。
+        sameId.find { it.volumeName == album.coverVolumeName }
+    } else {
+        // 卷未知（旧口径）：库内唯一才解析；跨卷歧义不猜选（展示回退占位，
+        // 封面指针保留）。缺失/暂时不可读同样返回 null。
+        if (sameId.size == 1) sameId.single() else null
+    }
 }
 
 /**
