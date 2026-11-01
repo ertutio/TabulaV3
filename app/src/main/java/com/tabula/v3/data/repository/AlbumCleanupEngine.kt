@@ -634,35 +634,35 @@ class AlbumCleanupEngine(
         }
         
         if (groups.isEmpty()) return@withContext null
-        
+
+        // C1/T03-GROUPID：与 getNextBatch 同口径——先迁移旧口径永久标记
+        // （唯一映射→新身份 ID，歧义原样保留），升级窗口内断点记录的旧 ID
+        // 才不会漏掉已迁移的标记。
+        migrateLegacyProcessedGroupIds(albumId, groups)
         // 获取已永久处理的组ID
         val permanentlyProcessedIds = preferences.getAlbumPermanentlyProcessedGroups(albumId)
-        
-        // 检查保存的组是否已被处理（如果全部已处理，说明断点无效）
-        val validGroupIds = savedGroupIds.filter { it !in permanentlyProcessedIds }
-        if (validGroupIds.isEmpty()) {
-            clearCheckpoint(albumId)
-            return@withContext null
-        }
-        
+
         // 根据保存的组ID重建批次。
         // C1/T03-GROUPID：升级前断点记录的是旧口径组 ID，恢复出的组已是
-        // 身份 ID——旧 ID 按其定义（startTime_首张数字 ID）作别名解析。
+        // 身份 ID——旧 ID 按其定义（startTime_首张数字 ID）作别名解析；
+        // 标记比对一律用解析后的新身份 ID（旧 ID 直接比对会漏掉已迁移标记）。
         val groupMap = groups.associateBy { it.id } +
             groups.associateBy { group -> "${group.startTime}_${group.images.firstOrNull()?.id ?: 0}" }
         val batchImages = mutableListOf<ImageFile>()
         val batchGroupIds = mutableListOf<String>()
         val batchBoundaries = mutableListOf<Int>()
-        
+
         for (groupId in savedGroupIds) {
             val group = groupMap[groupId]
-            if (group != null && groupId !in permanentlyProcessedIds) {
+            val effectiveId = group?.id ?: groupId
+            if (group != null && effectiveId !in permanentlyProcessedIds) {
                 batchBoundaries.add(batchImages.size)
-                batchGroupIds.add(groupId)
+                batchGroupIds.add(effectiveId)
                 batchImages.addAll(group.images)
             }
         }
-        
+
+        // 检查保存的组是否仍有未处理项（如果全部已处理，说明断点无效）
         if (batchImages.isEmpty()) {
             clearCheckpoint(albumId)
             return@withContext null

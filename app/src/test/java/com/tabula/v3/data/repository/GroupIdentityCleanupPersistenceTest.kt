@@ -13,6 +13,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -320,5 +321,24 @@ class GroupIdentityCleanupPersistenceTest {
         assertEquals("重复加载/迁移必须幂等", afterFirst, afterSecond)
         assertTrue(afterFirst.contains(expectedGroupA().id))
         assertFalse(afterFirst.contains(legacyGroupId))
+    }
+
+    @Test
+    fun checkpointWithMigratedMarkerDoesNotResurrectProcessedGroup() = runBlocking {
+        // 复审边角闭环：升级窗口内断点记录旧口径 ID、标记已迁移到新身份 ID
+        // ——断点恢复按新 ID 比对标记，不得复活已处理的组。
+        seedLegacyGroup(album.id, legacyGroupId, listOf(10L, 11L), withCheckpoint = true, processedMarker = true)
+        val singleVolume = listOf(p10, p11)
+        val engine = AlbumCleanupEngine(context)
+        val restored = engine.getCheckpointBatch(album.id, singleVolume)
+        assertNull(
+            "断点内唯一组已被处理（标记已迁移）时不得复活该组",
+            restored
+        )
+        val processed = preferences.getAlbumPermanentlyProcessedGroups(album.id)
+        assertTrue(
+            "迁移后的新标记必须保留",
+            processed.contains(expectedGroupA().id)
+        )
     }
 }
