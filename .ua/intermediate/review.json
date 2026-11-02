@@ -1,0 +1,22 @@
+{
+  "schemaPassed": true,
+  "issues": [],
+  "nativeValidation": {
+    "success": true,
+    "issues": []
+  },
+  "coverage": {
+    "scan": 145,
+    "fileNodes": 145,
+    "nodeCount": 942,
+    "edgeCount": 1999,
+    "layers": 10
+  },
+  "reviewer": "primary agent; deterministic normalization/coverage, with source-traced selected edges",
+  "limits": [
+    "全库扫描和职责索引不等于逐行完整缺陷审计。",
+    "Kotlin/Compose 的 DSL、回调、局部函数及对象归属由关键路径人工补充；其余声明用于定位，不声称全程序精确调用。",
+    "XML、脚本及未知格式的无解析器文件已直接阅读，图中保留文件节点与必要人工联系。",
+    "本轮没有执行新的 Android 构建、设备测试或真实性能测量。"
+  ]
+}

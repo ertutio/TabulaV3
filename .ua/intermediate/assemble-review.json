@@ -1,0 +1,11 @@
+{
+  "fixedSectionOk": true,
+  "nodesRecovered": 0,
+  "edgesRestored": 0,
+  "crossBatchEdgesAdded": 0,
+  "notes": [
+    "All 145 scan files represented once; all 165 bundled import edges present.",
+    "Only 33 explicit source-traced call edges promoted; raw AST calls not treated as whole-program resolution.",
+    "No source/tour/dashboard mutation."
+  ]
+}

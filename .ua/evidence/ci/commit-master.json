@@ -1,0 +1,35 @@
+{
+  "sha": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+  "node_id": "C_kwDOVGQp39oAKGQyMDM4YjhlMGRjOGM5OWZiZGYyYzc1NGU4OGRlYzBhODA3OGE3MjU",
+  "url": "https://api.github.com/repos/ertutio/TabulaV3/git/commits/d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+  "html_url": "https://github.com/ertutio/TabulaV3/commit/d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+  "author": {
+    "name": "ertutio",
+    "email": "161028206+ertutio@users.noreply.github.com",
+    "date": "2026-10-15T03:41:43Z"
+  },
+  "committer": {
+    "name": "GitHub",
+    "email": "noreply@github.com",
+    "date": "2026-10-15T03:41:43Z"
+  },
+  "tree": {
+    "sha": "120001e8b1e4809b7e942c466686a3813bbaf3c3",
+    "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/120001e8b1e4809b7e942c466686a3813bbaf3c3"
+  },
+  "message": "修复回收站删除核验错误并增加 Android 16/17 回归 (#7)\n\n正确区分已挂载和近期未挂载存储卷，恢复已删除照片旧记录的核验，同时保留权限与存储不可用时的保护。\n\n验证：75 项 Release 单元测试通过，Android 16 与 Android 17 模拟器各 3 项实际 MediaStore 回归通过。用户已确认 ColorOS 17 真机修复有效并授权合并。",
+  "parents": [
+    {
+      "sha": "474129ed4d5262befc8bdab0fbd60e4df81411f2",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/commits/474129ed4d5262befc8bdab0fbd60e4df81411f2",
+      "html_url": "https://github.com/ertutio/TabulaV3/commit/474129ed4d5262befc8bdab0fbd60e4df81411f2"
+    }
+  ],
+  "verification": {
+    "verified": true,
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq0Et3CRC1aQ7uu5UhlAAAl6QQAG3RhkEc1N82QPbTnOtvhURs\nK8Rt0zjLO9RZLKjglLrikMC7gzDZvTNivEe/PbCebBbr3ghXEbdodPOdEn2l37kp\nX9k7CKldfotqkipDy5rL47eSGlbbTpyO4YJ/fn9xA0fLUm1XvNYMnmUw53e4if2k\n3RTRhRSVC/G/oSeT/lMjvLJDsUSKX5CB/XJZium0e8T7o4MruKKWdW0QG8b+qly0\nS23EQhTRr0pYqO2ovsFjAJlV4Rx36gKzIZa2bNwjloIpKLe80bCuHvK+YuvmQ2BO\nYpKSQVvTGXfce+nzutDjm4USyhRKUJOaaF4UrAaoY4Vi0LySeZbuSLcGMC19Tpcz\nsoj/c7XY2YxVzQVcVeBCMNQukw/hfEQyXBzQg3BZTKwC3e9lwRollo+/hpMXfxDG\nWG3mKMCrT1v2ednI0ymY7d0f3BGv36OeyhRbIpJvXXTxfECBXX573a7z1QkWS91U\n9LOuu7aY23EnEJC305Ds5kMj3nRyGV7tptDeFj3fMb6TzRsCFP2Ao+IubwUtCH1a\nc6Snxu2S4RWUIXpC0gepxE9NqHN3V5EeuqWOBaHVEQ8z4yHQ4qXwbonbMsAwcZ6T\nNs/PhGKik51TisDOVgq6xAHdugN4CSsIj7+lL3mY6ppW+LKyEqlY+hmZNOPo4ViH\nYlW0YSVTIycfWzEzXxib\n=Ct9h\n-----END PGP SIGNATURE-----\n",
+    "payload": "tree 120001e8b1e4809b7e942c466686a3813bbaf3c3\nparent 474129ed4d5262befc8bdab0fbd60e4df81411f2\nauthor ertutio <161028206+ertutio@users.noreply.github.com> 1792035703 +0800\ncommitter GitHub <noreply@github.com> 1792035703 +0800\n\n修复回收站删除核验错误并增加 Android 16/17 回归 (#7)\n\n正确区分已挂载和近期未挂载存储卷，恢复已删除照片旧记录的核验，同时保留权限与存储不可用时的保护。\n\n验证：75 项 Release 单元测试通过，Android 16 与 Android 17 模拟器各 3 项实际 MediaStore 回归通过。用户已确认 ColorOS 17 真机修复有效并授权合并。",
+    "verified_at": "2026-10-15T03:41:43Z"
+  }
+}

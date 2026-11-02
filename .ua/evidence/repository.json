@@ -1,0 +1,34 @@
+{
+  "id": "1415850463",
+  "name": "TabulaV3",
+  "owner": {
+    "login": "ertutio",
+    "id": 161028206,
+    "type": "User",
+    "avatar_url": "https://avatars.githubusercontent.com/u/161028206?v=4",
+    "url": "https://api.github.com/users/ertutio"
+  },
+  "repository_full_name": "ertutio/TabulaV3",
+  "permissions": {
+    "admin": true,
+    "maintain": true,
+    "pull": true,
+    "push": true,
+    "triage": true
+  },
+  "allow_auto_merge": false,
+  "allow_merge_commit": true,
+  "allow_rebase_merge": true,
+  "allow_squash_merge": true,
+  "allow_update_branch": false,
+  "clone_url": "https://github.com/ertutio/TabulaV3.git",
+  "size": 110861,
+  "default_branch": "master",
+  "git_commits_url": "https://api.github.com/repos/ertutio/TabulaV3/git/commits{/sha}",
+  "git_refs_url": "https://api.github.com/repos/ertutio/TabulaV3/git/refs{/sha}",
+  "git_url": "git://github.com/ertutio/TabulaV3.git",
+  "master_branch": null,
+  "visibility": "public",
+  "archived": false,
+  "is_code_search_indexed": null
+}

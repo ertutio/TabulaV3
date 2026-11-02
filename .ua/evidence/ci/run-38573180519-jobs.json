@@ -1,0 +1,167 @@
+{
+  "total_count": 3,
+  "jobs": [
+    {
+      "id": 115883393220,
+      "run_id": 38573180519,
+      "workflow_name": "Tabula emulator performance baseline v1",
+      "head_branch": "perf/emulator-baseline-v1",
+      "run_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/runs/38573180519",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVGQp388AAAAa-zBAxA",
+      "head_sha": "16730def5a7186eaed1b135b57c3a7da8f80ef4a",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/jobs/115883393220",
+      "html_url": "https://github.com/ertutio/TabulaV3/actions/runs/38573180519/job/115883393220",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-14T13:36:22Z",
+      "started_at": "2026-10-14T13:36:25Z",
+      "completed_at": "2026-10-14T13:42:55Z",
+      "name": "build",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-14T13:36:26Z",
+          "completed_at": "2026-10-14T13:36:27Z"
+        },
+        {
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-14T13:36:27Z",
+          "completed_at": "2026-10-14T13:36:31Z"
+        },
+        {
+          "name": "Run actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-14T13:36:31Z",
+          "completed_at": "2026-10-14T13:36:32Z"
+        },
+        {
+          "name": "Validate report logic",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-14T13:36:32Z",
+          "completed_at": "2026-10-14T13:36:32Z"
+        },
+        {
+          "name": "Prepare fixed SDK and fixture encoder",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-14T13:36:32Z",
+          "completed_at": "2026-10-14T13:36:45Z"
+        },
+        {
+          "name": "Build release-derived app and independent measurement APK",
+          "status": "completed",
+          "conclusion": "cancelled",
+          "number": 6,
+          "started_at": "2026-10-14T13:36:45Z",
+          "completed_at": "2026-10-14T13:42:53Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 7,
+          "started_at": "2026-10-14T13:42:53Z",
+          "completed_at": "2026-10-14T13:42:53Z"
+        },
+        {
+          "name": "Post Run actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-10-14T13:42:53Z",
+          "completed_at": "2026-10-14T13:42:53Z"
+        },
+        {
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-10-14T13:42:53Z",
+          "completed_at": "2026-10-14T13:42:53Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-10-14T13:42:53Z",
+          "completed_at": "2026-10-14T13:42:53Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/ertutio/TabulaV3/check-runs/115883393220",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 1000000012,
+      "runner_name": "GitHub Actions 1000000012",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 115886606074,
+      "run_id": 38573180519,
+      "workflow_name": "Tabula emulator performance baseline v1",
+      "head_branch": "perf/emulator-baseline-v1",
+      "run_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/runs/38573180519",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVGQp388AAAAa-2FG-g",
+      "head_sha": "16730def5a7186eaed1b135b57c3a7da8f80ef4a",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/jobs/115886606074",
+      "html_url": "https://github.com/ertutio/TabulaV3/actions/runs/38573180519/job/115886606074",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-14T13:42:56Z",
+      "started_at": "2026-10-14T13:42:56Z",
+      "completed_at": "2026-10-14T13:42:55Z",
+      "name": "measure",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/ertutio/TabulaV3/check-runs/115886606074",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    },
+    {
+      "id": 115886606427,
+      "run_id": 38573180519,
+      "workflow_name": "Tabula emulator performance baseline v1",
+      "head_branch": "perf/emulator-baseline-v1",
+      "run_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/runs/38573180519",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOVGQp388AAAAa-2FIWw",
+      "head_sha": "16730def5a7186eaed1b135b57c3a7da8f80ef4a",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/jobs/115886606427",
+      "html_url": "https://github.com/ertutio/TabulaV3/actions/runs/38573180519/job/115886606427",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "created_at": "2026-10-14T13:42:56Z",
+      "started_at": "2026-10-14T13:42:56Z",
+      "completed_at": "2026-10-14T13:42:55Z",
+      "name": "report",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/ertutio/TabulaV3/check-runs/115886606427",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    }
+  ]
+}

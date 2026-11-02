@@ -1,0 +1,2494 @@
+{
+  "nodes": [
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+      "type": "file",
+      "name": "TabulaApplication.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+      "startLine": 1,
+      "endLine": 20,
+      "summary": "Application.onCreate 安装 CoilSetup 创建的全局 ImageLoader，显示和动画从同一加载器取缓存。",
+      "tags": [
+        "supporting-index",
+        "entry"
+      ],
+      "complexity": "simple",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        20
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/TabulaApplication.kt:TabulaApplication",
+      "type": "class",
+      "name": "TabulaApplication",
+      "filePath": "app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+      "startLine": 12,
+      "endLine": 20,
+      "summary": "TabulaApplication 的声明与成员入口；文件职责：Application.onCreate 安装 CoilSetup 创建的全局 ImageLoader，显示和动画从同一加载器取缓存。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "entry"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        12,
+        20
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/TabulaApplication.kt:TabulaApplication.onCreate",
+      "type": "function",
+      "name": "TabulaApplication.onCreate",
+      "filePath": "app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+      "startLine": 14,
+      "endLine": 19,
+      "summary": "声明入口 TabulaApplication.onCreate；所属文件负责：Application.onCreate 安装 CoilSetup 创建的全局 ImageLoader，显示和动画从同一加载器取缓存。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "entry"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "TabulaApplication",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        14,
+        19
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "type": "file",
+      "name": "CoilSetup.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "startLine": 1,
+      "endLine": 158,
+      "summary": "创建全局 Coil ImageLoader、受限解码线程池、内存及磁盘缓存，供显示和预加载共用；缓存对象所有权需由使用方遵守。",
+      "tags": [
+        "coil",
+        "cache",
+        "decode"
+      ],
+      "complexity": "moderate",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        158
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup",
+      "type": "class",
+      "name": "CoilSetup",
+      "filePath": "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "startLine": 32,
+      "endLine": 158,
+      "summary": "CoilSetup 的声明与成员入口；文件职责：创建全局 Coil ImageLoader、受限解码线程池、内存及磁盘缓存，供显示和预加载共用；缓存对象所有权需由使用方遵守。",
+      "tags": [
+        "declaration-index",
+        "coil",
+        "cache"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        32,
+        158
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.getImageLoader",
+      "type": "function",
+      "name": "CoilSetup.getImageLoader",
+      "filePath": "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "startLine": 48,
+      "endLine": 54,
+      "summary": "声明入口 CoilSetup.getImageLoader；所属文件负责：创建全局 Coil ImageLoader、受限解码线程池、内存及磁盘缓存，供显示和预加载共用；缓存对象所有权需由使用方遵守。",
+      "tags": [
+        "declaration-index",
+        "coil",
+        "cache"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "context"
+      ],
+      "owner": "CoilSetup",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        48,
+        54
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.createImageLoader",
+      "type": "function",
+      "name": "CoilSetup.createImageLoader",
+      "filePath": "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "startLine": 59,
+      "endLine": 114,
+      "summary": "声明入口 CoilSetup.createImageLoader；所属文件负责：创建全局 Coil ImageLoader、受限解码线程池、内存及磁盘缓存，供显示和预加载共用；缓存对象所有权需由使用方遵守。",
+      "tags": [
+        "declaration-index",
+        "coil",
+        "cache"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "context"
+      ],
+      "owner": "CoilSetup",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        59,
+        114
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.clearCache",
+      "type": "function",
+      "name": "CoilSetup.clearCache",
+      "filePath": "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "startLine": 132,
+      "endLine": 137,
+      "summary": "声明入口 CoilSetup.clearCache；所属文件负责：创建全局 Coil ImageLoader、受限解码线程池、内存及磁盘缓存，供显示和预加载共用；缓存对象所有权需由使用方遵守。",
+      "tags": [
+        "declaration-index",
+        "coil",
+        "cache"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "context"
+      ],
+      "owner": "CoilSetup",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        132,
+        137
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.getCacheStats",
+      "type": "function",
+      "name": "CoilSetup.getCacheStats",
+      "filePath": "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "startLine": 142,
+      "endLine": 150,
+      "summary": "声明入口 CoilSetup.getCacheStats；所属文件负责：创建全局 Coil ImageLoader、受限解码线程池、内存及磁盘缓存，供显示和预加载共用；缓存对象所有权需由使用方遵守。",
+      "tags": [
+        "declaration-index",
+        "coil",
+        "cache"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "context"
+      ],
+      "owner": "CoilSetup",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        142,
+        150
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+      "type": "file",
+      "name": "ImageCard.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+      "startLine": 1,
+      "endLine": 160,
+      "summary": "构造 Coil 卡片请求并呈现图像和徽标；显示尺寸考虑旋转，缓存键当前仅为 card_ 加媒体 ID。",
+      "tags": [
+        "compose-ui",
+        "coil",
+        "cache-key"
+      ],
+      "complexity": "moderate",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        160
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt:ImageCard",
+      "type": "function",
+      "name": "ImageCard",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+      "startLine": 44,
+      "endLine": 126,
+      "summary": "声明入口 ImageCard；所属文件负责：构造 Coil 卡片请求并呈现图像和徽标；显示尺寸考虑旋转，缓存键当前仅为 card_ 加媒体 ID。",
+      "tags": [
+        "declaration-index",
+        "compose-ui",
+        "coil"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "imageFile",
+        "modifier",
+        "cornerRadius",
+        "elevation",
+        "badges",
+        "contentScaleMode"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        44,
+        126
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt:ImageCardPlaceholder",
+      "type": "function",
+      "name": "ImageCardPlaceholder",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+      "startLine": 137,
+      "endLine": 160,
+      "summary": "声明入口 ImageCardPlaceholder；所属文件负责：构造 Coil 卡片请求并呈现图像和徽标；显示尺寸考虑旋转，缓存键当前仅为 card_ 加媒体 ID。",
+      "tags": [
+        "declaration-index",
+        "compose-ui",
+        "coil"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "modifier",
+        "cornerRadius",
+        "elevation"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        137,
+        160
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "type": "file",
+      "name": "MotionPhotoPlayer.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "startLine": 1,
+      "endLine": 161,
+      "summary": "从内容 URI 的视频字节片段创建/驱动 MediaPlayer，管理 Surface、播放状态与退出释放，供查看器实况预览使用。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        161
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource",
+      "type": "class",
+      "name": "MotionPhotoDataSource",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "startLine": 136,
+      "endLine": 161,
+      "summary": "MotionPhotoDataSource 的声明与成员入口；文件职责：从内容 URI 的视频字节片段创建/驱动 MediaPlayer，管理 Surface、播放状态与退出释放，供查看器实况预览使用。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        136,
+        161
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoPlayer",
+      "type": "function",
+      "name": "MotionPhotoPlayer",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "startLine": 25,
+      "endLine": 134,
+      "summary": "声明入口 MotionPhotoPlayer；所属文件负责：从内容 URI 的视频字节片段创建/驱动 MediaPlayer，管理 Surface、播放状态与退出释放，供查看器实况预览使用。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "imageUri",
+        "motionInfo",
+        "modifier",
+        "playWhen",
+        "playAudio",
+        "volumePercent"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        25,
+        134
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource.readAt",
+      "type": "function",
+      "name": "MotionPhotoDataSource.readAt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "startLine": 146,
+      "endLine": 153,
+      "summary": "声明入口 MotionPhotoDataSource.readAt；所属文件负责：从内容 URI 的视频字节片段创建/驱动 MediaPlayer，管理 Surface、播放状态与退出释放，供查看器实况预览使用。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "position",
+        "buffer",
+        "offset",
+        "size"
+      ],
+      "owner": "MotionPhotoDataSource",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        146,
+        153
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource.getSize",
+      "type": "function",
+      "name": "MotionPhotoDataSource.getSize",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "startLine": 155,
+      "endLine": 155,
+      "summary": "声明入口 MotionPhotoDataSource.getSize；所属文件负责：从内容 URI 的视频字节片段创建/驱动 MediaPlayer，管理 Surface、播放状态与退出释放，供查看器实况预览使用。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "MotionPhotoDataSource",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        155,
+        155
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource.close",
+      "type": "function",
+      "name": "MotionPhotoDataSource.close",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "startLine": 157,
+      "endLine": 160,
+      "summary": "声明入口 MotionPhotoDataSource.close；所属文件负责：从内容 URI 的视频字节片段创建/驱动 MediaPlayer，管理 Surface、播放状态与退出释放，供查看器实况预览使用。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "MotionPhotoDataSource",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        157,
+        160
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "type": "file",
+      "name": "SwipeableViewerOverlay.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "startLine": 1,
+      "endLine": 739,
+      "summary": "管理可左右切换的大图列表、入出场、缩放和实况/HDR 预览；消费 ImageFile 与 rememberImageFeatures。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        739
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt:SwipeableViewerState",
+      "type": "class",
+      "name": "SwipeableViewerState",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "startLine": 77,
+      "endLine": 81,
+      "summary": "SwipeableViewerState 的声明与成员入口；文件职责：管理可左右切换的大图列表、入出场、缩放和实况/HDR 预览；消费 ImageFile 与 rememberImageFeatures。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        77,
+        81
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt:SwipeableViewerOverlay",
+      "type": "function",
+      "name": "SwipeableViewerOverlay",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "startLine": 100,
+      "endLine": 343,
+      "summary": "声明入口 SwipeableViewerOverlay；所属文件负责：管理可左右切换的大图列表、入出场、缩放和实况/HDR 预览；消费 ImageFile 与 rememberImageFeatures。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "complex",
+      "parameters": [
+        "viewerState",
+        "onDismiss",
+        "modifier",
+        "showHdr",
+        "showMotionPhoto",
+        "playMotionSound",
+        "motionSoundVolume"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        100,
+        343
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt:SwipeableImagePage",
+      "type": "function",
+      "name": "SwipeableImagePage",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "startLine": 357,
+      "endLine": 732,
+      "summary": "声明入口 SwipeableImagePage；所属文件负责：管理可左右切换的大图列表、入出场、缩放和实况/HDR 预览；消费 ImageFile 与 rememberImageFeatures。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "complex",
+      "parameters": [
+        "image",
+        "imageLoader",
+        "showHdr",
+        "showMotionPhoto",
+        "playMotionSound",
+        "motionSoundVolume",
+        "onDismiss",
+        "window",
+        "originalColorMode",
+        "onZoomChanged",
+        "onMultiTouchChanged"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        357,
+        732
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "type": "file",
+      "name": "ViewerOverlay.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "startLine": 1,
+      "endLine": 624,
+      "summary": "管理单张大图查看器的展开/收起与缩放、HDR/实况和分享入口；使用独立的 SourceRect 与 ViewerState。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        624
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt:ViewerState",
+      "type": "class",
+      "name": "ViewerState",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "startLine": 64,
+      "endLine": 67,
+      "summary": "ViewerState 的声明与成员入口；文件职责：管理单张大图查看器的展开/收起与缩放、HDR/实况和分享入口；使用独立的 SourceRect 与 ViewerState。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        64,
+        67
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt:SourceRect",
+      "type": "class",
+      "name": "SourceRect",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "startLine": 72,
+      "endLine": 78,
+      "summary": "SourceRect 的声明与成员入口；文件职责：管理单张大图查看器的展开/收起与缩放、HDR/实况和分享入口；使用独立的 SourceRect 与 ViewerState。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        72,
+        78
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt:ViewerOverlay",
+      "type": "function",
+      "name": "ViewerOverlay",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "startLine": 92,
+      "endLine": 616,
+      "summary": "声明入口 ViewerOverlay；所属文件负责：管理单张大图查看器的展开/收起与缩放、HDR/实况和分享入口；使用独立的 SourceRect 与 ViewerState。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "complex",
+      "parameters": [
+        "viewerState",
+        "onDismiss",
+        "modifier",
+        "showHdr",
+        "showMotionPhoto",
+        "playMotionSound",
+        "motionSoundVolume"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        92,
+        616
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "type": "file",
+      "name": "AlbumViewScreen.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "startLine": 1,
+      "endLine": 1683,
+      "summary": "显示图集照片、多选删除/复制/移动和大图；当前将仓库映射与全库缓存合并，并在 Compose effect 中同步逐 URI 补读。",
+      "tags": [
+        "album-detail",
+        "query",
+        "selection"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        1683
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:AlbumViewScreen",
+      "type": "function",
+      "name": "AlbumViewScreen",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "startLine": 128,
+      "endLine": 343,
+      "summary": "声明入口 AlbumViewScreen；所属文件负责：显示图集照片、多选删除/复制/移动和大图；当前将仓库映射与全库缓存合并，并在 Compose effect 中同步逐 URI 补读。",
+      "tags": [
+        "declaration-index",
+        "album-detail",
+        "query"
+      ],
+      "complexity": "complex",
+      "parameters": [
+        "albums",
+        "allImages",
+        "getImagesForAlbum",
+        "getImageMappingsForAlbum",
+        "onCreateAlbum",
+        "onUpdateAlbum",
+        "onDeleteAlbum",
+        "onHideAlbum",
+        "onUnhideAlbum",
+        "onDeleteEmptyAlbum",
+        "onExcludeFromRecommend",
+        "isAlbumExcludedFromRecommend",
+        "onNavigateBack",
+        "initialAlbumId",
+        "showHdrBadges",
+        "showMotionBadges",
+        "playMotionSound",
+        "motionSoundVolume",
+        "onMoveToAlbum",
+        "onCopyToAlbum",
+        "onDeleteImages"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        128,
+        343
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:AlbumContentView",
+      "type": "function",
+      "name": "AlbumContentView",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "startLine": 348,
+      "endLine": 1176,
+      "summary": "声明入口 AlbumContentView；所属文件负责：显示图集照片、多选删除/复制/移动和大图；当前将仓库映射与全库缓存合并，并在 Compose effect 中同步逐 URI 补读。",
+      "tags": [
+        "declaration-index",
+        "album-detail",
+        "query"
+      ],
+      "complexity": "complex",
+      "parameters": [
+        "album",
+        "images",
+        "textColor",
+        "secondaryTextColor",
+        "isDarkTheme",
+        "showHdrBadges",
+        "showMotionBadges",
+        "onImageClick",
+        "onEditClick",
+        "onHideClick",
+        "onUnhideClick",
+        "onDeleteEmptyClick",
+        "onExcludeFromRecommend",
+        "isExcludedFromRecommend",
+        "onSetCover",
+        "onNavigateBack",
+        "albums",
+        "allImages",
+        "onMoveToAlbum",
+        "onCopyToAlbum",
+        "onDeleteImages"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        348,
+        1176
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:PhotoGridItem",
+      "type": "function",
+      "name": "PhotoGridItem",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "startLine": 1184,
+      "endLine": 1404,
+      "summary": "声明入口 PhotoGridItem；所属文件负责：显示图集照片、多选删除/复制/移动和大图；当前将仓库映射与全库缓存合并，并在 Compose effect 中同步逐 URI 补读。",
+      "tags": [
+        "declaration-index",
+        "album-detail",
+        "query"
+      ],
+      "complexity": "complex",
+      "parameters": [
+        "image",
+        "showHdrBadge",
+        "showMotionBadge",
+        "onClick",
+        "onSetCover",
+        "isSelectionMode",
+        "isSelected",
+        "onLongPress",
+        "onToggleSelect"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1184,
+        1404
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:rememberPhotoGridBadges",
+      "type": "function",
+      "name": "rememberPhotoGridBadges",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "startLine": 1412,
+      "endLine": 1433,
+      "summary": "声明入口 rememberPhotoGridBadges；所属文件负责：显示图集照片、多选删除/复制/移动和大图；当前将仓库映射与全库缓存合并，并在 Compose effect 中同步逐 URI 补读。",
+      "tags": [
+        "declaration-index",
+        "album-detail",
+        "query"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "image",
+        "showHdr",
+        "showMotion"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1412,
+        1433
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:AlbumPickerDialog",
+      "type": "function",
+      "name": "AlbumPickerDialog",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "startLine": 1438,
+      "endLine": 1632,
+      "summary": "声明入口 AlbumPickerDialog；所属文件负责：显示图集照片、多选删除/复制/移动和大图；当前将仓库映射与全库缓存合并，并在 Compose effect 中同步逐 URI 补读。",
+      "tags": [
+        "declaration-index",
+        "album-detail",
+        "query"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "albums",
+        "allImages",
+        "title",
+        "onAlbumSelected",
+        "onDismiss",
+        "isDarkTheme"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1438,
+        1632
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:queryImageFromUri",
+      "type": "function",
+      "name": "queryImageFromUri",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "startLine": 1638,
+      "endLine": 1682,
+      "summary": "同步 Provider 查询返回 ImageFile；DATE_MODIFIED 未从秒转为模型要求的毫秒。",
+      "tags": [
+        "declaration-index",
+        "album-detail",
+        "query"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "contentResolver",
+        "uri"
+      ],
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1638,
+        1682
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "type": "file",
+      "name": "RecycleBinScreen.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "startLine": 1,
+      "endLine": 1456,
+      "summary": "呈现本地回收站、多选删除和恢复，按钮调用上层协调回调；包含大图与 HDR/实况预览，批量恢复由 UI 循环发起单项恢复。",
+      "tags": [
+        "recycle-bin-ui",
+        "restore",
+        "selection"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        1456
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:RecycleBinScreen",
+      "type": "function",
+      "name": "RecycleBinScreen",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "startLine": 124,
+      "endLine": 433,
+      "summary": "声明入口 RecycleBinScreen；所属文件负责：呈现本地回收站、多选删除和恢复，按钮调用上层协调回调；包含大图与 HDR/实况预览，批量恢复由 UI 循环发起单项恢复。",
+      "tags": [
+        "declaration-index",
+        "recycle-bin-ui",
+        "restore"
+      ],
+      "complexity": "complex",
+      "parameters": [
+        "deletedImages",
+        "onRestore",
+        "onPermanentDelete",
+        "onPermanentDeleteBatch",
+        "onClearAll",
+        "onNavigateBack",
+        "showHdrBadges",
+        "showMotionBadges",
+        "playMotionSound",
+        "motionSoundVolume"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        124,
+        433
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:TabulaDialog",
+      "type": "function",
+      "name": "TabulaDialog",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "startLine": 441,
+      "endLine": 548,
+      "summary": "声明入口 TabulaDialog；所属文件负责：呈现本地回收站、多选删除和恢复，按钮调用上层协调回调；包含大图与 HDR/实况预览，批量恢复由 UI 循环发起单项恢复。",
+      "tags": [
+        "declaration-index",
+        "recycle-bin-ui",
+        "restore"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "title",
+        "text",
+        "confirmText",
+        "cancelText",
+        "isDestructive",
+        "onConfirm",
+        "onDismiss"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        441,
+        548
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:RecycleBinItem",
+      "type": "function",
+      "name": "RecycleBinItem",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "startLine": 554,
+      "endLine": 674,
+      "summary": "声明入口 RecycleBinItem；所属文件负责：呈现本地回收站、多选删除和恢复，按钮调用上层协调回调；包含大图与 HDR/实况预览，批量恢复由 UI 循环发起单项恢复。",
+      "tags": [
+        "declaration-index",
+        "recycle-bin-ui",
+        "restore"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "image",
+        "imageLoader",
+        "isSelected",
+        "isSelectionMode",
+        "badges",
+        "onClick",
+        "onLongClick"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        554,
+        674
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:FullScreenViewer",
+      "type": "function",
+      "name": "FullScreenViewer",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "startLine": 685,
+      "endLine": 875,
+      "summary": "声明入口 FullScreenViewer；所属文件负责：呈现本地回收站、多选删除和恢复，按钮调用上层协调回调；包含大图与 HDR/实况预览，批量恢复由 UI 循环发起单项恢复。",
+      "tags": [
+        "declaration-index",
+        "recycle-bin-ui",
+        "restore"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "images",
+        "initialIndex",
+        "onDismiss",
+        "onRestore",
+        "onDelete",
+        "showHdr",
+        "showMotionPhoto",
+        "playMotionSound",
+        "motionSoundVolume"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        685,
+        875
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:RecycleBinImagePage",
+      "type": "function",
+      "name": "RecycleBinImagePage",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "startLine": 890,
+      "endLine": 1229,
+      "summary": "声明入口 RecycleBinImagePage；所属文件负责：呈现本地回收站、多选删除和恢复，按钮调用上层协调回调；包含大图与 HDR/实况预览，批量恢复由 UI 循环发起单项恢复。",
+      "tags": [
+        "declaration-index",
+        "recycle-bin-ui",
+        "restore"
+      ],
+      "complexity": "complex",
+      "parameters": [
+        "image",
+        "imageLoader",
+        "showHdr",
+        "showMotionPhoto",
+        "playMotionSound",
+        "motionSoundVolume",
+        "onDismiss",
+        "window",
+        "originalColorMode",
+        "onZoomChanged",
+        "onMultiTouchChanged"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        890,
+        1229
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:SelectionModeTopBar",
+      "type": "function",
+      "name": "SelectionModeTopBar",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "startLine": 1234,
+      "endLine": 1288,
+      "summary": "声明入口 SelectionModeTopBar；所属文件负责：呈现本地回收站、多选删除和恢复，按钮调用上层协调回调；包含大图与 HDR/实况预览，批量恢复由 UI 循环发起单项恢复。",
+      "tags": [
+        "declaration-index",
+        "recycle-bin-ui",
+        "restore"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "selectedCount",
+        "textColor",
+        "onCancel",
+        "onRestoreSelected",
+        "onDeleteSelected"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1234,
+        1288
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:RecycleBinTopBar",
+      "type": "function",
+      "name": "RecycleBinTopBar",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "startLine": 1293,
+      "endLine": 1385,
+      "summary": "声明入口 RecycleBinTopBar；所属文件负责：呈现本地回收站、多选删除和恢复，按钮调用上层协调回调；包含大图与 HDR/实况预览，批量恢复由 UI 循环发起单项恢复。",
+      "tags": [
+        "declaration-index",
+        "recycle-bin-ui",
+        "restore"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "itemCount",
+        "textColor",
+        "secondaryTextColor",
+        "sortDescending",
+        "onToggleSort",
+        "onBack",
+        "onHelp",
+        "onClearAll"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1293,
+        1385
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:EmptyRecycleBin",
+      "type": "function",
+      "name": "EmptyRecycleBin",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "startLine": 1391,
+      "endLine": 1433,
+      "summary": "声明入口 EmptyRecycleBin；所属文件负责：呈现本地回收站、多选删除和恢复，按钮调用上层协调回调；包含大图与 HDR/实况预览，批量恢复由 UI 循环发起单项恢复。",
+      "tags": [
+        "declaration-index",
+        "recycle-bin-ui",
+        "restore"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "textColor",
+        "secondaryTextColor"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1391,
+        1433
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:rememberImageBadges",
+      "type": "function",
+      "name": "rememberImageBadges",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "startLine": 1435,
+      "endLine": 1456,
+      "summary": "声明入口 rememberImageBadges；所属文件负责：呈现本地回收站、多选删除和恢复，按钮调用上层协调回调；包含大图与 HDR/实况预览，批量恢复由 UI 循环发起单项恢复。",
+      "tags": [
+        "declaration-index",
+        "recycle-bin-ui",
+        "restore"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "image",
+        "showHdr",
+        "showMotion"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1435,
+        1456
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "type": "file",
+      "name": "SystemAlbumViewScreen.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "startLine": 1,
+      "endLine": 317,
+      "summary": "显示指定系统 bucket 的照片网格，使用 Coil 加载封面并打开可滑动大图查看器。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        317
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt:SystemAlbumViewScreen",
+      "type": "function",
+      "name": "SystemAlbumViewScreen",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "startLine": 66,
+      "endLine": 177,
+      "summary": "声明入口 SystemAlbumViewScreen；所属文件负责：显示指定系统 bucket 的照片网格，使用 Coil 加载封面并打开可滑动大图查看器。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "albumName",
+        "images",
+        "onNavigateBack",
+        "showHdrBadges",
+        "showMotionBadges",
+        "playMotionSound",
+        "motionSoundVolume"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        66,
+        177
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt:PhotoGridItem",
+      "type": "function",
+      "name": "PhotoGridItem",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "startLine": 183,
+      "endLine": 288,
+      "summary": "声明入口 PhotoGridItem；所属文件负责：显示指定系统 bucket 的照片网格，使用 Coil 加载封面并打开可滑动大图查看器。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "image",
+        "showHdrBadge",
+        "showMotionBadge",
+        "onClick"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        183,
+        288
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt:rememberImageBadges",
+      "type": "function",
+      "name": "rememberImageBadges",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "startLine": 296,
+      "endLine": 317,
+      "summary": "声明入口 rememberImageBadges；所属文件负责：显示指定系统 bucket 的照片网格，使用 Coil 加载封面并打开可滑动大图查看器。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "image",
+        "showHdr",
+        "showMotion"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        296,
+        317
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "type": "file",
+      "name": "DragSelectState.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 1,
+      "endLine": 317,
+      "summary": "维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        317
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState",
+      "type": "class",
+      "name": "DragSelectState",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 34,
+      "endLine": 160,
+      "summary": "DragSelectState 的声明与成员入口；文件职责：维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        34,
+        160
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:ItemBounds",
+      "type": "class",
+      "name": "ItemBounds",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 165,
+      "endLine": 175,
+      "summary": "ItemBounds 的声明与成员入口；文件职责：维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        165,
+        175
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.registerGridPosition",
+      "type": "function",
+      "name": "DragSelectState.registerGridPosition",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 57,
+      "endLine": 59,
+      "summary": "声明入口 DragSelectState.registerGridPosition；所属文件负责：维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "position"
+      ],
+      "owner": "DragSelectState",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        57,
+        59
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.registerItemBounds",
+      "type": "function",
+      "name": "DragSelectState.registerItemBounds",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 64,
+      "endLine": 66,
+      "summary": "声明入口 DragSelectState.registerItemBounds；所属文件负责：维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "id",
+        "bounds"
+      ],
+      "owner": "DragSelectState",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        64,
+        66
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDragStart",
+      "type": "function",
+      "name": "DragSelectState.onDragStart",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 71,
+      "endLine": 99,
+      "summary": "声明入口 DragSelectState.onDragStart；所属文件负责：维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "startPosition",
+        "haptic"
+      ],
+      "owner": "DragSelectState",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        71,
+        99
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDrag",
+      "type": "function",
+      "name": "DragSelectState.onDrag",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 104,
+      "endLine": 130,
+      "summary": "声明入口 DragSelectState.onDrag；所属文件负责：维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "position",
+        "haptic"
+      ],
+      "owner": "DragSelectState",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        104,
+        130
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDragEnd",
+      "type": "function",
+      "name": "DragSelectState.onDragEnd",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 135,
+      "endLine": 140,
+      "summary": "声明入口 DragSelectState.onDragEnd；所属文件负责：维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "DragSelectState",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        135,
+        140
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDragCancel",
+      "type": "function",
+      "name": "DragSelectState.onDragCancel",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 145,
+      "endLine": 147,
+      "summary": "声明入口 DragSelectState.onDragCancel；所属文件负责：维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "DragSelectState",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        145,
+        147
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:ItemBounds.contains",
+      "type": "function",
+      "name": "ItemBounds.contains",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 171,
+      "endLine": 174,
+      "summary": "声明入口 ItemBounds.contains；所属文件负责：维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "position"
+      ],
+      "owner": "ItemBounds",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        171,
+        174
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:rememberDragSelectState",
+      "type": "function",
+      "name": "rememberDragSelectState",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 180,
+      "endLine": 197,
+      "summary": "声明入口 rememberDragSelectState；所属文件负责：维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "items",
+        "itemKey",
+        "selectedIds",
+        "onSelectionChange",
+        "onEnterSelectionMode"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        180,
+        197
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:gridDragHandler",
+      "type": "function",
+      "name": "gridDragHandler",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 208,
+      "endLine": 241,
+      "summary": "声明入口 gridDragHandler；所属文件负责：维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "dragSelectState",
+        "isSelectionMode"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        208,
+        241
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:gridDragHandlerLongPress",
+      "type": "function",
+      "name": "gridDragHandlerLongPress",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 255,
+      "endLine": 288,
+      "summary": "声明入口 gridDragHandlerLongPress；所属文件负责：维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "dragSelectState",
+        "enabled"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        255,
+        288
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:itemDragReceiver",
+      "type": "function",
+      "name": "itemDragReceiver",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "startLine": 295,
+      "endLine": 317,
+      "summary": "声明入口 itemDragReceiver；所属文件负责：维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "dragSelectState",
+        "itemId"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        295,
+        317
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/TabulaApplication.kt:TabulaApplication",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/TabulaApplication.kt:TabulaApplication",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/TabulaApplication.kt:TabulaApplication.onCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/TabulaApplication.kt:TabulaApplication",
+      "target": "function:app/src/main/java/com/tabula/v3/TabulaApplication.kt:TabulaApplication.onCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/TabulaApplication.kt:TabulaApplication.onCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.getImageLoader",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup",
+      "target": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.getImageLoader",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.getImageLoader",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.createImageLoader",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup",
+      "target": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.createImageLoader",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.clearCache",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup",
+      "target": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.clearCache",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.clearCache",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.getCacheStats",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup",
+      "target": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.getCacheStats",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.getCacheStats",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt:ImageCard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt:ImageCard",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt:ImageCardPlaceholder",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt:ImageCardPlaceholder",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoPlayer",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoPlayer",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource.readAt",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource.readAt",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource.readAt",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource.getSize",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource.getSize",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource.getSize",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource.close",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource.close",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt:MotionPhotoDataSource.close",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt:SwipeableViewerState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt:SwipeableViewerState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt:SwipeableViewerOverlay",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt:SwipeableViewerOverlay",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt:SwipeableImagePage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt:ViewerState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt:ViewerState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt:SourceRect",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt:SourceRect",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt:ViewerOverlay",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt:ViewerOverlay",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:AlbumViewScreen",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:AlbumViewScreen",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:AlbumContentView",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:PhotoGridItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:rememberPhotoGridBadges",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:AlbumPickerDialog",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:queryImageFromUri",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:RecycleBinScreen",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:RecycleBinScreen",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:TabulaDialog",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:TabulaDialog",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:RecycleBinItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:FullScreenViewer",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:RecycleBinImagePage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:SelectionModeTopBar",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:RecycleBinTopBar",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:EmptyRecycleBin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt:rememberImageBadges",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt:SystemAlbumViewScreen",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt:SystemAlbumViewScreen",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt:PhotoGridItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt:rememberImageBadges",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:ItemBounds",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:ItemBounds",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.registerGridPosition",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.registerGridPosition",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.registerGridPosition",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.registerItemBounds",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.registerItemBounds",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.registerItemBounds",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDragStart",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDragStart",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDragStart",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDrag",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDrag",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDrag",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDragEnd",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDragEnd",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDragEnd",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDragCancel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDragCancel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:DragSelectState.onDragCancel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:ItemBounds.contains",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:ItemBounds",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:ItemBounds.contains",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:ItemBounds.contains",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:rememberDragSelectState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:rememberDragSelectState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:gridDragHandler",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:gridDragHandler",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:gridDragHandlerLongPress",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:gridDragHandlerLongPress",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:itemDragReceiver",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt:itemDragReceiver",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:AlbumViewScreen",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt:queryImageFromUri",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8,
+      "evidence": "manual static source trace"
+    },
+    {
+      "source": "function:app/src/main/java/com/tabula/v3/TabulaApplication.kt:TabulaApplication.onCreate",
+      "target": "function:app/src/main/java/com/tabula/v3/di/CoilSetup.kt:CoilSetup.getImageLoader",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8,
+      "evidence": "manual static source trace"
+    }
+  ]
+}

@@ -1,0 +1,1638 @@
+{
+  "schema_version": 1,
+  "title": "TabulaV3 development handoff test specifications",
+  "source_commit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+  "created_date": "2026-10-15",
+  "status_policy": "All cases are executable specifications, not proof of existing automation. Default NOT_RUN. Change status only after recording exact commit, command, environment, result and evidence. Historical CI reports are separate evidence.",
+  "supported_statuses": [
+    "NOT_RUN",
+    "PASS",
+    "FAIL",
+    "BLOCKED",
+    "NOT_APPLICABLE"
+  ],
+  "execution_constraints": [
+    "Use synthetic or explicitly licensed fixtures on dedicated test environments. Never operate on user photos.",
+    "Confirm JDK/SDK/CI and target device before execution. Do not install a complete local Android SDK just to follow this plan.",
+    "Disk-full and write-failure injection must be limited to a verified test temporary path or injected storage; never fill a real system or photo volume.",
+    "New test classes and fixture helper apps named by the prose are to be implemented; no command claiming those exist is supplied.",
+    "Any destructive reset/uninstall in existing benchmark scripts is permitted only on a newly created dedicated emulator after verifying its serial and package context."
+  ],
+  "tests": [
+    {
+      "id": "TC01",
+      "priority": "P1",
+      "task_id": "T01",
+      "finding_ids": [
+        "F01"
+      ],
+      "title": "禁止把归档到自身当成安全副本",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "repository_unit",
+      "fixture": "临时 Provider：源 URI 与目标 URI 相同，或不同 URI 解析到同一媒体项。",
+      "steps": [
+        "调用归档，再生成可清理原图集合。",
+        "分别覆盖目标路径等于源路径、目标是同一文件别名两种情况。"
+      ],
+      "expected": [
+        "不得标记存在独立备份，不得把该源列入可删除集合。",
+        "结果明确说明未创建独立副本；源字节及元数据未变。"
+      ],
+      "required_evidence": [
+        "断言日志",
+        "源与目标身份/字节哈希",
+        "清理候选集合"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC02",
+      "priority": "P1",
+      "task_id": "T01",
+      "finding_ids": [
+        "F01"
+      ],
+      "title": "目标副本被外部删除或失去访问权限后重新校验",
+      "scenario_tags": [
+        "failure"
+      ],
+      "layer": "provider_integration",
+      "fixture": "独立 fixture 应用生成源及经校验的目标；目标可被模拟删除、撤权或卸载卷。",
+      "steps": [
+        "归档成功并记录 source→verified destination。",
+        "在确认清理前分别删除目标、撤销目标访问、卸载目标卷。",
+        "重新扫描清理候选并尝试确认。"
+      ],
+      "expected": [
+        "只剩唯一源时不得删除；不可确认目标时保留源并报告状态。",
+        "不得仅凭旧 source 记录认定原图可清理。"
+      ],
+      "required_evidence": [
+        "操作前后媒体清单与哈希",
+        "候选/拒绝原因",
+        "源仍可读取证明"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC03",
+      "priority": "P1",
+      "task_id": "T01",
+      "finding_ids": [
+        "F02"
+      ],
+      "title": "同名同尺寸不同内容不能跳过复制",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "repository_unit",
+      "fixture": "两张合法 JPEG 名称、长度相同但内容 SHA-256 不同；另有字节完全相同对照组。",
+      "steps": [
+        "向含同名同尺寸文件的目标图集归档源。",
+        "检查复制/重命名/内容比较分支与后续清理资格。"
+      ],
+      "expected": [
+        "不同内容创建并校验独立目标或明确冲突，不能当作已有安全副本。",
+        "完全相同对照组的去重必须有内容及目标可读性证据。"
+      ],
+      "required_evidence": [
+        "夹具两份哈希及尺寸",
+        "目标结果",
+        "源删除资格断言"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC04",
+      "priority": "P1",
+      "task_id": "T01",
+      "finding_ids": [
+        "F03"
+      ],
+      "title": "输入或输出流为 null 时复制失败",
+      "scenario_tags": [
+        "failure"
+      ],
+      "layer": "repository_unit",
+      "fixture": "可注入 ContentResolver：openInputStream 或 openOutputStream 分别返回 null。",
+      "steps": [
+        "对两种 null 流执行复制。",
+        "检查插入目标、IS_PENDING、返回值和原图清理记录。"
+      ],
+      "expected": [
+        "返回失败；不发布空目标，不返回成功 URI，不写安全副本记录。",
+        "源保持完整；已创建的临时目标按明确策略回滚。"
+      ],
+      "required_evidence": [
+        "失败结果与写入序列",
+        "目标发布次数为0",
+        "源哈希"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC05",
+      "priority": "P1",
+      "task_id": "T01",
+      "finding_ids": [
+        "F03"
+      ],
+      "title": "短复制、写失败和协程取消不发布损坏副本",
+      "scenario_tags": [
+        "failure",
+        "boundary"
+      ],
+      "layer": "repository_unit",
+      "fixture": "输入长度已知，分别注入短读/写到一半 IOException/复制中 CancellationException。",
+      "steps": [
+        "在复制中点触发每一种故障。",
+        "读取目标状态、源记录和清理候选。",
+        "重新执行一次健康复制。"
+      ],
+      "expected": [
+        "失败/取消传播，不把短文件视作已验证副本；源不可清理。",
+        "重试不复用损坏目标；最终成功才解除 pending 并记录目标。"
+      ],
+      "required_evidence": [
+        "故障点/字节计数",
+        "目标 pending 与清理日志",
+        "重试后源目标哈希"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC06",
+      "priority": "P1",
+      "task_id": "T01",
+      "finding_ids": [
+        "F01",
+        "F03"
+      ],
+      "title": "健康归档具有可验证目标后才允许清理",
+      "scenario_tags": [
+        "positive",
+        "boundary"
+      ],
+      "layer": "provider_integration",
+      "fixture": "由 fixture 应用生成 JPEG/PNG、EXIF旋转图和大文件，名称含中文及空格。",
+      "steps": [
+        "通过真实 Provider 归档到不同路径。",
+        "读回目标并校验可解码、完整长度及内容等价。",
+        "确认清理候选只含有有效目标的源。"
+      ],
+      "expected": [
+        "保存源→目标 URI、内容版本/校验证据；目标在清理前仍可读。",
+        "不能用单次返回 URI 或同名同尺寸代替完整性校验。"
+      ],
+      "required_evidence": [
+        "manifest与校验结果",
+        "映射记录快照",
+        "源/目标读取证明"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC07",
+      "priority": "P1",
+      "task_id": "T01",
+      "finding_ids": [
+        "F01",
+        "F03"
+      ],
+      "title": "复制崩溃边界恢复不会删除唯一源",
+      "scenario_tags": [
+        "restart",
+        "failure"
+      ],
+      "layer": "device_e2e",
+      "fixture": "仅 fixture 媒体；测试构建具有复制后/发布后/记录提交前的故障钩子。",
+      "steps": [
+        "分别在目标写到一半、写完未发布、已发布未记账、已记账未清理时终止进程。",
+        "重新启动应用并执行恢复扫描。",
+        "再次触发归档和清理候选计算。"
+      ],
+      "expected": [
+        "所有边界都保留至少一份经验证的完整源或目标；无法确认时保留源。",
+        "恢复幂等，不自动发起新的不可逆删除，不积累已发布空文件。"
+      ],
+      "required_evidence": [
+        "每个故障点进程日志",
+        "重启前后媒体/映射快照",
+        "逐文件哈希与恢复报告"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC08",
+      "priority": "P1",
+      "task_id": "T02",
+      "finding_ids": [
+        "F04"
+      ],
+      "title": "回收站状态在重载和重建后持续排除",
+      "scenario_tags": [
+        "restart",
+        "boundary"
+      ],
+      "layer": "ui_integration",
+      "fixture": "20张 fixture，其中3张软删除；含主图库和非Tabula图集。",
+      "steps": [
+        "移入软件回收站，保存 JSON。",
+        "依次触发媒体重载、Activity重建、完整进程重启。",
+        "检查推荐、待整理、月份清理入口和回收站。"
+      ],
+      "expected": [
+        "软删除 URI 始终不进入待整理候选，仍在回收站。",
+        "未删除照片及回收站计数一致；不重复增加统计。"
+      ],
+      "required_evidence": [
+        "重启前后候选URI集合",
+        "UI截图",
+        "持久化JSON"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC09",
+      "priority": "P1",
+      "task_id": "T02",
+      "finding_ids": [
+        "F11"
+      ],
+      "title": "恢复已被外部永久删除的普通条目",
+      "scenario_tags": [
+        "failure"
+      ],
+      "layer": "provider_integration",
+      "fixture": "非 pending 的回收站条目；fixture 应用已永久删除实际媒体。",
+      "steps": [
+        "确认 pending journal 为空。",
+        "点击恢复该条目。",
+        "刷新并重启。"
+      ],
+      "expected": [
+        "不得把不存在的 ImageFile 加回主列表或宣称照片已恢复。",
+        "给出明确缺失处理，状态在重启后保持一致。"
+      ],
+      "required_evidence": [
+        "journal为空证明",
+        "恢复结果",
+        "主列表与回收站前后快照"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC10",
+      "priority": "P1",
+      "task_id": "T02",
+      "finding_ids": [
+        "F11"
+      ],
+      "title": "恢复时权限或存储不可确认",
+      "scenario_tags": [
+        "failure",
+        "boundary"
+      ],
+      "layer": "provider_integration",
+      "fixture": "普通回收站条目；分别设部分访问不含目标、Provider null/异常、目标卷卸载。",
+      "steps": [
+        "逐种情形点击恢复。",
+        "恢复权限或挂载后再次恢复。"
+      ],
+      "expected": [
+        "UNKNOWN期间保留记录且不制造可用照片。",
+        "条件恢复后可重试，只提交一次恢复变更。"
+      ],
+      "required_evidence": [
+        "URI状态分类日志",
+        "记录保留及重试断言",
+        "权限/卷快照"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC11",
+      "priority": "P2",
+      "task_id": "T02",
+      "finding_ids": [
+        "F12"
+      ],
+      "title": "旋转元数据往返及旧记录迁移",
+      "scenario_tags": [
+        "boundary",
+        "restart"
+      ],
+      "layer": "repository_unit_and_ui",
+      "fixture": "0/90/180/270度JPEG与无orientation字段的旧JSON，宽高均不相同。",
+      "steps": [
+        "入回收站、销毁管理器、重新读取并恢复。",
+        "检查JSON字段、actualWidth/actualHeight/aspectRatio与缩略图布局。"
+      ],
+      "expected": [
+        "新记录旋转信息无损，90/270度使用交换宽高后的比例。",
+        "旧记录有兼容默认/补读策略，不破坏原记录。"
+      ],
+      "required_evidence": [
+        "序列化往返断言",
+        "旧格式迁移日志",
+        "四种方向截图"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC12",
+      "priority": "P1",
+      "task_id": "T02",
+      "finding_ids": [
+        "F04",
+        "F11",
+        "F12"
+      ],
+      "title": "批量恢复失败、并发和重启保持一致",
+      "scenario_tags": [
+        "failure",
+        "restart",
+        "boundary"
+      ],
+      "layer": "repository_integration",
+      "fixture": "1000条仅临时JSON/fixture记录；注入原子提交失败，并并发加入新软删除条目。",
+      "steps": [
+        "批量恢复子集时注入存储失败；同时加入一个不相关条目。",
+        "重新打开管理器恢复，再重试。"
+      ],
+      "expected": [
+        "失败不提前移除UI条目；不丢并发加入项。",
+        "已提交恢复幂等，未提交可重试；使用批量事务而非每项全文件重写。"
+      ],
+      "required_evidence": [
+        "持久化写次数/事务日志",
+        "失败前后记录集合",
+        "重启恢复报告"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC13",
+      "priority": "P1",
+      "task_id": "T03",
+      "finding_ids": [
+        "F06"
+      ],
+      "title": "同名不同目录相册身份分离",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "provider_integration",
+      "fixture": "DCIM/Camera、Pictures/Camera、Pictures/Tabula/Camera各有同名bucket及独特照片。",
+      "steps": [
+        "加载相册、详情、推荐过滤和清理范围。",
+        "重命名其中一个相册并刷新。"
+      ],
+      "expected": [
+        "各目录身份独立，封面/计数/照片/删除范围不串相册。",
+        "屏蔽或重命名一个相册不影响同名其它相册。"
+      ],
+      "required_evidence": [
+        "卷/bucket/path身份表",
+        "各入口URI集合",
+        "重命名前后断言"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC14",
+      "priority": "P1",
+      "task_id": "T03",
+      "finding_ids": [
+        "F06",
+        "F05"
+      ],
+      "title": "多卷相册及媒体键不碰撞",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "provider_fake_and_device",
+      "fixture": "可控Provider提供相同名称/本地ID但不同卷；设备阶段只使用虚拟SD合成图。",
+      "steps": [
+        "加载主卷和SD卷条目。",
+        "对一卷执行选择、软删除、恢复及缓存读取。",
+        "卸载SD后检查主卷条目。"
+      ],
+      "expected": [
+        "媒体键和相册键保留卷维度，操作只影响指定URI。",
+        "主卷缺失核验不因无关SD卷卸载而变UNKNOWN。"
+      ],
+      "required_evidence": [
+        "键和URI映射",
+        "卷挂载快照",
+        "选择/操作隔离断言"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC15",
+      "priority": "P1",
+      "task_id": "T03",
+      "finding_ids": [
+        "F06"
+      ],
+      "title": "旧名称身份迁移冲突、写失败和回滚",
+      "scenario_tags": [
+        "failure"
+      ],
+      "layer": "repository_integration",
+      "fixture": "旧相册/映射/回收站/偏好记录，含重名歧义、损坏记录及迁移提交失败钩子。",
+      "steps": [
+        "运行迁移并对歧义条目检查归属策略。",
+        "在中间提交注入失败，重试及读取旧版兼容快照。"
+      ],
+      "expected": [
+        "不能猜测归属或扩大删除范围；歧义保留并明确报告。",
+        "迁移原子/可恢复，失败不覆盖原记录；定义兼容窗口与回滚限制。"
+      ],
+      "required_evidence": [
+        "迁移前后全文件哈希",
+        "歧义报告",
+        "故障注入与重试日志"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC16",
+      "priority": "P1",
+      "task_id": "T03",
+      "finding_ids": [
+        "F06",
+        "F05"
+      ],
+      "title": "迁移后重启、重挂载和权限变化",
+      "scenario_tags": [
+        "restart",
+        "failure"
+      ],
+      "layer": "device_e2e",
+      "fixture": "升级前合成媒体及旧JSON；含主卷/虚拟SD同名相册。",
+      "steps": [
+        "迁移后终止进程并重启。",
+        "卸载/重挂SD，切换完整/部分访问。",
+        "重复加载和安全非破坏操作。"
+      ],
+      "expected": [
+        "身份持久稳定；不可访问不等于删除；重挂后恢复对应记录。",
+        "不生成重复相册或将旧待核对任务关联到另一文件。"
+      ],
+      "required_evidence": [
+        "升级/重启日志",
+        "媒体身份映射快照",
+        "权限与卷事件"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC17",
+      "priority": "P1",
+      "task_id": "T04",
+      "finding_ids": [
+        "F09"
+      ],
+      "title": "三个删除入口的批量边界",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "coordinator_unit_and_device",
+      "fixture": "0/1/100/101/2000/2001/10000个合成URI；真实设备仅使用fixture媒体。",
+      "steps": [
+        "分别走回收站、图集详情、归档原图清理入口。",
+        "记录每次系统请求URI数量和提交顺序。",
+        "对2001张在target36构建执行实际流程。"
+      ],
+      "expected": [
+        "所有入口串行分批，单请求不超2000且采用统一可配置批量。",
+        "空集不请求；去重、进度和最终结果集合一致。"
+      ],
+      "required_evidence": [
+        "请求批次日志",
+        "设备授权录屏/截图",
+        "结果集合及剩余项"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC18",
+      "priority": "P1",
+      "task_id": "T04",
+      "finding_ids": [
+        "F09"
+      ],
+      "title": "整体错误、坏URI、部分成功及中途取消",
+      "scenario_tags": [
+        "failure",
+        "boundary"
+      ],
+      "layer": "coordinator_unit",
+      "fixture": "可控删除服务：整体权限/服务错误，单个invalid URI，部分成功，第2批取消。",
+      "steps": [
+        "逐场景执行超过两批的任务。",
+        "记录调用次数、拆分顺序、确认删除集合和停止原因。"
+      ],
+      "expected": [
+        "整体错误只尝试一次并停止，不产生拆分风暴。",
+        "仅可隔离的坏请求允许拆分；取消停止后批，保留前批成功，不能全成全败误报。"
+      ],
+      "required_evidence": [
+        "调用次数/顺序断言",
+        "每批结果与最终汇总",
+        "持久化记录差异"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC19",
+      "priority": "P1",
+      "task_id": "T04",
+      "finding_ids": [
+        "F05"
+      ],
+      "title": "部分照片授权下UNKNOWN任务隔离",
+      "scenario_tags": [
+        "failure",
+        "boundary"
+      ],
+      "layer": "device_e2e",
+      "fixture": "API34+独立fixture包生成A/B两组图片；仅选择部分访问，真实系统删除提示。",
+      "steps": [
+        "删除可访问A组并确认系统提示。",
+        "制造一个无法核对的旧任务，再删除不相关B组。",
+        "取消、恢复完整权限并重试核对。"
+      ],
+      "expected": [
+        "不把无权限空查询误判成功；A状态明确可恢复。",
+        "未知任务不无期限阻塞无关任务，不重复发出已确认不可逆请求。"
+      ],
+      "required_evidence": [
+        "系统授权录像",
+        "权限快照",
+        "任务/URI状态日志与媒体清单"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC20",
+      "priority": "P1",
+      "task_id": "T04",
+      "finding_ids": [
+        "F05"
+      ],
+      "title": "真实卸载SD不阻塞主存储安全删除",
+      "scenario_tags": [
+        "boundary",
+        "failure"
+      ],
+      "layer": "device_e2e",
+      "fixture": "测试模拟器主卷和虚拟SD合成图片；记录mounted/recent集合及旧merged URI。",
+      "steps": [
+        "卸载SD后删除主卷图片。",
+        "核对SD旧条目，再重挂后重试。",
+        "同时覆盖当前挂载卷也出现在recent中的情况。"
+      ],
+      "expected": [
+        "具体主卷URI可确认删除；离线SD保持UNKNOWN。",
+        "recent与mounted交集不误判；旧merged歧义不造成全局阻塞。"
+      ],
+      "required_evidence": [
+        "卷集合与URI",
+        "实际媒体查询结果",
+        "journal前后快照"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC21",
+      "priority": "P1",
+      "task_id": "T04",
+      "finding_ids": [
+        "F05",
+        "F09"
+      ],
+      "title": "真实授权弹窗前后Activity及进程恢复",
+      "scenario_tags": [
+        "restart",
+        "failure"
+      ],
+      "layer": "device_e2e",
+      "fixture": "独立fixture包媒体；测试设备；可控屏幕旋转与进程终止，不用自有图直接删除替代。",
+      "steps": [
+        "分别在系统弹窗打开、用户批准后未提交记录、记录提交后终止进程。",
+        "另测Activity重建和取消结果。",
+        "重启后核对，不自动点击第二次删除。"
+      ],
+      "expected": [
+        "回调只关联原批次；已发请求不重复，确认存在项保留。",
+        "未完成任务通过持久化记录恢复；取消与UNKNOWN可区分。"
+      ],
+      "required_evidence": [
+        "生命周期与ActivityResult日志",
+        "系统弹窗录像",
+        "实际媒体及journal状态"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC22",
+      "priority": "P1",
+      "task_id": "T04",
+      "finding_ids": [
+        "F05",
+        "F09"
+      ],
+      "title": "删除日志和记录写失败的恢复",
+      "scenario_tags": [
+        "failure",
+        "restart"
+      ],
+      "layer": "repository_integration",
+      "fixture": "临时目录上的AtomicFile/可注入ENOSPC与rename失败；测试自有合成记录。",
+      "steps": [
+        "分别在begin、媒体已删后记录提交、journal收尾时写失败。",
+        "销毁管理器后重建、解除故障并对账。"
+      ],
+      "expected": [
+        "begin失败绝不请求删除；已删未记账明确报告，保留恢复证据。",
+        "对账幂等且不再次删除；只能在测试临时路径模拟写满。"
+      ],
+      "required_evidence": [
+        "故障点及请求次数",
+        "临时文件哈希",
+        "重建对账断言"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC23",
+      "priority": "P1",
+      "task_id": "T05",
+      "finding_ids": [
+        "F07"
+      ],
+      "title": "相册读取不在主线程逐URI补查",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "ui_integration_and_trace",
+      "fixture": "空/1/1000/10000图相册，可计数Provider；StrictMode或线程断言及trace标记。",
+      "steps": [
+        "进入图集详情并滚动。",
+        "记录查询线程、次数、完整ImageFile复用情况。"
+      ],
+      "expected": [
+        "主线程无磁盘/Provider逐URI查询；数据只读一次或按明确定义分页。",
+        "图片/排序/选择集合与旧语义一致，不以减少照片获得加速。"
+      ],
+      "required_evidence": [
+        "查询次数与线程日志",
+        "StrictMode/Perfetto",
+        "完整性对照"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC24",
+      "priority": "P1",
+      "task_id": "T05",
+      "finding_ids": [
+        "F08"
+      ],
+      "title": "修改时间单位及边界",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "repository_unit",
+      "fixture": "DATE_MODIFIED为0、1735689600、2147483648秒，含相同时间及月/年交界项。",
+      "steps": [
+        "经主图库和图集补读/统一读取两路径构建模型。",
+        "比较日期显示、月份分组和排序。"
+      ],
+      "expected": [
+        "统一转换为Long毫秒且只转换一次，不落到1970年。",
+        "相同时间排序有稳定次键，0值遵循明确fallback。"
+      ],
+      "required_evidence": [
+        "转换与分组断言",
+        "两路径模型对比"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC25",
+      "priority": "P1",
+      "task_id": "T05",
+      "finding_ids": [
+        "F07",
+        "F08"
+      ],
+      "title": "读取异常和取消不静默变空相册",
+      "scenario_tags": [
+        "failure"
+      ],
+      "layer": "repository_unit_and_ui",
+      "fixture": "Provider返回null、SecurityException、途中游标异常、慢查询可取消。",
+      "steps": [
+        "加载已存在相册时逐个触发异常。",
+        "切走页面取消，再返回重试。"
+      ],
+      "expected": [
+        "保留可用旧状态或明确错误/访问受限，不把失败当确认空集删除映射。",
+        "取消传播，旧请求不得覆盖新页面结果。"
+      ],
+      "required_evidence": [
+        "状态机日志",
+        "取消与重试断言",
+        "映射文件前后快照"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC26",
+      "priority": "P2",
+      "task_id": "T05",
+      "finding_ids": [
+        "F07",
+        "F08"
+      ],
+      "title": "加载中重建和进程重启一致性",
+      "scenario_tags": [
+        "restart"
+      ],
+      "layer": "ui_integration",
+      "fixture": "5000图及月界日期夹具，延迟Provider；旋转/重建/进程重启。",
+      "steps": [
+        "在加载中重建Activity，再完成加载。",
+        "进程重启后重入同一相册。"
+      ],
+      "expected": [
+        "不重复N次补查，不交付过期页面结果；计数、日期和身份正确。",
+        "刷新/恢复不会将旧列表与新时间单位混合。"
+      ],
+      "required_evidence": [
+        "请求代次与查询计数",
+        "重启前后模型快照",
+        "截图"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC27",
+      "priority": "P1",
+      "task_id": "T06",
+      "finding_ids": [
+        "F15"
+      ],
+      "title": "同尺寸缩放借用Bitmap所有权",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "bitmap_unit_and_ui",
+      "fixture": "Coil返回可复用缓存Bitmap；尺寸恰等于动画目标，另含缩放新副本对照。",
+      "steps": [
+        "触发两种卡片模式的Genie和删除动画。",
+        "完成、取消、替换动画后再次显示原缓存图。"
+      ],
+      "expected": [
+        "createScaledBitmap返回原对象时不回收借用对象；所有权可检查。",
+        "独立动画副本只释放一次，无recycled bitmap绘制异常。"
+      ],
+      "required_evidence": [
+        "对象身份/释放次数断言",
+        "重复显示截图",
+        "异常日志"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC28",
+      "priority": "P1",
+      "task_id": "T06",
+      "finding_ids": [
+        "F14"
+      ],
+      "title": "防抖取消后同中心可重新预加载",
+      "scenario_tags": [
+        "failure",
+        "boundary"
+      ],
+      "layer": "coroutine_unit",
+      "fixture": "可控调度器与假Coil请求，中心索引相同，防抖窗口内取消。",
+      "steps": [
+        "触发预加载、在提交前取消，再以相同中心恢复。",
+        "推进虚拟时钟并注入首次失败。"
+      ],
+      "expected": [
+        "取消不被记成成功；同中心重新提交，失败允许重试。",
+        "已完成、已提交、失败状态分离。"
+      ],
+      "required_evidence": [
+        "调度器时序",
+        "请求次数与状态转移"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC29",
+      "priority": "P1",
+      "task_id": "T06",
+      "finding_ids": [
+        "F14"
+      ],
+      "title": "同索引换图与内容版本变更",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "coroutine_unit",
+      "fixture": "两个等长不同URI列表；同URI但dateModified/size变化；同中心索引。",
+      "steps": [
+        "切换列表或修改内容版本后调用预加载。",
+        "检查旧请求取消、新请求缓存键及目标尺寸。"
+      ],
+      "expected": [
+        "按实际身份+内容版本判定，不能因旧索引/中心跳过新图。",
+        "显示/动画软件Bitmap请求选项不混用。"
+      ],
+      "required_evidence": [
+        "请求身份/键/选项日志",
+        "取消次数与完成断言"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC30",
+      "priority": "P1",
+      "task_id": "T06",
+      "finding_ids": [
+        "F14",
+        "F15"
+      ],
+      "title": "加载/解码失败与动画取消释放完整",
+      "scenario_tags": [
+        "failure"
+      ],
+      "layer": "unit_and_ui",
+      "fixture": "输入流解码失败、Coil error、动画中途替换和连续取消夹具。",
+      "steps": [
+        "反复进入退出并触发失败、重试、取消。",
+        "统计Disposable和独立Bitmap释放，继续使用共享缓存图。"
+      ],
+      "expected": [
+        "旧请求终止且失败可重试；无重复释放和持有已取消页面资源。",
+        "共享缓存仍可正常绘制，资源计数回到预期范围。"
+      ],
+      "required_evidence": [
+        "Disposable/Bitmap生命周期日志",
+        "错误及重试结果",
+        "必要时heap快照"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC31",
+      "priority": "P1",
+      "task_id": "T06",
+      "finding_ids": [
+        "F14",
+        "F15"
+      ],
+      "title": "页面退出、批次重置及Activity重建",
+      "scenario_tags": [
+        "restart",
+        "failure"
+      ],
+      "layer": "ui_integration",
+      "fixture": "两个卡片模式各30张fixture，慢图片请求正在进行。",
+      "steps": [
+        "切换照片批次、退出页面、重建Activity、重新进入。",
+        "完成旧请求并检查新页面及缓存。"
+      ],
+      "expected": [
+        "旧manager scope与请求已取消，结果不污染新批次。",
+        "新实例正常预加载，保留既有范围、画质和动画时长。"
+      ],
+      "required_evidence": [
+        "scope/请求状态",
+        "生命周期截图",
+        "前后资源计数"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC32",
+      "priority": "P1",
+      "task_id": "T07",
+      "finding_ids": [
+        "F10"
+      ],
+      "title": "前后台媒体变化与部分授权集合变化",
+      "scenario_tags": [
+        "boundary",
+        "failure"
+      ],
+      "layer": "device_e2e",
+      "fixture": "API31/33完整权限，API34+部分照片权限；独立fixture包可增删图片。",
+      "steps": [
+        "退到后台新增/删除fixture，返回应用。",
+        "API34+保持hasPermission=true但把可选集合A改为B，再返回。"
+      ],
+      "expected": [
+        "媒体列表和相册刷新到当前可访问集合，不依赖Boolean权限变更。",
+        "撤回可见性不等于物理删除，不破坏回收站/归档记录。"
+      ],
+      "required_evidence": [
+        "权限集合及媒体清单",
+        "前后台时间线",
+        "UI结果"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC33",
+      "priority": "P1",
+      "task_id": "T07",
+      "finding_ids": [
+        "F10"
+      ],
+      "title": "前台刷新失败和快速切换竞态",
+      "scenario_tags": [
+        "failure",
+        "boundary"
+      ],
+      "layer": "repository_and_ui",
+      "fixture": "连续foreground事件、慢Provider、读取失败、全量↔部分授权切换。",
+      "steps": [
+        "触发两代刷新，让旧查询后返回；其中一次失败。",
+        "快速切到另一相册再恢复权限。"
+      ],
+      "expected": [
+        "仅最新代结果生效，取消正常传播；错误不静默清空。",
+        "内容变化合并刷新，避免每个事件全量重复查询。"
+      ],
+      "required_evidence": [
+        "请求代次/查询次数",
+        "错误状态与最终集合"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC34",
+      "priority": "P1",
+      "task_id": "T07",
+      "finding_ids": [
+        "F13"
+      ],
+      "title": "移动逐项失败、可恢复授权及源删除失败",
+      "scenario_tags": [
+        "failure",
+        "boundary"
+      ],
+      "layer": "repository_unit_and_device",
+      "fixture": "多项移动：一项成功、一项RecoverableSecurityException/需授权、一项copy返回null、一项源删除失败。",
+      "steps": [
+        "执行批量移动并分别批准/取消授权。",
+        "比较源目标内容及UI逐项反馈。"
+      ],
+      "expected": [
+        "不吞异常或报全成功；复制成功但源保留明确为复制未完成移动。",
+        "任何源删除必须先有验证目标，失败项可重试不重复副本。"
+      ],
+      "required_evidence": [
+        "逐项结果",
+        "真实授权证据",
+        "源目标哈希与计数"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC35",
+      "priority": "P1",
+      "task_id": "T07",
+      "finding_ids": [
+        "F10",
+        "F13"
+      ],
+      "title": "移动授权及前台恢复的进程重启",
+      "scenario_tags": [
+        "restart"
+      ],
+      "layer": "device_e2e",
+      "fixture": "合成源及目标，测试构建记录未完成移动任务。",
+      "steps": [
+        "在授权等待、目标验证后源删除前终止进程。",
+        "重启并返回前台，恢复操作状态。"
+      ],
+      "expected": [
+        "不会自动重复不可逆步骤，源目标状态被重新核对。",
+        "UI显示已完成/待授权/失败项；刷新不掩盖未完成任务。"
+      ],
+      "required_evidence": [
+        "进程重启与任务日志",
+        "前后媒体清单",
+        "恢复UI截图"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC36",
+      "priority": "P1",
+      "task_id": "T08",
+      "finding_ids": [
+        "B01"
+      ],
+      "title": "缺失、空白、不可解析trace必须拒绝基线",
+      "scenario_tags": [
+        "failure",
+        "boundary"
+      ],
+      "layer": "python_unit",
+      "fixture": "隔离临时目录内的合成报告：完整数值/OK日志但缺trace、空trace、损坏trace；标记synthetic=true。",
+      "steps": [
+        "分别运行报告校验器，并加入有效trace对照。",
+        "检查退出码、valid字段及错误原因。"
+      ],
+      "expected": [
+        "坏证据均fail-closed，不输出可用于性能结论的valid=true。",
+        "校验trace可读性及关联用例/轮次，不能只检查扩展名。"
+      ],
+      "required_evidence": [
+        "unittest日志",
+        "反例输入清单及哈希",
+        "报告退出码/错误"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC37",
+      "priority": "P1",
+      "task_id": "T08",
+      "finding_ids": [
+        "B01"
+      ],
+      "title": "采集pull失败和文件错配阻断报告",
+      "scenario_tags": [
+        "failure"
+      ],
+      "layer": "python_unit_and_harness",
+      "fixture": "mock adb返回非零、部分目录、过期trace、错APK或错误轮次trace。",
+      "steps": [
+        "在run_session采集阶段注入各类失败。",
+        "尝试使用残留上轮文件生成报告。"
+      ],
+      "expected": [
+        "采集失败立即失败并保留诊断；不把旧产物冒作本轮。",
+        "APK、commit、session、case与trace/metrics关联一致。"
+      ],
+      "required_evidence": [
+        "mock调用断言",
+        "产物manifest",
+        "退出码与诊断日志"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC38",
+      "priority": "P1",
+      "task_id": "T08",
+      "finding_ids": [
+        "B02"
+      ],
+      "title": "协议参数确实驱动构建采集统计",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "python_and_gradle_contract",
+      "fixture": "协议副本分别改iteration、swipes、datasetCount、API、设置；不得修改生产用户数据。",
+      "steps": [
+        "对每个字段生成执行配置并检查Kotlin/harness/report消费值。",
+        "输入非法值、未知schema与不支持API配置。"
+      ],
+      "expected": [
+        "合法值贯穿数据生成、用例执行和报告期望，无分散硬编码漂移。",
+        "非法/不支持配置在采集前明确失败；协议hash与实际配置一致。"
+      ],
+      "required_evidence": [
+        "协议→执行参数对照",
+        "契约测试输出",
+        "最终manifest"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC39",
+      "priority": "P1",
+      "task_id": "T08",
+      "finding_ids": [
+        "B01",
+        "B02"
+      ],
+      "title": "指标样本与实际交互证据一致",
+      "scenario_tags": [
+        "failure",
+        "boundary"
+      ],
+      "layer": "report_unit_and_device",
+      "fixture": "缺TTID/TTFD、NaN/Inf、缺轮次、重复用例、错误操作次数、页面未就绪的报告/设备场景。",
+      "steps": [
+        "逐个提交错误数据给校验器。",
+        "让界面导航失败或12次滑动实际只完成11次。",
+        "校对前后台图像ID/操作计数与指标。"
+      ],
+      "expected": [
+        "缺/坏数据不补零，不生成成功基线；样本数来自协议。",
+        "交互未完成不视为性能改善，TTID与TTFD/内容就绪语义明确。"
+      ],
+      "required_evidence": [
+        "反例报告及错误",
+        "UI操作日志/截图",
+        "原始metrics与trace"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC40",
+      "priority": "P1",
+      "task_id": "T08",
+      "finding_ids": [
+        "B02"
+      ],
+      "title": "同提交A/A估计噪声后再比较",
+      "scenario_tags": [
+        "positive",
+        "boundary"
+      ],
+      "layer": "benchmark_device",
+      "fixture": "同APK哈希、同协议/数据hash、固定AVD资源；两个独立session，交错执行顺序。",
+      "steps": [
+        "同提交按相同协议重复A/A，保存原始样本。",
+        "计算各指标差值分布与变异，预先确定可用噪声范围和异常处理。",
+        "若不稳定，停止A/B结论并定位主机/热状态/渲染差异。"
+      ],
+      "expected": [
+        "报告能识别同版本测量噪声，不把单次百分比变化当提速。",
+        "阈值在候选结果前固定；模拟器结果标记适用范围。"
+      ],
+      "required_evidence": [
+        "A/A全部原始数据",
+        "环境/APK哈希",
+        "噪声分析及阈值版本"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC41",
+      "priority": "P2",
+      "task_id": "T08",
+      "finding_ids": [
+        "B02"
+      ],
+      "title": "扩展真实瓶颈工作负载",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "benchmark_device",
+      "fixture": "确定性96/1000/10000/30000图数据集，混合尺寸和旋转；另有有来源许可的HDR/实况正例。",
+      "steps": [
+        "测冷/暖启动、内容就绪、图集读取、连续归档、回收站加载/恢复、两卡片模式与查看器。",
+        "记录Provider查询、原始帧、PSS及峰值采样/内存时间线。"
+      ],
+      "expected": [
+        "区分小样本冒烟与大图库基线；数据规模和照片质量不被悄悄改变。",
+        "静态JPEG不能宣称覆盖HDR/实况；快照PSS不能称连续峰值。"
+      ],
+      "required_evidence": [
+        "数据manifest",
+        "各场景trace与操作计数",
+        "指标语义和覆盖缺口"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC42",
+      "priority": "P1",
+      "task_id": "T08",
+      "finding_ids": [
+        "B01",
+        "B02"
+      ],
+      "title": "进程/模拟器重启后的基线可重复性",
+      "scenario_tags": [
+        "restart",
+        "failure"
+      ],
+      "layer": "benchmark_device",
+      "fixture": "全新专用AVD；两次重建相同固定种子数据；协议hash一致。",
+      "steps": [
+        "分别进程冷启动与模拟器重建后执行采集。",
+        "核验媒体数量/顺序、设置、编译模式、APK与系统镜像。",
+        "故意改变一个环境字段重新尝试比较。"
+      ],
+      "expected": [
+        "相同夹具可复现；冷进程不冒称OS缓存全冷。",
+        "不同环境不可直接混报有效A/B；不完整重启采集作为失败证据保留。"
+      ],
+      "required_evidence": [
+        "两轮环境与数据hash",
+        "启动/重建日志",
+        "比较器拒绝记录"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC43",
+      "priority": "P1",
+      "task_id": "T09",
+      "finding_ids": [],
+      "title": "工具链兼容与单项回退",
+      "scenario_tags": [
+        "boundary",
+        "failure"
+      ],
+      "layer": "build_ci",
+      "fixture": "干净CI checkout；当前与候选AGP/Gradle、JDK17、Kotlin/Compose插件组合。",
+      "steps": [
+        "先核对官方兼容矩阵并记录实际候选版本。",
+        "执行依赖解析、完整Release单测与压缩构建。",
+        "模拟不兼容配置验证失败可诊断，再回退工具链提交。"
+      ],
+      "expected": [
+        "构建可重复，无新增不可解释R8/metadata错误；Kotlin与Compose插件一致。",
+        "回退只撤工具链变更，功能修复仍保留。"
+      ],
+      "required_evidence": [
+        "版本/依赖锁定清单",
+        "Gradle日志与测试XML",
+        "mapping及APK哈希"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC44",
+      "priority": "P1",
+      "task_id": "T09",
+      "finding_ids": [],
+      "title": "工具链后安装升级与重启",
+      "scenario_tags": [
+        "restart"
+      ],
+      "layer": "release_device",
+      "fixture": "合成旧回收站/任务/图集数据；同现有签名身份的验证APK，专用设备。",
+      "steps": [
+        "安装旧版夹具状态，再覆盖候选Release。",
+        "启动、重建Activity、进程重启并执行核心安全用例。"
+      ],
+      "expected": [
+        "包名、签名、数据迁移及压缩后反射/序列化路径正常。",
+        "无需重签身份或清空应用数据；APK体积变化可解释。"
+      ],
+      "required_evidence": [
+        "签名证书与包身份报告",
+        "升级前后数据快照",
+        "设备回归日志"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC45",
+      "priority": "P2",
+      "task_id": "T10",
+      "finding_ids": [
+        "F17"
+      ],
+      "title": "连续归档增量统计正确",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "repository_integration",
+      "fixture": "0/1/100次归档，含重复源、多个目标图集和并发外部新增。",
+      "steps": [
+        "执行连续归档并记录局部更新。",
+        "每阶段与一次权威全量扫描比较数量、封面和映射。"
+      ],
+      "expected": [
+        "增量状态等价于权威扫描；重复归档不重复计数。",
+        "外部新增在刷新点可见，不覆盖其它并发变更。"
+      ],
+      "required_evidence": [
+        "增量/全量对照",
+        "事件序列",
+        "最终模型快照"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC46",
+      "priority": "P2",
+      "task_id": "T10",
+      "finding_ids": [
+        "F17"
+      ],
+      "title": "归档查询次数不随每张照片全库重扫",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "instrumented_repository_and_trace",
+      "fixture": "固定大图库10k，归档批次1/10/100，Provider查询计数和扫描行数可观测。",
+      "steps": [
+        "逐规模归档并采集完整操作trace。",
+        "比较全库扫描次数、局部查询量和最终照片质量。"
+      ],
+      "expected": [
+        "N张归档不触发N次全库扫描；次数预算在实现评审时明确。",
+        "无丢图/画质变化；性能结论需通过T08有效证据校验。"
+      ],
+      "required_evidence": [
+        "查询/行数计数",
+        "原始trace",
+        "有效A/B或明确未测量说明"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC47",
+      "priority": "P1",
+      "task_id": "T10",
+      "finding_ids": [
+        "F17"
+      ],
+      "title": "增量更新失败与重启重建",
+      "scenario_tags": [
+        "failure",
+        "restart"
+      ],
+      "layer": "repository_integration",
+      "fixture": "复制成功但统计提交失败、外部删除竞态、进程在增量事件中断。",
+      "steps": [
+        "注入失败并终止进程。",
+        "重启后执行权威扫描修复，再继续归档。"
+      ],
+      "expected": [
+        "真实文件操作与派生统计分开，失败不误删源。",
+        "可幂等重建正确统计，不依赖丢失内存事件。"
+      ],
+      "required_evidence": [
+        "失败前后映射/媒体",
+        "重启重建日志",
+        "一致性断言"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC48",
+      "priority": "P2",
+      "task_id": "T11",
+      "finding_ids": [
+        "F16"
+      ],
+      "title": "相同内容检测single-flight及配置隔离",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "coroutine_unit",
+      "fixture": "同URI/版本10个并发调用；HDR/实况开关不同的对照调用。",
+      "steps": [
+        "同时从预加载和显示发起检测。",
+        "记录底层EXIF/XMP读取和检测次数。"
+      ],
+      "expected": [
+        "同身份+版本+能力组合共享一次工作；不同组合不错误复用。",
+        "结果语义与未优化检测一致。"
+      ],
+      "required_evidence": [
+        "并发计数/调用图",
+        "结果对照",
+        "缓存键记录"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC49",
+      "priority": "P1",
+      "task_id": "T11",
+      "finding_ids": [
+        "F16"
+      ],
+      "title": "许可耗尽、读取失败不缓存可靠阴性",
+      "scenario_tags": [
+        "failure",
+        "boundary"
+      ],
+      "layer": "coroutine_unit",
+      "fixture": "耗尽检测Semaphore，注入IO异常、超时，含真实阳性元数据夹具。",
+      "steps": [
+        "首次在许可不足/故障下请求检测。",
+        "释放许可/修复IO后同图重试。"
+      ],
+      "expected": [
+        "未完成、失败、取消与确认阴性分离，首次受限不永久缓存false。",
+        "后续正常识别阳性，重试有界不忙循环。"
+      ],
+      "required_evidence": [
+        "状态转移和缓存内容",
+        "重试检测次数",
+        "阳性断言"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC50",
+      "priority": "P2",
+      "task_id": "T11",
+      "finding_ids": [
+        "F16"
+      ],
+      "title": "缓存容量、版本失效与ID复用",
+      "scenario_tags": [
+        "boundary"
+      ],
+      "layer": "unit",
+      "fixture": "容量K的缓存，K+1及更多媒体；同ID不同卷、同URI内容更新。",
+      "steps": [
+        "填满缓存触发淘汰。",
+        "修改dateModified/size或更换内容后读取。"
+      ],
+      "expected": [
+        "容量有上界；淘汰不损坏使用中结果。",
+        "内容版本/卷身份改变重新检测，不能用旧ID结果。"
+      ],
+      "required_evidence": [
+        "缓存容量/键日志",
+        "重新检测次数",
+        "结果一致性断言"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC51",
+      "priority": "P1",
+      "task_id": "T11",
+      "finding_ids": [
+        "F16"
+      ],
+      "title": "检测取消、订阅者退出与重建",
+      "scenario_tags": [
+        "failure",
+        "restart"
+      ],
+      "layer": "coroutine_and_ui",
+      "fixture": "多个订阅者共享检测，部分/全部退出；Activity重建与进程重启。",
+      "steps": [
+        "取消一个订阅者但保留另一个，再取消全部。",
+        "重建页面重新请求同图。"
+      ],
+      "expected": [
+        "单个退出不错误取消仍有消费者的检测；无人消费时按策略释放。",
+        "取消不缓存阴性；新实例重试正确，无永久挂起。"
+      ],
+      "required_evidence": [
+        "订阅者/任务生命周期",
+        "结果/缓存断言",
+        "重建日志"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC52",
+      "priority": "P2",
+      "task_id": "T12",
+      "finding_ids": [],
+      "title": "依赖补丁逐项兼容与功能验证",
+      "scenario_tags": [
+        "boundary",
+        "failure"
+      ],
+      "layer": "build_ci_and_device",
+      "fixture": "分别独立提交ExifInterface、Coroutines、Konfetti候选补丁；其他依赖固定。",
+      "steps": [
+        "每项先核对官方发布说明与工具链要求。",
+        "运行相关正反例和完整Release单测/构建，再进入下一项。"
+      ],
+      "expected": [
+        "无法兼容的单项可保留原版本；不扩大到无关大版本迁移。",
+        "EXIF/HDR/实况、取消语义与动画行为无已知回归。"
+      ],
+      "required_evidence": [
+        "每项依赖diff/版本依据",
+        "CI测试XML",
+        "相关设备结果或未验证声明"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC53",
+      "priority": "P2",
+      "task_id": "T12",
+      "finding_ids": [],
+      "title": "单项依赖回退及性能对照",
+      "scenario_tags": [
+        "restart",
+        "failure"
+      ],
+      "layer": "release_ci_and_benchmark",
+      "fixture": "单项候选与仅回退该项的APK；相同协议和合成旧状态。",
+      "steps": [
+        "执行有效性能A/B与冷启动/重启回归。",
+        "将该项回退后重新构建并核验状态。"
+      ],
+      "expected": [
+        "回退不撤已完成正确性修复；签名/存储兼容保持。",
+        "未通过T08校验的数据不能支持依赖提速结论。"
+      ],
+      "required_evidence": [
+        "候选/回退commit与APK哈希",
+        "有效性能报告",
+        "重启结果"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC54",
+      "priority": "P1",
+      "task_id": "T13",
+      "finding_ids": [
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16",
+        "F17",
+        "B01",
+        "B02"
+      ],
+      "title": "分阶段验收矩阵与证据完整性",
+      "scenario_tags": [
+        "boundary",
+        "failure",
+        "restart"
+      ],
+      "layer": "release_acceptance",
+      "fixture": "API31/33/34/36/37与可用ColorOS专用设备，均仅合成测试照片。",
+      "steps": [
+        "按04_TEST_PLAN的平台矩阵执行核心用例，记录不支持/未测条件。",
+        "校对每个task的失败恢复、重启和边界证据。",
+        "检查报告状态、来源、commit与APK关联。"
+      ],
+      "expected": [
+        "所有发布阻断项需实际证据；NOT_RUN/BLOCKED不能写成通过。",
+        "模拟器、自有图直接删除、可控回调测试不替代厂商真实授权端到端。"
+      ],
+      "required_evidence": [
+        "平台×用例矩阵",
+        "全部结果索引与失败说明",
+        "发布验收结论"
+      ],
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "TC55",
+      "priority": "P1",
+      "task_id": "T13",
+      "finding_ids": [
+        "F01",
+        "F04",
+        "F05",
+        "F06"
+      ],
+      "title": "验证包升级、回滚边界及发布门禁",
+      "scenario_tags": [
+        "restart",
+        "failure"
+      ],
+      "layer": "release_acceptance",
+      "fixture": "同签名旧版与候选验证包，合成回收站/归档/pending数据备份，仅专用设备。",
+      "steps": [
+        "覆盖安装候选并执行重启恢复；确认格式迁移后的回滚策略。",
+        "验证失败时保留证据与数据，停止扩大验证范围。",
+        "准备release说明、哈希、已知限制，按任务授权执行发布流程。"
+      ],
+      "expected": [
+        "不清空用户状态来绕过迁移问题，不更换签名身份。",
+        "正式发布是独立门禁；没有批准/完整验收时只交付验证包，不自动发布。"
+      ],
+      "required_evidence": [
+        "证书/包名/版本报告",
+        "升级恢复证据",
+        "数据兼容/回滚说明",
+        "正式发布门禁记录"
+      ],
+      "status": "NOT_RUN"
+    }
+  ]
+}

@@ -1,0 +1,2050 @@
+{
+  "sha": "120001e8b1e4809b7e942c466686a3813bbaf3c3",
+  "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/120001e8b1e4809b7e942c466686a3813bbaf3c3",
+  "tree": [
+    {
+      "path": ".github",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "dba115f0280850669c5b3b38e554bcd6acdbb454",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/dba115f0280850669c5b3b38e554bcd6acdbb454"
+    },
+    {
+      "path": ".github/workflows",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "4a90a5b64c2291ad3e81cf3401c0c06944932e2e",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/4a90a5b64c2291ad3e81cf3401c0c06944932e2e"
+    },
+    {
+      "path": ".github/workflows/build-photo-sharing.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9ed8844346e940387f9d6c93a1317bbf31f3b4ab",
+      "size": 2917,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/9ed8844346e940387f9d6c93a1317bbf31f3b4ab"
+    },
+    {
+      "path": ".github/workflows/build-recycle-bin-consistency.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d5b8d0b6fbb2803a0cab3951afea425898b5a655",
+      "size": 1904,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/d5b8d0b6fbb2803a0cab3951afea425898b5a655"
+    },
+    {
+      "path": ".github/workflows/build-test-apk.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b95f7b0e38b9943cacb739dfff971005c9cb540c",
+      "size": 2371,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/b95f7b0e38b9943cacb739dfff971005c9cb540c"
+    },
+    {
+      "path": ".github/workflows/build-volume-confirmation.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1bb66012152ed53ae8020b5d71387bc0fc8a5d0a",
+      "size": 3956,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/1bb66012152ed53ae8020b5d71387bc0fc8a5d0a"
+    },
+    {
+      "path": ".github/workflows/publish-release.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "203f23acc4934af9efc8226fa0a3c19f380cc332",
+      "size": 5651,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/203f23acc4934af9efc8226fa0a3c19f380cc332"
+    },
+    {
+      "path": ".gitignore",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7765ef69665feec8d1806907c42af607d3b01b84",
+      "size": 288,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7765ef69665feec8d1806907c42af607d3b01b84"
+    },
+    {
+      "path": "LICENSE",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4cb29c67f5f6e06d76544fbba1ccb4ca4ee7dc25",
+      "size": 2336,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/4cb29c67f5f6e06d76544fbba1ccb4ca4ee7dc25"
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "68b11e8bbda69f77274494dabd8d91aa94055974",
+      "size": 5496,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/68b11e8bbda69f77274494dabd8d91aa94055974"
+    },
+    {
+      "path": "app",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f7840bb28d01b01bb0701f18e6bb34c804739085",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/f7840bb28d01b01bb0701f18e6bb34c804739085"
+    },
+    {
+      "path": "app/build.gradle.kts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "37ca98c762d15cc46da260224f4a6e9f6cd0f308",
+      "size": 3561,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/37ca98c762d15cc46da260224f4a6e9f6cd0f308"
+    },
+    {
+      "path": "app/proguard-rules.pro",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3fc9400c0adf4f74bbf255982f4ed46d3adb738b",
+      "size": 676,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/3fc9400c0adf4f74bbf255982f4ed46d3adb738b"
+    },
+    {
+      "path": "app/release",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "45ec27174ff0774a515db2512d5b9cb5325fb539",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/45ec27174ff0774a515db2512d5b9cb5325fb539"
+    },
+    {
+      "path": "app/release/TabulaV3.3.3.apk",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f143013fe59b0f1390ff24ff39f55fdfdbeea678",
+      "size": 28820441,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/f143013fe59b0f1390ff24ff39f55fdfdbeea678"
+    },
+    {
+      "path": "app/release/baselineProfiles",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "54c76cd705d19d9349bc003a9baf5209bf253088",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/54c76cd705d19d9349bc003a9baf5209bf253088"
+    },
+    {
+      "path": "app/release/baselineProfiles/0",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "01f8650ff0d3aa65e726529d46a9a18a6e7c632c",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/01f8650ff0d3aa65e726529d46a9a18a6e7c632c"
+    },
+    {
+      "path": "app/release/baselineProfiles/0/app-release.dm",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7e6e5bd72cb258a2685e1cf51f7333b33ed5094f",
+      "size": 8828,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7e6e5bd72cb258a2685e1cf51f7333b33ed5094f"
+    },
+    {
+      "path": "app/release/baselineProfiles/1",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "7099213a4729079094b578d9d7aa4e8761bffcd6",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/7099213a4729079094b578d9d7aa4e8761bffcd6"
+    },
+    {
+      "path": "app/release/baselineProfiles/1/app-release.dm",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "69ebfa41a65d15dfc4de8a4541e8e97c71e4fe70",
+      "size": 8785,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/69ebfa41a65d15dfc4de8a4541e8e97c71e4fe70"
+    },
+    {
+      "path": "app/release/output-metadata.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "379e3b1af885242d4e4635409be66dccf09559d6",
+      "size": 703,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/379e3b1af885242d4e4635409be66dccf09559d6"
+    },
+    {
+      "path": "app/src",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "c2bec5df56ccb3f2634758c4bf5a1b67f7f2eebc",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/c2bec5df56ccb3f2634758c4bf5a1b67f7f2eebc"
+    },
+    {
+      "path": "app/src/androidTest",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "592aa2483e8a955539a3aa04c5195b34d56a8afa",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/592aa2483e8a955539a3aa04c5195b34d56a8afa"
+    },
+    {
+      "path": "app/src/androidTest/java",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "33c77c6100f65b3758b7ed31677e5259488f1231",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/33c77c6100f65b3758b7ed31677e5259488f1231"
+    },
+    {
+      "path": "app/src/androidTest/java/com",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "7ed62b2af6be807b8dc3e6866616355ef1e9419f",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/7ed62b2af6be807b8dc3e6866616355ef1e9419f"
+    },
+    {
+      "path": "app/src/androidTest/java/com/tabula",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "7892141feca9d8a1a03557c85f01d67aab707b61",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/7892141feca9d8a1a03557c85f01d67aab707b61"
+    },
+    {
+      "path": "app/src/androidTest/java/com/tabula/v3",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "219cab994b08c3dc0a4cdcd1cfa6f10687d89a51",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/219cab994b08c3dc0a4cdcd1cfa6f10687d89a51"
+    },
+    {
+      "path": "app/src/androidTest/java/com/tabula/v3/data",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "51fb68e240448644212afa40de676c411c9c6bc7",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/51fb68e240448644212afa40de676c411c9c6bc7"
+    },
+    {
+      "path": "app/src/androidTest/java/com/tabula/v3/data/repository",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "fb34286350fae3c52f4a1617139b35691ba29d80",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/fb34286350fae3c52f4a1617139b35691ba29d80"
+    },
+    {
+      "path": "app/src/androidTest/java/com/tabula/v3/data/repository/VolumeDeletionDeviceTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2b5791b1c7a69663f29e5165c29329cc45450232",
+      "size": 7837,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/2b5791b1c7a69663f29e5165c29329cc45450232"
+    },
+    {
+      "path": "app/src/debug",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "35f65c9234f6beee92ab18a3435e9a6cc6f19304",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/35f65c9234f6beee92ab18a3435e9a6cc6f19304"
+    },
+    {
+      "path": "app/src/debug/res",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "b3767e9d97dfda567b602e63a27c6a67f5a96924",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/b3767e9d97dfda567b602e63a27c6a67f5a96924"
+    },
+    {
+      "path": "app/src/debug/res/values",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "52801a67496107fdb67d74b61b46ca0fb26d9df5",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/52801a67496107fdb67d74b61b46ca0fb26d9df5"
+    },
+    {
+      "path": "app/src/debug/res/values/strings.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "014f07f05a6e3b9338e5f8920250e0592bb0508c",
+      "size": 157,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/014f07f05a6e3b9338e5f8920250e0592bb0508c"
+    },
+    {
+      "path": "app/src/debug/res/xml",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d2c87f2ad6d65e07574bf2ade9768d8972d55008",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/d2c87f2ad6d65e07574bf2ade9768d8972d55008"
+    },
+    {
+      "path": "app/src/debug/res/xml/shortcuts.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e23d731cdff60c4f4d71a6e7574468c10d33de96",
+      "size": 640,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/e23d731cdff60c4f4d71a6e7574468c10d33de96"
+    },
+    {
+      "path": "app/src/main",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f164ff2825ad94e8a3db4b4924fd52b25d6f8f47",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/f164ff2825ad94e8a3db4b4924fd52b25d6f8f47"
+    },
+    {
+      "path": "app/src/main/AndroidManifest.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "16d9e66a801715349862089368c50176e3325f62",
+      "size": 3051,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/16d9e66a801715349862089368c50176e3325f62"
+    },
+    {
+      "path": "app/src/main/ic_launcher-playstore.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b09c6465ce51bd6d43d0ad3f154cc99c3e74081c",
+      "size": 69044,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/b09c6465ce51bd6d43d0ad3f154cc99c3e74081c"
+    },
+    {
+      "path": "app/src/main/java",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "ac44cb4696e270d5f6c4a73b84c54894dd19e76b",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/ac44cb4696e270d5f6c4a73b84c54894dd19e76b"
+    },
+    {
+      "path": "app/src/main/java/com",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "c13e1c12e65c95a648e49b90b1fc6ca85cc5903f",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/c13e1c12e65c95a648e49b90b1fc6ca85cc5903f"
+    },
+    {
+      "path": "app/src/main/java/com/tabula",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d2443567d4d7171070509d7611742cc4947e5e0c",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/d2443567d4d7171070509d7611742cc4947e5e0c"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f4f75d62a927f343cd5cbdb19011e7e5717f4fb0",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/f4f75d62a927f343cd5cbdb19011e7e5717f4fb0"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b4cfa83e4f97ca105bf7c95edf8f484af3c35f82",
+      "size": 75602,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/b4cfa83e4f97ca105bf7c95edf8f484af3c35f82"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8441b7dae75c6d5a3bc12e901b0742f5d3d3ba2d",
+      "size": 378,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/8441b7dae75c6d5a3bc12e901b0742f5d3d3ba2d"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "3a9291fa6ee1f82d6a3bb1f4963dbf8f8f650b54",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/3a9291fa6ee1f82d6a3bb1f4963dbf8f8f650b54"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/cache",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "0b58772c26752f57424e31b4a13136a0e7d40d8c",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/0b58772c26752f57424e31b4a13136a0e7d40d8c"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b4e9822707b6b59f0e3eaf482c3bc94425168cb9",
+      "size": 7469,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/b4e9822707b6b59f0e3eaf482c3bc94425168cb9"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "2001c250654956777f544e7a36de40e6ff747262",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/2001c250654956777f544e7a36de40e6ff747262"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7c94c957f146f87d626c33c75f4794055c4fddab",
+      "size": 2683,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7c94c957f146f87d626c33c75f4794055c4fddab"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/AlbumMapping.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3c7d83b159b678a532cf8eea07cafa777c1c4f2d",
+      "size": 1581,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/3c7d83b159b678a532cf8eea07cafa777c1c4f2d"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/AlbumUsage.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d194c4d6ab29735e3ddc94aeb15f22613e2fe821",
+      "size": 858,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/d194c4d6ab29735e3ddc94aeb15f22613e2fe821"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/ImageFeatures.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "db31418db6072d4f45042efebb09de7230e72225",
+      "size": 580,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/db31418db6072d4f45042efebb09de7230e72225"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d39c146875ea42be29180ac1164b083caafec94d",
+      "size": 2725,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/d39c146875ea42be29180ac1164b083caafec94d"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5ffc3139840003b6b540d528bc14fb56b9755ca9",
+      "size": 2406,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/5ffc3139840003b6b540d528bc14fb56b9755ca9"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/preferences",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "7d5efeac9944cf668ab10144e707e191147b05be",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/7d5efeac9944cf668ab10144e707e191147b05be"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d1cd7fb35024284cc03ab9abef378bb9f4b3312a",
+      "size": 42001,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/d1cd7fb35024284cc03ab9abef378bb9f4b3312a"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "7b13d3e2a55a909cfaed03460664e2757dd62e4b",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/7b13d3e2a55a909cfaed03460664e2757dd62e4b"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8d3cda2f2cb5cacc3dc9d2e7bd11342ec808dbb5",
+      "size": 23351,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/8d3cda2f2cb5cacc3dc9d2e7bd11342ec808dbb5"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumManager.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e566bdc547b87f535449b1fdcba302753fa95d98",
+      "size": 45156,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/e566bdc547b87f535449b1fdcba302753fa95d98"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumUsageTracker.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e9db7b0f6fc52465645e77c0f5cb1fcd3c8fe12a",
+      "size": 13847,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/e9db7b0f6fc52465645e77c0f5cb1fcd3c8fe12a"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/BatchDeletion.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "35ddf419619cb1a2ed2e979e7ea85625e7734b50",
+      "size": 2250,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/35ddf419619cb1a2ed2e979e7ea85625e7734b50"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "392b57682cfbe7604f3551de3805cfd599534384",
+      "size": 11755,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/392b57682cfbe7604f3551de3805cfd599534384"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/ImageFeatureDetector.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f004f8ca2797b399851e8ceab6bbaf4cefec5d0c",
+      "size": 20161,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/f004f8ca2797b399851e8ceab6bbaf4cefec5d0c"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8a211f59ae6ba7e2a22bace047f6d1a86ca725e6",
+      "size": 23355,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/8a211f59ae6ba7e2a22bace047f6d1a86ca725e6"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/PerceptualHash.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7b700193de708d31e606f28ddbe2a5da9f316731",
+      "size": 8964,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7b700193de708d31e606f28ddbe2a5da9f316731"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "79c3116c0b12fdb798148f16476122b99f40c4a3",
+      "size": 11457,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/79c3116c0b12fdb798148f16476122b99f40c4a3"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinDeletion.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4e4a04ee7a11884bacb77b024fd6db652e8462a2",
+      "size": 2177,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/4e4a04ee7a11884bacb77b024fd6db652e8462a2"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bc89c9261469a10b40dbdaf595e1659d792ec8f8",
+      "size": 7177,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/bc89c9261469a10b40dbdaf595e1659d792ec8f8"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/SimilarGroupDetector.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8775ac9e63d5888f27e1e03b62928067cbc79952",
+      "size": 21899,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/8775ac9e63d5888f27e1e03b62928067cbc79952"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b0f8968fab27012b6b24522b19789526edd33b35",
+      "size": 11999,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/b0f8968fab27012b6b24522b19789526edd33b35"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/SystemAlbumSyncManager.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fc9ffe1fe577cf07e1da2e0e2dde99f501357199",
+      "size": 50060,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/fc9ffe1fe577cf07e1da2e0e2dde99f501357199"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/di",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "02ef1a1f945d83f3f351a38eabe960d9a04c8e2b",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/02ef1a1f945d83f3f351a38eabe960d9a04c8e2b"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1451d5ca22448ef89618552b8724d51206e3b51e",
+      "size": 5777,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/1451d5ca22448ef89618552b8724d51206e3b51e"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/di/PreloadingManager.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "52df3ff5dfb91e623ef4df71f692fa6e532af0bb",
+      "size": 7027,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/52df3ff5dfb91e623ef4df71f692fa6e532af0bb"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/permission",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "19897d9de94b9265cb2605519242aec7a20c3748",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/19897d9de94b9265cb2605519242aec7a20c3748"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "900c8c801259fdffef94e0c9c7eed53b8991f6bb",
+      "size": 1343,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/900c8c801259fdffef94e0c9c7eed53b8991f6bb"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "290265b156bc6b4cbe3cdb29fc08318421357e07",
+      "size": 1167,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/290265b156bc6b4cbe3cdb29fc08318421357e07"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/service",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "0fcee1a3714332e177d12f6e554b5920aec9ef2a",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/0fcee1a3714332e177d12f6e554b5920aec9ef2a"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/service/FluidCloudService.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f5415950f3e1206950ae67cc9cdb80bdfe85ae45",
+      "size": 9011,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/f5415950f3e1206950ae67cc9cdb80bdfe85ae45"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "51e1e42105b6acce4001dd9e4c031df95d0a9854",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/51e1e42105b6acce4001dd9e4c031df95d0a9854"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f8d60b2ba1a7abadf09051f4f9d3035d1d847e46",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/f8d60b2ba1a7abadf09051f4f9d3035d1d847e46"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumChips.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9fbbc5dee8ec61b85df1dc051399c59477a48144",
+      "size": 7953,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/9fbbc5dee8ec61b85df1dc051399c59477a48144"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "16958dfc0658c1ed0490d3e287ea538f19239447",
+      "size": 42027,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/16958dfc0658c1ed0490d3e287ea538f19239447"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumDialogs.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ed7df0bdd72287e0fb424ab735bf21985cc58294",
+      "size": 20440,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/ed7df0bdd72287e0fb424ab735bf21985cc58294"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumDropTarget.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "149a98b73fdd018a9e8d5aefd3ade273ea6aaef2",
+      "size": 12535,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/149a98b73fdd018a9e8d5aefd3ade273ea6aaef2"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "69ec6ca4cea0db7939ba317ace7fc2aed7626c71",
+      "size": 12427,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/69ec6ca4cea0db7939ba317ace7fc2aed7626c71"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/BackdropLiquidGlass.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e188bd57fd5fc13f9fbd812ba34ed815bf003e12",
+      "size": 6240,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/e188bd57fd5fc13f9fbd812ba34ed815bf003e12"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/BatchCompletionScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6e5db8b3ae25e8db8c8518472f46de044fe49e94",
+      "size": 15399,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/6e5db8b3ae25e8db8c8518472f46de044fe49e94"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ed0f5c21f9d330a06dae1b7c9d9bb4f90a030402",
+      "size": 781,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/ed0f5c21f9d330a06dae1b7c9d9bb4f90a030402"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/CardStack.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8840195b180e8c883c3ed521f197c6c38517306f",
+      "size": 173977,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/8840195b180e8c883c3ed521f197c6c38517306f"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b479f5aa2ee60c5e75fe096a9a798fb6a6a98cdb",
+      "size": 66242,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/b479f5aa2ee60c5e75fe096a9a798fb6a6a98cdb"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c064792cefe6500cfde83fd94d6b9ac8e8042942",
+      "size": 13583,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/c064792cefe6500cfde83fd94d6b9ac8e8042942"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/DrawCardState.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a9b3902b6d9497796ca2b921323aff91efcea9db",
+      "size": 4735,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/a9b3902b6d9497796ca2b921323aff91efcea9db"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/FixedTagBar.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7a592fbef6640d3a4f040c2d4e264255d9ddd2b0",
+      "size": 9596,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7a592fbef6640d3a4f040c2d4e264255d9ddd2b0"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/GenieEffect.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cc0c938bef080e695494adacf793c3a338a7090b",
+      "size": 41428,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/cc0c938bef080e695494adacf793c3a338a7090b"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/GenieTargetUtils.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "77eac3429ad7d72067da19f588c58f23638fcac5",
+      "size": 646,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/77eac3429ad7d72067da19f588c58f23638fcac5"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/GlassBottomSheet.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b89e5de96c2b12f03d6e496469fa4e702ba3b64e",
+      "size": 8586,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/b89e5de96c2b12f03d6e496469fa4e702ba3b64e"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f051a8574765b5eab915dca94a3bc20ba00b317b",
+      "size": 10892,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/f051a8574765b5eab915dca94a3bc20ba00b317b"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/Glassmorphism.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7f70db7ee7194c9c8dacc670bde6728d8bc19c8c",
+      "size": 11071,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7f70db7ee7194c9c8dacc670bde6728d8bc19c8c"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ada7e11a59ddf78a4507b1e27aa25d651a907ab6",
+      "size": 5440,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/ada7e11a59ddf78a4507b1e27aa25d651a907ab6"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/LiquidGlass.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7141a695236f2b27b66b92e110505ed675f4380c",
+      "size": 7430,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7141a695236f2b27b66b92e110505ed675f4380c"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/LiquidGlassV2.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0f5c00f8d44f18d9255bd3d42b22ecfc9df72abc",
+      "size": 16085,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/0f5c00f8d44f18d9255bd3d42b22ecfc9df72abc"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/MediaBadges.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b9e33694cb62c34145d6b0313c0256091022c6cd",
+      "size": 1368,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/b9e33694cb62c34145d6b0313c0256091022c6cd"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8d6870aebbc9f1eb90f9c5c70d052436b8224098",
+      "size": 7467,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/8d6870aebbc9f1eb90f9c5c70d052436b8224098"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "96452459fa961b3510e916e91597b518984d300b",
+      "size": 5406,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/96452459fa961b3510e916e91597b518984d300b"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7ea44e13df69871aa7cd349c0add5f9c53e432d4",
+      "size": 18224,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7ea44e13df69871aa7cd349c0add5f9c53e432d4"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/PhysicalLiquidGlass.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a313beae867549597d6d13b7a7a6551c4b8f065a",
+      "size": 56248,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/a313beae867549597d6d13b7a7a6551c4b8f065a"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/RealLiquidGlass.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7b955578a5f5947ff3e9f1e0961e5f5b682041e8",
+      "size": 15468,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7b955578a5f5947ff3e9f1e0961e5f5b682041e8"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ee570efce8bd1a3bea3064f917bf04c99c250894",
+      "size": 30641,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/ee570efce8bd1a3bea3064f917bf04c99c250894"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/TagPosition.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "67184f6835cb95ee4defecbfaa5a4267f6f77e60",
+      "size": 180,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/67184f6835cb95ee4defecbfaa5a4267f6f77e60"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/TopBar.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4d4100809af9f87c43082fa791f71cc78acd0026",
+      "size": 16272,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/4d4100809af9f87c43082fa791f71cc78acd0026"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/UndoSnackbar.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bbecfbe12a0d558f16b591b2e66178ce7e8f9c3e",
+      "size": 5741,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/bbecfbe12a0d558f16b591b2e66178ce7e8f9c3e"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fd42be2c435d4b16e9569757762ffbde6f495c32",
+      "size": 26729,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/fd42be2c435d4b16e9569757762ffbde6f495c32"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/quickaction",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "59e8b48d0129514c5584f795ec8c5cb2d256baeb",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/59e8b48d0129514c5584f795ec8c5cb2d256baeb"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "58224e24bb3cad2e5ee335b371acffcc566c73ef",
+      "size": 9320,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/58224e24bb3cad2e5ee335b371acffcc566c73ef"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/quickaction/SafeAreaCompat.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "06937d60ec9674fdd856602abb43c34886ef3c95",
+      "size": 3453,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/06937d60ec9674fdd856602abb43c34886ef3c95"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/navigation",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "5f5c61873556d3081471b343efbda30278e76603",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/5f5c61873556d3081471b343efbda30278e76603"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "894ba5f1644eeea111125b6252cd488b70367b7c",
+      "size": 825,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/894ba5f1644eeea111125b6252cd488b70367b7c"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4f77c61dceba28dd14efd77b33c663f56a5f4ec7",
+      "size": 10948,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/4f77c61dceba28dd14efd77b33c663f56a5f4ec7"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "9160627ed51da51a09e2df9f8f0ea3b20f1bd6d3",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/9160627ed51da51a09e2df9f8f0ea3b20f1bd6d3"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1c86bf025377570f87e362dee5635da8b4c5f696",
+      "size": 39804,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/1c86bf025377570f87e362dee5635da8b4c5f696"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b34493795a2900ab63369dcdb574e02254320f6a",
+      "size": 51102,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/b34493795a2900ab63369dcdb574e02254320f6a"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4b493cabfcf6f2463992d531b0800d12ddd86f7b",
+      "size": 72939,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/4b493cabfcf6f2463992d531b0800d12ddd86f7b"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5797b02fccf5cd80a038a5d9475882e47a63a732",
+      "size": 128150,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/5797b02fccf5cd80a038a5d9475882e47a63a732"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e6d8d56638e218601835c1f16c0cd4d039cfcb85",
+      "size": 12512,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/e6d8d56638e218601835c1f16c0cd4d039cfcb85"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bc2ec1dc2c8929c64913da4f20283c366ba434f6",
+      "size": 16509,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/bc2ec1dc2c8929c64913da4f20283c366ba434f6"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "716a84ace9df7585d0a34e08f6d61fac9fde1be3",
+      "size": 8880,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/716a84ace9df7585d0a34e08f6d61fac9fde1be3"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "61ece4a52780ca737a1e6c231606d69167c2f26f",
+      "size": 34253,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/61ece4a52780ca737a1e6c231606d69167c2f26f"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c6430af20704bec1c5f46a109fb7740710a7349f",
+      "size": 9442,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/c6430af20704bec1c5f46a109fb7740710a7349f"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4f6aebb065f3c67c034975aec31f4ef0ca7ce380",
+      "size": 58166,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/4f6aebb065f3c67c034975aec31f4ef0ca7ce380"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "61e903ca8f997c5fbade2902d0e268c609946a1f",
+      "size": 111544,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/61e903ca8f997c5fbade2902d0e268c609946a1f"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "da6a230573625715a9986a2ebf4d67a412e4ff10",
+      "size": 35376,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/da6a230573625715a9986a2ebf4d67a412e4ff10"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f9b963a1b098c5de01585ebe2d3c4bee2df2a13c",
+      "size": 11681,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/f9b963a1b098c5de01585ebe2d3c4bee2df2a13c"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d645187051d187bb65f6b102246634d655b4dde6",
+      "size": 37023,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/d645187051d187bb65f6b102246634d655b4dde6"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/theme",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "98c41b5c804d493a8faf7c6fae78ae6fe1d81652",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/98c41b5c804d493a8faf7c6fae78ae6fe1d81652"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/theme/Theme.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "881364ed8df4579d768c612779ad237aa47607a4",
+      "size": 7146,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/881364ed8df4579d768c612779ad237aa47607a4"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/theme/Type.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5c24d1617afa8e7598e4fc4babe4c56c3278535f",
+      "size": 2824,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/5c24d1617afa8e7598e4fc4babe4c56c3278535f"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "b9d03e9e9a9f8b9c95f6815854fc4e75d79000a7",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/b9d03e9e9a9f8b9c95f6815854fc4e75d79000a7"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/AlbumCleanupImageResolver.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1e8748af8aa4324333c914de0bd5cfeb19815a79",
+      "size": 497,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/1e8748af8aa4324333c914de0bd5cfeb19815a79"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/ContextExtensions.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3dbdaee3ce9ddd9db79ce7d3629e33bb698b864d",
+      "size": 342,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/3dbdaee3ce9ddd9db79ce7d3629e33bb698b864d"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "05c5d7047ef324b598c7e2118b98b2858715bcac",
+      "size": 10095,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/05c5d7047ef324b598c7e2118b98b2858715bcac"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b02d102299360f98cac3196c08d8358e9d5d451b",
+      "size": 7073,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/b02d102299360f98cac3196c08d8358e9d5d451b"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/ImageFeatureState.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0791470018fed147b7a488a908775883a7c963cd",
+      "size": 3109,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/0791470018fed147b7a488a908775883a7c963cd"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/PhotoSharing.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8fed7b667336363003532a4fbcde8aa3ce8600c7",
+      "size": 3577,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/8fed7b667336363003532a4fbcde8aa3ce8600c7"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/SelectionUtils.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "37916ed1beaed0a845ec845245907fc4bc080316",
+      "size": 507,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/37916ed1beaed0a845ec845245907fc4bc080316"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/StringDragSelectState.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7bd0db8181869f1d5ee3353b574cdcedc6f42b6a",
+      "size": 6375,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7bd0db8181869f1d5ee3353b574cdcedc6f42b6a"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/widget",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "afd0c6a7544b15cc39d416e67b493489c686b49b",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/afd0c6a7544b15cc39d416e67b493489c686b49b"
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/widget/TabulaWidgetProvider.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1992e7a3c34a2565e6e16b1183f93449c1be0ff6",
+      "size": 5415,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/1992e7a3c34a2565e6e16b1183f93449c1be0ff6"
+    },
+    {
+      "path": "app/src/main/res",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "357a83cf5aa404459d2e75117b63d3b9080ffaba",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/357a83cf5aa404459d2e75117b63d3b9080ffaba"
+    },
+    {
+      "path": "app/src/main/res/drawable",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "9dede26d0fa522e33f9e27193e4f01ab8f51c53e",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/9dede26d0fa522e33f9e27193e4f01ab8f51c53e"
+    },
+    {
+      "path": "app/src/main/res/drawable/about_background.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ce9eb813755978cabea47625450306da8d788b35",
+      "size": 1492419,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/ce9eb813755978cabea47625450306da8d788b35"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat3.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a7d86bce3808ddffe68a40f0304df5a073d9ed2d",
+      "size": 1888235,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/a7d86bce3808ddffe68a40f0304df5a073d9ed2d"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_01.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a09b45507202947d9ad13e02e77a3afc42de2649",
+      "size": 360438,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/a09b45507202947d9ad13e02e77a3afc42de2649"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_02.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b4a97841e3c1ec445d9f82a674c98214e7167583",
+      "size": 360042,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/b4a97841e3c1ec445d9f82a674c98214e7167583"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_03.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "785cbcfaccf673afdb7159378db3236b2fa209ea",
+      "size": 360754,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/785cbcfaccf673afdb7159378db3236b2fa209ea"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_04.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7571a553e630fcee48b0212c0e3cc6fe55343ef1",
+      "size": 359820,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7571a553e630fcee48b0212c0e3cc6fe55343ef1"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_05.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6fd4da1770789671df9d1ac0b14f790516f839a6",
+      "size": 365234,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/6fd4da1770789671df9d1ac0b14f790516f839a6"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_06.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "090073f0c1f6e15a3b28a41d6b5b5c9626829967",
+      "size": 357447,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/090073f0c1f6e15a3b28a41d6b5b5c9626829967"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_07.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7626af48762e7c2a7f8c44dd581b08422d8a61c2",
+      "size": 492608,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7626af48762e7c2a7f8c44dd581b08422d8a61c2"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_08.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "dea511d8843f2a21eeaf2d775c849cb8dadb479e",
+      "size": 515160,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/dea511d8843f2a21eeaf2d775c849cb8dadb479e"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_09.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "80e541c72c5e7f629e72a5246a5c6c02a623ebde",
+      "size": 480148,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/80e541c72c5e7f629e72a5246a5c6c02a623ebde"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_10.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "394853f6a2a6dba514dc64fa0cfdd5914c9d861e",
+      "size": 493079,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/394853f6a2a6dba514dc64fa0cfdd5914c9d861e"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_11.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f41434696a71949b681102e86e2d599b447966cd",
+      "size": 526812,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/f41434696a71949b681102e86e2d599b447966cd"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_12.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6d53f41b70a4556cb93d6d7789ac2153a273121d",
+      "size": 459410,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/6d53f41b70a4556cb93d6d7789ac2153a273121d"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_13.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c70077718d3d809f10ac321874c1af76316119c3",
+      "size": 358864,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/c70077718d3d809f10ac321874c1af76316119c3"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_14.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6b25e3a0f7f10028d3b8e2154c101f28a6e2acce",
+      "size": 358724,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/6b25e3a0f7f10028d3b8e2154c101f28a6e2acce"
+    },
+    {
+      "path": "app/src/main/res/drawable/cat_seq_15.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "766878bbcd7a6f7262fb5fbe44726651e87de404",
+      "size": 365096,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/766878bbcd7a6f7262fb5fbe44726651e87de404"
+    },
+    {
+      "path": "app/src/main/res/drawable/cutecat.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "df92cd66c910bfffc1eecd57271cf8e97f67c52d",
+      "size": 1329978,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/df92cd66c910bfffc1eecd57271cf8e97f67c52d"
+    },
+    {
+      "path": "app/src/main/res/drawable/fluid_cloud_background.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5d4805cd95c9b89ce8e3fe40adf254d64513a056",
+      "size": 327,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/5d4805cd95c9b89ce8e3fe40adf254d64513a056"
+    },
+    {
+      "path": "app/src/main/res/drawable/gxcat1.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7b49d5f50f2c0d1724a3a08ac18f8a55e4636ed6",
+      "size": 1272472,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7b49d5f50f2c0d1724a3a08ac18f8a55e4636ed6"
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_launcher_background.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7b7f580effb26ac290f2cb9dc21a83c39db87efa",
+      "size": 327,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7b7f580effb26ac290f2cb9dc21a83c39db87efa"
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_launcher_foreground.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ecb09db1df89802c53585ce187db16c555f04de0",
+      "size": 1481,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/ecb09db1df89802c53585ce187db16c555f04de0"
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_quick_start.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c9b183303fc59898ad35671cbab7c86ceab0b8f3",
+      "size": 469,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/c9b183303fc59898ad35671cbab7c86ceab0b8f3"
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_widget_shortcut.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "50d234655b09cae3e5c3ae0beb19e7d547b306cc",
+      "size": 452,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/50d234655b09cae3e5c3ae0beb19e7d547b306cc"
+    },
+    {
+      "path": "app/src/main/res/drawable/logo.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "46deea856def77822e8ea4e908fbf969362733bb",
+      "size": 1230920,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/46deea856def77822e8ea4e908fbf969362733bb"
+    },
+    {
+      "path": "app/src/main/res/drawable/qr_alipay.jpg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3e4993c1a4668e27260a364e3ee67ddd1d5ee7a9",
+      "size": 165018,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/3e4993c1a4668e27260a364e3ee67ddd1d5ee7a9"
+    },
+    {
+      "path": "app/src/main/res/drawable/qr_wechat.jpg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "adfbf0ca10e56eab4a1f5f6ff51e3b6461b14471",
+      "size": 36566,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/adfbf0ca10e56eab4a1f5f6ff51e3b6461b14471"
+    },
+    {
+      "path": "app/src/main/res/drawable/widget_background.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c4c31e4bfea78dad551a05b4b733450677f3521b",
+      "size": 471,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/c4c31e4bfea78dad551a05b4b733450677f3521b"
+    },
+    {
+      "path": "app/src/main/res/drawable/ydcat1.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a4298c451ec536f94335ee3a94fb3f006a7b4e0c",
+      "size": 2004726,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/a4298c451ec536f94335ee3a94fb3f006a7b4e0c"
+    },
+    {
+      "path": "app/src/main/res/drawable/ydcat2.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fa4dd7b45bb6438de9329745ee17c0c7f1e5ab88",
+      "size": 324847,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/fa4dd7b45bb6438de9329745ee17c0c7f1e5ab88"
+    },
+    {
+      "path": "app/src/main/res/drawable/zpcat1.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "183d53462cbc53a457430b8570249c8cc733477a",
+      "size": 932529,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/183d53462cbc53a457430b8570249c8cc733477a"
+    },
+    {
+      "path": "app/src/main/res/layout",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "1e8d018d6052590a6920fa065dc37924398779c0",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/1e8d018d6052590a6920fa065dc37924398779c0"
+    },
+    {
+      "path": "app/src/main/res/layout/fluid_cloud_layout.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "675ea797bfcec1e159288a467479247a65ce1122",
+      "size": 1609,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/675ea797bfcec1e159288a467479247a65ce1122"
+    },
+    {
+      "path": "app/src/main/res/layout/widget_tabula.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1127be88c8a27e4ed4d7b9e002623194bec72c08",
+      "size": 2254,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/1127be88c8a27e4ed4d7b9e002623194bec72c08"
+    },
+    {
+      "path": "app/src/main/res/mipmap-anydpi-v26",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "ba1dfb5f41e05061cbaa5aa60ce90bce5bd32caf",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/ba1dfb5f41e05061cbaa5aa60ce90bce5bd32caf"
+    },
+    {
+      "path": "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c4a603d4cce78b2fbd8094bd0224d4778bc8c976",
+      "size": 268,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/c4a603d4cce78b2fbd8094bd0224d4778bc8c976"
+    },
+    {
+      "path": "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c4a603d4cce78b2fbd8094bd0224d4778bc8c976",
+      "size": 268,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/c4a603d4cce78b2fbd8094bd0224d4778bc8c976"
+    },
+    {
+      "path": "app/src/main/res/mipmap-hdpi",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "a93708a182bc02f09178bdde9f338015a276941d",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/a93708a182bc02f09178bdde9f338015a276941d"
+    },
+    {
+      "path": "app/src/main/res/mipmap-hdpi/ic_launcher.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d580e4872506a6d62b92c2c893c3ab95d54462e9",
+      "size": 1250,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/d580e4872506a6d62b92c2c893c3ab95d54462e9"
+    },
+    {
+      "path": "app/src/main/res/mipmap-hdpi/ic_launcher_foreground.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b01e17d6f6aab01d41291cc43ba4e422811a14dc",
+      "size": 2126,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/b01e17d6f6aab01d41291cc43ba4e422811a14dc"
+    },
+    {
+      "path": "app/src/main/res/mipmap-hdpi/ic_launcher_round.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7e97cc663b922cbe16aace3a175204ef7d25f98e",
+      "size": 2670,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7e97cc663b922cbe16aace3a175204ef7d25f98e"
+    },
+    {
+      "path": "app/src/main/res/mipmap-mdpi",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "57f02d5550b7f881a586b9cfffd9e5b4faad9de8",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/57f02d5550b7f881a586b9cfffd9e5b4faad9de8"
+    },
+    {
+      "path": "app/src/main/res/mipmap-mdpi/ic_launcher.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ebc973633a67c0de9924694feca52af3a910c680",
+      "size": 842,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/ebc973633a67c0de9924694feca52af3a910c680"
+    },
+    {
+      "path": "app/src/main/res/mipmap-mdpi/ic_launcher_foreground.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "290fa242c63a29d840c355eb9f89886c8c767eaa",
+      "size": 1110,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/290fa242c63a29d840c355eb9f89886c8c767eaa"
+    },
+    {
+      "path": "app/src/main/res/mipmap-mdpi/ic_launcher_round.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5508c609b50df89aa2e57214eef2a20a0e0a2df8",
+      "size": 1602,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/5508c609b50df89aa2e57214eef2a20a0e0a2df8"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xhdpi",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f6c9819adeca450d7dc59c1ea885a4c66bb16c9c",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/f6c9819adeca450d7dc59c1ea885a4c66bb16c9c"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xhdpi/ic_launcher.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "914884bd507c30ebfa82e1178961878c19c0d0b7",
+      "size": 1816,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/914884bd507c30ebfa82e1178961878c19c0d0b7"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2ffe759286e849b8c74f127998b836f8da1a1525",
+      "size": 3388,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/2ffe759286e849b8c74f127998b836f8da1a1525"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7d0db1b858bf07d2a62529c816642f2e7e8ca627",
+      "size": 3900,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/7d0db1b858bf07d2a62529c816642f2e7e8ca627"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxhdpi",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "4ebf21c9e29b6304c2fa01de59a1dc47fc6c1073",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/4ebf21c9e29b6304c2fa01de59a1dc47fc6c1073"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxhdpi/ic_launcher.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0954bc9cd2362536b0a849159d3cb25a6606f459",
+      "size": 3332,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/0954bc9cd2362536b0a849159d3cb25a6606f459"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ec4f2cefeaef9add84a4afa883493514685affcf",
+      "size": 6800,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/ec4f2cefeaef9add84a4afa883493514685affcf"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "83fc421ff560eda5e5865125718ae052a7c58432",
+      "size": 6728,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/83fc421ff560eda5e5865125718ae052a7c58432"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxxhdpi",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "6f8bb4433ebfe4df138a0946984556c7bc36bd46",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/6f8bb4433ebfe4df138a0946984556c7bc36bd46"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1e5e883f9b32f5eb17c26378ffc11cbaa0171ce0",
+      "size": 5136,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/1e5e883f9b32f5eb17c26378ffc11cbaa0171ce0"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "43896f4b3537eb62d632a65864e423b9528a1a0f",
+      "size": 11464,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/43896f4b3537eb62d632a65864e423b9528a1a0f"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f805eb8b8243b42b128e42136acc15d6732effbd",
+      "size": 10662,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/f805eb8b8243b42b128e42136acc15d6732effbd"
+    },
+    {
+      "path": "app/src/main/res/raw",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "a3b46b24838c33fd51446a73eb1ae8826f7c0a5b",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/a3b46b24838c33fd51446a73eb1ae8826f7c0a5b"
+    },
+    {
+      "path": "app/src/main/res/raw/liquidglass_effect.agsl",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "02358e0811ae8f3fcdc47db58f8a6ef9b584a9c9",
+      "size": 4575,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/02358e0811ae8f3fcdc47db58f8a6ef9b584a9c9"
+    },
+    {
+      "path": "app/src/main/res/values",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "84d9c1e077512c9c5b246f680502137d37debb0b",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/84d9c1e077512c9c5b246f680502137d37debb0b"
+    },
+    {
+      "path": "app/src/main/res/values/colors.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "42d70ece72fb252f3e6379603237269311d55f78",
+      "size": 121,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/42d70ece72fb252f3e6379603237269311d55f78"
+    },
+    {
+      "path": "app/src/main/res/values/strings.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cebc545edeebdab65fb529dd21aa82ac18202f29",
+      "size": 514,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/cebc545edeebdab65fb529dd21aa82ac18202f29"
+    },
+    {
+      "path": "app/src/main/res/values/themes.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "741bb36aa5fd1767c01ac15dcf4ae984537e775d",
+      "size": 739,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/741bb36aa5fd1767c01ac15dcf4ae984537e775d"
+    },
+    {
+      "path": "app/src/main/res/xml",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d8aefaa9951b16d3352c454480a72aa7fc9a07b1",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/d8aefaa9951b16d3352c454480a72aa7fc9a07b1"
+    },
+    {
+      "path": "app/src/main/res/xml/data_extraction_rules.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fe61eb717cdd80547e154e273ea5e82d6a7f02f5",
+      "size": 540,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/fe61eb717cdd80547e154e273ea5e82d6a7f02f5"
+    },
+    {
+      "path": "app/src/main/res/xml/shortcuts.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c917b82149e5f198d8c7847d0ffc44c7f5287870",
+      "size": 624,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/c917b82149e5f198d8c7847d0ffc44c7f5287870"
+    },
+    {
+      "path": "app/src/main/res/xml/widget_info.xml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "63b8388455373eb4686df05cfd27402ea063bf7e",
+      "size": 734,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/63b8388455373eb4686df05cfd27402ea063bf7e"
+    },
+    {
+      "path": "app/src/main/xctu",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "c644ef351e57f060a45b538d946412cfc0f8614a",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/c644ef351e57f060a45b538d946412cfc0f8614a"
+    },
+    {
+      "path": "app/src/main/xctu/1.jpg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fbffcb6e6646d192e9d4489805ec1a1d9d8e1d29",
+      "size": 365170,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/fbffcb6e6646d192e9d4489805ec1a1d9d8e1d29"
+    },
+    {
+      "path": "app/src/main/xctu/2.jpg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d3463540580fa9d02e90db6775f2b75fdea1f592",
+      "size": 228408,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/d3463540580fa9d02e90db6775f2b75fdea1f592"
+    },
+    {
+      "path": "app/src/main/xctu/3.jpg",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ca4956c09a530856dacf44e7fd77dde1406172ab",
+      "size": 236238,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/ca4956c09a530856dacf44e7fd77dde1406172ab"
+    },
+    {
+      "path": "app/src/test",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "9ab0fc2f692d7edc2d84a851afb205f0806986f3",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/9ab0fc2f692d7edc2d84a851afb205f0806986f3"
+    },
+    {
+      "path": "app/src/test/java",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "1191417b2949748d58465a4a84656578501111f0",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/1191417b2949748d58465a4a84656578501111f0"
+    },
+    {
+      "path": "app/src/test/java/com",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d6fbafbda957bc039700d65fd16b08e7017c75c0",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/d6fbafbda957bc039700d65fd16b08e7017c75c0"
+    },
+    {
+      "path": "app/src/test/java/com/tabula",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "10234b4bcfd6f879680e5eaf3bb07760f712e1ad",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/10234b4bcfd6f879680e5eaf3bb07760f712e1ad"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "60158a52cea95ec32170e288f5ca1a8b2c407537",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/60158a52cea95ec32170e288f5ca1a8b2c407537"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "6c4ed4f4ddf43fba5330430395e496e003f9e029",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/6c4ed4f4ddf43fba5330430395e496e003f9e029"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "cae14957c8f33c0075227a41b769c4f3f4ffbc24",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/cae14957c8f33c0075227a41b769c4f3f4ffbc24"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "06730faacc24e08c003a1a00ded45c02ebc8d6a8",
+      "size": 7092,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/06730faacc24e08c003a1a00ded45c02ebc8d6a8"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f22ef6d58d84b3a46a1b7ed1515a15194a020d0b",
+      "size": 7957,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/f22ef6d58d84b3a46a1b7ed1515a15194a020d0b"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "06fa2b68cb3110d29fd36440fb7f86f884899c18",
+      "size": 9285,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/06fa2b68cb3110d29fd36440fb7f86f884899c18"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinManagerTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9597cd9bd4d1090826368c0b380087595eefc15b",
+      "size": 8624,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/9597cd9bd4d1090826368c0b380087595eefc15b"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "30b52e727dd95d9289d830dd55b53b5239e847e4",
+      "size": 1537,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/30b52e727dd95d9289d830dd55b53b5239e847e4"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/permission",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f324c49fd3524615dbfa78f70dd4228444f5e13a",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/f324c49fd3524615dbfa78f70dd4228444f5e13a"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2b90a178fbda1dde84dc39fc59bf1fa1e8fc9d5c",
+      "size": 3323,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/2b90a178fbda1dde84dc39fc59bf1fa1e8fc9d5c"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "93a5305816684e7cd178959879ced890c164be03",
+      "size": 1859,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/93a5305816684e7cd178959879ced890c164be03"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bc3e9f781abbb5f3a5ffa19d0d3fb6410d37d06b",
+      "size": 1678,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/bc3e9f781abbb5f3a5ffa19d0d3fb6410d37d06b"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "9086156d73378d43f0cbf588746a2866a83923f6",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/9086156d73378d43f0cbf588746a2866a83923f6"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/components",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "9d3670acc6f6859ffba72c572793f35b76e690d9",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/9d3670acc6f6859ffba72c572793f35b76e690d9"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "33db27b5e9b798b970312ca3680511fd2c60e8c5",
+      "size": 896,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/33db27b5e9b798b970312ca3680511fd2c60e8c5"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/components/MonthInfoBuilderTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "abb2c90bf6e3da884b9c08b7cf4ce3961ac2a409",
+      "size": 2094,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/abb2c90bf6e3da884b9c08b7cf4ce3961ac2a409"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d3c0e0d1c5dd7d89c1d94cacbbd0e88f27d9b477",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/d3c0e0d1c5dd7d89c1d94cacbbd0e88f27d9b477"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/AlbumCleanupImageResolverTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0b9e16e13179b8117dd692d305c5b3a6f26d3507",
+      "size": 1848,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/0b9e16e13179b8117dd692d305c5b3a6f26d3507"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/PhotoSharingTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0f0e14112ac73cd3553c0fbafbc465b525048da6",
+      "size": 3640,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/0f0e14112ac73cd3553c0fbafbc465b525048da6"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0510ec6b76e1ed425b3da2bef23b7b514f26ac50",
+      "size": 838,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/0510ec6b76e1ed425b3da2bef23b7b514f26ac50"
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "00b136020e7de43ecf8f0e3df693b1131e91e460",
+      "size": 1939,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/00b136020e7de43ecf8f0e3df693b1131e91e460"
+    },
+    {
+      "path": "build.gradle.kts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5c98ad09e7fdc7cb785648d57d6332cd3aee9515",
+      "size": 270,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/5c98ad09e7fdc7cb785648d57d6332cd3aee9515"
+    },
+    {
+      "path": "docs",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "90fa7f571a041483d2154300e145fc8b3b4e1def",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/90fa7f571a041483d2154300e145fc8b3b4e1def"
+    },
+    {
+      "path": "docs/release-3.3.4.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "443392d173f12f6dd39aba8043010b9862878afe",
+      "size": 849,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/443392d173f12f6dd39aba8043010b9862878afe"
+    },
+    {
+      "path": "gradle.properties",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "657199b0e97017d32cbc7cc99dbafa101156eb3c",
+      "size": 353,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/657199b0e97017d32cbc7cc99dbafa101156eb3c"
+    },
+    {
+      "path": "gradle",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "7c686473e665b55838c7f0d2f217b64d91d12c71",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/7c686473e665b55838c7f0d2f217b64d91d12c71"
+    },
+    {
+      "path": "gradle/libs.versions.toml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0d70250b7f2cdac00fad2ccc73ca3be6962a74fb",
+      "size": 3128,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/0d70250b7f2cdac00fad2ccc73ca3be6962a74fb"
+    },
+    {
+      "path": "gradle/wrapper",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "039f999278dab9f35debd35ec811f44ea28923a1",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/039f999278dab9f35debd35ec811f44ea28923a1"
+    },
+    {
+      "path": "gradle/wrapper/gradle-wrapper.jar",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a4b76b9530d66f5e68d973ea569d8e19de379189",
+      "size": 43583,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/a4b76b9530d66f5e68d973ea569d8e19de379189"
+    },
+    {
+      "path": "gradle/wrapper/gradle-wrapper.properties",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e2847c820046b34569292608a035c8ffc83be95a",
+      "size": 253,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/e2847c820046b34569292608a035c8ffc83be95a"
+    },
+    {
+      "path": "gradlew",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "05215d1896fca1eb2ba3e5c0fa7ff95f05336fad",
+      "size": 5615,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/05215d1896fca1eb2ba3e5c0fa7ff95f05336fad"
+    },
+    {
+      "path": "gradlew.bat",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "25da30dbdeee93f6eaceea674c3b635de168ce06",
+      "size": 2826,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/25da30dbdeee93f6eaceea674c3b635de168ce06"
+    },
+    {
+      "path": "scripts",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "ee33eb38f144ec656fb801aade25059c2b8ff1be",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/ee33eb38f144ec656fb801aade25059c2b8ff1be"
+    },
+    {
+      "path": "scripts/encrypt-release-backup.cjs",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6c5aedefb2849e15ec76b6b2ca53a819e3b13321",
+      "size": 971,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/6c5aedefb2849e15ec76b6b2ca53a819e3b13321"
+    },
+    {
+      "path": "scripts/release-backup-public.pem",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "511c7c3230d82fa0c0f349438a81f4eec9dcd204",
+      "size": 625,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/511c7c3230d82fa0c0f349438a81f4eec9dcd204"
+    },
+    {
+      "path": "settings.gradle.kts",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "81f01f20d777be1b272331a19db37d919939d972",
+      "size": 628,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/81f01f20d777be1b272331a19db37d919939d972"
+    },
+    {
+      "path": "tools",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "9587ebb29f0b445bab8b6b33645f50d521532232",
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/trees/9587ebb29f0b445bab8b6b33645f50d521532232"
+    },
+    {
+      "path": "tools/run-volume-device-probe.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6325c2fc031e01656681d3bd7bcbed2df727f321",
+      "size": 4286,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/git/blobs/6325c2fc031e01656681d3bd7bcbed2df727f321"
+    }
+  ],
+  "truncated": false
+}

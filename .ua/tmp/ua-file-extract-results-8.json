@@ -1,0 +1,78 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 1,
+  "filesSkipped": [
+    "gradle.properties",
+    "gradlew.bat"
+  ],
+  "filesUnreadable": [],
+  "analysisOutcomes": {
+    "structure": {
+      "succeeded": 1,
+      "failed": 0
+    },
+    "callGraph": {
+      "succeeded": 0,
+      "failed": 0,
+      "skipped": 1
+    }
+  },
+  "results": [
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 126,
+      "nonEmptyLines": 82,
+      "sections": [
+        {
+          "heading": ":inbox_tray: [下载本 fork 的最新正式版 APK](https://github.com/ertutio/TabulaV3/releases/latest)",
+          "level": 3,
+          "line": 26
+        },
+        {
+          "heading": "软件简介 (Introduction)",
+          "level": 2,
+          "line": 34
+        },
+        {
+          "heading": "功能介绍 (Features)",
+          "level": 2,
+          "line": 46
+        },
+        {
+          "heading": "支持原开源作者 (Support the Original Author)",
+          "level": 2,
+          "line": 61
+        },
+        {
+          "heading": "🌟 原项目支持者（原作者鸣谢名单）",
+          "level": 3,
+          "line": 80
+        },
+        {
+          "heading": "原项目联系方式与交流群 (Original Project Contact)",
+          "level": 2,
+          "line": 88
+        },
+        {
+          "heading": "开源协议 (License)",
+          "level": 2,
+          "line": 99
+        },
+        {
+          "heading": "🙏 原项目致谢 (Original Project Acknowledgments)",
+          "level": 2,
+          "line": 117
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 8
+      }
+    }
+  ]
+}

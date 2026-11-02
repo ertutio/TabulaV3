@@ -1,0 +1,27 @@
+Found 13 batch files (13 logical batches, 0 multi-part):
+  batch-1.json: 144 nodes, 341 edges
+  batch-2.json: 147 nodes, 361 edges
+  batch-3.json: 120 nodes, 266 edges
+  batch-4.json: 170 nodes, 358 edges
+  batch-5.json: 61 nodes, 124 edges
+  batch-6.json: 20 nodes, 35 edges
+  batch-7.json: 5 nodes, 0 edges
+  batch-8.json: 3 nodes, 0 edges
+  batch-9.json: 6 nodes, 0 edges
+  batch-10.json: 3 nodes, 0 edges
+  batch-11.json: 3 nodes, 0 edges
+  batch-12.json: 160 nodes, 303 edges
+  batch-13.json: 100 nodes, 211 edges
+
+Input: 942 nodes, 1999 edges
+
+Tested-by linker:
+     0 �� tested_by edges produced (path-convention supplement, production �� test)
+    13 �� production nodes tagged "tested"
+
+Output: 942 nodes, 1999 edges
+
+Imports edge recovery:
+  Recovered 0 `imports` edges from importMap (145 entries scanned)
+
+Written to local-user\Documents\ChatGPT\GitHub��Ŀ����\work\TabulaV3-understand-20261017\source\.ua\intermediate\assembled-graph.json (1495 KB)

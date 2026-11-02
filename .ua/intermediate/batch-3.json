@@ -1,0 +1,4847 @@
+{
+  "nodes": [
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "type": "file",
+      "name": "MainActivity.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 1,
+      "endLine": 1659,
+      "summary": "应用入口、权限回调和 TabulaApp 状态协调；在 Compose 中连接图库加载、归档、回收站、清理及页面路由。关键操作回调集中于此，当前没有独立 ViewModel 状态层。",
+      "tags": [
+        "entry-point",
+        "state-coordination",
+        "permission"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        1659
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity",
+      "type": "class",
+      "name": "MainActivity",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 129,
+      "endLine": 273,
+      "summary": "MainActivity 的声明与成员入口；文件职责：应用入口、权限回调和 TabulaApp 状态协调；在 Compose 中连接图库加载、归档、回收站、清理及页面路由。关键操作回调集中于此，当前没有独立 ViewModel 状态层。",
+      "tags": [
+        "declaration-index",
+        "entry-point",
+        "state-coordination"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        129,
+        273
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onSaveInstanceState",
+      "type": "function",
+      "name": "MainActivity.onSaveInstanceState",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 161,
+      "endLine": 164,
+      "summary": "声明入口 MainActivity.onSaveInstanceState；所属文件负责：应用入口、权限回调和 TabulaApp 状态协调；在 Compose 中连接图库加载、归档、回收站、清理及页面路由。关键操作回调集中于此，当前没有独立 ViewModel 状态层。",
+      "tags": [
+        "declaration-index",
+        "entry-point",
+        "state-coordination"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "outState"
+      ],
+      "owner": "MainActivity",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        161,
+        164
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onCreate",
+      "type": "function",
+      "name": "MainActivity.onCreate",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 166,
+      "endLine": 235,
+      "summary": "声明入口 MainActivity.onCreate；所属文件负责：应用入口、权限回调和 TabulaApp 状态协调；在 Compose 中连接图库加载、归档、回收站、清理及页面路由。关键操作回调集中于此，当前没有独立 ViewModel 状态层。",
+      "tags": [
+        "declaration-index",
+        "entry-point",
+        "state-coordination"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "savedInstanceState"
+      ],
+      "owner": "MainActivity",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        166,
+        235
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onResume",
+      "type": "function",
+      "name": "MainActivity.onResume",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 237,
+      "endLine": 243,
+      "summary": "声明入口 MainActivity.onResume；所属文件负责：应用入口、权限回调和 TabulaApp 状态协调；在 Compose 中连接图库加载、归档、回收站、清理及页面路由。关键操作回调集中于此，当前没有独立 ViewModel 状态层。",
+      "tags": [
+        "declaration-index",
+        "entry-point",
+        "state-coordination"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "MainActivity",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        237,
+        243
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onStop",
+      "type": "function",
+      "name": "MainActivity.onStop",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 245,
+      "endLine": 251,
+      "summary": "声明入口 MainActivity.onStop；所属文件负责：应用入口、权限回调和 TabulaApp 状态协调；在 Compose 中连接图库加载、归档、回收站、清理及页面路由。关键操作回调集中于此，当前没有独立 ViewModel 状态层。",
+      "tags": [
+        "declaration-index",
+        "entry-point",
+        "state-coordination"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "MainActivity",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        245,
+        251
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.updateBatchRemaining",
+      "type": "function",
+      "name": "MainActivity.updateBatchRemaining",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 256,
+      "endLine": 259,
+      "summary": "声明入口 MainActivity.updateBatchRemaining；所属文件负责：应用入口、权限回调和 TabulaApp 状态协调；在 Compose 中连接图库加载、归档、回收站、清理及页面路由。关键操作回调集中于此，当前没有独立 ViewModel 状态层。",
+      "tags": [
+        "declaration-index",
+        "entry-point",
+        "state-coordination"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "remaining",
+        "fluidCloudEnabled"
+      ],
+      "owner": "MainActivity",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        256,
+        259
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp",
+      "type": "function",
+      "name": "TabulaApp",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 280,
+      "endLine": 1485,
+      "summary": "声明入口 TabulaApp；所属文件负责：应用入口、权限回调和 TabulaApp 状态协调；在 Compose 中连接图库加载、归档、回收站、清理及页面路由。关键操作回调集中于此，当前没有独立 ViewModel 状态层。",
+      "tags": [
+        "declaration-index",
+        "entry-point",
+        "state-coordination"
+      ],
+      "complexity": "complex",
+      "parameters": [
+        "preferences",
+        "onThemeChange",
+        "onRequestDeletePermission",
+        "deletePermissionInFlight",
+        "deletionRecoveryRevision",
+        "liquidGlassLabEnabled",
+        "onLiquidGlassLabEnabledChange"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        280,
+        1485
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:SourceImageDeletionDialog",
+      "type": "function",
+      "name": "SourceImageDeletionDialog",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 1491,
+      "endLine": 1588,
+      "summary": "声明入口 SourceImageDeletionDialog；所属文件负责：应用入口、权限回调和 TabulaApp 状态协调；在 Compose 中连接图库加载、归档、回收站、清理及页面路由。关键操作回调集中于此，当前没有独立 ViewModel 状态层。",
+      "tags": [
+        "declaration-index",
+        "entry-point",
+        "state-coordination"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "imageCount",
+        "onConfirm",
+        "onDismiss",
+        "isDarkTheme"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1491,
+        1588
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:PermissionRequestScreen",
+      "type": "function",
+      "name": "PermissionRequestScreen",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 1593,
+      "endLine": 1657,
+      "summary": "声明入口 PermissionRequestScreen；所属文件负责：应用入口、权限回调和 TabulaApp 状态协调；在 Compose 中连接图库加载、归档、回收站、清理及页面路由。关键操作回调集中于此，当前没有独立 ViewModel 状态层。",
+      "tags": [
+        "declaration-index",
+        "entry-point",
+        "state-coordination"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "onRequestPermission"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1593,
+        1657
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "type": "file",
+      "name": "FileOperationManager.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 1,
+      "endLine": 295,
+      "summary": "创建系统删除授权请求并逐 URI 核验 PRESENT/MISSING/UNKNOWN；缺失确认依赖完整读取权限与存储卷可确认性，保留 #7 的 recent 减 mounted 规则。",
+      "tags": [
+        "permission",
+        "verification",
+        "mediastore"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        295
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager",
+      "type": "class",
+      "name": "FileOperationManager",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 26,
+      "endLine": 276,
+      "summary": "FileOperationManager 的声明与成员入口；文件职责：创建系统删除授权请求并逐 URI 核验 PRESENT/MISSING/UNKNOWN；缺失确认依赖完整读取权限与存储卷可确认性，保留 #7 的 recent 减 mounted 规则。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "complex",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        26,
+        276
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:DeleteFailureKind",
+      "type": "class",
+      "name": "DeleteFailureKind",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 279,
+      "endLine": 279,
+      "summary": "DeleteFailureKind 的声明与成员入口；文件职责：创建系统删除授权请求并逐 URI 核验 PRESENT/MISSING/UNKNOWN；缺失确认依赖完整读取权限与存储卷可确认性，保留 #7 的 recent 减 mounted 规则。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        279,
+        279
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:UriPresence",
+      "type": "class",
+      "name": "UriPresence",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 280,
+      "endLine": 280,
+      "summary": "UriPresence 的声明与成员入口；文件职责：创建系统删除授权请求并逐 URI 核验 PRESENT/MISSING/UNKNOWN；缺失确认依赖完整读取权限与存储卷可确认性，保留 #7 的 recent 减 mounted 规则。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        280,
+        280
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:DeletionVerification",
+      "type": "class",
+      "name": "DeletionVerification",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 281,
+      "endLine": 281,
+      "summary": "DeletionVerification 的声明与成员入口；文件职责：创建系统删除授权请求并逐 URI 核验 PRESENT/MISSING/UNKNOWN；缺失确认依赖完整读取权限与存储卷可确认性，保留 #7 的 recent 减 mounted 规则。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        281,
+        281
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.deleteImage",
+      "type": "function",
+      "name": "FileOperationManager.deleteImage",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 82,
+      "endLine": 91,
+      "summary": "声明入口 FileOperationManager.deleteImage；所属文件负责：创建系统删除授权请求并逐 URI 核验 PRESENT/MISSING/UNKNOWN；缺失确认依赖完整读取权限与存储卷可确认性，保留 #7 的 recent 减 mounted 规则。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "uri"
+      ],
+      "owner": "FileOperationManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        82,
+        91
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.deleteImages",
+      "type": "function",
+      "name": "FileOperationManager.deleteImages",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 99,
+      "endLine": 146,
+      "summary": "声明入口 FileOperationManager.deleteImages；所属文件负责：创建系统删除授权请求并逐 URI 核验 PRESENT/MISSING/UNKNOWN；缺失确认依赖完整读取权限与存储卷可确认性，保留 #7 的 recent 减 mounted 规则。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "uris"
+      ],
+      "owner": "FileOperationManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        99,
+        146
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.verifyDeletion",
+      "type": "function",
+      "name": "FileOperationManager.verifyDeletion",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 156,
+      "endLine": 156,
+      "summary": "声明入口 FileOperationManager.verifyDeletion；所属文件负责：创建系统删除授权请求并逐 URI 核验 PRESENT/MISSING/UNKNOWN；缺失确认依赖完整读取权限与存储卷可确认性，保留 #7 的 recent 减 mounted 规则。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "uris"
+      ],
+      "owner": "FileOperationManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        156,
+        156
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.verifyDeletionState",
+      "type": "function",
+      "name": "FileOperationManager.verifyDeletionState",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 158,
+      "endLine": 165,
+      "summary": "逐 URI 汇总 deleted/existing/unknown 三组状态，不把无法读取或离线卷当作已删除。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "uris"
+      ],
+      "owner": "FileOperationManager",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        158,
+        165
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.queryPresence",
+      "type": "function",
+      "name": "FileOperationManager.queryPresence",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 176,
+      "endLine": 199,
+      "summary": "声明入口 FileOperationManager.queryPresence；所属文件负责：创建系统删除授权请求并逐 URI 核验 PRESENT/MISSING/UNKNOWN；缺失确认依赖完整读取权限与存储卷可确认性，保留 #7 的 recent 减 mounted 规则。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "uri"
+      ],
+      "owner": "FileOperationManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        176,
+        199
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.moveToTrash",
+      "type": "function",
+      "name": "FileOperationManager.moveToTrash",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 207,
+      "endLine": 226,
+      "summary": "声明入口 FileOperationManager.moveToTrash；所属文件负责：创建系统删除授权请求并逐 URI 核验 PRESENT/MISSING/UNKNOWN；缺失确认依赖完整读取权限与存储卷可确认性，保留 #7 的 recent 减 mounted 规则。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "uri"
+      ],
+      "owner": "FileOperationManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        207,
+        226
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.restoreFromTrash",
+      "type": "function",
+      "name": "FileOperationManager.restoreFromTrash",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 234,
+      "endLine": 253,
+      "summary": "声明入口 FileOperationManager.restoreFromTrash；所属文件负责：创建系统删除授权请求并逐 URI 核验 PRESENT/MISSING/UNKNOWN；缺失确认依赖完整读取权限与存储卷可确认性，保留 #7 的 recent 减 mounted 规则。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "uri"
+      ],
+      "owner": "FileOperationManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        234,
+        253
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.isUriValid",
+      "type": "function",
+      "name": "FileOperationManager.isUriValid",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 261,
+      "endLine": 275,
+      "summary": "声明入口 FileOperationManager.isUriValid；所属文件负责：创建系统删除授权请求并逐 URI 核验 PRESENT/MISSING/UNKNOWN；缺失确认依赖完整读取权限与存储卷可确认性，保留 #7 的 recent 减 mounted 规则。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "uri"
+      ],
+      "owner": "FileOperationManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        261,
+        275
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:asBatchFailure",
+      "type": "function",
+      "name": "asBatchFailure",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 283,
+      "endLine": 284,
+      "summary": "声明入口 asBatchFailure；所属文件负责：创建系统删除授权请求并逐 URI 核验 PRESENT/MISSING/UNKNOWN；缺失确认依赖完整读取权限与存储卷可确认性，保留 #7 的 recent 减 mounted 规则。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        283,
+        284
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:canConfirmMissingOnVolume",
+      "type": "function",
+      "name": "canConfirmMissingOnVolume",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "startLine": 286,
+      "endLine": 295,
+      "summary": "merged external 仅在主卷确实挂载且 recent 减 mounted 为空时允许确认缺失。",
+      "tags": [
+        "declaration-index",
+        "permission",
+        "verification"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "volume",
+        "primaryMounted",
+        "mounted",
+        "recentVolumes"
+      ],
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        286,
+        295
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "type": "file",
+      "name": "RecycleBinManager.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 1,
+      "endLine": 180,
+      "summary": "用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "atomic-file",
+        "journal",
+        "soft-delete"
+      ],
+      "complexity": "moderate",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        180
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinStorage",
+      "type": "class",
+      "name": "RecycleBinStorage",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 17,
+      "endLine": 20,
+      "summary": "RecycleBinStorage 的声明与成员入口；文件职责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        17,
+        20
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:AtomicRecycleBinStorage",
+      "type": "class",
+      "name": "AtomicRecycleBinStorage",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 22,
+      "endLine": 46,
+      "summary": "AtomicRecycleBinStorage 的声明与成员入口；文件职责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        22,
+        46
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinPersistenceException",
+      "type": "class",
+      "name": "RecycleBinPersistenceException",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 48,
+      "endLine": 48,
+      "summary": "RecycleBinPersistenceException 的声明与成员入口；文件职责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        48,
+        48
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "type": "class",
+      "name": "RecycleBinManager",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 51,
+      "endLine": 180,
+      "summary": "RecycleBinManager 的声明与成员入口；文件职责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        51,
+        180
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinStorage.read",
+      "type": "function",
+      "name": "RecycleBinStorage.read",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 18,
+      "endLine": 18,
+      "summary": "声明入口 RecycleBinStorage.read；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinStorage",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        18,
+        18
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinStorage.write",
+      "type": "function",
+      "name": "RecycleBinStorage.write",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 19,
+      "endLine": 19,
+      "summary": "声明入口 RecycleBinStorage.write；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "content"
+      ],
+      "owner": "RecycleBinStorage",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        19,
+        19
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:AtomicRecycleBinStorage.read",
+      "type": "function",
+      "name": "AtomicRecycleBinStorage.read",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 28,
+      "endLine": 31,
+      "summary": "声明入口 AtomicRecycleBinStorage.read；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "AtomicRecycleBinStorage",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        28,
+        31
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:AtomicRecycleBinStorage.write",
+      "type": "function",
+      "name": "AtomicRecycleBinStorage.write",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 32,
+      "endLine": 45,
+      "summary": "声明入口 AtomicRecycleBinStorage.write；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "content"
+      ],
+      "owner": "AtomicRecycleBinStorage",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        32,
+        45
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.transaction",
+      "type": "function",
+      "name": "RecycleBinManager.transaction",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 70,
+      "endLine": 82,
+      "summary": "声明入口 RecycleBinManager.transaction；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "action"
+      ],
+      "owner": "RecycleBinManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        70,
+        82
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.addToRecycleBin",
+      "type": "function",
+      "name": "RecycleBinManager.addToRecycleBin",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 84,
+      "endLine": 84,
+      "summary": "声明入口 RecycleBinManager.addToRecycleBin；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "image"
+      ],
+      "owner": "RecycleBinManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        84,
+        84
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.addAllToRecycleBin",
+      "type": "function",
+      "name": "RecycleBinManager.addAllToRecycleBin",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 86,
+      "endLine": 92,
+      "summary": "声明入口 RecycleBinManager.addAllToRecycleBin；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "images"
+      ],
+      "owner": "RecycleBinManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        86,
+        92
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.removeFromRecycleBin",
+      "type": "function",
+      "name": "RecycleBinManager.removeFromRecycleBin",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 94,
+      "endLine": 94,
+      "summary": "声明入口 RecycleBinManager.removeFromRecycleBin；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "image"
+      ],
+      "owner": "RecycleBinManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        94,
+        94
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.removeAllFromRecycleBin",
+      "type": "function",
+      "name": "RecycleBinManager.removeAllFromRecycleBin",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 96,
+      "endLine": 99,
+      "summary": "声明入口 RecycleBinManager.removeAllFromRecycleBin；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "images"
+      ],
+      "owner": "RecycleBinManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        96,
+        99
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.clearRecycleBin",
+      "type": "function",
+      "name": "RecycleBinManager.clearRecycleBin",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 101,
+      "endLine": 104,
+      "summary": "声明入口 RecycleBinManager.clearRecycleBin；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        101,
+        104
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.loadRecycleBin",
+      "type": "function",
+      "name": "RecycleBinManager.loadRecycleBin",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 106,
+      "endLine": 106,
+      "summary": "声明入口 RecycleBinManager.loadRecycleBin；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        106,
+        106
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.getRecycleBinCount",
+      "type": "function",
+      "name": "RecycleBinManager.getRecycleBinCount",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 107,
+      "endLine": 107,
+      "summary": "声明入口 RecycleBinManager.getRecycleBinCount；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        107,
+        107
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.pendingDeletionUris",
+      "type": "function",
+      "name": "RecycleBinManager.pendingDeletionUris",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 109,
+      "endLine": 109,
+      "summary": "声明入口 RecycleBinManager.pendingDeletionUris；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        109,
+        109
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.beginDeletion",
+      "type": "function",
+      "name": "RecycleBinManager.beginDeletion",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 112,
+      "endLine": 116,
+      "summary": "物理请求前持久化意图；当前要求全局 pending 日志为空，单条 UNKNOWN 会阻断新请求。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "uris"
+      ],
+      "owner": "RecycleBinManager",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        112,
+        116
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.finishDeletion",
+      "type": "function",
+      "name": "RecycleBinManager.finishDeletion",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 119,
+      "endLine": 125,
+      "summary": "先提交已确认删除的回收站记录，再将 pending 收敛为 UNKNOWN；写失败可重复核对。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "deleted",
+        "unknown"
+      ],
+      "owner": "RecycleBinManager",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        119,
+        125
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.loadUnlocked",
+      "type": "function",
+      "name": "RecycleBinManager.loadUnlocked",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 137,
+      "endLine": 161,
+      "summary": "声明入口 RecycleBinManager.loadUnlocked；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "owner": "RecycleBinManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        137,
+        161
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.saveUnlocked",
+      "type": "function",
+      "name": "RecycleBinManager.saveUnlocked",
+      "filePath": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "startLine": 163,
+      "endLine": 179,
+      "summary": "声明入口 RecycleBinManager.saveUnlocked；所属文件负责：用 Mutex 和 AtomicFile 串行保存本地软删除记录及待核对删除日志；删除前记意图，确认后提交记录，支持中断后仅核对恢复。",
+      "tags": [
+        "declaration-index",
+        "atomic-file",
+        "journal"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "items"
+      ],
+      "owner": "RecycleBinManager",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        163,
+        179
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "type": "file",
+      "name": "DeletePermissionSession.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "startLine": 1,
+      "endLine": 44,
+      "summary": "串联系统 IntentSender 授权请求及瞬时回调，保存 inFlight；重建后没有回调时增加恢复 revision，交给持久化日志对账。",
+      "tags": [
+        "activity-result",
+        "recovery",
+        "permission"
+      ],
+      "complexity": "simple",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        44
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession",
+      "type": "class",
+      "name": "DeletePermissionSession",
+      "filePath": "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "startLine": 10,
+      "endLine": 44,
+      "summary": "DeletePermissionSession 的声明与成员入口；文件职责：串联系统 IntentSender 授权请求及瞬时回调，保存 inFlight；重建后没有回调时增加恢复 revision，交给持久化日志对账。",
+      "tags": [
+        "declaration-index",
+        "activity-result",
+        "recovery"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        10,
+        44
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession.launch",
+      "type": "function",
+      "name": "DeletePermissionSession.launch",
+      "filePath": "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "startLine": 17,
+      "endLine": 31,
+      "summary": "声明入口 DeletePermissionSession.launch；所属文件负责：串联系统 IntentSender 授权请求及瞬时回调，保存 inFlight；重建后没有回调时增加恢复 revision，交给持久化日志对账。",
+      "tags": [
+        "declaration-index",
+        "activity-result",
+        "recovery"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "result",
+        "launchSystem"
+      ],
+      "owner": "DeletePermissionSession",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        17,
+        31
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession.complete",
+      "type": "function",
+      "name": "DeletePermissionSession.complete",
+      "filePath": "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "startLine": 33,
+      "endLine": 39,
+      "summary": "声明入口 DeletePermissionSession.complete；所属文件负责：串联系统 IntentSender 授权请求及瞬时回调，保存 inFlight；重建后没有回调时增加恢复 revision，交给持久化日志对账。",
+      "tags": [
+        "declaration-index",
+        "activity-result",
+        "recovery"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "granted"
+      ],
+      "owner": "DeletePermissionSession",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        33,
+        39
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession.save",
+      "type": "function",
+      "name": "DeletePermissionSession.save",
+      "filePath": "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "startLine": 41,
+      "endLine": 41,
+      "summary": "声明入口 DeletePermissionSession.save；所属文件负责：串联系统 IntentSender 授权请求及瞬时回调，保存 inFlight；重建后没有回调时增加恢复 revision，交给持久化日志对账。",
+      "tags": [
+        "declaration-index",
+        "activity-result",
+        "recovery"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "out"
+      ],
+      "owner": "DeletePermissionSession",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        41,
+        41
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "type": "file",
+      "name": "MediaPermissionPolicy.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "startLine": 1,
+      "endLine": 35,
+      "summary": "按 SDK 返回照片读取权限并将完整或部分照片授权折叠为可读布尔值；完整/部分/不可读的差异需在刷新与缺失核验中保留。",
+      "tags": [
+        "permission-policy",
+        "partial-access",
+        "android"
+      ],
+      "complexity": "simple",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        35
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy",
+      "type": "class",
+      "name": "MediaPermissionPolicy",
+      "filePath": "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "startLine": 5,
+      "endLine": 35,
+      "summary": "MediaPermissionPolicy 的声明与成员入口；文件职责：按 SDK 返回照片读取权限并将完整或部分照片授权折叠为可读布尔值；完整/部分/不可读的差异需在刷新与缺失核验中保留。",
+      "tags": [
+        "declaration-index",
+        "permission-policy",
+        "partial-access"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        5,
+        35
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy.requiredPermissionsForSdk",
+      "type": "function",
+      "name": "MediaPermissionPolicy.requiredPermissionsForSdk",
+      "filePath": "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "startLine": 7,
+      "endLine": 16,
+      "summary": "声明入口 MediaPermissionPolicy.requiredPermissionsForSdk；所属文件负责：按 SDK 返回照片读取权限并将完整或部分照片授权折叠为可读布尔值；完整/部分/不可读的差异需在刷新与缺失核验中保留。",
+      "tags": [
+        "declaration-index",
+        "permission-policy",
+        "partial-access"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "sdkInt"
+      ],
+      "owner": "MediaPermissionPolicy",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        7,
+        16
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy.hasMediaReadPermission",
+      "type": "function",
+      "name": "MediaPermissionPolicy.hasMediaReadPermission",
+      "filePath": "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "startLine": 18,
+      "endLine": 30,
+      "summary": "声明入口 MediaPermissionPolicy.hasMediaReadPermission；所属文件负责：按 SDK 返回照片读取权限并将完整或部分照片授权折叠为可读布尔值；完整/部分/不可读的差异需在刷新与缺失核验中保留。",
+      "tags": [
+        "declaration-index",
+        "permission-policy",
+        "partial-access"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "sdkInt",
+        "isGranted"
+      ],
+      "owner": "MediaPermissionPolicy",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        18,
+        30
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy.isAnyRequestedPermissionGranted",
+      "type": "function",
+      "name": "MediaPermissionPolicy.isAnyRequestedPermissionGranted",
+      "filePath": "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "startLine": 32,
+      "endLine": 34,
+      "summary": "声明入口 MediaPermissionPolicy.isAnyRequestedPermissionGranted；所属文件负责：按 SDK 返回照片读取权限并将完整或部分照片授权折叠为可读布尔值；完整/部分/不可读的差异需在刷新与缺失核验中保留。",
+      "tags": [
+        "declaration-index",
+        "permission-policy",
+        "partial-access"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "result"
+      ],
+      "owner": "MediaPermissionPolicy",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        32,
+        34
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+      "type": "file",
+      "name": "ModeToggle.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+      "startLine": 1,
+      "endLine": 208,
+      "summary": "显示卡片整理与图库浏览模式切换控件，通过回调通知父层切换。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        208
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt:ModeToggle",
+      "type": "function",
+      "name": "ModeToggle",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+      "startLine": 37,
+      "endLine": 207,
+      "summary": "声明入口 ModeToggle；所属文件负责：显示卡片整理与图库浏览模式切换控件，通过回调通知父层切换。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "isAlbumMode",
+        "onModeChange",
+        "modifier"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        37,
+        207
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "type": "file",
+      "name": "OnboardingDialog.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "startLine": 1,
+      "endLine": 532,
+      "summary": "提供旧式多页引导弹窗及手势示意，完成事件由调用层持久化。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        532
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt:OnboardingDialog",
+      "type": "function",
+      "name": "OnboardingDialog",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "startLine": 72,
+      "endLine": 191,
+      "summary": "声明入口 OnboardingDialog；所属文件负责：提供旧式多页引导弹窗及手势示意，完成事件由调用层持久化。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "onDismiss",
+        "onComplete"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        72,
+        191
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt:WelcomePage",
+      "type": "function",
+      "name": "WelcomePage",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "startLine": 196,
+      "endLine": 239,
+      "summary": "声明入口 WelcomePage；所属文件负责：提供旧式多页引导弹窗及手势示意，完成事件由调用层持久化。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "textColor",
+        "secondaryTextColor"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        196,
+        239
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt:GesturePage",
+      "type": "function",
+      "name": "GesturePage",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "startLine": 244,
+      "endLine": 397,
+      "summary": "声明入口 GesturePage；所属文件负责：提供旧式多页引导弹窗及手势示意，完成事件由调用层持久化。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "textColor",
+        "secondaryTextColor",
+        "accentColor",
+        "isDarkTheme"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        244,
+        397
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt:GestureIndicator",
+      "type": "function",
+      "name": "GestureIndicator",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "startLine": 402,
+      "endLine": 480,
+      "summary": "声明入口 GestureIndicator；所属文件负责：提供旧式多页引导弹窗及手势示意，完成事件由调用层持久化。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "icon",
+        "label",
+        "color",
+        "modifier",
+        "isHorizontal"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        402,
+        480
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt:ReadyPage",
+      "type": "function",
+      "name": "ReadyPage",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "startLine": 485,
+      "endLine": 531,
+      "summary": "声明入口 ReadyPage；所属文件负责：提供旧式多页引导弹窗及手势示意，完成事件由调用层持久化。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "textColor",
+        "secondaryTextColor",
+        "accentColor"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        485,
+        531
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+      "type": "file",
+      "name": "QuickActionButton.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+      "startLine": 1,
+      "endLine": 242,
+      "summary": "实现可拖动位置的双向快捷按钮，左右半边触发上一张/下一张，位置由外部偏好保存。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        242
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt:QuickActionButton",
+      "type": "function",
+      "name": "QuickActionButton",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+      "startLine": 50,
+      "endLine": 242,
+      "summary": "声明入口 QuickActionButton；所属文件负责：实现可拖动位置的双向快捷按钮，左右半边触发上一张/下一张，位置由外部偏好保存。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "visible",
+        "hasPrevious",
+        "hasNext",
+        "positionX",
+        "positionY",
+        "safeArea",
+        "onPrevious",
+        "onNext",
+        "onPositionChanged",
+        "modifier"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        50,
+        242
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+      "type": "file",
+      "name": "AppScreen.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+      "startLine": 1,
+      "endLine": 26,
+      "summary": "枚举 TabulaApp 的路由目标，页面栈/切换行为由 MainActivity 和 PredictiveBackContainer 协调。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        26
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt:AppScreen",
+      "type": "class",
+      "name": "AppScreen",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+      "startLine": 6,
+      "endLine": 25,
+      "summary": "AppScreen 的声明与成员入口；文件职责：枚举 TabulaApp 的路由目标，页面栈/切换行为由 MainActivity 和 PredictiveBackContainer 协调。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        6,
+        25
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+      "type": "file",
+      "name": "PredictiveBackContainer.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+      "startLine": 1,
+      "endLine": 272,
+      "summary": "组合当前和背景页面，处理预测返回手势、位移、圆角与取消动画，回调父层完成路由返回。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        272
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt:PredictiveBackContainer",
+      "type": "function",
+      "name": "PredictiveBackContainer",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+      "startLine": 46,
+      "endLine": 265,
+      "summary": "声明入口 PredictiveBackContainer；所属文件负责：组合当前和背景页面，处理预测返回手势、位移、圆角与取消动画，回调父层完成路由返回。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "complex",
+      "parameters": [
+        "currentScreen",
+        "onNavigateBack",
+        "backgroundContent",
+        "foregroundContent"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        46,
+        265
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "type": "file",
+      "name": "AboutScreen.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "startLine": 1,
+      "endLine": 908,
+      "summary": "显示版本与来源，查询本 fork GitHub 最新 Release，通过 DownloadManager 下载 APK 并启动系统安装；这是用户触发的联网入口。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        908
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt:AboutScreen",
+      "type": "function",
+      "name": "AboutScreen",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "startLine": 80,
+      "endLine": 591,
+      "summary": "声明入口 AboutScreen；所属文件负责：显示版本与来源，查询本 fork GitHub 最新 Release，通过 DownloadManager 下载 APK 并启动系统安装；这是用户触发的联网入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "complex",
+      "parameters": [
+        "onNavigateBack"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        80,
+        591
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt:UpdateDialog",
+      "type": "function",
+      "name": "UpdateDialog",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "startLine": 606,
+      "endLine": 759,
+      "summary": "声明入口 UpdateDialog；所属文件负责：显示版本与来源，查询本 fork GitHub 最新 Release，通过 DownloadManager 下载 APK 并启动系统安装；这是用户触发的联网入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "state",
+        "accentColor",
+        "textColor",
+        "secondaryTextColor",
+        "onDismiss",
+        "onConfirm"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        606,
+        759
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt:isNewerVersion",
+      "type": "function",
+      "name": "isNewerVersion",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "startLine": 775,
+      "endLine": 787,
+      "summary": "声明入口 isNewerVersion；所属文件负责：显示版本与来源，查询本 fork GitHub 最新 Release，通过 DownloadManager 下载 APK 并启动系统安装；这是用户触发的联网入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "latest",
+        "current"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        775,
+        787
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt:fetchLatestRelease",
+      "type": "function",
+      "name": "fetchLatestRelease",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "startLine": 789,
+      "endLine": 841,
+      "summary": "声明入口 fetchLatestRelease；所属文件负责：显示版本与来源，查询本 fork GitHub 最新 Release，通过 DownloadManager 下载 APK 并启动系统安装；这是用户触发的联网入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        789,
+        841
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt:mapDownloadError",
+      "type": "function",
+      "name": "mapDownloadError",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "startLine": 843,
+      "endLine": 856,
+      "summary": "声明入口 mapDownloadError；所属文件负责：显示版本与来源，查询本 fork GitHub 最新 Release，通过 DownloadManager 下载 APK 并启动系统安装；这是用户触发的联网入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "reason"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        843,
+        856
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt:queryDownloadStatus",
+      "type": "function",
+      "name": "queryDownloadStatus",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "startLine": 882,
+      "endLine": 907,
+      "summary": "声明入口 queryDownloadStatus；所属文件负责：显示版本与来源，查询本 fork GitHub 最新 Release，通过 DownloadManager 下载 APK 并启动系统安装；这是用户触发的联网入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "downloadManager",
+        "downloadId"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        882,
+        907
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+      "type": "file",
+      "name": "DisclaimerScreen.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+      "startLine": 1,
+      "endLine": 323,
+      "summary": "显示首次使用须知，滚动到底后开放确认回调，由父层保存已读状态。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        323
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt:DisclaimerScreen",
+      "type": "function",
+      "name": "DisclaimerScreen",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+      "startLine": 63,
+      "endLine": 257,
+      "summary": "声明入口 DisclaimerScreen；所属文件负责：显示首次使用须知，滚动到底后开放确认回调，由父层保存已读状态。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "onAcknowledged"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        63,
+        257
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt:DisclaimerCard",
+      "type": "function",
+      "name": "DisclaimerCard",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+      "startLine": 262,
+      "endLine": 323,
+      "summary": "声明入口 DisclaimerCard；所属文件负责：显示首次使用须知，滚动到底后开放确认回调，由父层保存已读状态。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "number",
+        "title",
+        "content",
+        "footer"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        262,
+        323
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "type": "file",
+      "name": "OnboardingScreen.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "startLine": 1,
+      "endLine": 503,
+      "summary": "显示首次使用的欢迎、手势说明和进入个性化流程，回传完成与继续事件。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        503
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt:OnboardingScreen",
+      "type": "function",
+      "name": "OnboardingScreen",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "startLine": 72,
+      "endLine": 140,
+      "summary": "声明入口 OnboardingScreen；所属文件负责：显示首次使用的欢迎、手势说明和进入个性化流程，回传完成与继续事件。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "onSkipToMain",
+        "onPersonalize"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        72,
+        140
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt:OnboardingWelcomePage",
+      "type": "function",
+      "name": "OnboardingWelcomePage",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "startLine": 145,
+      "endLine": 183,
+      "summary": "声明入口 OnboardingWelcomePage；所属文件负责：显示首次使用的欢迎、手势说明和进入个性化流程，回传完成与继续事件。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "simple",
+      "parameters": [],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        145,
+        183
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt:OnboardingGesturePage",
+      "type": "function",
+      "name": "OnboardingGesturePage",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "startLine": 188,
+      "endLine": 326,
+      "summary": "声明入口 OnboardingGesturePage；所属文件负责：显示首次使用的欢迎、手势说明和进入个性化流程，回传完成与继续事件。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        188,
+        326
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt:OnboardingGestureIndicator",
+      "type": "function",
+      "name": "OnboardingGestureIndicator",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "startLine": 331,
+      "endLine": 409,
+      "summary": "声明入口 OnboardingGestureIndicator；所属文件负责：显示首次使用的欢迎、手势说明和进入个性化流程，回传完成与继续事件。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "icon",
+        "label",
+        "color",
+        "modifier",
+        "isHorizontal"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        331,
+        409
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt:OnboardingReadyPage",
+      "type": "function",
+      "name": "OnboardingReadyPage",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "startLine": 414,
+      "endLine": 503,
+      "summary": "声明入口 OnboardingReadyPage；所属文件负责：显示首次使用的欢迎、手势说明和进入个性化流程，回传完成与继续事件。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "onPersonalize",
+        "onSkip"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        414,
+        503
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+      "type": "file",
+      "name": "PrivacyPolicyScreen.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+      "startLine": 1,
+      "endLine": 254,
+      "summary": "呈现隐私说明和返回入口，为设置页提供政策内容。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        254
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt:PrivacyPolicyScreen",
+      "type": "function",
+      "name": "PrivacyPolicyScreen",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+      "startLine": 33,
+      "endLine": 233,
+      "summary": "声明入口 PrivacyPolicyScreen；所属文件负责：呈现隐私说明和返回入口，为设置页提供政策内容。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "onNavigateBack"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        33,
+        233
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt:SectionTitle",
+      "type": "function",
+      "name": "SectionTitle",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+      "startLine": 235,
+      "endLine": 244,
+      "summary": "声明入口 SectionTitle；所属文件负责：呈现隐私说明和返回入口，为设置页提供政策内容。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "title",
+        "textColor"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        235,
+        244
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "type": "file",
+      "name": "TutorialScreen.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 1,
+      "endLine": 1175,
+      "summary": "以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        1175
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:TutorialScreen",
+      "type": "function",
+      "name": "TutorialScreen",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 80,
+      "endLine": 215,
+      "summary": "声明入口 TutorialScreen；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "onNavigateBack"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        80,
+        215
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:SwipeGestureTutorialPage",
+      "type": "function",
+      "name": "SwipeGestureTutorialPage",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 220,
+      "endLine": 324,
+      "summary": "声明入口 SwipeGestureTutorialPage；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "cardColor",
+        "textColor",
+        "secondaryTextColor",
+        "accentColor",
+        "isDarkTheme"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        220,
+        324
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:BottomSwipeHint",
+      "type": "function",
+      "name": "BottomSwipeHint",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 329,
+      "endLine": 372,
+      "summary": "声明入口 BottomSwipeHint；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "secondaryTextColor"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        329,
+        372
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:SwipeGestureAnimationDemo",
+      "type": "function",
+      "name": "SwipeGestureAnimationDemo",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 377,
+      "endLine": 499,
+      "summary": "声明入口 SwipeGestureAnimationDemo；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "cardColor",
+        "accentColor",
+        "isDarkTheme"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        377,
+        499
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:GestureIndicator",
+      "type": "function",
+      "name": "GestureIndicator",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 504,
+      "endLine": 528,
+      "summary": "声明入口 GestureIndicator；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "icon",
+        "label",
+        "color",
+        "modifier"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        504,
+        528
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:GestureExplanationItem",
+      "type": "function",
+      "name": "GestureExplanationItem",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 536,
+      "endLine": 588,
+      "summary": "声明入口 GestureExplanationItem；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "icon",
+        "iconColor",
+        "title",
+        "description",
+        "cardColor",
+        "textColor",
+        "secondaryTextColor"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        536,
+        588
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:TutorialFeatureItem",
+      "type": "function",
+      "name": "TutorialFeatureItem",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 593,
+      "endLine": 622,
+      "summary": "声明入口 TutorialFeatureItem；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "title",
+        "description",
+        "cardColor",
+        "textColor",
+        "secondaryTextColor"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        593,
+        622
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:AlbumManagementTutorialPage",
+      "type": "function",
+      "name": "AlbumManagementTutorialPage",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 627,
+      "endLine": 721,
+      "summary": "声明入口 AlbumManagementTutorialPage；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "cardColor",
+        "textColor",
+        "secondaryTextColor",
+        "accentColor",
+        "isDarkTheme"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        627,
+        721
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:AlbumGridDemo",
+      "type": "function",
+      "name": "AlbumGridDemo",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 726,
+      "endLine": 801,
+      "summary": "声明入口 AlbumGridDemo；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "cardColor",
+        "accentColor",
+        "isDarkTheme"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        726,
+        801
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:RecycleBinTutorialPage",
+      "type": "function",
+      "name": "RecycleBinTutorialPage",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 806,
+      "endLine": 889,
+      "summary": "声明入口 RecycleBinTutorialPage；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "cardColor",
+        "textColor",
+        "secondaryTextColor",
+        "accentColor",
+        "isDarkTheme"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        806,
+        889
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:RecycleBinDemo",
+      "type": "function",
+      "name": "RecycleBinDemo",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 894,
+      "endLine": 968,
+      "summary": "声明入口 RecycleBinDemo；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "cardColor",
+        "isDarkTheme"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        894,
+        968
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:SettingsTutorialPage",
+      "type": "function",
+      "name": "SettingsTutorialPage",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 973,
+      "endLine": 1067,
+      "summary": "声明入口 SettingsTutorialPage；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "cardColor",
+        "textColor",
+        "secondaryTextColor",
+        "accentColor",
+        "isDarkTheme"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        973,
+        1067
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:SettingsDemo",
+      "type": "function",
+      "name": "SettingsDemo",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 1072,
+      "endLine": 1125,
+      "summary": "声明入口 SettingsDemo；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "moderate",
+      "parameters": [
+        "cardColor",
+        "accentColor",
+        "isDarkTheme"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1072,
+        1125
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:SettingsDemoItem",
+      "type": "function",
+      "name": "SettingsDemoItem",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "startLine": 1130,
+      "endLine": 1175,
+      "summary": "声明入口 SettingsDemoItem；所属文件负责：以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-screens"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "title",
+        "isToggled",
+        "toggleColor",
+        "isDarkTheme"
+      ],
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1130,
+        1175
+      ]
+    },
+    {
+      "id": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "file",
+      "name": "HapticFeedback.kt",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "startLine": 1,
+      "endLine": 209,
+      "summary": "封装振动器与系统触觉，统一强度、启用状态、反馈类型及节流。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "complex",
+      "language": "kotlin",
+      "fileCategory": "code",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        209
+      ]
+    },
+    {
+      "id": "class:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback",
+      "type": "class",
+      "name": "HapticFeedback",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "startLine": 14,
+      "endLine": 209,
+      "summary": "HapticFeedback 的声明与成员入口；文件职责：封装振动器与系统触觉，统一强度、启用状态、反馈类型及节流。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "moderate",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        14,
+        209
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.updateSettings",
+      "type": "function",
+      "name": "HapticFeedback.updateSettings",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "startLine": 28,
+      "endLine": 31,
+      "summary": "声明入口 HapticFeedback.updateSettings；所属文件负责：封装振动器与系统触觉，统一强度、启用状态、反馈类型及节流。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "enabled",
+        "strength"
+      ],
+      "owner": "HapticFeedback",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        28,
+        31
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.getVibrator",
+      "type": "function",
+      "name": "HapticFeedback.getVibrator",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "startLine": 36,
+      "endLine": 47,
+      "summary": "声明入口 HapticFeedback.getVibrator；所属文件负责：封装振动器与系统触觉，统一强度、启用状态、反馈类型及节流。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "context"
+      ],
+      "owner": "HapticFeedback",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        36,
+        47
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.vibrateOneShot",
+      "type": "function",
+      "name": "HapticFeedback.vibrateOneShot",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "startLine": 65,
+      "endLine": 96,
+      "summary": "声明入口 HapticFeedback.vibrateOneShot；所属文件负责：封装振动器与系统触觉，统一强度、启用状态、反馈类型及节流。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "context",
+        "baseDurationMs",
+        "extraMaxMs",
+        "scale",
+        "throttle"
+      ],
+      "owner": "HapticFeedback",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        65,
+        96
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.vibrateWithStrength",
+      "type": "function",
+      "name": "HapticFeedback.vibrateWithStrength",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "startLine": 102,
+      "endLine": 138,
+      "summary": "声明入口 HapticFeedback.vibrateWithStrength；所属文件负责：封装振动器与系统触觉，统一强度、启用状态、反馈类型及节流。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "context",
+        "tempStrength",
+        "baseDurationMs",
+        "extraMaxMs",
+        "scale"
+      ],
+      "owner": "HapticFeedback",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        102,
+        138
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.lightTap",
+      "type": "function",
+      "name": "HapticFeedback.lightTap",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "startLine": 145,
+      "endLine": 147,
+      "summary": "声明入口 HapticFeedback.lightTap；所属文件负责：封装振动器与系统触觉，统一强度、启用状态、反馈类型及节流。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "context",
+        "throttle"
+      ],
+      "owner": "HapticFeedback",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        145,
+        147
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.mediumTap",
+      "type": "function",
+      "name": "HapticFeedback.mediumTap",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "startLine": 154,
+      "endLine": 156,
+      "summary": "声明入口 HapticFeedback.mediumTap；所属文件负责：封装振动器与系统触觉，统一强度、启用状态、反馈类型及节流。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "context",
+        "throttle"
+      ],
+      "owner": "HapticFeedback",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        154,
+        156
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.heavyTap",
+      "type": "function",
+      "name": "HapticFeedback.heavyTap",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "startLine": 161,
+      "endLine": 163,
+      "summary": "声明入口 HapticFeedback.heavyTap；所属文件负责：封装振动器与系统触觉，统一强度、启用状态、反馈类型及节流。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "context"
+      ],
+      "owner": "HapticFeedback",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        161,
+        163
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.doubleTap",
+      "type": "function",
+      "name": "HapticFeedback.doubleTap",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "startLine": 168,
+      "endLine": 184,
+      "summary": "声明入口 HapticFeedback.doubleTap；所属文件负责：封装振动器与系统触觉，统一强度、启用状态、反馈类型及节流。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "context"
+      ],
+      "owner": "HapticFeedback",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        168,
+        184
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.strengthPreview",
+      "type": "function",
+      "name": "HapticFeedback.strengthPreview",
+      "filePath": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "startLine": 195,
+      "endLine": 208,
+      "summary": "声明入口 HapticFeedback.strengthPreview；所属文件负责：封装振动器与系统触觉，统一强度、启用状态、反馈类型及节流。",
+      "tags": [
+        "declaration-index",
+        "supporting-index",
+        "ui-components"
+      ],
+      "complexity": "simple",
+      "parameters": [
+        "context",
+        "previewStrength"
+      ],
+      "owner": "HapticFeedback",
+      "analysisDepth": "declaration-index",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        195,
+        208
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp.removeConfirmedFromState",
+      "type": "function",
+      "name": "TabulaApp.removeConfirmedFromState",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 422,
+      "endLine": 426,
+      "summary": "从图库、待整理及回收站显示集合移除已确认的 URI。",
+      "tags": [
+        "manual-source-trace",
+        "critical-path"
+      ],
+      "complexity": "complex",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        422,
+        426
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp.deleteRecycleBinImages",
+      "type": "function",
+      "name": "TabulaApp.deleteRecycleBinImages",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 470,
+      "endLine": 521,
+      "summary": "先恢复待核对日志，当前 UNKNOWN 阻断全局；随后按批执行回收站删除并更新状态。",
+      "tags": [
+        "manual-source-trace",
+        "critical-path"
+      ],
+      "complexity": "complex",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        470,
+        521
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp.performDeleteBatch",
+      "type": "function",
+      "name": "TabulaApp.performDeleteBatch",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 527,
+      "endLine": 563,
+      "summary": "详情删除适配器，直接请求整组并回调整体 Boolean，丢失部分成功及恢复账本。",
+      "tags": [
+        "manual-source-trace",
+        "critical-path"
+      ],
+      "complexity": "complex",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        527,
+        563
+      ]
+    },
+    {
+      "id": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp.performDeleteUris",
+      "type": "function",
+      "name": "TabulaApp.performDeleteUris",
+      "filePath": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "startLine": 571,
+      "endLine": 606,
+      "summary": "原图清理适配器，直接请求整组，授权后仅回传核验为已删除的 URI 集合。",
+      "tags": [
+        "manual-source-trace",
+        "critical-path"
+      ],
+      "complexity": "complex",
+      "analysisDepth": "critical-path",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        571,
+        606
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onSaveInstanceState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onSaveInstanceState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onSaveInstanceState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onCreate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onCreate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onResume",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onResume",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onResume",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onStop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onStop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.onStop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.updateBatchRemaining",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.updateBatchRemaining",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:MainActivity.updateBatchRemaining",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:SourceImageDeletionDialog",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:PermissionRequestScreen",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:DeleteFailureKind",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:DeleteFailureKind",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:UriPresence",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:UriPresence",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:DeletionVerification",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:DeletionVerification",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.deleteImage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.deleteImage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.deleteImage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.deleteImages",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.deleteImages",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.deleteImages",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.verifyDeletion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.verifyDeletion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.verifyDeletion",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.verifyDeletionState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.verifyDeletionState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.verifyDeletionState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.queryPresence",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.queryPresence",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.queryPresence",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.moveToTrash",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.moveToTrash",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.moveToTrash",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.restoreFromTrash",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.restoreFromTrash",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.restoreFromTrash",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.isUriValid",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.isUriValid",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.isUriValid",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:asBatchFailure",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:asBatchFailure",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:canConfirmMissingOnVolume",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:canConfirmMissingOnVolume",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinStorage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinStorage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:AtomicRecycleBinStorage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:AtomicRecycleBinStorage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinPersistenceException",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinPersistenceException",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinStorage.read",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinStorage",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinStorage.read",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinStorage.read",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinStorage.write",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinStorage",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinStorage.write",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinStorage.write",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:AtomicRecycleBinStorage.read",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:AtomicRecycleBinStorage",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:AtomicRecycleBinStorage.read",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:AtomicRecycleBinStorage.read",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:AtomicRecycleBinStorage.write",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:AtomicRecycleBinStorage",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:AtomicRecycleBinStorage.write",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:AtomicRecycleBinStorage.write",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.transaction",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.transaction",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.addToRecycleBin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.addToRecycleBin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.addToRecycleBin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.addAllToRecycleBin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.addAllToRecycleBin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.addAllToRecycleBin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.removeFromRecycleBin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.removeFromRecycleBin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.removeFromRecycleBin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.removeAllFromRecycleBin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.removeAllFromRecycleBin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.removeAllFromRecycleBin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.clearRecycleBin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.clearRecycleBin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.clearRecycleBin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.loadRecycleBin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.loadRecycleBin",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.loadRecycleBin",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.getRecycleBinCount",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.getRecycleBinCount",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.getRecycleBinCount",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.pendingDeletionUris",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.pendingDeletionUris",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.pendingDeletionUris",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.beginDeletion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.beginDeletion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.beginDeletion",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.finishDeletion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.finishDeletion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.finishDeletion",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.loadUnlocked",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.loadUnlocked",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.saveUnlocked",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt:RecycleBinManager.saveUnlocked",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession.launch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession.launch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession.launch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession.complete",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession.complete",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession.complete",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession.save",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession.save",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt:DeletePermissionSession.save",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy.requiredPermissionsForSdk",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy.requiredPermissionsForSdk",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy.requiredPermissionsForSdk",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy.hasMediaReadPermission",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy.hasMediaReadPermission",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy.hasMediaReadPermission",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy.isAnyRequestedPermissionGranted",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy.isAnyRequestedPermissionGranted",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt:MediaPermissionPolicy.isAnyRequestedPermissionGranted",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt:ModeToggle",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt:ModeToggle",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt:OnboardingDialog",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt:OnboardingDialog",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt:WelcomePage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt:GesturePage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt:GestureIndicator",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt:ReadyPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt:QuickActionButton",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt:QuickActionButton",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt:AppScreen",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt:AppScreen",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt:PredictiveBackContainer",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt:PredictiveBackContainer",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt:AboutScreen",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt:AboutScreen",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt:UpdateDialog",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt:isNewerVersion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt:fetchLatestRelease",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt:mapDownloadError",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt:queryDownloadStatus",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt:DisclaimerScreen",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt:DisclaimerScreen",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt:DisclaimerCard",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt:OnboardingScreen",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt:OnboardingScreen",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt:OnboardingWelcomePage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt:OnboardingGesturePage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt:OnboardingGestureIndicator",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt:OnboardingReadyPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt:PrivacyPolicyScreen",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt:PrivacyPolicyScreen",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt:SectionTitle",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:TutorialScreen",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:TutorialScreen",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:SwipeGestureTutorialPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:BottomSwipeHint",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:SwipeGestureAnimationDemo",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:GestureIndicator",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:GestureExplanationItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:TutorialFeatureItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:AlbumManagementTutorialPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:AlbumGridDemo",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:RecycleBinTutorialPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:RecycleBinDemo",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:SettingsTutorialPage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:SettingsDemo",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt:SettingsDemoItem",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "class:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.updateSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.updateSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.updateSettings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.getVibrator",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.getVibrator",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.vibrateOneShot",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.vibrateOneShot",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.vibrateWithStrength",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.vibrateWithStrength",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.lightTap",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.lightTap",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.lightTap",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.mediumTap",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.mediumTap",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.mediumTap",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.heavyTap",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.heavyTap",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.heavyTap",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.doubleTap",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.doubleTap",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.doubleTap",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.strengthPreview",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "class:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.strengthPreview",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt:HapticFeedback.strengthPreview",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp.removeConfirmedFromState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp.deleteRecycleBinImages",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp.performDeleteBatch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp.performDeleteUris",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/repository/AlbumManager.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/service/FluidCloudService.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "target": "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7,
+      "evidence": "bundled extract-import-map"
+    },
+    {
+      "source": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp.deleteRecycleBinImages",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinDeletion.kt:reconcileRecycleBinDeletion",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8,
+      "evidence": "manual static source trace"
+    },
+    {
+      "source": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp.deleteRecycleBinImages",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/BatchDeletion.kt:deleteInBatches",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8,
+      "evidence": "manual static source trace"
+    },
+    {
+      "source": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp.deleteRecycleBinImages",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/RecycleBinDeletion.kt:deleteRecycleBinBatch",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8,
+      "evidence": "manual static source trace"
+    },
+    {
+      "source": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp.performDeleteBatch",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.deleteImages",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8,
+      "evidence": "manual static source trace"
+    },
+    {
+      "source": "function:app/src/main/java/com/tabula/v3/MainActivity.kt:TabulaApp.performDeleteUris",
+      "target": "function:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt:FileOperationManager.deleteImages",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8,
+      "evidence": "manual static source trace"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5,
+      "evidence": "test source usage; execution status is in evidence/ci"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5,
+      "evidence": "test source usage; execution status is in evidence/ci"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinManagerTest.kt",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5,
+      "evidence": "test source usage; execution status is in evidence/ci"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5,
+      "evidence": "test source usage; execution status is in evidence/ci"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "target": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5,
+      "evidence": "test source usage; execution status is in evidence/ci"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "target": "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5,
+      "evidence": "test source usage; execution status is in evidence/ci"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "target": "file:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5,
+      "evidence": "test source usage; execution status is in evidence/ci"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "target": "file:app/src/androidTest/java/com/tabula/v3/data/repository/VolumeDeletionDeviceTest.kt",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5,
+      "evidence": "test source usage; execution status is in evidence/ci"
+    },
+    {
+      "source": "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "target": "file:app/src/androidTest/java/com/tabula/v3/data/repository/VolumeDeletionDeviceTest.kt",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5,
+      "evidence": "test source usage; execution status is in evidence/ci"
+    }
+  ]
+}

@@ -1,0 +1,378 @@
+{
+  "scriptCompleted": true,
+  "stats": {
+    "filesScanned": 145,
+    "filesWithImports": 57,
+    "totalEdges": 165
+  },
+  "failures": [],
+  "importMap": {
+    ".github/workflows/build-photo-sharing.yml": [],
+    ".github/workflows/build-recycle-bin-consistency.yml": [],
+    ".github/workflows/build-test-apk.yml": [],
+    ".github/workflows/build-volume-confirmation.yml": [],
+    ".github/workflows/publish-release.yml": [],
+    "README.md": [],
+    "app/build.gradle.kts": [],
+    "app/proguard-rules.pro": [],
+    "app/release/output-metadata.json": [],
+    "app/src/androidTest/java/com/tabula/v3/data/repository/VolumeDeletionDeviceTest.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+    ],
+    "app/src/debug/res/values/strings.xml": [],
+    "app/src/debug/res/xml/shortcuts.xml": [],
+    "app/src/main/AndroidManifest.xml": [],
+    "app/src/main/java/com/tabula/v3/MainActivity.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+      "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+      "app/src/main/java/com/tabula/v3/data/repository/AlbumManager.kt",
+      "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+      "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+      "app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt",
+      "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+      "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+      "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+      "app/src/main/java/com/tabula/v3/service/FluidCloudService.kt",
+      "app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/TabulaApplication.kt": [
+      "app/src/main/java/com/tabula/v3/di/CoilSetup.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt": [
+      "app/src/main/java/com/tabula/v3/data/repository/PerceptualHash.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/data/model/Album.kt": [],
+    "app/src/main/java/com/tabula/v3/data/model/AlbumMapping.kt": [],
+    "app/src/main/java/com/tabula/v3/data/model/AlbumUsage.kt": [],
+    "app/src/main/java/com/tabula/v3/data/model/ImageFeatures.kt": [],
+    "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt": [],
+    "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt": [],
+    "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt": [
+      "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt": [
+      "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt",
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/AlbumManager.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/model/AlbumMapping.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/AlbumUsageTracker.kt": [],
+    "app/src/main/java/com/tabula/v3/data/repository/BatchDeletion.kt": [],
+    "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt": [],
+    "app/src/main/java/com/tabula/v3/data/repository/ImageFeatureDetector.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFeatures.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/PerceptualHash.kt": [],
+    "app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt": [
+      "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/RecycleBinDeletion.kt": [],
+    "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/SimilarGroupDetector.kt": [
+      "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/SystemAlbumSyncManager.kt": [],
+    "app/src/main/java/com/tabula/v3/di/CoilSetup.kt": [],
+    "app/src/main/java/com/tabula/v3/di/PreloadingManager.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt": [],
+    "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt": [],
+    "app/src/main/java/com/tabula/v3/service/FluidCloudService.kt": [
+      "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/AlbumChips.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/AlbumDialogs.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/AlbumDropTarget.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/BackdropLiquidGlass.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/BatchCompletionScreen.kt": [
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/CardStack.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/di/PreloadingManager.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/StringDragSelectState.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/DrawCardState.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/FixedTagBar.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/GenieEffect.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/GenieTargetUtils.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/GlassBottomSheet.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/Glassmorphism.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/di/CoilSetup.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/LiquidGlass.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/LiquidGlassV2.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/MediaBadges.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt": [
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt": [
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/PhysicalLiquidGlass.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/RealLiquidGlass.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/di/CoilSetup.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/TagPosition.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/TopBar.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/UndoSnackbar.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/di/CoilSetup.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt": [
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/quickaction/SafeAreaCompat.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt": [
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt": [
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+      "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+      "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+      "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/AlbumDropTarget.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/BatchCompletionScreen.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/FixedTagBar.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/TagPosition.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/TopBar.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/UndoSnackbar.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt": [
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt": [
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt": [
+      "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt": [
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt": [
+      "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/GlassBottomSheet.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "app/src/main/java/com/tabula/v3/widget/TabulaWidgetProvider.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt": [
+      "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/theme/Theme.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/theme/Type.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/util/AlbumCleanupImageResolver.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/util/ContextExtensions.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/util/ImageFeatureState.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFeatures.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/data/repository/ImageFeatureDetector.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/util/PhotoSharing.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/util/SelectionUtils.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/util/StringDragSelectState.kt": [],
+    "app/src/main/java/com/tabula/v3/widget/TabulaWidgetProvider.kt": [
+      "app/src/main/java/com/tabula/v3/MainActivity.kt",
+      "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+      "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt"
+    ],
+    "app/src/main/res/drawable/fluid_cloud_background.xml": [],
+    "app/src/main/res/drawable/ic_launcher_background.xml": [],
+    "app/src/main/res/drawable/ic_launcher_foreground.xml": [],
+    "app/src/main/res/drawable/ic_quick_start.xml": [],
+    "app/src/main/res/drawable/ic_widget_shortcut.xml": [],
+    "app/src/main/res/drawable/widget_background.xml": [],
+    "app/src/main/res/layout/fluid_cloud_layout.xml": [],
+    "app/src/main/res/layout/widget_tabula.xml": [],
+    "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml": [],
+    "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml": [],
+    "app/src/main/res/raw/liquidglass_effect.agsl": [],
+    "app/src/main/res/values/colors.xml": [],
+    "app/src/main/res/values/strings.xml": [],
+    "app/src/main/res/values/themes.xml": [],
+    "app/src/main/res/xml/data_extraction_rules.xml": [],
+    "app/src/main/res/xml/shortcuts.xml": [],
+    "app/src/main/res/xml/widget_info.xml": [],
+    "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt": [],
+    "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt": [],
+    "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt": [],
+    "app/src/test/java/com/tabula/v3/data/repository/RecycleBinManagerTest.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+    ],
+    "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt": [],
+    "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt": [],
+    "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt": [],
+    "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt": [],
+    "app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt": [],
+    "app/src/test/java/com/tabula/v3/ui/components/MonthInfoBuilderTest.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+    ],
+    "app/src/test/java/com/tabula/v3/ui/util/AlbumCleanupImageResolverTest.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+    ],
+    "app/src/test/java/com/tabula/v3/ui/util/PhotoSharingTest.kt": [
+      "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+      "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt"
+    ],
+    "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt": [],
+    "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt": [],
+    "build.gradle.kts": [],
+    "docs/release-3.3.4.md": [],
+    "gradle.properties": [],
+    "gradle/libs.versions.toml": [],
+    "gradle/wrapper/gradle-wrapper.properties": [],
+    "gradlew": [],
+    "gradlew.bat": [],
+    "scripts/encrypt-release-backup.cjs": [],
+    "scripts/release-backup-public.pem": [],
+    "settings.gradle.kts": [],
+    "tools/run-volume-device-probe.py": []
+  }
+}

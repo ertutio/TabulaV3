@@ -1,0 +1,85 @@
+{
+  "total_count": 4,
+  "artifacts": [
+    {
+      "id": 11946502333,
+      "node_id": "MDg6QXJ0aWZhY3QxMTk0NjUwMjMzMw==",
+      "name": "Tabula-VolumeFix-build",
+      "size_in_bytes": 14869751,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/artifacts/11946502333",
+      "archive_download_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/artifacts/11946502333/zip",
+      "expired": false,
+      "digest": "sha256:12af2b47f821cac082779471acea206766bfd10fc0ad35dbe1f4a497f4b2d823",
+      "created_at": "2026-10-15T03:26:53Z",
+      "updated_at": "2026-10-15T03:26:53Z",
+      "expires_at": "2027-01-13T03:25:59Z",
+      "workflow_run": {
+        "id": 38676233496,
+        "repository_id": 1415850463,
+        "head_repository_id": 1415850463,
+        "head_branch": "fix/recycle-bin-volume-confirmation",
+        "head_sha": "7cc5ddcbcfd4578bc2ecbd1f4e8dccd088053574"
+      }
+    },
+    {
+      "id": 11946427906,
+      "node_id": "MDg6QXJ0aWZhY3QxMTk0NjQyNzkwNg==",
+      "name": "Tabula-VolumeFix-API37",
+      "size_in_bytes": 727250,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/artifacts/11946427906",
+      "archive_download_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/artifacts/11946427906/zip",
+      "expired": false,
+      "digest": "sha256:52ad252ecb9b15c669930b4d5dd5693b9f9547f016c0891209ee2f4b64dff227",
+      "created_at": "2026-10-15T03:30:23Z",
+      "updated_at": "2026-10-15T03:30:23Z",
+      "expires_at": "2027-01-13T03:25:59Z",
+      "workflow_run": {
+        "id": 38676233496,
+        "repository_id": 1415850463,
+        "head_repository_id": 1415850463,
+        "head_branch": "fix/recycle-bin-volume-confirmation",
+        "head_sha": "7cc5ddcbcfd4578bc2ecbd1f4e8dccd088053574"
+      }
+    },
+    {
+      "id": 11946252367,
+      "node_id": "MDg6QXJ0aWZhY3QxMTk0NjI1MjM2Nw==",
+      "name": "Tabula-VolumeFix-device-apks",
+      "size_in_bytes": 33997292,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/artifacts/11946252367",
+      "archive_download_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/artifacts/11946252367/zip",
+      "expired": false,
+      "digest": "sha256:da0411976b7a925d82b2bbe810822180e1109c8f0a56fbba0c0062ae29bf7afb",
+      "created_at": "2026-10-15T03:26:56Z",
+      "updated_at": "2026-10-15T03:26:56Z",
+      "expires_at": "2027-01-13T03:25:59Z",
+      "workflow_run": {
+        "id": 38676233496,
+        "repository_id": 1415850463,
+        "head_repository_id": 1415850463,
+        "head_branch": "fix/recycle-bin-volume-confirmation",
+        "head_sha": "7cc5ddcbcfd4578bc2ecbd1f4e8dccd088053574"
+      }
+    },
+    {
+      "id": 11946033022,
+      "node_id": "MDg6QXJ0aWZhY3QxMTk0NjAzMzAyMg==",
+      "name": "Tabula-VolumeFix-API36",
+      "size_in_bytes": 718731,
+      "url": "https://api.github.com/repos/ertutio/TabulaV3/actions/artifacts/11946033022",
+      "archive_download_url": "https://api.github.com/repos/ertutio/TabulaV3/actions/artifacts/11946033022/zip",
+      "expired": false,
+      "digest": "sha256:b5ffb494ddfecc0adbd2ab3ce8dcd73905e6fdc69b5991f00bacdc3f0a92937b",
+      "created_at": "2026-10-15T03:29:26Z",
+      "updated_at": "2026-10-15T03:29:26Z",
+      "expires_at": "2027-01-13T03:25:59Z",
+      "workflow_run": {
+        "id": 38676233496,
+        "repository_id": 1415850463,
+        "head_repository_id": 1415850463,
+        "head_branch": "fix/recycle-bin-volume-confirmation",
+        "head_sha": "7cc5ddcbcfd4578bc2ecbd1f4e8dccd088053574"
+      }
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "nodes": [
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "README.md",
+      "startLine": 1,
+      "endLine": 126,
+      "summary": "说明照片整理功能、fork 来源与下载/致谢；版本和 API 徽标不是构建配置或验收事实来源。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "complexity": "moderate",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        126
+      ]
+    },
+    {
+      "id": "config:gradle.properties",
+      "type": "config",
+      "name": "gradle.properties",
+      "filePath": "gradle.properties",
+      "startLine": 1,
+      "endLine": 15,
+      "summary": "配置 Gradle JVM 内存、并行/构建/配置缓存及 AndroidX/Kotlin 风格。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "complexity": "simple",
+      "language": "properties",
+      "fileCategory": "config",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        15
+      ]
+    },
+    {
+      "id": "file:gradlew.bat",
+      "type": "file",
+      "name": "gradlew.bat",
+      "filePath": "gradlew.bat",
+      "startLine": 1,
+      "endLine": 92,
+      "summary": "Windows Gradle wrapper，按 JAVA_HOME/Java 命令设置 JVM 并启动 GradleWrapperMain。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "complexity": "moderate",
+      "language": "batch",
+      "fileCategory": "script",
+      "analysisDepth": "surface",
+      "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+      "lineRange": [
+        1,
+        92
+      ]
+    }
+  ],
+  "edges": []
+}

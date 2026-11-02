@@ -1,0 +1,4296 @@
+{
+  "schemaVersion": 1,
+  "algorithm": "louvain",
+  "totalFiles": 145,
+  "totalBatches": 13,
+  "exportsByPath": {
+    "app/build.gradle.kts": [],
+    "app/proguard-rules.pro": [],
+    "app/src/androidTest/java/com/tabula/v3/data/repository/VolumeDeletionDeviceTest.kt": [
+      "prepare",
+      "actualProviderConfirmsLegacyUriMissingAfterOwnedPhotoDeletion",
+      "previousPendingRecordRecoversAndNewReadableRecordIsRetained",
+      "stillExistingPhotoIsNeverRemovedDuringReconciliation",
+      "cleanupOnlyOwnedFixtures",
+      "VolumeDeletionDeviceTest"
+    ],
+    "app/src/main/java/com/tabula/v3/MainActivity.kt": [
+      "onSaveInstanceState",
+      "onCreate",
+      "onResume",
+      "onStop",
+      "updateBatchRemaining",
+      "MainActivity",
+      "TabulaApp"
+    ],
+    "app/src/main/java/com/tabula/v3/TabulaApplication.kt": [
+      "onCreate",
+      "TabulaApplication"
+    ],
+    "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt": [
+      "getHash",
+      "getHashesBatch",
+      "saveHash",
+      "saveHashesBatch",
+      "cleanupStaleHashes",
+      "getStats",
+      "clearAll",
+      "ImageHashCache"
+    ],
+    "app/src/main/java/com/tabula/v3/data/model/Album.kt": [
+      "SyncMode",
+      "Album"
+    ],
+    "app/src/main/java/com/tabula/v3/data/model/AlbumMapping.kt": [
+      "AlbumMapping",
+      "PendingAlbumAction",
+      "AlbumActionType"
+    ],
+    "app/src/main/java/com/tabula/v3/data/model/AlbumUsage.kt": [
+      "AlbumUsageRecord",
+      "AlbumUsageStats"
+    ],
+    "app/src/main/java/com/tabula/v3/data/model/ImageFeatures.kt": [
+      "isMotionPhoto",
+      "ImageFeatures",
+      "MotionPhotoInfo"
+    ],
+    "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt": [
+      "actualWidth",
+      "actualHeight",
+      "isPortrait",
+      "aspectRatio",
+      "hasDimensionInfo",
+      "ImageFile"
+    ],
+    "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt": [
+      "storageChange",
+      "hasChange",
+      "AlbumStorageInfo",
+      "imageStorageRatio",
+      "totalStorageChange",
+      "hasTotalChange",
+      "StorageScanResult"
+    ],
+    "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt": [
+      "sortOrder",
+      "themeMode",
+      "showDeleteConfirm",
+      "showHdrBadges",
+      "showMotionBadges",
+      "playMotionSound",
+      "motionSoundVolume",
+      "hapticEnabled",
+      "hapticStrength",
+      "swipeHapticsEnabled",
+      "batchSize",
+      "topBarDisplayMode",
+      "totalReviewedCount",
+      "totalDeletedCount",
+      "recommendMode",
+      "lastKnownImageCount",
+      "fluidCloudEnabled",
+      "pendingBatchRemaining",
+      "cardStyleMode",
+      "swipeStyle",
+      "tagSelectionMode",
+      "tagSwitchSpeed",
+      "tagsPerRow",
+      "liquidGlassLabEnabled",
+      "hasCompletedOnboarding",
+      "hasAcknowledgedDisclaimer",
+      "smartSortEnabled",
+      "smartSortTimeDecay",
+      "smartSortConsecutiveDecay",
+      "smartSortLockDays",
+      "sourceImageDeletionStrategy",
+      "quickActionButtonEnabled",
+      "quickActionButtonX",
+      "quickActionButtonY",
+      "resetQuickActionButtonPosition",
+      "recordImagePicked",
+      "getImagePickedTimestamp",
+      "getImageCooldownDays",
+      "isImageInCooldown",
+      "cleanupExpiredPickRecords",
+      "getCooldownImageIds",
+      "recordImagesPicked",
+      "removeImagesFromCooldown",
+      "clearAllPickRecords",
+      "recordSimilarGroupProcessed",
+      "isSimilarGroupInCooldown",
+      "getSimilarGroupCooldownIds",
+      "cleanupExpiredSimilarGroupRecords",
+      "albumCleanupDisplayMode",
+      "currentCleanupAlbumId",
+      "saveAlbumAnalysisResult",
+      "saveAlbumTotalImages",
+      "getAlbumTotalImages",
+      "saveGroupImageCount",
+      "saveGroupImageCounts",
+      "getGroupImageCount",
+      "getAlbumRemainingImages",
+      "getAlbumTotalGroups",
+      "getAlbumGroupIds",
+      "getAlbumProcessedGroups",
+      "getAlbumPermanentlyProcessedGroups",
+      "markAlbumGroupPermanentlyProcessed",
+      "markAlbumGroupsPermanentlyProcessed",
+      "getAlbumRemainingGroups",
+      "isAlbumCleanupCompleted",
+      "markAlbumCleanupCompleted",
+      "getCompletedCleanupAlbumIds",
+      "resetAlbumCleanupState",
+      "clearAllAlbumCleanupState",
+      "saveAlbumCleanupCheckpoint",
+      "getAlbumCleanupCheckpoint",
+      "clearAlbumCleanupCheckpoint",
+      "saveGroupImageIds",
+      "saveGroupsImageIds",
+      "getGroupImageIds",
+      "hasPersistedGroupData",
+      "pinnedAlbumNames",
+      "pinAlbum",
+      "unpinAlbum",
+      "AppPreferences",
+      "ThemeMode",
+      "TopBarDisplayMode",
+      "RecommendMode",
+      "CardStyleMode",
+      "SwipeStyle",
+      "TagSelectionMode",
+      "AlbumCleanupDisplayMode",
+      "SourceImageDeletionStrategy",
+      "rememberAppPreferences"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt": [
+      "groupCount",
+      "imageCount",
+      "getGroupIdForIndex",
+      "isLastInGroup",
+      "AlbumCleanupBatch",
+      "remainingGroups",
+      "AlbumCleanupInfo",
+      "getState",
+      "getCurrentAlbumId",
+      "analyzeAlbum",
+      "getTotalGroups",
+      "getRemainingGroups",
+      "getTotalImages",
+      "getRemainingImages",
+      "getCleanupProgress",
+      "isAlbumCompleted",
+      "getNextBatch",
+      "markGroupProcessed",
+      "markGroupsProcessed",
+      "exitCleanupMode",
+      "saveCheckpoint",
+      "getCheckpoint",
+      "clearCheckpoint",
+      "getCheckpointBatch",
+      "resetAlbumState",
+      "getAlbumCleanupInfo",
+      "AlbumCleanupEngine"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/AlbumManager.kt": [
+      "albums",
+      "excludedAlbumCount",
+      "hiddenAlbumCount",
+      "hiddenAndExcludedCount",
+      "mappings",
+      "createAlbum",
+      "updateAlbum",
+      "deleteAlbum",
+      "hideAlbum",
+      "unhideAlbum",
+      "setAlbumExcludedFromRecommend",
+      "isAlbumExcludedFromRecommend",
+      "getExcludedAlbumIds",
+      "getHiddenAlbums",
+      "getExcludedAlbums",
+      "deleteEmptyAlbum",
+      "getAllAlbums",
+      "reorderAlbums",
+      "addImageToAlbum",
+      "removeImageFromAlbum",
+      "getAlbumsForImage",
+      "getImageIdsForAlbum",
+      "getImageMappingsForAlbum",
+      "getAlbumIdsForImage",
+      "getImageUrisForIds",
+      "moveImagesToAlbum",
+      "copyImagesToAlbum",
+      "refreshAlbumsFromSystem",
+      "initialize",
+      "validateAndFixCoverImages",
+      "getSourceImagesForAlbum",
+      "getAllSourceImages",
+      "clearSourceImageRecords",
+      "syncAllEnabledAlbumsToSystem",
+      "getCleanableUrisForAllAlbums",
+      "getCleanableUrisForAlbum",
+      "clearDeletedUris",
+      "queueImageToAlbum",
+      "cancelLastPendingArchive",
+      "commitPendingArchive",
+      "getLastPendingArchive",
+      "undoLastAction",
+      "getLastAction",
+      "clearUndoQueue",
+      "AlbumManager"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/AlbumUsageTracker.kt": [
+      "initialize",
+      "recordUsage",
+      "getAlbumScores",
+      "getAlbumScores",
+      "getAlbumStats",
+      "setManualOrderLock",
+      "clearManualOrderLock",
+      "clearManualOrderLock",
+      "isManualOrderLocked",
+      "hasAnyManualOrderLock",
+      "clearAlbumRecords",
+      "AlbumUsageTracker"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/BatchDeletion.kt": [
+      "BatchDeleteResult",
+      "BatchDeleteSummary",
+      "deleteInBatches"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt": [
+      "deleteImage",
+      "deleteImages",
+      "verifyDeletion",
+      "verifyDeletionState",
+      "queryPresence",
+      "moveToTrash",
+      "restoreFromTrash",
+      "isUriValid",
+      "FileOperationManager",
+      "DeleteFailureKind",
+      "UriPresence",
+      "DeletionVerification",
+      "asBatchFailure",
+      "canConfirmMissingOnVolume"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/ImageFeatureDetector.kt": [
+      "setFastMode",
+      "detect",
+      "ImageFeatureDetector"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt": [
+      "getAllImages",
+      "getAllImagesExcludingTabulaAlbums",
+      "getImagesByBucket",
+      "getImagesByRelativePath",
+      "filterImagesByAlbumPath",
+      "getImagesPaged",
+      "getAllBuckets",
+      "getAllBucketsWithInfo",
+      "loadAllData",
+      "LocalImageRepository"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/PerceptualHash.kt": [
+      "computeDHash",
+      "hammingDistance",
+      "PerceptualHash"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt": [
+      "getRecommendedBatch",
+      "getNextSimilarGroup",
+      "markSimilarGroupProcessed",
+      "invalidateSimilarGroupCache",
+      "removeFromCooldown",
+      "RecommendationEngine"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/RecycleBinDeletion.kt": [
+      "RecycleBinCommitException",
+      "reconcileRecycleBinDeletion",
+      "deleteRecycleBinBatch"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt": [
+      "read",
+      "write",
+      "RecycleBinStorage",
+      "read",
+      "write",
+      "AtomicRecycleBinStorage",
+      "RecycleBinPersistenceException",
+      "addToRecycleBin",
+      "addAllToRecycleBin",
+      "removeFromRecycleBin",
+      "removeAllFromRecycleBin",
+      "clearRecycleBin",
+      "loadRecycleBin",
+      "getRecycleBinCount",
+      "pendingDeletionUris",
+      "beginDeletion",
+      "finishDeletion",
+      "RecycleBinManager"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/SimilarGroupDetector.kt": [
+      "size",
+      "id",
+      "durationMs",
+      "SimilarGroup",
+      "detectSimilarGroups",
+      "ensureHashesComputed",
+      "SimilarGroupDetector"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt": [
+      "scanResult",
+      "isScanning",
+      "initialize",
+      "performScan",
+      "clearScanResult",
+      "StorageStatsManager"
+    ],
+    "app/src/main/java/com/tabula/v3/data/repository/SystemAlbumSyncManager.kt": [
+      "createSystemAlbum",
+      "deleteSystemAlbum",
+      "deleteBucket",
+      "renameSystemAlbum",
+      "addImageToSystemAlbum",
+      "moveImageToSystemAlbum",
+      "findNewUriInSystemAlbum",
+      "findNewUrisInSystemAlbum",
+      "isAlbumSynced",
+      "getSystemAlbumImageCount",
+      "syncAlbumToSystem",
+      "syncImage",
+      "moveImageToBucket",
+      "createBucket",
+      "getImageBucketName",
+      "SystemAlbumSyncManager"
+    ],
+    "app/src/main/java/com/tabula/v3/di/CoilSetup.kt": [
+      "getImageLoader",
+      "clearCache",
+      "getCacheStats",
+      "CoilSetup"
+    ],
+    "app/src/main/java/com/tabula/v3/di/PreloadingManager.kt": [
+      "pause",
+      "resume",
+      "preloadAround",
+      "preloadImmediate",
+      "reset",
+      "PreloadingManager"
+    ],
+    "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt": [
+      "inFlight",
+      "recoveryRevision",
+      "launch",
+      "complete",
+      "save",
+      "DeletePermissionSession"
+    ],
+    "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt": [
+      "requiredPermissionsForSdk",
+      "hasMediaReadPermission",
+      "isAnyRequestedPermissionGranted",
+      "MediaPermissionPolicy"
+    ],
+    "app/src/main/java/com/tabula/v3/service/FluidCloudService.kt": [
+      "onBind",
+      "onCreate",
+      "onStartCommand",
+      "onDestroy",
+      "FluidCloudService"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/AlbumChips.kt": [
+      "AlbumChips",
+      "AlbumChipsEmpty"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt": [
+      "CleanupMode",
+      "id",
+      "cleanupAlbumId",
+      "displayName",
+      "toVirtualAlbum",
+      "MonthInfo",
+      "buildMonthInfos",
+      "AlbumCleanupBottomSheet"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/AlbumDialogs.kt": [
+      "AlbumEditDialog",
+      "AlbumDeleteConfirmDialog"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/AlbumDropTarget.kt": [
+      "AlbumDropTarget"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt": [
+      "AlbumSelectionSheet"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/BackdropLiquidGlass.kt": [
+      "toPhysicalConfig",
+      "BackdropLiquidGlassConfig",
+      "isBackdropLiquidGlassSupported",
+      "BackdropLiquidGlassBox",
+      "BackdropLiquidGlassCard",
+      "BackdropLiquidGlassSettings",
+      "BackdropLiquidGlassButton",
+      "BackdropLiquidGlassToggle"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/BatchCompletionScreen.kt": [
+      "BatchCompletionScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt": [
+      "isAvailable",
+      "update",
+      "update",
+      "snapshot",
+      "clear",
+      "CardShareState"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/CardStack.kt": [
+      "SwipeableCardStack"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt": [
+      "CategorizedAlbumsView"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt": [
+      "DraggableAlbumsGrid"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/DrawCardState.kt": [
+      "DealtCard",
+      "getLeftCard",
+      "getCenterCard",
+      "getRightCard",
+      "canDraw",
+      "canRecall",
+      "DrawCardState",
+      "DrawCardAction",
+      "drawCardReducer"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/FixedTagBar.kt": [
+      "FixedTagBar"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/GenieEffect.kt": [
+      "GenieDirection",
+      "GenieEffectOverlay",
+      "isAnimating",
+      "progress",
+      "targetX",
+      "targetY",
+      "bitmap",
+      "sourceBounds",
+      "screenHeight",
+      "direction",
+      "startAnimation",
+      "reset",
+      "GenieAnimationController",
+      "rememberGenieAnimationController",
+      "createGenieBitmap",
+      "createGenieBitmapFast"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/GenieTargetUtils.kt": [
+      "computeTrashTargetInRoot",
+      "computeTagTargetInRoot"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/GlassBottomSheet.kt": [
+      "GlassBottomSheetConfig",
+      "GlassBottomSheet",
+      "GlassOptionItem",
+      "GlassDialogContainer"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt": [
+      "GlassDividerConfig",
+      "GlassDivider",
+      "GlassDivider"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/Glassmorphism.kt": [
+      "FrostedGlass",
+      "AdaptiveGlass",
+      "AdaptiveGlassCard",
+      "AdaptiveGlassBar",
+      "AdaptiveGlassSettings"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt": [
+      "ImageCard",
+      "ImageCardPlaceholder"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/LiquidGlass.kt": [
+      "LiquidGlassConfig",
+      "LiquidGlassBox",
+      "LiquidGlassCard",
+      "LiquidGlassBar",
+      "LiquidGlassSettings",
+      "LiquidGlassSheet",
+      "AdaptiveGlassBox",
+      "LightSurface",
+      "LightSurfaceVariant",
+      "LightCard",
+      "DarkSurface",
+      "DarkSurfaceVariant",
+      "DarkCard",
+      "AccentOverlay",
+      "LiquidGlassColors"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/LiquidGlassV2.kt": [
+      "LiquidGlassConfigV2",
+      "LiquidGlassBoxV2",
+      "LiquidGlassCardV2",
+      "LiquidGlassSettingsV2",
+      "LiquidGlassBarV2",
+      "LiquidGlassButtonV2",
+      "LiquidGlassToggleV2",
+      "LiquidGlassSheetV2"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/MediaBadges.kt": [
+      "MediaBadgeRow"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt": [
+      "ModeToggle"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt": [
+      "MotionPhotoPlayer",
+      "isValid",
+      "readAt",
+      "getSize",
+      "close"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt": [
+      "OnboardingDialog"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/PhysicalLiquidGlass.kt": [
+      "PhysicalLiquidGlassConfig",
+      "isPhysicalLiquidGlassSupported",
+      "PhysicalLiquidGlassBox",
+      "PhysicalLiquidGlassCard",
+      "PhysicalLiquidGlassSettings",
+      "PhysicalLiquidGlassButton",
+      "PhysicalLiquidGlassToggle"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/RealLiquidGlass.kt": [
+      "RealLiquidGlassConfig",
+      "RealLiquidGlassBox",
+      "RealLiquidGlassCard",
+      "RealLiquidGlassSettings",
+      "RealLiquidGlassButton",
+      "RealLiquidGlassToggle"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt": [
+      "SwipeableViewerState",
+      "SwipeableViewerOverlay"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/TagPosition.kt": [
+      "TagPosition"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/TopBar.kt": [
+      "TopBar",
+      "ActionIconButton",
+      "BottomIndicator"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/UndoSnackbar.kt": [
+      "UndoSnackbar",
+      "SnackbarState",
+      "rememberSnackbarState",
+      "state",
+      "show",
+      "dismiss",
+      "SnackbarStateHolder"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt": [
+      "ViewerState",
+      "SourceRect",
+      "ViewerOverlay"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt": [
+      "QuickActionButton"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/components/quickaction/SafeAreaCompat.kt": [
+      "clamp",
+      "contains",
+      "toPercentage",
+      "fromPercentage",
+      "SafeArea",
+      "rememberSafeArea"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt": [
+      "AppScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt": [
+      "PredictiveBackContainer"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt": [
+      "AboutScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt": [
+      "AlbumTagManagementScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt": [
+      "AlbumViewScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt": [
+      "DeckScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt": [
+      "DisclaimerScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt": [
+      "OnboardingScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt": [
+      "OtherAlbumsScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt": [
+      "PersonalizationScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt": [
+      "PrivacyPolicyScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt": [
+      "RecycleBinScreen",
+      "TabulaDialog"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt": [
+      "SettingsScreen",
+      "VibrationSoundScreen",
+      "DisplaySettingsScreen",
+      "LabScreen",
+      "ReminderSettingsScreen",
+      "SectionHeader",
+      "SettingsGroup",
+      "SettingsItem",
+      "SettingsSwitchItem",
+      "SettingsSliderItem",
+      "Divider",
+      "CustomBottomSheet",
+      "OptionItem",
+      "OptionItem"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt": [
+      "StatisticsScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt": [
+      "SystemAlbumViewScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt": [
+      "TutorialScreen"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/theme/Theme.kt": [
+      "TabulaTheme",
+      "CatBlack",
+      "CatBlackLight",
+      "EyeGold",
+      "EyeGoldDark",
+      "WarmWhite",
+      "WarmGray",
+      "SuccessGreen",
+      "DangerRed",
+      "CardGradientStart",
+      "CardGradientEnd",
+      "TabulaColors"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/theme/Type.kt": [],
+    "app/src/main/java/com/tabula/v3/ui/util/AlbumCleanupImageResolver.kt": [
+      "resolveAlbumCleanupImages"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/util/ContextExtensions.kt": [
+      "findActivity"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt": [
+      "itemBounds",
+      "gridPositionInWindow",
+      "isDragging",
+      "dragStartId",
+      "initialSelected",
+      "lastHoveredId",
+      "selectedDuringDrag",
+      "registerGridPosition",
+      "registerItemBounds",
+      "onDragStart",
+      "onDrag",
+      "onDragEnd",
+      "onDragCancel",
+      "DragSelectState",
+      "contains",
+      "ItemBounds",
+      "rememberDragSelectState",
+      "gridDragHandler",
+      "gridDragHandlerLongPress",
+      "itemDragReceiver"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt": [
+      "updateSettings",
+      "lightTap",
+      "mediumTap",
+      "heavyTap",
+      "doubleTap",
+      "strengthPreview",
+      "HapticFeedback"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/util/ImageFeatureState.kt": [
+      "get",
+      "put",
+      "clear",
+      "rememberImageFeatures",
+      "preloadImageFeatures"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/util/PhotoSharing.kt": [
+      "photoMimeType",
+      "buildPhotoShareIntent",
+      "rememberPhotoShareAction"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/util/SelectionUtils.kt": [
+      "toggleSelection",
+      "selectAllOrClear",
+      "clampSelectionToVisible"
+    ],
+    "app/src/main/java/com/tabula/v3/ui/util/StringDragSelectState.kt": [
+      "itemBounds",
+      "gridPositionInWindow",
+      "isDragging",
+      "dragStartId",
+      "initialSelected",
+      "lastHoveredId",
+      "selectedDuringDrag",
+      "registerGridPosition",
+      "registerItemBounds",
+      "onDragStart",
+      "onDrag",
+      "onDragEnd",
+      "onDragCancel",
+      "StringDragSelectState",
+      "rememberStringDragSelectState",
+      "gridDragHandlerString",
+      "itemDragReceiverString"
+    ],
+    "app/src/main/java/com/tabula/v3/widget/TabulaWidgetProvider.kt": [
+      "onUpdate",
+      "onEnabled",
+      "onDisabled",
+      "TabulaWidgetProvider"
+    ],
+    "app/src/main/res/raw/liquidglass_effect.agsl": [],
+    "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt": [
+      "clears140PhotosInBoundedBatches",
+      "retriesRejectedRequestsWithSmallerBatches",
+      "oneInvalidItemDoesNotBlockOtherPhotos",
+      "partialSuccessRemovesOnlyConfirmedPhotos",
+      "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+      "cancellationDuringSplitStopsSiblingRequests",
+      "neverStartsNextRequestBeforePermissionResultAndPersistence",
+      "deduplicatesRequestsAndIgnoresUnrequestedResults",
+      "emptyRecycleBinDoesNotLaunchARequest",
+      "nonRetryableFailureDoesNotSplit",
+      "globalFailureStopsAllLaterBatches",
+      "globalFailureKeepsEarlierSuccessfulWork",
+      "unknownVerificationCommitsKnownResultsThenStops",
+      "over2000ItemsStillUseBoundedRequests",
+      "BatchDeletionTest"
+    ],
+    "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt": [
+      "setup",
+      "fullAccessAndAvailableVolumeCanConfirmMissing",
+      "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+      "unavailableVolumeCannotConfirmMissing",
+      "permissionRevokedDuringQueryCannotConfirmMissing",
+      "nullOrFailedQueriesRemainUnknown",
+      "visiblePhotoRemainsPresentWithPartialAccess",
+      "actualServiceErrorsMapToNonSplittableFailures",
+      "rejectedRequestCanBeSplitButCancellationPropagates",
+      "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+      "emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+      "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained",
+      "FileOperationManagerTest"
+    ],
+    "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt": [
+      "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+      "journalCommitFailureCanBeReconciledIdempotently",
+      "failedJournalPreparationDoesNotRequestDeletion",
+      "globalErrorsAreNotSplitAndStopAfterOneRequest",
+      "invalidItemIsIsolatedWithoutLosingOtherRecords",
+      "recoveryKeepsUnknownAndExistingPhotosDistinct",
+      "cancelledCoroutineLeavesJournalForLaterRecovery",
+      "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+      "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork",
+      "RecycleBinDeletionTest"
+    ],
+    "app/src/test/java/com/tabula/v3/data/repository/RecycleBinManagerTest.kt": [
+      "failRead",
+      "failWrite",
+      "writes",
+      "read",
+      "write",
+      "MemoryRecycleBinStorage",
+      "fixturePhoto",
+      "missingFileIsEmptyButUnreadableFileDoesNotOverwrite",
+      "corruptAndBlankFilesAreFailures",
+      "failedSavePropagatesAndRetainsOldRecords",
+      "realAtomicFileWriteFailurePreservesCommittedFile",
+      "realDirectoryReadFailureIsNotAnEmptyRecycleBin",
+      "atomicReadRestoresLegacyBackup",
+      "concurrentUpdatesDoNotLoseItemsAndDuplicatesStayUnique",
+      "migrationKeepsOrderAndFailsVisiblyIfItCannotSave",
+      "newManagerRestoresPendingJournalAndCannotOverwriteIt",
+      "failedPartialWriteRollsBackAndSilentCommitFailureIsDetected",
+      "RecycleBinManagerTest"
+    ],
+    "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt": [
+      "recentListMayContainTheCurrentlyMountedPrimaryVolume",
+      "allRecentVolumesAlreadyMountedDoNotBlockMergedUri",
+      "genuinelyUnmountedRecentVolumeStillBlocksAmbiguousMergedUri",
+      "mergedUriRequiresConsistentMountedPrimaryEvidence",
+      "concretePrimaryIsNotBlockedByAnUnrelatedEjectedVolume",
+      "concreteUnavailableVolumesCannotBeConfirmedMissing",
+      "VolumeConfirmationRuleTest"
+    ],
+    "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt": [
+      "lastCode",
+      "onLaunch",
+      "ControlledDeleteResultRegistry",
+      "session",
+      "registry",
+      "request",
+      "onCreate",
+      "onSaveInstanceState",
+      "DeletePermissionRecoveryActivity",
+      "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain",
+      "DeletePermissionActivityRecoveryTest"
+    ],
+    "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt": [
+      "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+      "ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+      "failedLauncherDoesNotLeaveBusyState",
+      "DeletePermissionSessionTest"
+    ],
+    "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt": [
+      "requiredPermissions_sdk34_includesPartialAccessPermission",
+      "hasMediaReadPermission_sdk34_trueWhenOnlySelectedPhotosGranted",
+      "hasMediaReadPermission_sdk33_requiresReadMediaImages",
+      "isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted",
+      "MediaPermissionPolicyTest"
+    ],
+    "app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt": [
+      "trashTargetUsesBottomCenterWhenBoundsAvailable",
+      "tagTargetUsesTopCenterWhenBoundsAvailable",
+      "GenieTargetUtilsTest"
+    ],
+    "app/src/test/java/com/tabula/v3/ui/components/MonthInfoBuilderTest.kt": [
+      "buildsMonthInfosInDescOrderAndPicksLatestCover",
+      "returnsEmptyWhenNoImages",
+      "MonthInfoBuilderTest"
+    ],
+    "app/src/test/java/com/tabula/v3/ui/util/AlbumCleanupImageResolverTest.kt": [
+      "resolvesImagesByAlbumPathBucket",
+      "returnsEmptyWhenAlbumPathMissing",
+      "AlbumCleanupImageResolverTest"
+    ],
+    "app/src/test/java/com/tabula/v3/ui/util/PhotoSharingTest.kt": [
+      "registerAndroidPhotoFormats",
+      "sharesTheOriginalPhotoWithMatchingClipDataAndReadAccess",
+      "preservesReportedPhotoFormat",
+      "infersFormatWhenProviderTypeIsMissingOrGeneric",
+      "doesNotShareWhileGestureStartsBeforeButtonRecomposes",
+      "snapshotKeepsClickedPhotoWhileStackMovesToNextPhoto",
+      "leavingTheStackClearsItsShareTarget",
+      "PhotoSharingTest"
+    ],
+    "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt": [
+      "toggleSelection_addsAndRemoves",
+      "selectAllOrClear_togglesBasedOnAllSelected",
+      "clampSelectionToVisible_dropsHidden",
+      "SelectionUtilsTest"
+    ],
+    "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt": [
+      "dragSelect_addsItemsDuringDrag",
+      "dragSelect_removesWhenInitiallySelected",
+      "StringDragSelectStateTest",
+      "performHapticFeedback"
+    ],
+    "build.gradle.kts": [],
+    "gradlew": [],
+    "scripts/encrypt-release-backup.cjs": [],
+    "scripts/release-backup-public.pem": [],
+    "settings.gradle.kts": [],
+    "tools/run-volume-device-probe.py": [
+      "adb",
+      "install",
+      "wait_for_primary_storage",
+      "main"
+    ]
+  },
+  "batches": [
+    {
+      "batchIndex": 1,
+      "files": [
+        {
+          "path": "app/src/androidTest/java/com/tabula/v3/data/repository/VolumeDeletionDeviceTest.kt",
+          "language": "kotlin",
+          "sizeLines": 159,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt",
+          "language": "kotlin",
+          "sizeLines": 244,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/model/ImageFeatures.kt",
+          "language": "kotlin",
+          "sizeLines": 25,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "language": "kotlin",
+          "sizeLines": 95,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/ImageFeatureDetector.kt",
+          "language": "kotlin",
+          "sizeLines": 476,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/PerceptualHash.kt",
+          "language": "kotlin",
+          "sizeLines": 266,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt",
+          "language": "kotlin",
+          "sizeLines": 298,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/SimilarGroupDetector.kt",
+          "language": "kotlin",
+          "sizeLines": 619,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/di/PreloadingManager.kt",
+          "language": "kotlin",
+          "sizeLines": 213,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt",
+          "language": "kotlin",
+          "sizeLines": 27,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/CardStack.kt",
+          "language": "kotlin",
+          "sizeLines": 3289,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/DrawCardState.kt",
+          "language": "kotlin",
+          "sizeLines": 170,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/util/AlbumCleanupImageResolver.kt",
+          "language": "kotlin",
+          "sizeLines": 13,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/util/ImageFeatureState.kt",
+          "language": "kotlin",
+          "sizeLines": 101,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/util/PhotoSharing.kt",
+          "language": "kotlin",
+          "sizeLines": 79,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinManagerTest.kt",
+          "language": "kotlin",
+          "sizeLines": 178,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/ui/components/MonthInfoBuilderTest.kt",
+          "language": "kotlin",
+          "sizeLines": 58,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/ui/util/PhotoSharingTest.kt",
+          "language": "kotlin",
+          "sizeLines": 93,
+          "fileCategory": "code"
+        }
+      ],
+      "batchImportData": {
+        "app/src/androidTest/java/com/tabula/v3/data/repository/VolumeDeletionDeviceTest.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt": [
+          "app/src/main/java/com/tabula/v3/data/repository/PerceptualHash.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/data/model/ImageFeatures.kt": [],
+        "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt": [],
+        "app/src/main/java/com/tabula/v3/data/repository/ImageFeatureDetector.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFeatures.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/data/repository/PerceptualHash.kt": [],
+        "app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt": [
+          "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/data/repository/SimilarGroupDetector.kt": [
+          "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/di/PreloadingManager.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/CardStack.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/di/PreloadingManager.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/DrawCardState.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/util/AlbumCleanupImageResolver.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/util/ImageFeatureState.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFeatures.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/data/repository/ImageFeatureDetector.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/util/PhotoSharing.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+        ],
+        "app/src/test/java/com/tabula/v3/data/repository/RecycleBinManagerTest.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+        ],
+        "app/src/test/java/com/tabula/v3/ui/components/MonthInfoBuilderTest.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+        ],
+        "app/src/test/java/com/tabula/v3/ui/util/PhotoSharingTest.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt"
+        ]
+      },
+      "neighborMap": {
+        "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "groupCount",
+              "imageCount",
+              "getGroupIdForIndex",
+              "isLastInGroup",
+              "AlbumCleanupBatch",
+              "remainingGroups",
+              "AlbumCleanupInfo",
+              "getState",
+              "getCurrentAlbumId",
+              "analyzeAlbum",
+              "getTotalGroups",
+              "getRemainingGroups",
+              "getTotalImages",
+              "getRemainingImages",
+              "getCleanupProgress",
+              "isAlbumCompleted",
+              "getNextBatch",
+              "markGroupProcessed",
+              "markGroupsProcessed",
+              "exitCleanupMode",
+              "saveCheckpoint",
+              "getCheckpoint",
+              "clearCheckpoint",
+              "getCheckpointBatch",
+              "resetAlbumState",
+              "getAlbumCleanupInfo",
+              "AlbumCleanupEngine"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "groupCount",
+              "imageCount",
+              "getGroupIdForIndex",
+              "isLastInGroup",
+              "AlbumCleanupBatch",
+              "remainingGroups",
+              "AlbumCleanupInfo",
+              "getState",
+              "getCurrentAlbumId",
+              "analyzeAlbum",
+              "getTotalGroups",
+              "getRemainingGroups",
+              "getTotalImages",
+              "getRemainingImages",
+              "getCleanupProgress",
+              "isAlbumCompleted",
+              "getNextBatch",
+              "markGroupProcessed",
+              "markGroupsProcessed",
+              "exitCleanupMode",
+              "saveCheckpoint",
+              "getCheckpoint",
+              "clearCheckpoint",
+              "getCheckpointBatch",
+              "resetAlbumState",
+              "getAlbumCleanupInfo",
+              "AlbumCleanupEngine"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "getAllImages",
+              "getAllImagesExcludingTabulaAlbums",
+              "getImagesByBucket",
+              "getImagesByRelativePath",
+              "filterImagesByAlbumPath",
+              "getImagesPaged",
+              "getAllBuckets",
+              "getAllBucketsWithInfo",
+              "loadAllData",
+              "LocalImageRepository"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "read",
+              "write",
+              "RecycleBinStorage",
+              "read",
+              "write",
+              "AtomicRecycleBinStorage",
+              "RecycleBinPersistenceException",
+              "addToRecycleBin",
+              "addAllToRecycleBin",
+              "removeFromRecycleBin",
+              "removeAllFromRecycleBin",
+              "clearRecycleBin",
+              "loadRecycleBin",
+              "getRecycleBinCount",
+              "pendingDeletionUris",
+              "beginDeletion",
+              "finishDeletion",
+              "RecycleBinManager"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "CleanupMode",
+              "id",
+              "cleanupAlbumId",
+              "displayName",
+              "toVirtualAlbum",
+              "MonthInfo",
+              "buildMonthInfos",
+              "AlbumCleanupBottomSheet"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "AlbumSelectionSheet"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "CategorizedAlbumsView"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "DraggableAlbumsGrid"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "ImageCard",
+              "ImageCardPlaceholder"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "SwipeableViewerState",
+              "SwipeableViewerOverlay"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/TopBar.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "TopBar",
+              "ActionIconButton",
+              "BottomIndicator"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "ViewerState",
+              "SourceRect",
+              "ViewerOverlay"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "AlbumViewScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "DeckScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "OtherAlbumsScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "RecycleBinScreen",
+              "TabulaDialog"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "SystemAlbumViewScreen"
+            ]
+          },
+          {
+            "path": "app/src/test/java/com/tabula/v3/ui/util/AlbumCleanupImageResolverTest.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "resolvesImagesByAlbumPathBucket",
+              "returnsEmptyWhenAlbumPathMissing",
+              "AlbumCleanupImageResolverTest"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "sortOrder",
+              "themeMode",
+              "showDeleteConfirm",
+              "showHdrBadges",
+              "showMotionBadges",
+              "playMotionSound",
+              "motionSoundVolume",
+              "hapticEnabled",
+              "hapticStrength",
+              "swipeHapticsEnabled",
+              "batchSize",
+              "topBarDisplayMode",
+              "totalReviewedCount",
+              "totalDeletedCount",
+              "recommendMode",
+              "lastKnownImageCount",
+              "fluidCloudEnabled",
+              "pendingBatchRemaining",
+              "cardStyleMode",
+              "swipeStyle",
+              "tagSelectionMode",
+              "tagSwitchSpeed",
+              "tagsPerRow",
+              "liquidGlassLabEnabled",
+              "hasCompletedOnboarding",
+              "hasAcknowledgedDisclaimer",
+              "smartSortEnabled",
+              "smartSortTimeDecay",
+              "smartSortConsecutiveDecay",
+              "smartSortLockDays",
+              "sourceImageDeletionStrategy",
+              "quickActionButtonEnabled",
+              "quickActionButtonX",
+              "quickActionButtonY",
+              "resetQuickActionButtonPosition",
+              "recordImagePicked",
+              "getImagePickedTimestamp",
+              "getImageCooldownDays",
+              "isImageInCooldown",
+              "cleanupExpiredPickRecords",
+              "getCooldownImageIds",
+              "recordImagesPicked",
+              "removeImagesFromCooldown",
+              "clearAllPickRecords",
+              "recordSimilarGroupProcessed",
+              "isSimilarGroupInCooldown",
+              "getSimilarGroupCooldownIds",
+              "cleanupExpiredSimilarGroupRecords",
+              "albumCleanupDisplayMode",
+              "currentCleanupAlbumId",
+              "saveAlbumAnalysisResult",
+              "saveAlbumTotalImages",
+              "getAlbumTotalImages",
+              "saveGroupImageCount",
+              "saveGroupImageCounts",
+              "getGroupImageCount",
+              "getAlbumRemainingImages",
+              "getAlbumTotalGroups",
+              "getAlbumGroupIds",
+              "getAlbumProcessedGroups",
+              "getAlbumPermanentlyProcessedGroups",
+              "markAlbumGroupPermanentlyProcessed",
+              "markAlbumGroupsPermanentlyProcessed",
+              "getAlbumRemainingGroups",
+              "isAlbumCleanupCompleted",
+              "markAlbumCleanupCompleted",
+              "getCompletedCleanupAlbumIds",
+              "resetAlbumCleanupState",
+              "clearAllAlbumCleanupState",
+              "saveAlbumCleanupCheckpoint",
+              "getAlbumCleanupCheckpoint",
+              "clearAlbumCleanupCheckpoint",
+              "saveGroupImageIds",
+              "saveGroupsImageIds",
+              "getGroupImageIds",
+              "hasPersistedGroupData",
+              "pinnedAlbumNames",
+              "pinAlbum",
+              "unpinAlbum",
+              "AppPreferences",
+              "ThemeMode",
+              "TopBarDisplayMode",
+              "RecommendMode",
+              "CardStyleMode",
+              "SwipeStyle",
+              "TagSelectionMode",
+              "AlbumCleanupDisplayMode",
+              "SourceImageDeletionStrategy",
+              "rememberAppPreferences"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "DeckScreen"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/CardStack.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "SyncMode",
+              "Album"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/util/AlbumCleanupImageResolver.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "SyncMode",
+              "Album"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "batchIndex": 2,
+      "files": [
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "language": "kotlin",
+          "sizeLines": 76,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/model/AlbumMapping.kt",
+          "language": "kotlin",
+          "sizeLines": 52,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+          "language": "kotlin",
+          "sizeLines": 662,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumManager.kt",
+          "language": "kotlin",
+          "sizeLines": 1191,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumChips.kt",
+          "language": "kotlin",
+          "sizeLines": 242,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt",
+          "language": "kotlin",
+          "sizeLines": 1068,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumDialogs.kt",
+          "language": "kotlin",
+          "sizeLines": 564,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumDropTarget.kt",
+          "language": "kotlin",
+          "sizeLines": 300,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt",
+          "language": "kotlin",
+          "sizeLines": 355,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/BatchCompletionScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 398,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt",
+          "language": "kotlin",
+          "sizeLines": 336,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/FixedTagBar.kt",
+          "language": "kotlin",
+          "sizeLines": 264,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/TagPosition.kt",
+          "language": "kotlin",
+          "sizeLines": 8,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/TopBar.kt",
+          "language": "kotlin",
+          "sizeLines": 429,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/UndoSnackbar.kt",
+          "language": "kotlin",
+          "sizeLines": 175,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 2771,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 255,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/ui/util/AlbumCleanupImageResolverTest.kt",
+          "language": "kotlin",
+          "sizeLines": 63,
+          "fileCategory": "code"
+        }
+      ],
+      "batchImportData": {
+        "app/src/main/java/com/tabula/v3/data/model/Album.kt": [],
+        "app/src/main/java/com/tabula/v3/data/model/AlbumMapping.kt": [],
+        "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt": [
+          "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt",
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/data/repository/AlbumManager.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/model/AlbumMapping.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/AlbumChips.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/AlbumDialogs.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/AlbumDropTarget.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/BatchCompletionScreen.kt": [
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/FixedTagBar.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/TagPosition.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/TopBar.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/UndoSnackbar.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+          "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+          "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+          "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/AlbumDropTarget.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/BatchCompletionScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/FixedTagBar.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/TagPosition.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/TopBar.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/UndoSnackbar.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/test/java/com/tabula/v3/ui/util/AlbumCleanupImageResolverTest.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+        ]
+      },
+      "neighborMap": {
+        "app/src/main/java/com/tabula/v3/data/model/Album.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/CardStack.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "SwipeableCardStack"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "CategorizedAlbumsView"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "AlbumTagManagementScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "AlbumViewScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/AlbumCleanupImageResolver.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "resolveAlbumCleanupImages"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "getHash",
+              "getHashesBatch",
+              "saveHash",
+              "saveHashesBatch",
+              "cleanupStaleHashes",
+              "getStats",
+              "clearAll",
+              "ImageHashCache"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "sortOrder",
+              "themeMode",
+              "showDeleteConfirm",
+              "showHdrBadges",
+              "showMotionBadges",
+              "playMotionSound",
+              "motionSoundVolume",
+              "hapticEnabled",
+              "hapticStrength",
+              "swipeHapticsEnabled",
+              "batchSize",
+              "topBarDisplayMode",
+              "totalReviewedCount",
+              "totalDeletedCount",
+              "recommendMode",
+              "lastKnownImageCount",
+              "fluidCloudEnabled",
+              "pendingBatchRemaining",
+              "cardStyleMode",
+              "swipeStyle",
+              "tagSelectionMode",
+              "tagSwitchSpeed",
+              "tagsPerRow",
+              "liquidGlassLabEnabled",
+              "hasCompletedOnboarding",
+              "hasAcknowledgedDisclaimer",
+              "smartSortEnabled",
+              "smartSortTimeDecay",
+              "smartSortConsecutiveDecay",
+              "smartSortLockDays",
+              "sourceImageDeletionStrategy",
+              "quickActionButtonEnabled",
+              "quickActionButtonX",
+              "quickActionButtonY",
+              "resetQuickActionButtonPosition",
+              "recordImagePicked",
+              "getImagePickedTimestamp",
+              "getImageCooldownDays",
+              "isImageInCooldown",
+              "cleanupExpiredPickRecords",
+              "getCooldownImageIds",
+              "recordImagesPicked",
+              "removeImagesFromCooldown",
+              "clearAllPickRecords",
+              "recordSimilarGroupProcessed",
+              "isSimilarGroupInCooldown",
+              "getSimilarGroupCooldownIds",
+              "cleanupExpiredSimilarGroupRecords",
+              "albumCleanupDisplayMode",
+              "currentCleanupAlbumId",
+              "saveAlbumAnalysisResult",
+              "saveAlbumTotalImages",
+              "getAlbumTotalImages",
+              "saveGroupImageCount",
+              "saveGroupImageCounts",
+              "getGroupImageCount",
+              "getAlbumRemainingImages",
+              "getAlbumTotalGroups",
+              "getAlbumGroupIds",
+              "getAlbumProcessedGroups",
+              "getAlbumPermanentlyProcessedGroups",
+              "markAlbumGroupPermanentlyProcessed",
+              "markAlbumGroupsPermanentlyProcessed",
+              "getAlbumRemainingGroups",
+              "isAlbumCleanupCompleted",
+              "markAlbumCleanupCompleted",
+              "getCompletedCleanupAlbumIds",
+              "resetAlbumCleanupState",
+              "clearAllAlbumCleanupState",
+              "saveAlbumCleanupCheckpoint",
+              "getAlbumCleanupCheckpoint",
+              "clearAlbumCleanupCheckpoint",
+              "saveGroupImageIds",
+              "saveGroupsImageIds",
+              "getGroupImageIds",
+              "hasPersistedGroupData",
+              "pinnedAlbumNames",
+              "pinAlbum",
+              "unpinAlbum",
+              "AppPreferences",
+              "ThemeMode",
+              "TopBarDisplayMode",
+              "RecommendMode",
+              "CardStyleMode",
+              "SwipeStyle",
+              "TagSelectionMode",
+              "AlbumCleanupDisplayMode",
+              "SourceImageDeletionStrategy",
+              "rememberAppPreferences"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/data/repository/AlbumManager.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/AlbumChips.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/AlbumDialogs.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/BatchCompletionScreen.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/FixedTagBar.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/TopBar.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "sortOrder",
+              "themeMode",
+              "showDeleteConfirm",
+              "showHdrBadges",
+              "showMotionBadges",
+              "playMotionSound",
+              "motionSoundVolume",
+              "hapticEnabled",
+              "hapticStrength",
+              "swipeHapticsEnabled",
+              "batchSize",
+              "topBarDisplayMode",
+              "totalReviewedCount",
+              "totalDeletedCount",
+              "recommendMode",
+              "lastKnownImageCount",
+              "fluidCloudEnabled",
+              "pendingBatchRemaining",
+              "cardStyleMode",
+              "swipeStyle",
+              "tagSelectionMode",
+              "tagSwitchSpeed",
+              "tagsPerRow",
+              "liquidGlassLabEnabled",
+              "hasCompletedOnboarding",
+              "hasAcknowledgedDisclaimer",
+              "smartSortEnabled",
+              "smartSortTimeDecay",
+              "smartSortConsecutiveDecay",
+              "smartSortLockDays",
+              "sourceImageDeletionStrategy",
+              "quickActionButtonEnabled",
+              "quickActionButtonX",
+              "quickActionButtonY",
+              "resetQuickActionButtonPosition",
+              "recordImagePicked",
+              "getImagePickedTimestamp",
+              "getImageCooldownDays",
+              "isImageInCooldown",
+              "cleanupExpiredPickRecords",
+              "getCooldownImageIds",
+              "recordImagesPicked",
+              "removeImagesFromCooldown",
+              "clearAllPickRecords",
+              "recordSimilarGroupProcessed",
+              "isSimilarGroupInCooldown",
+              "getSimilarGroupCooldownIds",
+              "cleanupExpiredSimilarGroupRecords",
+              "albumCleanupDisplayMode",
+              "currentCleanupAlbumId",
+              "saveAlbumAnalysisResult",
+              "saveAlbumTotalImages",
+              "getAlbumTotalImages",
+              "saveGroupImageCount",
+              "saveGroupImageCounts",
+              "getGroupImageCount",
+              "getAlbumRemainingImages",
+              "getAlbumTotalGroups",
+              "getAlbumGroupIds",
+              "getAlbumProcessedGroups",
+              "getAlbumPermanentlyProcessedGroups",
+              "markAlbumGroupPermanentlyProcessed",
+              "markAlbumGroupsPermanentlyProcessed",
+              "getAlbumRemainingGroups",
+              "isAlbumCleanupCompleted",
+              "markAlbumCleanupCompleted",
+              "getCompletedCleanupAlbumIds",
+              "resetAlbumCleanupState",
+              "clearAllAlbumCleanupState",
+              "saveAlbumCleanupCheckpoint",
+              "getAlbumCleanupCheckpoint",
+              "clearAlbumCleanupCheckpoint",
+              "saveGroupImageIds",
+              "saveGroupsImageIds",
+              "getGroupImageIds",
+              "hasPersistedGroupData",
+              "pinnedAlbumNames",
+              "pinAlbum",
+              "unpinAlbum",
+              "AppPreferences",
+              "ThemeMode",
+              "TopBarDisplayMode",
+              "RecommendMode",
+              "CardStyleMode",
+              "SwipeStyle",
+              "TagSelectionMode",
+              "AlbumCleanupDisplayMode",
+              "SourceImageDeletionStrategy",
+              "rememberAppPreferences"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "getAllImages",
+              "getAllImagesExcludingTabulaAlbums",
+              "getImagesByBucket",
+              "getImagesByRelativePath",
+              "filterImagesByAlbumPath",
+              "getImagesPaged",
+              "getAllBuckets",
+              "getAllBucketsWithInfo",
+              "loadAllData",
+              "LocalImageRepository"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "getImageLoader",
+              "clearCache",
+              "getCacheStats",
+              "CoilSetup"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "isAvailable",
+              "update",
+              "update",
+              "snapshot",
+              "clear",
+              "CardShareState"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "CategorizedAlbumsView"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "ModeToggle"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "ViewerState",
+              "SourceRect",
+              "ViewerOverlay"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "QuickActionButton"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ],
+        "app/src/test/java/com/tabula/v3/ui/util/AlbumCleanupImageResolverTest.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "batchIndex": 3,
+      "files": [
+        {
+          "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+          "language": "kotlin",
+          "sizeLines": 1659,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+          "language": "kotlin",
+          "sizeLines": 295,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+          "language": "kotlin",
+          "sizeLines": 180,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+          "language": "kotlin",
+          "sizeLines": 44,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+          "language": "kotlin",
+          "sizeLines": 35,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+          "language": "kotlin",
+          "sizeLines": 208,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+          "language": "kotlin",
+          "sizeLines": 532,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+          "language": "kotlin",
+          "sizeLines": 242,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 26,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+          "language": "kotlin",
+          "sizeLines": 272,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 908,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 323,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 503,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 254,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 1175,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+          "language": "kotlin",
+          "sizeLines": 209,
+          "fileCategory": "code"
+        }
+      ],
+      "batchImportData": {
+        "app/src/main/java/com/tabula/v3/MainActivity.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+          "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+          "app/src/main/java/com/tabula/v3/data/repository/AlbumManager.kt",
+          "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+          "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+          "app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt",
+          "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+          "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+          "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt",
+          "app/src/main/java/com/tabula/v3/service/FluidCloudService.kt",
+          "app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt": [],
+        "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt": [],
+        "app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt": [
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt": [
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt": [
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt": [
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt": [
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt": [
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt": [
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt": [
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt": [
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt": []
+      },
+      "neighborMap": {
+        "app/src/main/java/com/tabula/v3/MainActivity.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "SyncMode",
+              "Album"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "sortOrder",
+              "themeMode",
+              "showDeleteConfirm",
+              "showHdrBadges",
+              "showMotionBadges",
+              "playMotionSound",
+              "motionSoundVolume",
+              "hapticEnabled",
+              "hapticStrength",
+              "swipeHapticsEnabled",
+              "batchSize",
+              "topBarDisplayMode",
+              "totalReviewedCount",
+              "totalDeletedCount",
+              "recommendMode",
+              "lastKnownImageCount",
+              "fluidCloudEnabled",
+              "pendingBatchRemaining",
+              "cardStyleMode",
+              "swipeStyle",
+              "tagSelectionMode",
+              "tagSwitchSpeed",
+              "tagsPerRow",
+              "liquidGlassLabEnabled",
+              "hasCompletedOnboarding",
+              "hasAcknowledgedDisclaimer",
+              "smartSortEnabled",
+              "smartSortTimeDecay",
+              "smartSortConsecutiveDecay",
+              "smartSortLockDays",
+              "sourceImageDeletionStrategy",
+              "quickActionButtonEnabled",
+              "quickActionButtonX",
+              "quickActionButtonY",
+              "resetQuickActionButtonPosition",
+              "recordImagePicked",
+              "getImagePickedTimestamp",
+              "getImageCooldownDays",
+              "isImageInCooldown",
+              "cleanupExpiredPickRecords",
+              "getCooldownImageIds",
+              "recordImagesPicked",
+              "removeImagesFromCooldown",
+              "clearAllPickRecords",
+              "recordSimilarGroupProcessed",
+              "isSimilarGroupInCooldown",
+              "getSimilarGroupCooldownIds",
+              "cleanupExpiredSimilarGroupRecords",
+              "albumCleanupDisplayMode",
+              "currentCleanupAlbumId",
+              "saveAlbumAnalysisResult",
+              "saveAlbumTotalImages",
+              "getAlbumTotalImages",
+              "saveGroupImageCount",
+              "saveGroupImageCounts",
+              "getGroupImageCount",
+              "getAlbumRemainingImages",
+              "getAlbumTotalGroups",
+              "getAlbumGroupIds",
+              "getAlbumProcessedGroups",
+              "getAlbumPermanentlyProcessedGroups",
+              "markAlbumGroupPermanentlyProcessed",
+              "markAlbumGroupsPermanentlyProcessed",
+              "getAlbumRemainingGroups",
+              "isAlbumCleanupCompleted",
+              "markAlbumCleanupCompleted",
+              "getCompletedCleanupAlbumIds",
+              "resetAlbumCleanupState",
+              "clearAllAlbumCleanupState",
+              "saveAlbumCleanupCheckpoint",
+              "getAlbumCleanupCheckpoint",
+              "clearAlbumCleanupCheckpoint",
+              "saveGroupImageIds",
+              "saveGroupsImageIds",
+              "getGroupImageIds",
+              "hasPersistedGroupData",
+              "pinnedAlbumNames",
+              "pinAlbum",
+              "unpinAlbum",
+              "AppPreferences",
+              "ThemeMode",
+              "TopBarDisplayMode",
+              "RecommendMode",
+              "CardStyleMode",
+              "SwipeStyle",
+              "TagSelectionMode",
+              "AlbumCleanupDisplayMode",
+              "SourceImageDeletionStrategy",
+              "rememberAppPreferences"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "groupCount",
+              "imageCount",
+              "getGroupIdForIndex",
+              "isLastInGroup",
+              "AlbumCleanupBatch",
+              "remainingGroups",
+              "AlbumCleanupInfo",
+              "getState",
+              "getCurrentAlbumId",
+              "analyzeAlbum",
+              "getTotalGroups",
+              "getRemainingGroups",
+              "getTotalImages",
+              "getRemainingImages",
+              "getCleanupProgress",
+              "isAlbumCompleted",
+              "getNextBatch",
+              "markGroupProcessed",
+              "markGroupsProcessed",
+              "exitCleanupMode",
+              "saveCheckpoint",
+              "getCheckpoint",
+              "clearCheckpoint",
+              "getCheckpointBatch",
+              "resetAlbumState",
+              "getAlbumCleanupInfo",
+              "AlbumCleanupEngine"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumManager.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "albums",
+              "excludedAlbumCount",
+              "hiddenAlbumCount",
+              "hiddenAndExcludedCount",
+              "mappings",
+              "createAlbum",
+              "updateAlbum",
+              "deleteAlbum",
+              "hideAlbum",
+              "unhideAlbum",
+              "setAlbumExcludedFromRecommend",
+              "isAlbumExcludedFromRecommend",
+              "getExcludedAlbumIds",
+              "getHiddenAlbums",
+              "getExcludedAlbums",
+              "deleteEmptyAlbum",
+              "getAllAlbums",
+              "reorderAlbums",
+              "addImageToAlbum",
+              "removeImageFromAlbum",
+              "getAlbumsForImage",
+              "getImageIdsForAlbum",
+              "getImageMappingsForAlbum",
+              "getAlbumIdsForImage",
+              "getImageUrisForIds",
+              "moveImagesToAlbum",
+              "copyImagesToAlbum",
+              "refreshAlbumsFromSystem",
+              "initialize",
+              "validateAndFixCoverImages",
+              "getSourceImagesForAlbum",
+              "getAllSourceImages",
+              "clearSourceImageRecords",
+              "syncAllEnabledAlbumsToSystem",
+              "getCleanableUrisForAllAlbums",
+              "getCleanableUrisForAlbum",
+              "clearDeletedUris",
+              "queueImageToAlbum",
+              "cancelLastPendingArchive",
+              "commitPendingArchive",
+              "getLastPendingArchive",
+              "undoLastAction",
+              "getLastAction",
+              "clearUndoQueue",
+              "AlbumManager"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "getAllImages",
+              "getAllImagesExcludingTabulaAlbums",
+              "getImagesByBucket",
+              "getImagesByRelativePath",
+              "filterImagesByAlbumPath",
+              "getImagesPaged",
+              "getAllBuckets",
+              "getAllBucketsWithInfo",
+              "loadAllData",
+              "LocalImageRepository"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "getRecommendedBatch",
+              "getNextSimilarGroup",
+              "markSimilarGroupProcessed",
+              "invalidateSimilarGroupCache",
+              "removeFromCooldown",
+              "RecommendationEngine"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/service/FluidCloudService.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "onBind",
+              "onCreate",
+              "onStartCommand",
+              "onDestroy",
+              "FluidCloudService"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "AlbumTagManagementScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "AlbumViewScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "DeckScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "OtherAlbumsScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "PersonalizationScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "RecycleBinScreen",
+              "TabulaDialog"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "SettingsScreen",
+              "VibrationSoundScreen",
+              "DisplaySettingsScreen",
+              "LabScreen",
+              "ReminderSettingsScreen",
+              "SectionHeader",
+              "SettingsGroup",
+              "SettingsItem",
+              "SettingsSwitchItem",
+              "SettingsSliderItem",
+              "Divider",
+              "CustomBottomSheet",
+              "OptionItem",
+              "OptionItem"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+            "batchIndex": 6,
+            "symbols": [
+              "StatisticsScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "SystemAlbumViewScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/widget/TabulaWidgetProvider.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "onUpdate",
+              "onEnabled",
+              "onDisabled",
+              "TabulaWidgetProvider"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "DeckScreen"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "DeckScreen"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumChips.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "AlbumChips",
+              "AlbumChipsEmpty"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "CleanupMode",
+              "id",
+              "cleanupAlbumId",
+              "displayName",
+              "toVirtualAlbum",
+              "MonthInfo",
+              "buildMonthInfos",
+              "AlbumCleanupBottomSheet"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumDialogs.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "AlbumEditDialog",
+              "AlbumDeleteConfirmDialog"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "AlbumSelectionSheet"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/BatchCompletionScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "BatchCompletionScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/CardStack.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "SwipeableCardStack"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "CategorizedAlbumsView"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "DraggableAlbumsGrid"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/FixedTagBar.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "FixedTagBar"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/TopBar.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "TopBar",
+              "ActionIconButton",
+              "BottomIndicator"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "AlbumTagManagementScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "AlbumViewScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "DeckScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "OtherAlbumsScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "PersonalizationScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "RecycleBinScreen",
+              "TabulaDialog"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "SettingsScreen",
+              "VibrationSoundScreen",
+              "DisplaySettingsScreen",
+              "LabScreen",
+              "ReminderSettingsScreen",
+              "SectionHeader",
+              "SettingsGroup",
+              "SettingsItem",
+              "SettingsSwitchItem",
+              "SettingsSliderItem",
+              "Divider",
+              "CustomBottomSheet",
+              "OptionItem",
+              "OptionItem"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+            "batchIndex": 6,
+            "symbols": [
+              "StatisticsScreen"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+            "batchIndex": 5,
+            "symbols": [
+              "SystemAlbumViewScreen"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "batchIndex": 4,
+      "files": [
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+          "language": "kotlin",
+          "sizeLines": 1181,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+          "language": "kotlin",
+          "sizeLines": 588,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/service/FluidCloudService.kt",
+          "language": "kotlin",
+          "sizeLines": 239,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt",
+          "language": "kotlin",
+          "sizeLines": 1581,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/GlassBottomSheet.kt",
+          "language": "kotlin",
+          "sizeLines": 249,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt",
+          "language": "kotlin",
+          "sizeLines": 293,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 1309,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 1032,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 3015,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/util/StringDragSelectState.kt",
+          "language": "kotlin",
+          "sizeLines": 189,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/widget/TabulaWidgetProvider.kt",
+          "language": "kotlin",
+          "sizeLines": 140,
+          "fileCategory": "code"
+        }
+      ],
+      "batchImportData": {
+        "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt": [
+          "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/service/FluidCloudService.kt": [
+          "app/src/main/java/com/tabula/v3/MainActivity.kt",
+          "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/StringDragSelectState.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/GlassBottomSheet.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt": [
+          "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt": [
+          "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/GlassBottomSheet.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+          "app/src/main/java/com/tabula/v3/widget/TabulaWidgetProvider.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/util/StringDragSelectState.kt": [],
+        "app/src/main/java/com/tabula/v3/widget/TabulaWidgetProvider.kt": [
+          "app/src/main/java/com/tabula/v3/MainActivity.kt",
+          "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt",
+          "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt"
+        ]
+      },
+      "neighborMap": {
+        "app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "groupCount",
+              "imageCount",
+              "getGroupIdForIndex",
+              "isLastInGroup",
+              "AlbumCleanupBatch",
+              "remainingGroups",
+              "AlbumCleanupInfo",
+              "getState",
+              "getCurrentAlbumId",
+              "analyzeAlbum",
+              "getTotalGroups",
+              "getRemainingGroups",
+              "getTotalImages",
+              "getRemainingImages",
+              "getCleanupProgress",
+              "isAlbumCompleted",
+              "getNextBatch",
+              "markGroupProcessed",
+              "markGroupsProcessed",
+              "exitCleanupMode",
+              "saveCheckpoint",
+              "getCheckpoint",
+              "clearCheckpoint",
+              "getCheckpointBatch",
+              "resetAlbumState",
+              "getAlbumCleanupInfo",
+              "AlbumCleanupEngine"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "getRecommendedBatch",
+              "getNextSimilarGroup",
+              "markSimilarGroupProcessed",
+              "invalidateSimilarGroupCache",
+              "removeFromCooldown",
+              "RecommendationEngine"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "DeckScreen"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "DeckScreen"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/service/FluidCloudService.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "SyncMode",
+              "Album"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "DeckScreen"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+            "batchIndex": 6,
+            "symbols": [
+              "StatisticsScreen"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "SyncMode",
+              "Album"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/widget/TabulaWidgetProvider.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "batchIndex": 5,
+      "files": [
+        {
+          "path": "app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+          "language": "kotlin",
+          "sizeLines": 20,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+          "language": "kotlin",
+          "sizeLines": 158,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+          "language": "kotlin",
+          "sizeLines": 160,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+          "language": "kotlin",
+          "sizeLines": 161,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+          "language": "kotlin",
+          "sizeLines": 739,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+          "language": "kotlin",
+          "sizeLines": 624,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 1683,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 1456,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 317,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+          "language": "kotlin",
+          "sizeLines": 317,
+          "fileCategory": "code"
+        }
+      ],
+      "batchImportData": {
+        "app/src/main/java/com/tabula/v3/TabulaApplication.kt": [
+          "app/src/main/java/com/tabula/v3/di/CoilSetup.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/di/CoilSetup.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/di/CoilSetup.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/di/CoilSetup.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/di/CoilSetup.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+          "app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt": []
+      },
+      "neighborMap": {
+        "app/src/main/java/com/tabula/v3/di/CoilSetup.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "DeckScreen"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "DeckScreen"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/Album.kt",
+            "batchIndex": 2,
+            "symbols": [
+              "SyncMode",
+              "Album"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+            "batchIndex": 1,
+            "symbols": [
+              "actualWidth",
+              "actualHeight",
+              "isPortrait",
+              "aspectRatio",
+              "hasDimensionInfo",
+              "ImageFile"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "batchIndex": 6,
+      "files": [
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+          "language": "kotlin",
+          "sizeLines": 83,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+          "language": "kotlin",
+          "sizeLines": 318,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+          "language": "kotlin",
+          "sizeLines": 932,
+          "fileCategory": "code"
+        }
+      ],
+      "batchImportData": {
+        "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt": [],
+        "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt"
+        ],
+        "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt": [
+          "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+          "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+          "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt",
+          "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt"
+        ]
+      },
+      "neighborMap": {
+        "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt": [
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt",
+            "batchIndex": 4,
+            "symbols": [
+              "GlassDividerConfig",
+              "GlassDivider",
+              "GlassDivider"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "updateSettings",
+              "lightTap",
+              "mediumTap",
+              "heavyTap",
+              "doubleTap",
+              "strengthPreview",
+              "HapticFeedback"
+            ]
+          },
+          {
+            "path": "app/src/main/java/com/tabula/v3/MainActivity.kt",
+            "batchIndex": 3,
+            "symbols": [
+              "onSaveInstanceState",
+              "onCreate",
+              "onResume",
+              "onStop",
+              "updateBatchRemaining",
+              "MainActivity",
+              "TabulaApp"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "batchIndex": 7,
+      "files": [
+        {
+          "path": ".github/workflows/build-photo-sharing.yml",
+          "language": "yaml",
+          "sizeLines": 75,
+          "fileCategory": "infra"
+        },
+        {
+          "path": ".github/workflows/build-recycle-bin-consistency.yml",
+          "language": "yaml",
+          "sizeLines": 52,
+          "fileCategory": "infra"
+        },
+        {
+          "path": ".github/workflows/build-test-apk.yml",
+          "language": "yaml",
+          "sizeLines": 69,
+          "fileCategory": "infra"
+        },
+        {
+          "path": ".github/workflows/build-volume-confirmation.yml",
+          "language": "yaml",
+          "sizeLines": 107,
+          "fileCategory": "infra"
+        },
+        {
+          "path": ".github/workflows/publish-release.yml",
+          "language": "yaml",
+          "sizeLines": 136,
+          "fileCategory": "infra"
+        }
+      ],
+      "batchImportData": {
+        ".github/workflows/build-photo-sharing.yml": [],
+        ".github/workflows/build-recycle-bin-consistency.yml": [],
+        ".github/workflows/build-test-apk.yml": [],
+        ".github/workflows/build-volume-confirmation.yml": [],
+        ".github/workflows/publish-release.yml": []
+      },
+      "neighborMap": {}
+    },
+    {
+      "batchIndex": 8,
+      "files": [
+        {
+          "path": "README.md",
+          "language": "markdown",
+          "sizeLines": 126,
+          "fileCategory": "docs"
+        },
+        {
+          "path": "gradle.properties",
+          "language": "properties",
+          "sizeLines": 15,
+          "fileCategory": "config"
+        },
+        {
+          "path": "gradlew.bat",
+          "language": "batch",
+          "sizeLines": 92,
+          "fileCategory": "script"
+        }
+      ],
+      "batchImportData": {
+        "README.md": [],
+        "gradle.properties": [],
+        "gradlew.bat": []
+      },
+      "neighborMap": {}
+    },
+    {
+      "batchIndex": 9,
+      "files": [
+        {
+          "path": "app/src/main/res/drawable/fluid_cloud_background.xml",
+          "language": "xml",
+          "sizeLines": 11,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/res/drawable/ic_launcher_background.xml",
+          "language": "xml",
+          "sizeLines": 10,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/res/drawable/ic_launcher_foreground.xml",
+          "language": "xml",
+          "sizeLines": 33,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/res/drawable/ic_quick_start.xml",
+          "language": "xml",
+          "sizeLines": 11,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/res/drawable/ic_widget_shortcut.xml",
+          "language": "xml",
+          "sizeLines": 11,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/res/drawable/widget_background.xml",
+          "language": "xml",
+          "sizeLines": 19,
+          "fileCategory": "config"
+        }
+      ],
+      "batchImportData": {
+        "app/src/main/res/drawable/fluid_cloud_background.xml": [],
+        "app/src/main/res/drawable/ic_launcher_background.xml": [],
+        "app/src/main/res/drawable/ic_launcher_foreground.xml": [],
+        "app/src/main/res/drawable/ic_quick_start.xml": [],
+        "app/src/main/res/drawable/ic_widget_shortcut.xml": [],
+        "app/src/main/res/drawable/widget_background.xml": []
+      },
+      "neighborMap": {}
+    },
+    {
+      "batchIndex": 10,
+      "files": [
+        {
+          "path": "app/src/main/res/values/colors.xml",
+          "language": "xml",
+          "sizeLines": 4,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/res/values/strings.xml",
+          "language": "xml",
+          "sizeLines": 11,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/res/values/themes.xml",
+          "language": "xml",
+          "sizeLines": 15,
+          "fileCategory": "config"
+        }
+      ],
+      "batchImportData": {
+        "app/src/main/res/values/colors.xml": [],
+        "app/src/main/res/values/strings.xml": [],
+        "app/src/main/res/values/themes.xml": []
+      },
+      "neighborMap": {}
+    },
+    {
+      "batchIndex": 11,
+      "files": [
+        {
+          "path": "app/src/main/res/xml/data_extraction_rules.xml",
+          "language": "xml",
+          "sizeLines": 17,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/res/xml/shortcuts.xml",
+          "language": "xml",
+          "sizeLines": 17,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/res/xml/widget_info.xml",
+          "language": "xml",
+          "sizeLines": 17,
+          "fileCategory": "config"
+        }
+      ],
+      "batchImportData": {
+        "app/src/main/res/xml/data_extraction_rules.xml": [],
+        "app/src/main/res/xml/shortcuts.xml": [],
+        "app/src/main/res/xml/widget_info.xml": []
+      },
+      "neighborMap": {}
+    },
+    {
+      "batchIndex": 12,
+      "files": [
+        {
+          "path": "app/build.gradle.kts",
+          "language": "kotlin",
+          "sizeLines": 117,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/proguard-rules.pro",
+          "language": "pro",
+          "sizeLines": 25,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/release/output-metadata.json",
+          "language": "json",
+          "sizeLines": 36,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/debug/res/values/strings.xml",
+          "language": "xml",
+          "sizeLines": 4,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/debug/res/xml/shortcuts.xml",
+          "language": "xml",
+          "sizeLines": 17,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/AndroidManifest.xml",
+          "language": "xml",
+          "sizeLines": 76,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/model/AlbumUsage.kt",
+          "language": "kotlin",
+          "sizeLines": 31,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumUsageTracker.kt",
+          "language": "kotlin",
+          "sizeLines": 400,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/BatchDeletion.kt",
+          "language": "kotlin",
+          "sizeLines": 61,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/RecycleBinDeletion.kt",
+          "language": "kotlin",
+          "sizeLines": 52,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/data/repository/SystemAlbumSyncManager.kt",
+          "language": "kotlin",
+          "sizeLines": 1214,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/BackdropLiquidGlass.kt",
+          "language": "kotlin",
+          "sizeLines": 217,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/GenieEffect.kt",
+          "language": "kotlin",
+          "sizeLines": 1145,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/GenieTargetUtils.kt",
+          "language": "kotlin",
+          "sizeLines": 26,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/Glassmorphism.kt",
+          "language": "kotlin",
+          "sizeLines": 318,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/LiquidGlass.kt",
+          "language": "kotlin",
+          "sizeLines": 268,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/LiquidGlassV2.kt",
+          "language": "kotlin",
+          "sizeLines": 529,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/MediaBadges.kt",
+          "language": "kotlin",
+          "sizeLines": 42,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/PhysicalLiquidGlass.kt",
+          "language": "kotlin",
+          "sizeLines": 1389,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/RealLiquidGlass.kt",
+          "language": "kotlin",
+          "sizeLines": 462,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/components/quickaction/SafeAreaCompat.kt",
+          "language": "kotlin",
+          "sizeLines": 98,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/theme/Theme.kt",
+          "language": "kotlin",
+          "sizeLines": 237,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/theme/Type.kt",
+          "language": "kotlin",
+          "sizeLines": 101,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/util/ContextExtensions.kt",
+          "language": "kotlin",
+          "sizeLines": 14,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/main/java/com/tabula/v3/ui/util/SelectionUtils.kt",
+          "language": "kotlin",
+          "sizeLines": 14,
+          "fileCategory": "code"
+        }
+      ],
+      "batchImportData": {
+        "app/build.gradle.kts": [],
+        "app/proguard-rules.pro": [],
+        "app/release/output-metadata.json": [],
+        "app/src/debug/res/values/strings.xml": [],
+        "app/src/debug/res/xml/shortcuts.xml": [],
+        "app/src/main/AndroidManifest.xml": [],
+        "app/src/main/java/com/tabula/v3/data/model/AlbumUsage.kt": [],
+        "app/src/main/java/com/tabula/v3/data/repository/AlbumUsageTracker.kt": [],
+        "app/src/main/java/com/tabula/v3/data/repository/BatchDeletion.kt": [],
+        "app/src/main/java/com/tabula/v3/data/repository/RecycleBinDeletion.kt": [],
+        "app/src/main/java/com/tabula/v3/data/repository/SystemAlbumSyncManager.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/BackdropLiquidGlass.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/GenieEffect.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/GenieTargetUtils.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/Glassmorphism.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/LiquidGlass.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/LiquidGlassV2.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/MediaBadges.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/PhysicalLiquidGlass.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/RealLiquidGlass.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/components/quickaction/SafeAreaCompat.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/theme/Theme.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/theme/Type.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/util/ContextExtensions.kt": [],
+        "app/src/main/java/com/tabula/v3/ui/util/SelectionUtils.kt": []
+      },
+      "neighborMap": {}
+    },
+    {
+      "batchIndex": 13,
+      "files": [
+        {
+          "path": "app/src/main/res/layout/fluid_cloud_layout.xml",
+          "language": "xml",
+          "sizeLines": 47,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/res/layout/widget_tabula.xml",
+          "language": "xml",
+          "sizeLines": 66,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+          "language": "xml",
+          "sizeLines": 4,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+          "language": "xml",
+          "sizeLines": 4,
+          "fileCategory": "config"
+        },
+        {
+          "path": "app/src/main/res/raw/liquidglass_effect.agsl",
+          "language": "agsl",
+          "sizeLines": 136,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+          "language": "kotlin",
+          "sizeLines": 171,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+          "language": "kotlin",
+          "sizeLines": 158,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+          "language": "kotlin",
+          "sizeLines": 178,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+          "language": "kotlin",
+          "sizeLines": 36,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+          "language": "kotlin",
+          "sizeLines": 69,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+          "language": "kotlin",
+          "sizeLines": 51,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+          "language": "kotlin",
+          "sizeLines": 54,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+          "language": "kotlin",
+          "sizeLines": 31,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+          "language": "kotlin",
+          "sizeLines": 27,
+          "fileCategory": "code"
+        },
+        {
+          "path": "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+          "language": "kotlin",
+          "sizeLines": 60,
+          "fileCategory": "code"
+        },
+        {
+          "path": "build.gradle.kts",
+          "language": "kotlin",
+          "sizeLines": 6,
+          "fileCategory": "code"
+        },
+        {
+          "path": "docs/release-3.3.4.md",
+          "language": "markdown",
+          "sizeLines": 14,
+          "fileCategory": "docs"
+        },
+        {
+          "path": "gradle/libs.versions.toml",
+          "language": "toml",
+          "sizeLines": 59,
+          "fileCategory": "config"
+        },
+        {
+          "path": "gradle/wrapper/gradle-wrapper.properties",
+          "language": "properties",
+          "sizeLines": 7,
+          "fileCategory": "config"
+        },
+        {
+          "path": "gradlew",
+          "language": "unknown",
+          "sizeLines": 182,
+          "fileCategory": "code"
+        },
+        {
+          "path": "scripts/encrypt-release-backup.cjs",
+          "language": "javascript",
+          "sizeLines": 22,
+          "fileCategory": "code"
+        },
+        {
+          "path": "scripts/release-backup-public.pem",
+          "language": "pem",
+          "sizeLines": 11,
+          "fileCategory": "code"
+        },
+        {
+          "path": "settings.gradle.kts",
+          "language": "kotlin",
+          "sizeLines": 25,
+          "fileCategory": "code"
+        },
+        {
+          "path": "tools/run-volume-device-probe.py",
+          "language": "python",
+          "sizeLines": 89,
+          "fileCategory": "code"
+        }
+      ],
+      "batchImportData": {
+        "app/src/main/res/layout/fluid_cloud_layout.xml": [],
+        "app/src/main/res/layout/widget_tabula.xml": [],
+        "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml": [],
+        "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml": [],
+        "app/src/main/res/raw/liquidglass_effect.agsl": [],
+        "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt": [],
+        "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt": [],
+        "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt": [],
+        "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt": [],
+        "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt": [],
+        "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt": [],
+        "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt": [],
+        "app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt": [],
+        "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt": [],
+        "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt": [],
+        "build.gradle.kts": [],
+        "docs/release-3.3.4.md": [],
+        "gradle/libs.versions.toml": [],
+        "gradle/wrapper/gradle-wrapper.properties": [],
+        "gradlew": [],
+        "scripts/encrypt-release-backup.cjs": [],
+        "scripts/release-backup-public.pem": [],
+        "settings.gradle.kts": [],
+        "tools/run-volume-device-probe.py": []
+      },
+      "neighborMap": {}
+    }
+  ]
+}

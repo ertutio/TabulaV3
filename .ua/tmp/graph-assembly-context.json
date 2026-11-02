@@ -1,0 +1,331 @@
+{
+  "layers": [
+    {
+      "id": "layer:entry",
+      "name": "入口与状态协调",
+      "description": "入口与状态协调的职责、入口及依赖，具体行为和风险见 agent-analysis.json。",
+      "nodeIds": [
+        "file:app/src/main/java/com/tabula/v3/MainActivity.kt",
+        "file:app/src/main/java/com/tabula/v3/TabulaApplication.kt"
+      ]
+    },
+    {
+      "id": "layer:media-operations",
+      "name": "媒体操作与权限",
+      "description": "媒体操作与权限的职责、入口及依赖，具体行为和风险见 agent-analysis.json。",
+      "nodeIds": [
+        "file:app/src/main/java/com/tabula/v3/data/repository/AlbumManager.kt",
+        "file:app/src/main/java/com/tabula/v3/data/repository/BatchDeletion.kt",
+        "file:app/src/main/java/com/tabula/v3/data/repository/FileOperationManager.kt",
+        "file:app/src/main/java/com/tabula/v3/data/repository/LocalImageRepository.kt",
+        "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinDeletion.kt",
+        "file:app/src/main/java/com/tabula/v3/data/repository/RecycleBinManager.kt",
+        "file:app/src/main/java/com/tabula/v3/data/repository/SystemAlbumSyncManager.kt",
+        "file:app/src/main/java/com/tabula/v3/permission/DeletePermissionSession.kt",
+        "file:app/src/main/java/com/tabula/v3/permission/MediaPermissionPolicy.kt"
+      ]
+    },
+    {
+      "id": "layer:domain-model",
+      "name": "领域模型",
+      "description": "领域模型的职责、入口及依赖，具体行为和风险见 agent-analysis.json。",
+      "nodeIds": [
+        "file:app/src/main/java/com/tabula/v3/data/model/Album.kt",
+        "file:app/src/main/java/com/tabula/v3/data/model/AlbumMapping.kt",
+        "file:app/src/main/java/com/tabula/v3/data/model/AlbumUsage.kt",
+        "file:app/src/main/java/com/tabula/v3/data/model/ImageFeatures.kt",
+        "file:app/src/main/java/com/tabula/v3/data/model/ImageFile.kt",
+        "file:app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt"
+      ]
+    },
+    {
+      "id": "layer:recommendation",
+      "name": "推荐与专清",
+      "description": "推荐与专清的职责、入口及依赖，具体行为和风险见 agent-analysis.json。",
+      "nodeIds": [
+        "file:app/src/main/java/com/tabula/v3/data/cache/ImageHashCache.kt",
+        "file:app/src/main/java/com/tabula/v3/data/repository/AlbumCleanupEngine.kt",
+        "file:app/src/main/java/com/tabula/v3/data/repository/AlbumUsageTracker.kt",
+        "file:app/src/main/java/com/tabula/v3/data/repository/PerceptualHash.kt",
+        "file:app/src/main/java/com/tabula/v3/data/repository/RecommendationEngine.kt",
+        "file:app/src/main/java/com/tabula/v3/data/repository/SimilarGroupDetector.kt",
+        "file:app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt"
+      ]
+    },
+    {
+      "id": "layer:preferences",
+      "name": "设置与持久化键",
+      "description": "设置与持久化键的职责、入口及依赖，具体行为和风险见 agent-analysis.json。",
+      "nodeIds": [
+        "file:app/src/main/java/com/tabula/v3/data/preferences/AppPreferences.kt"
+      ]
+    },
+    {
+      "id": "layer:image-lifecycle",
+      "name": "图像检测与资源生命周期",
+      "description": "图像检测与资源生命周期的职责、入口及依赖，具体行为和风险见 agent-analysis.json。",
+      "nodeIds": [
+        "file:app/src/main/java/com/tabula/v3/data/repository/ImageFeatureDetector.kt",
+        "file:app/src/main/java/com/tabula/v3/di/CoilSetup.kt",
+        "file:app/src/main/java/com/tabula/v3/di/PreloadingManager.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/CardStack.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/ImageCard.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/util/ImageFeatureState.kt"
+      ]
+    },
+    {
+      "id": "layer:ui-screens",
+      "name": "页面与交互",
+      "description": "页面与交互的职责、入口及依赖，具体行为和风险见 agent-analysis.json。",
+      "nodeIds": [
+        "file:app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/screens/AlbumViewScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/screens/DeckScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/screens/RecycleBinScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt"
+      ]
+    },
+    {
+      "id": "layer:ui-components",
+      "name": "组件与视觉",
+      "description": "组件与视觉的职责、入口及依赖，具体行为和风险见 agent-analysis.json。",
+      "nodeIds": [
+        "file:app/src/main/java/com/tabula/v3/ui/components/AlbumChips.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/AlbumDialogs.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/AlbumDropTarget.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/BackdropLiquidGlass.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/BatchCompletionScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/DrawCardState.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/FixedTagBar.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/GenieEffect.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/GenieTargetUtils.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/GlassBottomSheet.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/Glassmorphism.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/LiquidGlass.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/LiquidGlassV2.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/MediaBadges.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/PhysicalLiquidGlass.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/RealLiquidGlass.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/TagPosition.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/TopBar.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/UndoSnackbar.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/components/quickaction/SafeAreaCompat.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/theme/Theme.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/theme/Type.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/util/AlbumCleanupImageResolver.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/util/ContextExtensions.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/util/PhotoSharing.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/util/SelectionUtils.kt",
+        "file:app/src/main/java/com/tabula/v3/ui/util/StringDragSelectState.kt"
+      ]
+    },
+    {
+      "id": "layer:platform",
+      "name": "平台服务与资源",
+      "description": "平台服务与资源的职责、入口及依赖，具体行为和风险见 agent-analysis.json。",
+      "nodeIds": [
+        "config:app/src/debug/res/values/strings.xml",
+        "config:app/src/debug/res/xml/shortcuts.xml",
+        "config:app/src/main/AndroidManifest.xml",
+        "file:app/src/main/java/com/tabula/v3/service/FluidCloudService.kt",
+        "file:app/src/main/java/com/tabula/v3/widget/TabulaWidgetProvider.kt",
+        "config:app/src/main/res/drawable/fluid_cloud_background.xml",
+        "config:app/src/main/res/drawable/ic_launcher_background.xml",
+        "config:app/src/main/res/drawable/ic_launcher_foreground.xml",
+        "config:app/src/main/res/drawable/ic_quick_start.xml",
+        "config:app/src/main/res/drawable/ic_widget_shortcut.xml",
+        "config:app/src/main/res/drawable/widget_background.xml",
+        "config:app/src/main/res/layout/fluid_cloud_layout.xml",
+        "config:app/src/main/res/layout/widget_tabula.xml",
+        "config:app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+        "config:app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+        "file:app/src/main/res/raw/liquidglass_effect.agsl",
+        "config:app/src/main/res/values/colors.xml",
+        "config:app/src/main/res/values/strings.xml",
+        "config:app/src/main/res/values/themes.xml",
+        "config:app/src/main/res/xml/data_extraction_rules.xml",
+        "config:app/src/main/res/xml/shortcuts.xml",
+        "config:app/src/main/res/xml/widget_info.xml"
+      ]
+    },
+    {
+      "id": "layer:quality-release",
+      "name": "测试、构建与发布",
+      "description": "测试、构建与发布的职责、入口及依赖，具体行为和风险见 agent-analysis.json。",
+      "nodeIds": [
+        "pipeline:.github/workflows/build-photo-sharing.yml",
+        "pipeline:.github/workflows/build-recycle-bin-consistency.yml",
+        "pipeline:.github/workflows/build-test-apk.yml",
+        "pipeline:.github/workflows/build-volume-confirmation.yml",
+        "pipeline:.github/workflows/publish-release.yml",
+        "document:README.md",
+        "file:app/build.gradle.kts",
+        "file:app/proguard-rules.pro",
+        "config:app/release/output-metadata.json",
+        "file:app/src/androidTest/java/com/tabula/v3/data/repository/VolumeDeletionDeviceTest.kt",
+        "file:app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+        "file:app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+        "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+        "file:app/src/test/java/com/tabula/v3/data/repository/RecycleBinManagerTest.kt",
+        "file:app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+        "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+        "file:app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+        "file:app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+        "file:app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+        "file:app/src/test/java/com/tabula/v3/ui/components/MonthInfoBuilderTest.kt",
+        "file:app/src/test/java/com/tabula/v3/ui/util/AlbumCleanupImageResolverTest.kt",
+        "file:app/src/test/java/com/tabula/v3/ui/util/PhotoSharingTest.kt",
+        "file:app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+        "file:app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+        "file:build.gradle.kts",
+        "document:docs/release-3.3.4.md",
+        "config:gradle.properties",
+        "config:gradle/libs.versions.toml",
+        "config:gradle/wrapper/gradle-wrapper.properties",
+        "file:gradlew",
+        "file:gradlew.bat",
+        "file:scripts/encrypt-release-backup.cjs",
+        "file:scripts/release-backup-public.pem",
+        "file:settings.gradle.kts",
+        "file:tools/run-volume-device-probe.py"
+      ]
+    }
+  ],
+  "project": {
+    "name": "TabulaV3",
+    "description": "基于 Kotlin 与 Jetpack Compose 的本地 Android 照片整理应用，使用 MediaStore 管理归档、原图清理和本地回收站。",
+    "languages": [
+      "agsl",
+      "batch",
+      "javascript",
+      "json",
+      "kotlin",
+      "markdown",
+      "pem",
+      "pro",
+      "properties",
+      "python",
+      "toml",
+      "unknown",
+      "xml",
+      "yaml"
+    ],
+    "frameworks": [
+      "Android",
+      "Jetpack Compose",
+      "Kotlin Coroutines",
+      "Coil",
+      "GitHub Actions",
+      "JUnit",
+      "Robolectric"
+    ],
+    "analyzedAt": "2026-10-17T02:43:46.584Z",
+    "gitCommitHash": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725"
+  },
+  "coverage": {
+    "snapshotFiles": 195,
+    "scannedTextFiles": 145,
+    "explicitBinaryExclusions": 19,
+    "defaultExcludedFiles": 31,
+    "categoryCounts": {
+      "infra": 5,
+      "docs": 2,
+      "code": 114,
+      "config": 23,
+      "script": 1
+    },
+    "productionKotlin": 90,
+    "unitTestFiles": 14,
+    "instrumentationTestFiles": 1,
+    "structuralResults": 119,
+    "unsupportedStructuralFiles": [
+      "gradle.properties",
+      "gradlew.bat",
+      "app/src/main/res/drawable/fluid_cloud_background.xml",
+      "app/src/main/res/drawable/ic_launcher_background.xml",
+      "app/src/main/res/drawable/ic_launcher_foreground.xml",
+      "app/src/main/res/drawable/ic_quick_start.xml",
+      "app/src/main/res/drawable/ic_widget_shortcut.xml",
+      "app/src/main/res/drawable/widget_background.xml",
+      "app/src/main/res/values/colors.xml",
+      "app/src/main/res/values/strings.xml",
+      "app/src/main/res/values/themes.xml",
+      "app/src/main/res/xml/data_extraction_rules.xml",
+      "app/src/main/res/xml/shortcuts.xml",
+      "app/src/main/res/xml/widget_info.xml",
+      "app/proguard-rules.pro",
+      "app/src/debug/res/values/strings.xml",
+      "app/src/debug/res/xml/shortcuts.xml",
+      "app/src/main/AndroidManifest.xml",
+      "app/src/main/res/layout/fluid_cloud_layout.xml",
+      "app/src/main/res/layout/widget_tabula.xml",
+      "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "app/src/main/res/raw/liquidglass_effect.agsl",
+      "gradle/wrapper/gradle-wrapper.properties",
+      "gradlew",
+      "scripts/release-backup-public.pem"
+    ],
+    "unreadableFiles": [],
+    "semanticFiles": 145,
+    "criticalPathFiles": 28,
+    "callGraph": "Imports are deterministic; only selected source-traced calls are promoted to resolved graph edges. Raw AST calls remain in tmp extraction files.",
+    "manualNestedDeclarations": 8,
+    "callWarnings": [],
+    "limits": [
+      "全库扫描和职责索引不等于逐行完整缺陷审计。",
+      "Kotlin/Compose 的 DSL、回调、局部函数及对象归属由关键路径人工补充；其余声明用于定位，不声称全程序精确调用。",
+      "XML、脚本及未知格式的无解析器文件已直接阅读，图中保留文件节点与必要人工联系。",
+      "本轮没有执行新的 Android 构建、设备测试或真实性能测量。"
+    ]
+  },
+  "evidenceRules": {
+    "sourceCommit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+    "staticFindings": "F01-F20 are static conclusions; conditional paths are marked. No device reproductions claimed.",
+    "reusedCI": "evidence/ci/test-results-summary.json",
+    "treeEquivalence": "evidence/ci/tree-equivalence.json",
+    "performance": "PR6 paused; no valid frozen measurement; historical synthetic validator probe is not performance data.",
+    "newRuntimeLLMRequests": 0,
+    "reason": "Only local analysis artifacts were created; no product runtime changed.",
+    "independentReview": {
+      "path": "evidence/independent-review-network-result.json",
+      "scope": [
+        "F18",
+        "F19",
+        "F20"
+      ],
+      "requestedModel": "deepseek-flash[1m]",
+      "observedModels": [
+        "deepseek-flash"
+      ],
+      "status": "completed",
+      "acceptance": "主代理复核了源码位置；F19 并发部分保持条件性，不采用报告中的实现处方作为已定方案。",
+      "billing": "使用既有 DeepSeek API；CLI costBasis=unknown，reported_cost_usd 不作供应商账单核算。"
+    }
+  }
+}

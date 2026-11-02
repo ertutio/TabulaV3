@@ -1,0 +1,2389 @@
+{
+  "commit": "d2038b8e0dc8c99fbdf2c754e88dec0a8078a725",
+  "author": "primary-agent completion after Luna usage limit",
+  "files": [
+    {
+      "path": ".github/workflows/build-photo-sharing.yml",
+      "summary": "针对 feature/photo-sharing 的历史验证：Release 单测、构建、包/版本/混淆检查与 APK artifact；不是通用 PR 门禁。",
+      "tags": [
+        "ci-cd",
+        "build-system"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 2917
+    },
+    {
+      "path": ".github/workflows/build-recycle-bin-consistency.yml",
+      "summary": "针对旧 fix/recycle-bin-error-consistency 分支的 Release 单测/构建与包/压缩检查。",
+      "tags": [
+        "ci-cd",
+        "build-system"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 1904
+    },
+    {
+      "path": ".github/workflows/build-test-apk.yml",
+      "summary": "针对旧回收站修复分支构建带独立 applicationId 后缀的 Debug 测试 APK，并上传单测报告。",
+      "tags": [
+        "ci-cd",
+        "build-system"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 2371
+    },
+    {
+      "path": ".github/workflows/build-volume-confirmation.yml",
+      "summary": "针对 fix/recycle-bin-volume-confirmation 构建 Release/Debug/instrumentation APK，并在 API36/37 模拟器执行合成 MediaStore 日志核对探针。",
+      "tags": [
+        "ci-cd",
+        "build-system"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 3956
+    },
+    {
+      "path": ".github/workflows/publish-release.yml",
+      "summary": "固定 release/v3.3.4 的历史首次发布流程，包含已发布身份防替换、签名备份加密及 Release；后续版本应复用签名并重整入口。",
+      "tags": [
+        "ci-cd",
+        "build-system"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 5651
+    },
+    {
+      "path": "README.md",
+      "summary": "说明照片整理功能、fork 来源与下载/致谢；版本和 API 徽标不是构建配置或验收事实来源。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 5496
+    },
+    {
+      "path": "app/build.gradle.kts",
+      "summary": "配置 applicationId、SDK、3.3.5 版本、Debug 独立包名、环境变量签名、Release R8/资源裁剪和实际依赖。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 3561
+    },
+    {
+      "path": "app/proguard-rules.pro",
+      "summary": "Release R8 保留规则，包含 Coil、Compose 和模型整包 keep；收紧规则属后续独立方向。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 676
+    },
+    {
+      "path": "app/release/output-metadata.json",
+      "summary": "仓库内旧 3.3.3 Release APK 元数据，与当前构建配置的 3.3.5 分别解释。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 703
+    },
+    {
+      "path": "app/src/androidTest/java/com/tabula/v3/data/repository/VolumeDeletionDeviceTest.kt",
+      "summary": "仅在显式启用的模拟器创建自有合成 JPEG，验证 merged URI 缺失核验、旧 pending 日志恢复及存在项保留；不覆盖其他应用照片的真实授权弹窗。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "VolumeDeletionDeviceTest",
+        "shell",
+        "prepare",
+        "fixture",
+        "deleteOwnedFixture",
+        "record",
+        "isolatedManager",
+        "verifier",
+        "actualProviderConfirmsLegacyUriMissingAfterOwnedPhotoDeletion",
+        "previousPendingRecordRecoversAndNewReadableRecordIsRetained",
+        "stillExistingPhotoIsNeverRemovedDuringReconciliation",
+        "cleanupOnlyOwnedFixtures"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 7837
+    },
+    {
+      "path": "app/src/debug/res/values/strings.xml",
+      "summary": "覆盖 Debug 测试应用与小组件名称，避免与正式版混淆。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 157
+    },
+    {
+      "path": "app/src/debug/res/xml/shortcuts.xml",
+      "summary": "覆盖 Debug shortcut Intent，匹配独立回收站测试包名。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 640
+    },
+    {
+      "path": "app/src/main/AndroidManifest.xml",
+      "summary": "注册应用、入口 Activity、widget 与媒体前台服务，声明照片/部分访问、通知、振动及用户触发更新权限，并禁用备份。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 3051
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/TabulaApplication.kt",
+      "summary": "Application.onCreate 安装 CoilSetup 创建的全局 ImageLoader，显示和动画从同一加载器取缓存。",
+      "tags": [
+        "supporting-index",
+        "entry"
+      ],
+      "subsystem": "entry",
+      "depth": "surface",
+      "entrySymbols": [
+        "TabulaApplication",
+        "onCreate"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 378
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/AlbumMapping.kt",
+      "summary": "保留旧的图片到多个图集映射、原图/中间清理 URI 及撤销操作模型；当前 AlbumManager 的 mappings 标为废弃，不应据模型注释推断仍是主账本。",
+      "tags": [
+        "supporting-index",
+        "domain-model"
+      ],
+      "subsystem": "domain-model",
+      "depth": "surface",
+      "entrySymbols": [
+        "AlbumMapping",
+        "PendingAlbumAction",
+        "AlbumActionType"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 1581
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/AlbumUsage.kt",
+      "summary": "定义按图集 ID 保存的使用记录与加权统计模型，为智能排序及手动锁定提供数据。",
+      "tags": [
+        "supporting-index",
+        "domain-model"
+      ],
+      "subsystem": "domain-model",
+      "depth": "surface",
+      "entrySymbols": [
+        "AlbumUsageRecord",
+        "AlbumUsageStats"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 858
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/ImageFeatures.kt",
+      "summary": "定义 HDR 标记和实况视频片段的字节位置、长度及可选时间戳，连接检测器与播放器。",
+      "tags": [
+        "supporting-index",
+        "domain-model"
+      ],
+      "subsystem": "domain-model",
+      "depth": "surface",
+      "entrySymbols": [
+        "ImageFeatures",
+        "MotionPhotoInfo"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 580
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/model/StorageScanResult.kt",
+      "summary": "定义手机存储、图集空间、扫描时间及变化量的显示/持久化模型，图集统计仍按 bucketName 表达。",
+      "tags": [
+        "supporting-index",
+        "domain-model"
+      ],
+      "subsystem": "domain-model",
+      "depth": "surface",
+      "entrySymbols": [
+        "AlbumStorageInfo",
+        "StorageScanResult"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 2406
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/AlbumUsageTracker.kt",
+      "summary": "从本地记录恢复图集使用频率，按时间衰减及连续归档抑制计算排序分数，并保留手动排序锁定；身份迁移需处理其图集键。",
+      "tags": [
+        "supporting-index",
+        "recommendation"
+      ],
+      "subsystem": "recommendation",
+      "depth": "surface",
+      "entrySymbols": [
+        "AlbumUsageTracker",
+        "initialize",
+        "recordUsage",
+        "getAlbumScores",
+        "getAlbumScores",
+        "calculateScore",
+        "getAlbumStats",
+        "setManualOrderLock",
+        "clearManualOrderLock",
+        "clearManualOrderLock",
+        "isManualOrderLocked",
+        "hasAnyManualOrderLock",
+        "clearAlbumRecords",
+        "loadFromFile",
+        "saveToFileAsync",
+        "saveToFile"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "身份或可用快照变化时检查此消费者的键、缓存或计数口径。"
+      ],
+      "readBytes": 13847
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/data/repository/StorageStatsManager.kt",
+      "summary": "查询照片并按 bucket 名汇总存储空间，通过 StateFlow 发布扫描进度与结果，并读写上次扫描快照；T03 需盘点同名图集统计键。",
+      "tags": [
+        "supporting-index",
+        "recommendation"
+      ],
+      "subsystem": "recommendation",
+      "depth": "surface",
+      "entrySymbols": [
+        "StorageStatsManager",
+        "initialize",
+        "performScan",
+        "getPhoneStorageInfo",
+        "saveScanResult",
+        "loadScanResult",
+        "clearScanResult"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "身份或可用快照变化时检查此消费者的键、缓存或计数口径。"
+      ],
+      "readBytes": 11999
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/service/FluidCloudService.kt",
+      "summary": "以 MediaSession 和前台通知向 ColorOS 流体云呈现本批剩余数，提供显示/隐藏入口并在服务销毁时清理会话。",
+      "tags": [
+        "supporting-index",
+        "platform"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [
+        "FluidCloudService",
+        "onBind",
+        "onCreate",
+        "onStartCommand",
+        "onDestroy",
+        "createNotificationChannel",
+        "setupMediaSession",
+        "updateMediaSession",
+        "createNotification",
+        "openApp"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 9011
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumChips.kt",
+      "summary": "呈现当前图集的横向快速归档标签，选择事件交由父层执行，结合主题和触觉反馈。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "AlbumChips",
+        "AlbumChip",
+        "AddAlbumChip",
+        "AlbumChipsEmpty"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 7953
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumCleanupBottomSheet.kt",
+      "summary": "构建按日期倒序的月份清理项与虚拟 Album，呈现图集/月专清选择、进度及进入回调。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "CleanupMode",
+        "MonthInfo",
+        "toVirtualAlbum",
+        "buildMonthInfos",
+        "AlbumCleanupBottomSheet",
+        "AlbumCleanupItem",
+        "CircularProgressRadioButton",
+        "CleanupModeToggle",
+        "MonthCleanupItem"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 42027
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumDialogs.kt",
+      "summary": "验证图集名称并呈现创建/编辑、颜色及选择对话框；实体修改通过父层回调执行。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "validateAlbumName",
+        "AlbumEditDialog",
+        "ColorOption",
+        "EmojiOption",
+        "AlbumDeleteConfirmDialog"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 20440
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumDropTarget.kt",
+      "summary": "下滑归档时显示图集标签网格，按所选索引高亮并回传屏幕坐标供动画目标使用。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "AlbumDropTarget",
+        "DropTargetChip"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 12535
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/AlbumSelectionSheet.kt",
+      "summary": "显示带封面、路径和数量的目标图集列表，回传选中或新建事件；展示路径不等于底层身份已区分。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "AlbumSelectionSheet",
+        "CreateNewAlbumRow",
+        "AlbumSelectionRow"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 12427
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/BackdropLiquidGlass.kt",
+      "summary": "将兼容的 BackdropLiquidGlass 配置转换为 PhysicalLiquidGlass 组件调用，并提供设备能力判断与容器封装。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "BackdropLiquidGlassConfig",
+        "toPhysicalConfig",
+        "isBackdropLiquidGlassSupported",
+        "BackdropLiquidGlassBox",
+        "BackdropLiquidGlassCard",
+        "BackdropLiquidGlassSettings",
+        "BackdropLiquidGlassButton",
+        "BackdropLiquidGlassToggle"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 6240
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/BatchCompletionScreen.kt",
+      "summary": "显示单批浏览/标记统计及 Konfetti 动画，提供继续整理和查看回收站的回调。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "BatchCompletionScreen",
+        "StatItem"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 15399
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/CardShareState.kt",
+      "summary": "保存卡片分享目标解析器与可用状态，点击时取得快照，离开卡片栈时清空，避免分享对象随手势变化。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "CardShareState",
+        "update",
+        "update",
+        "snapshot",
+        "clear"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 781
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/CategorizedAlbumsView.kt",
+      "summary": "呈现已分类图集及其他图集，含图集多选、清理原图入口、拖动选择与系统 bucket 切换；连接 LocalImageRepository 和父层操作。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "CategorizedAlbumsView",
+        "SectionHeader",
+        "EmptyAlbumHint",
+        "SelectionIndicator",
+        "AppAlbumCard",
+        "AppAlbumGridCard",
+        "SystemBucketRow",
+        "CreateAlbumCard",
+        "CreateAlbumCardHorizontal",
+        "OtherAlbumsCard",
+        "DraggableAlbumsGridInternal",
+        "SimpleAlbumsGridInternal"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 66242
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/DraggableAlbumsGrid.kt",
+      "summary": "使用 Compose 网格与拖动手势调整图集显示顺序，排序结果交由回调保存。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "DraggableAlbumsGrid",
+        "AlbumGridItem"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 13583
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/DrawCardState.kt",
+      "summary": "用稳定照片 ID 和发牌栈表达摸牌式左右卡位置，提供 Draw/Recall/AnimationComplete/Reset 状态归约。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "DealtCard",
+        "DrawCardState",
+        "DrawCardAction",
+        "getLeftCard",
+        "getCenterCard",
+        "getRightCard",
+        "canDraw",
+        "canRecall",
+        "drawCardReducer"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 4735
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/FixedTagBar.kt",
+      "summary": "呈现固定双行归档标签与新建入口，回传标签坐标作为 Genie 动画终点。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "FixedTagBar",
+        "FixedTagChip"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 9596
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/GenieEffect.kt",
+      "summary": "实现基于网格/Canvas 的吸入动画与快速位图解码辅助函数，供归档和删除两方向使用；所有权由创建方与调用方约定。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "GenieDirection",
+        "GenieAnimationController",
+        "fastSin",
+        "GenieEffectOverlay",
+        "fillGenieVerticesOptimized",
+        "fillGenieVerticesUpwardOptimized",
+        "calculateGenieVerticesOptimized",
+        "calculateGenieVertices",
+        "calculateGenieVerticesUpwardOptimized",
+        "calculateGenieVerticesUpward",
+        "smoothstep",
+        "smoothstepFast",
+        "smootherstepFast",
+        "smootherstep",
+        "lerp",
+        "easeInQuad",
+        "easeInOutQuad",
+        "startAnimation",
+        "reset",
+        "rememberGenieAnimationController",
+        "createGenieBitmap",
+        "createGenieBitmapFast",
+        "calculateInSampleSizeFast",
+        "calculateInSampleSize"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 41428
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/GenieTargetUtils.kt",
+      "summary": "把回收站或图集标签窗口坐标转换为根布局内动画目标坐标，供卡片动画定位。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "computeTrashTargetInRoot",
+        "computeTagTargetInRoot"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 646
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/GlassBottomSheet.kt",
+      "summary": "按液态玻璃开关封装 Material 底部弹层与选项行，维持弹层内容可读性。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "GlassBottomSheetConfig",
+        "GlassBottomSheet",
+        "GlassOptionItem",
+        "GlassDialogContainer"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 8586
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/GlassDivider.kt",
+      "summary": "提供设置页与卡片内的玻璃分割线配置和绘制，控制缩进、边缘与层次。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "GlassDividerConfig",
+        "GlassDivider",
+        "GlassDivider"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 10892
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/Glassmorphism.kt",
+      "summary": "实现静态毛玻璃/渐变外观修饰符和容器，给标签、设置及快捷按钮提供共用视觉层。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "FrostedGlass",
+        "rememberNoiseBrush",
+        "createNoiseBitmap",
+        "AdaptiveGlass",
+        "AdaptiveGlassCard",
+        "AdaptiveGlassBar",
+        "AdaptiveGlassSettings"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 11071
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/LiquidGlass.kt",
+      "summary": "定义 RuntimeShader 液态玻璃配置和容器/修饰符，支持版本能力分支。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "LiquidGlassConfig",
+        "LiquidGlassColors",
+        "LiquidGlassBox",
+        "LiquidGlassCard",
+        "LiquidGlassBar",
+        "LiquidGlassSettings",
+        "LiquidGlassSheet",
+        "AdaptiveGlassBox"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 7430
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/LiquidGlassV2.kt",
+      "summary": "实现另一套液态玻璃着色器及容器配置，封装运行时光学参数与 Compose 绘制。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "LiquidGlassConfigV2",
+        "drawDispersionEdges",
+        "drawHighlights",
+        "drawInnerGlow",
+        "LiquidGlassBoxV2",
+        "LiquidGlassCardV2",
+        "LiquidGlassSettingsV2",
+        "LiquidGlassBarV2",
+        "LiquidGlassButtonV2",
+        "LiquidGlassToggleV2",
+        "LiquidGlassSheetV2"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 16085
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/MediaBadges.kt",
+      "summary": "组合显示照片 HDR、实况等徽标；徽标内容由特征检测/调用层传入。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "MediaBadgeRow"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 1368
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/ModeToggle.kt",
+      "summary": "显示卡片整理与图库浏览模式切换控件，通过回调通知父层切换。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "ModeToggle"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 7467
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/MotionPhotoPlayer.kt",
+      "summary": "从内容 URI 的视频字节片段创建/驱动 MediaPlayer，管理 Surface、播放状态与退出释放，供查看器实况预览使用。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "MotionPhotoDataSource",
+        "MotionPhotoPlayer",
+        "readAt",
+        "getSize",
+        "close"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 5406
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/OnboardingDialog.kt",
+      "summary": "提供旧式多页引导弹窗及手势示意，完成事件由调用层持久化。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "OnboardingDialog",
+        "WelcomePage",
+        "GesturePage",
+        "GestureIndicator",
+        "ReadyPage"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 18224
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/PhysicalLiquidGlass.kt",
+      "summary": "通过 AGSL/RuntimeShader 与 Compose 绘制实现物理液态玻璃容器、形状与边缘，供兼容封装和主题使用。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "PhysicalLiquidGlassConfig",
+        "isPhysicalLiquidGlassSupported",
+        "rememberNoiseBrush",
+        "createHighFreqNoiseBitmap",
+        "calculatePixelAlignedHairline",
+        "shouldUseFallbackHairline",
+        "PhysicalLiquidGlassBox",
+        "PhysicalLiquidGlassBoxImpl",
+        "FallbackGlassBox",
+        "drawPhysicalGlassEffect",
+        "PhysicalLiquidGlassCard",
+        "PhysicalLiquidGlassSettings",
+        "PhysicalLiquidGlassButton",
+        "PhysicalLiquidGlassToggle"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 56248
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/RealLiquidGlass.kt",
+      "summary": "提供基于运行时着色器的液态玻璃参数、容器和修饰符，包含设备版本降级路径。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "RealLiquidGlassConfig",
+        "createLiquidGlassEffect",
+        "RealLiquidGlassBox",
+        "RealLiquidGlassCard",
+        "RealLiquidGlassSettings",
+        "RealLiquidGlassButton",
+        "RealLiquidGlassToggle"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 15468
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/SwipeableViewerOverlay.kt",
+      "summary": "管理可左右切换的大图列表、入出场、缩放和实况/HDR 预览；消费 ImageFile 与 rememberImageFeatures。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "SwipeableViewerState",
+        "SwipeableViewerOverlay",
+        "SwipeableImagePage",
+        "lerp"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 30641
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/TagPosition.kt",
+      "summary": "以标签索引、中心点与尺寸表达归档命中和吸入动画目标位置。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "TagPosition"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 180
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/TopBar.kt",
+      "summary": "显示整理索引或照片日期、图集选择、回收站及设置入口，并回传回收站按钮位置供动画使用。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "TopBar",
+        "AdaptiveTopBarText",
+        "formatDateForTopBar",
+        "ActionIconButton",
+        "BottomIndicator",
+        "IndicatorDot"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 16272
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/UndoSnackbar.kt",
+      "summary": "管理可见期、超时消失与撤销事件；onDismiss 与 onUndo 的区分决定上层何时提交延迟归档/软删除。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "SnackbarState",
+        "SnackbarStateHolder",
+        "UndoSnackbar",
+        "rememberSnackbarState",
+        "show",
+        "dismiss"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 5741
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/ViewerOverlay.kt",
+      "summary": "管理单张大图查看器的展开/收起与缩放、HDR/实况和分享入口；使用独立的 SourceRect 与 ViewerState。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "ViewerState",
+        "SourceRect",
+        "ViewerOverlay",
+        "lerp"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 26729
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/quickaction/QuickActionButton.kt",
+      "summary": "实现可拖动位置的双向快捷按钮，左右半边触发上一张/下一张，位置由外部偏好保存。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "QuickActionButton"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 9320
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/components/quickaction/SafeAreaCompat.kt",
+      "summary": "计算系统栏安全区域并提供坐标夹取与百分比转换，约束快捷按钮拖动范围。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "SafeArea",
+        "clamp",
+        "contains",
+        "toPercentage",
+        "fromPercentage",
+        "rememberSafeArea"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 3453
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/navigation/AppScreen.kt",
+      "summary": "枚举 TabulaApp 的路由目标，页面栈/切换行为由 MainActivity 和 PredictiveBackContainer 协调。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "AppScreen"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 825
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/navigation/PredictiveBackContainer.kt",
+      "summary": "组合当前和背景页面，处理预测返回手势、位移、圆角与取消动画，回调父层完成路由返回。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "PredictiveBackContainer",
+        "lerp"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 10948
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/AboutScreen.kt",
+      "summary": "显示版本与来源，查询本 fork GitHub 最新 Release，通过 DownloadManager 下载 APK 并启动系统安装；这是用户触发的联网入口。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "subsystem": "ui-screens",
+      "depth": "surface",
+      "entrySymbols": [
+        "UpdateDialogState",
+        "UpdateDialogAction",
+        "UpdateInfo",
+        "UpdateFetchResult",
+        "DownloadStatus",
+        "AboutScreen",
+        "UpdateDialog",
+        "parseVersionParts",
+        "isNewerVersion",
+        "fetchLatestRelease",
+        "mapDownloadError",
+        "queryDownloadStatus"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 39804
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/AlbumTagManagementScreen.kt",
+      "summary": "呈现图集标签排序、隐藏、推荐屏蔽与智能排序设置，依赖 Album 和 AppPreferences，并通过回调修改实体。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "subsystem": "ui-screens",
+      "depth": "surface",
+      "entrySymbols": [
+        "AlbumTagManagementScreen",
+        "TagSectionHeader",
+        "CollapsibleTagSectionHeader",
+        "TagEmptyCard",
+        "TagOrderItem",
+        "ExcludeAlbumItem",
+        "SmartSortToggleItem",
+        "SmartSortSliderItem",
+        "BeautifulRangeSlider",
+        "SmartSortLockDaysItem"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 51102
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/DisclaimerScreen.kt",
+      "summary": "显示首次使用须知，滚动到底后开放确认回调，由父层保存已读状态。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "subsystem": "ui-screens",
+      "depth": "surface",
+      "entrySymbols": [
+        "DisclaimerScreen",
+        "DisclaimerCard"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 12512
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/OnboardingScreen.kt",
+      "summary": "显示首次使用的欢迎、手势说明和进入个性化流程，回传完成与继续事件。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "subsystem": "ui-screens",
+      "depth": "surface",
+      "entrySymbols": [
+        "OnboardingScreen",
+        "OnboardingWelcomePage",
+        "OnboardingGesturePage",
+        "OnboardingGestureIndicator",
+        "OnboardingReadyPage"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 16509
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/OtherAlbumsScreen.kt",
+      "summary": "显示被收纳的小图集及封面，回传进入详情或将图集取出到主列表的操作。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "subsystem": "ui-screens",
+      "depth": "surface",
+      "entrySymbols": [
+        "OtherAlbumsScreen",
+        "OtherAlbumRow"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 8880
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/PersonalizationScreen.kt",
+      "summary": "分步配置顶部信息、卡片样式、推荐及徽标/快捷操作偏好，完成后进入主流程。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "subsystem": "ui-screens",
+      "depth": "surface",
+      "entrySymbols": [
+        "PersonalizationScreen",
+        "saveAllSettings",
+        "TopBarDisplayPage",
+        "TopBarPreviewBox",
+        "CardStylePage",
+        "CardStylePreviewBox",
+        "SwipeStylePage",
+        "SwipeStylePreviewBox",
+        "RecommendModePage",
+        "iOS18OptionCard",
+        "BadgesAndQuickActionPage",
+        "iOS18ToggleItem",
+        "iOS18Divider",
+        "iOS18ComparisonItem",
+        "iOS18RadioButton"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 34253
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/PrivacyPolicyScreen.kt",
+      "summary": "呈现隐私说明和返回入口，为设置页提供政策内容。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "subsystem": "ui-screens",
+      "depth": "surface",
+      "entrySymbols": [
+        "PrivacyPolicyScreen",
+        "SectionTitle",
+        "SectionContent"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 9442
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/SettingsScreen.kt",
+      "summary": "组织主设置及显示、振动/音效、实验室、提醒等子页；更新 AppPreferences，并在相关设置变动时刷新 widget。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "subsystem": "ui-screens",
+      "depth": "surface",
+      "entrySymbols": [
+        "SettingsScreen",
+        "VibrationSoundScreen",
+        "DisplaySettingsScreen",
+        "CardStyleOptionItem",
+        "LabScreen",
+        "WidgetGuideBottomSheet",
+        "WidgetGuideButton",
+        "isColorOS",
+        "tryRequestPinWidget",
+        "tryOpenWidgetPicker",
+        "ReminderSettingsScreen",
+        "SectionHeader",
+        "SettingsGroup",
+        "SettingsItem",
+        "SettingsSwitchItem",
+        "SettingsSliderItem",
+        "TagSettingSliderItem",
+        "RangeStyledSlider",
+        "StyledSlider",
+        "Divider",
+        "BeautifulSectionCard",
+        "BeautifulSwitchItem",
+        "BeautifulSliderItem",
+        "BeautifulStyledSlider",
+        "CustomBottomSheet",
+        "OptionItem",
+        "OptionItem"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 111544
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/StatisticsScreen.kt",
+      "summary": "订阅 StorageStatsManager 的扫描进度和结果，显示照片及图集空间、上次扫描变化与整理统计。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "subsystem": "ui-screens",
+      "depth": "surface",
+      "entrySymbols": [
+        "StatisticsScreen",
+        "ScanningIndicator",
+        "ScanButton",
+        "StorageCircularChart",
+        "StorageOverviewCard",
+        "StorageInfoItem",
+        "AlbumStorageRow",
+        "formatTimestamp"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 35376
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/SystemAlbumViewScreen.kt",
+      "summary": "显示指定系统 bucket 的照片网格，使用 Coil 加载封面并打开可滑动大图查看器。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "subsystem": "ui-screens",
+      "depth": "surface",
+      "entrySymbols": [
+        "SystemLayoutCoordinatesHolder",
+        "SystemAlbumViewScreen",
+        "PhotoGridItem",
+        "rememberImageBadges"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 11681
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/screens/TutorialScreen.kt",
+      "summary": "以分页示意介绍卡片手势、图集与设置功能，提供返回入口。",
+      "tags": [
+        "supporting-index",
+        "ui-screens"
+      ],
+      "subsystem": "ui-screens",
+      "depth": "surface",
+      "entrySymbols": [
+        "TutorialScreen",
+        "SwipeGestureTutorialPage",
+        "BottomSwipeHint",
+        "SwipeGestureAnimationDemo",
+        "GestureIndicator",
+        "GestureExplanationItem",
+        "TutorialFeatureItem",
+        "AlbumManagementTutorialPage",
+        "AlbumGridDemo",
+        "RecycleBinTutorialPage",
+        "RecycleBinDemo",
+        "SettingsTutorialPage",
+        "SettingsDemo",
+        "SettingsDemoItem"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 37023
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/theme/Theme.kt",
+      "summary": "定义 Compose 明暗配色、TabulaColors 和主题局部值，传播液态玻璃模式。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "TabulaColors",
+        "TabulaTheme"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 7146
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/theme/Type.kt",
+      "summary": "定义 Material Typography 使用的字号、字重与文本样式。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 2824
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/ContextExtensions.kt",
+      "summary": "从 Context/ContextWrapper 递归定位 Activity，供查看器设置窗口色彩模式。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "findActivity"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 342
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/DragSelectState.kt",
+      "summary": "维护以 Long 媒体 ID 标识的网格滑动多选、窗口坐标命中及取消，提供相应 Modifier 入口。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "DragSelectState",
+        "ItemBounds",
+        "registerGridPosition",
+        "registerItemBounds",
+        "onDragStart",
+        "onDrag",
+        "onDragEnd",
+        "onDragCancel",
+        "findItemAt",
+        "contains",
+        "rememberDragSelectState",
+        "gridDragHandler",
+        "gridDragHandlerLongPress",
+        "itemDragReceiver"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 10095
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/HapticFeedback.kt",
+      "summary": "封装振动器与系统触觉，统一强度、启用状态、反馈类型及节流。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "HapticFeedback",
+        "updateSettings",
+        "getVibrator",
+        "canVibrate",
+        "resolveAmplitude",
+        "resolveDuration",
+        "vibrateOneShot",
+        "vibrateWithStrength",
+        "lightTap",
+        "mediumTap",
+        "heavyTap",
+        "doubleTap",
+        "strengthPreview"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 7073
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/PhotoSharing.kt",
+      "summary": "按 Provider MIME 或文件扩展名构造 ACTION_SEND，设置 ClipData 与读取授权，准备前确认可读并向 UI 返回可理解的失败提示。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "photoMimeType",
+        "buildPhotoShareIntent",
+        "preparePhotoShare",
+        "rememberPhotoShareAction"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 3577
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/SelectionUtils.kt",
+      "summary": "提供 String 身份集合的切换、全选/清空和按可见项收敛函数。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "toggleSelection",
+        "selectAllOrClear",
+        "clampSelectionToVisible"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 507
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/ui/util/StringDragSelectState.kt",
+      "summary": "维护以 String 图集 ID 标识的拖动多选和位置命中，使用更新后的回调避免状态重建丢失手势。",
+      "tags": [
+        "supporting-index",
+        "ui-components"
+      ],
+      "subsystem": "ui-components",
+      "depth": "surface",
+      "entrySymbols": [
+        "StringDragSelectState",
+        "registerGridPosition",
+        "registerItemBounds",
+        "onDragStart",
+        "onDrag",
+        "onDragEnd",
+        "onDragCancel",
+        "findItemAt",
+        "rememberStringDragSelectState",
+        "gridDragHandlerString",
+        "itemDragReceiverString"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 6375
+    },
+    {
+      "path": "app/src/main/java/com/tabula/v3/widget/TabulaWidgetProvider.kt",
+      "summary": "查询当前可读照片总数并更新 RemoteViews、小组件提示及点击入口；该数值不是经软删除/已整理过滤后的待整理快照。",
+      "tags": [
+        "supporting-index",
+        "platform"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [
+        "TabulaWidgetProvider",
+        "onUpdate",
+        "onEnabled",
+        "onDisabled"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "身份或可用快照变化时检查此消费者的键、缓存或计数口径。"
+      ],
+      "readBytes": 5415
+    },
+    {
+      "path": "app/src/main/res/drawable/fluid_cloud_background.xml",
+      "summary": "定义流体云通知布局的黑色圆角背景。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 327
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_launcher_background.xml",
+      "summary": "定义启动器图标背景矢量。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 327
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_launcher_foreground.xml",
+      "summary": "定义启动器前景图标矢量路径。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 1481
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_quick_start.xml",
+      "summary": "定义桌面快速整理入口使用的矢量图标。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 469
+    },
+    {
+      "path": "app/src/main/res/drawable/ic_widget_shortcut.xml",
+      "summary": "定义添加小组件快捷方式图标。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 452
+    },
+    {
+      "path": "app/src/main/res/drawable/widget_background.xml",
+      "summary": "定义 widget 的渐变圆角背景与描边。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 471
+    },
+    {
+      "path": "app/src/main/res/layout/fluid_cloud_layout.xml",
+      "summary": "定义前台流体云通知的照片数量及标识 RemoteViews 布局。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 1609
+    },
+    {
+      "path": "app/src/main/res/layout/widget_tabula.xml",
+      "summary": "定义桌面 widget 名称、照片数量、描述与行动提示的 RemoteViews 布局。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 2254
+    },
+    {
+      "path": "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "summary": "用图标背景和前景组合 adaptive launcher icon。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 268
+    },
+    {
+      "path": "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "summary": "定义圆形启动器入口的 adaptive icon 组合。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 268
+    },
+    {
+      "path": "app/src/main/res/raw/liquidglass_effect.agsl",
+      "summary": "通过 AGSL shader 的尺寸、偏移、折射及圆角 uniform 实现液态玻璃视觉。",
+      "tags": [
+        "supporting-index",
+        "platform"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 4575
+    },
+    {
+      "path": "app/src/main/res/values/colors.xml",
+      "summary": "定义启动器背景颜色资源。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 121
+    },
+    {
+      "path": "app/src/main/res/values/strings.xml",
+      "summary": "定义应用、小组件和长按快捷方式文案。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 514
+    },
+    {
+      "path": "app/src/main/res/values/themes.xml",
+      "summary": "配置无 ActionBar 的 Android 窗口主题、透明系统栏和显示区域。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 739
+    },
+    {
+      "path": "app/src/main/res/xml/data_extraction_rules.xml",
+      "summary": "排除 cloud-backup 与 device-transfer 的私有记录/照片等数据域，与 Manifest 禁用备份共同生效。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 540
+    },
+    {
+      "path": "app/src/main/res/xml/shortcuts.xml",
+      "summary": "定义长按入口的快速开始与添加小组件 Intent。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 624
+    },
+    {
+      "path": "app/src/main/res/xml/widget_info.xml",
+      "summary": "配置 widget 默认布局、尺寸、更新周期和预览元数据。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "platform",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 734
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/BatchDeletionTest.kt",
+      "summary": "验证批量边界、无效请求拆批、部分成功、串行授权、取消和 2000 以上输入；属于现有批处理算法回归。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "BatchDeletionTest",
+        "clears140PhotosInBoundedBatches",
+        "retriesRejectedRequestsWithSmallerBatches",
+        "oneInvalidItemDoesNotBlockOtherPhotos",
+        "partialSuccessRemovesOnlyConfirmedPhotos",
+        "cancellationPreservesCompletedWorkAndStopsLaterRequests",
+        "cancellationDuringSplitStopsSiblingRequests",
+        "neverStartsNextRequestBeforePermissionResultAndPersistence",
+        "deduplicatesRequestsAndIgnoresUnrequestedResults",
+        "emptyRecycleBinDoesNotLaunchARequest",
+        "nonRetryableFailureDoesNotSplit",
+        "globalFailureStopsAllLaterBatches",
+        "globalFailureKeepsEarlierSuccessfulWork",
+        "unknownVerificationCommitsKnownResultsThenStops",
+        "over2000ItemsStillUseBoundedRequests"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 7092
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/FileOperationManagerTest.kt",
+      "summary": "通过 Robolectric Provider 与注入卷状态验证存在/缺失/未知分类、权限撤回、服务错误、取消及挂载重叠。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "FileOperationManagerTest",
+        "setup",
+        "manager",
+        "fullAccessAndAvailableVolumeCanConfirmMissing",
+        "selectedAccessEmptyQueryRemainsUnknownAfterAuthorization",
+        "unavailableVolumeCannotConfirmMissing",
+        "permissionRevokedDuringQueryCannotConfirmMissing",
+        "nullOrFailedQueriesRemainUnknown",
+        "visiblePhotoRemainsPresentWithPartialAccess",
+        "actualServiceErrorsMapToNonSplittableFailures",
+        "rejectedRequestCanBeSplitButCancellationPropagates",
+        "mergedExternalVolumeDoesNotTreatEjectedVolumeAsMissing",
+        "managerWithMountedRecentOverlap",
+        "emptyCursorWithMountedRecentOverlapIsConfirmedMissing",
+        "oldPendingDeletedEntryIsReconciledWhileNewEntryIsRetained"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 7957
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinDeletionTest.kt",
+      "summary": "验证日志准备/提交失败、恢复幂等、禁止再次物理删除、UNKNOWN 与取消语义，覆盖回收站删除适配层。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "RecycleBinDeletionTest",
+        "saveFailureStopsTaskAndRecoveryNeverDeletesAgain",
+        "journalCommitFailureCanBeReconciledIdempotently",
+        "failedJournalPreparationDoesNotRequestDeletion",
+        "globalErrorsAreNotSplitAndStopAfterOneRequest",
+        "invalidItemIsIsolatedWithoutLosingOtherRecords",
+        "recoveryKeepsUnknownAndExistingPhotosDistinct",
+        "cancelledCoroutineLeavesJournalForLaterRecovery",
+        "unknownPermissionResultStopsFurtherDeletionAndKeepsJournal",
+        "systemCancellationLeavesRecordsAndClearsUnissuedRecoveryWork"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 9285
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/RecycleBinManagerTest.kt",
+      "summary": "验证 AtomicFile 读写与回滚、损坏数据、互斥更新、旧数据迁移及 pending 日志恢复，测试夹具亦供删除回归复用。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "MemoryRecycleBinStorage",
+        "RecycleBinManagerTest",
+        "read",
+        "write",
+        "fixturePhoto",
+        "expectFailure",
+        "missingFileIsEmptyButUnreadableFileDoesNotOverwrite",
+        "corruptAndBlankFilesAreFailures",
+        "failedSavePropagatesAndRetainsOldRecords",
+        "realAtomicFileWriteFailurePreservesCommittedFile",
+        "realDirectoryReadFailureIsNotAnEmptyRecycleBin",
+        "atomicReadRestoresLegacyBackup",
+        "concurrentUpdatesDoNotLoseItemsAndDuplicatesStayUnique",
+        "migrationKeepsOrderAndFailsVisiblyIfItCannotSave",
+        "newManagerRestoresPendingJournalAndCannotOverwriteIt",
+        "failedPartialWriteRollsBackAndSilentCommitFailureIsDetected"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 8624
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/data/repository/VolumeConfirmationRuleTest.kt",
+      "summary": "覆盖 recent 集合包含已挂载卷、真离线卷、merged URI 与具体主卷之间的缺失确认规则。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "VolumeConfirmationRuleTest",
+        "recentListMayContainTheCurrentlyMountedPrimaryVolume",
+        "allRecentVolumesAlreadyMountedDoNotBlockMergedUri",
+        "genuinelyUnmountedRecentVolumeStillBlocksAmbiguousMergedUri",
+        "mergedUriRequiresConsistentMountedPrimaryEvidence",
+        "concretePrimaryIsNotBlockedByAnUnrelatedEjectedVolume",
+        "concreteUnavailableVolumesCannotBeConfirmedMissing"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 1537
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/permission/DeletePermissionActivityRecoveryTest.kt",
+      "summary": "使用 Robolectric Activity 重建确认系统授权回调触发日志核对，而非再次发起物理删除。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "ControlledDeleteResultRegistry",
+        "DeletePermissionRecoveryActivity",
+        "DeletePermissionActivityRecoveryTest",
+        "onLaunch",
+        "onCreate",
+        "onSaveInstanceState",
+        "resultAfterActivityRecreationSignalsReconciliationRatherThanLaunchingAgain"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 3323
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/permission/DeletePermissionSessionTest.kt",
+      "summary": "验证瞬时授权回调、恢复中 inFlight 和 launcher 失败时释放占用。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "DeletePermissionSessionTest",
+        "restoredSessionWaitsForSystemAndTriggersJournalRecovery",
+        "ordinaryResultClearsSlotBeforeCallbackAndDoesNotTriggerRecovery",
+        "failedLauncherDoesNotLeaveBusyState"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 1859
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/permission/MediaPermissionPolicyTest.kt",
+      "summary": "验证 SDK 对应读取权限及部分授权可读策略；不等于图库随权限变化刷新已验证。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "MediaPermissionPolicyTest",
+        "requiredPermissions_sdk34_includesPartialAccessPermission",
+        "hasMediaReadPermission_sdk34_trueWhenOnlySelectedPhotosGranted",
+        "hasMediaReadPermission_sdk33_requiresReadMediaImages",
+        "isAnyRequestedPermissionGranted_returnsTrueWhenAtLeastOneGranted"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 1678
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/components/GenieTargetUtilsTest.kt",
+      "summary": "验证回收站底边中心及标签上边中心到根布局的坐标变换。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "GenieTargetUtilsTest",
+        "trashTargetUsesBottomCenterWhenBoundsAvailable",
+        "tagTargetUsesTopCenterWhenBoundsAvailable"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 896
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/components/MonthInfoBuilderTest.kt",
+      "summary": "验证月份分组倒序、封面选择及空输入，实际函数在 AlbumCleanupBottomSheet.kt。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "MonthInfoBuilderTest",
+        "buildsMonthInfosInDescOrderAndPicksLatestCover",
+        "returnsEmptyWhenNoImages",
+        "image"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 2094
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/AlbumCleanupImageResolverTest.kt",
+      "summary": "验证按末级 bucket 名匹配及无路径时空结果；现有断言不覆盖同名多路径身份分离。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "AlbumCleanupImageResolverTest",
+        "resolvesImagesByAlbumPathBucket",
+        "returnsEmptyWhenAlbumPathMissing"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 1848
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/PhotoSharingTest.kt",
+      "summary": "验证原 URI、MIME、ClipData/读授权和手势中的目标快照，不覆盖真实外部接收应用。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "PhotoSharingTest",
+        "registerAndroidPhotoFormats",
+        "photo",
+        "sharesTheOriginalPhotoWithMatchingClipDataAndReadAccess",
+        "preservesReportedPhotoFormat",
+        "infersFormatWhenProviderTypeIsMissingOrGeneric",
+        "doesNotShareWhileGestureStartsBeforeButtonRecomposes",
+        "snapshotKeepsClickedPhotoWhileStackMovesToNextPhoto",
+        "leavingTheStackClearsItsShareTarget"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 3640
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/SelectionUtilsTest.kt",
+      "summary": "验证 String 身份的选中切换、全选和可见集合收敛。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "SelectionUtilsTest",
+        "toggleSelection_addsAndRemoves",
+        "selectAllOrClear_togglesBasedOnAllSelected",
+        "clampSelectionToVisible_dropsHidden"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 838
+    },
+    {
+      "path": "app/src/test/java/com/tabula/v3/ui/util/StringDragSelectStateTest.kt",
+      "summary": "验证拖动选取/取消选取的集合变化与位置命中。",
+      "tags": [
+        "test",
+        "source-coverage"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "StringDragSelectStateTest",
+        "NoOpHaptic",
+        "dragSelect_addsItemsDuringDrag",
+        "dragSelect_removesWhenInitiallySelected",
+        "performHapticFeedback"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "执行证据集中在 evidence/ci/test-results-summary.json；测试存在不证明新路线图场景已通过。"
+      ],
+      "readBytes": 1939
+    },
+    {
+      "path": "build.gradle.kts",
+      "summary": "项目根只声明 Android/Kotlin/Compose 插件别名；app 模块另配置编译、签名、构建变体及依赖。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 270
+    },
+    {
+      "path": "docs/release-3.3.4.md",
+      "summary": "历史 3.3.4 回收站修复说明与 fork 签名兼容约定，不是当前完整验收清单。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 849
+    },
+    {
+      "path": "gradle.properties",
+      "summary": "配置 Gradle JVM 内存、并行/构建/配置缓存及 AndroidX/Kotlin 风格。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 353
+    },
+    {
+      "path": "gradle/libs.versions.toml",
+      "summary": "集中声明插件与库版本；存在的 Media3 alias 未被 app dependencies 使用，升级前应核实真实解析。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 3128
+    },
+    {
+      "path": "gradle/wrapper/gradle-wrapper.properties",
+      "summary": "锁定 Gradle 8.11.1 分发地址与校验/网络参数，供两个 wrapper 启动器使用。",
+      "tags": [
+        "configuration",
+        "android-resource"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 253
+    },
+    {
+      "path": "gradlew",
+      "summary": "Unix Gradle wrapper，定位 Java 与 gradle-wrapper.jar 后启动 GradleWrapperMain。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 5615
+    },
+    {
+      "path": "gradlew.bat",
+      "summary": "Windows Gradle wrapper，按 JAVA_HOME/Java 命令设置 JVM 并启动 GradleWrapperMain。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 2826
+    },
+    {
+      "path": "scripts/encrypt-release-backup.cjs",
+      "summary": "用随机 AES-256-GCM 加密签名备份，再用公开 RSA-OAEP SHA-256 包装对称密钥，输出加密封装。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 971
+    },
+    {
+      "path": "scripts/release-backup-public.pem",
+      "summary": "首次签名备份的公开收件人 RSA 公钥；不包含私钥。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。",
+        "当前提取器未提供结构，由文本内容和资源定义补充文件级职责。"
+      ],
+      "readBytes": 625
+    },
+    {
+      "path": "settings.gradle.kts",
+      "summary": "定义插件和依赖仓库、项目名称及 app 模块，限制部分 Google 仓库内容。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 628
+    },
+    {
+      "path": "tools/run-volume-device-probe.py",
+      "summary": "验证模拟器身份与主卷挂载，安装独立测试 APK 并运行3项设备探针，校验日志/观察值且保留诊断。",
+      "tags": [
+        "supporting-index",
+        "quality-release"
+      ],
+      "subsystem": "quality-release",
+      "depth": "surface",
+      "entrySymbols": [
+        "adb",
+        "install",
+        "wait_for_primary_storage",
+        "main"
+      ],
+      "notes": [
+        "按源码职责、定义与相关调用作 surface 索引；未作此文件所有行为的逐行缺陷审计。"
+      ],
+      "readBytes": 4286
+    }
+  ]
+}

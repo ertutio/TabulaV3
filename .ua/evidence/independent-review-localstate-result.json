@@ -1,0 +1,92 @@
+{
+  "schema_version": 2,
+  "success": false,
+  "status": "failed",
+  "exit_code": 1,
+  "timed_out": false,
+  "session_id": "16547c04-6d3c-4e06-a4d2-2bf7bec71a04",
+  "permission_denials": [],
+  "model": "deepseek-flash[1m]",
+  "model_usage": {},
+  "usage": {
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "input_tokens": 0,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 0,
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "",
+    "iterations": [],
+    "speed": "standard"
+  },
+  "result": "API Error: Can't reach the API server — check your internet or DNS (ENOTFOUND)",
+  "errors": [
+    "CLI exited with code 1"
+  ],
+  "termination_reason": "cli_error",
+  "progress": {
+    "events_seen": 6,
+    "messages_seen": 1,
+    "tools_started": 0,
+    "tools_completed": 0,
+    "last_event": "result",
+    "last_activity_seconds": 2.094,
+    "output_tokens_observed": 0,
+    "stop_reason": "stop_sequence",
+    "report_chars": 78
+  },
+  "observed_models": [],
+  "warnings": [
+    {
+      "code": "unrecognized_model",
+      "message": "Claude CLI does not recognize the requested model locally; check actual model messages and API outcome."
+    }
+  ],
+  "review_complete": false,
+  "credential_source": "env_file",
+  "dry_run": false,
+  "plan": {
+    "cwd": ".",
+    "state_dir": "local-user\\Documents\\ChatGPT\\GitHub项目开发\\work\\TabulaV3-understand-20261017\\review-worker-state",
+    "env_file": "local-user\\.deepseek-worker\\worker.env",
+    "claude_config_dir": "local-user\\Documents\\ChatGPT\\GitHub项目开发\\work\\TabulaV3-understand-20261017\\review-worker-state\\sessions\\16547c04-6d3c-4e06-a4d2-2bf7bec71a04\\claude",
+    "executable": "local-user\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+    "base_url": "https://api.deepseek.com/anthropic",
+    "tools": [
+      "Read"
+    ],
+    "write_files": [],
+    "allowed_tools": [
+      "Read"
+    ],
+    "max_turns": 6,
+    "timeout_seconds": 240,
+    "resume": false,
+    "profile": "review",
+    "effort": "max",
+    "max_output_tokens": 16384,
+    "max_total_output_tokens": 32768,
+    "max_report_chars": 3000,
+    "streaming": true,
+    "max_api_retries": 1,
+    "credential_present": true,
+    "proxy_inherited": []
+  },
+  "usage_source": "final_result",
+  "cli_subtype": "success",
+  "cli_is_error": true,
+  "num_turns": 1,
+  "reported_cost_usd": 0,
+  "stderr": "[claude-code:unrecognized_model] {\"model\":\"deepseek-flash[1m]\",\"query_source\":\"sdk\"}\n",
+  "duration_seconds": 2.219
+}
