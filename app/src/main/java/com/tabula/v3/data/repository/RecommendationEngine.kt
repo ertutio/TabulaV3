@@ -178,8 +178,11 @@ class RecommendationEngine(
      * 唯一可解析时改写为完整媒体身份键（幂等，迁移后裸键消失）。歧义
      * （跨卷同 ID 多行）或缺失（行已不在）保留旧键安全降级——裸键对该 ID
      * 各卷行均抑制，方向安全，过期后由 cleanupExpiredPickRecords 清除。
-     * 每次批前调用（getRecommendedBatch，屏蔽过滤**之前**，见该处注释）；
-     * 唯一可解析项首轮迁完，之后零写入。
+     * 随机模式批前调用（getRecommendedBatch 的 RANDOM_WALK 分支，屏蔽
+     * 过滤**之前**，见该处注释）；唯一可解析项首轮迁完，之后零写入。
+     * SIMILAR 模式回退随机路径不经迁移——裸键兜底抑制方向不变，下次
+     * 随机批即迁移。屏蔽全池（过滤后为空）时不产出批次、迁移跳过，
+     * 裸键兜底保留，恢复可见后恢复迁移。
      *
      * 上游边界：getRecommendedBatch 的入参是 deck 池（MainActivity 传
      * imagesForSorting——已归类/已删除照片在更上游被移出）。已离开池的行
