@@ -205,7 +205,10 @@ class PickCooldownIdentityTest {
         val batch = engine.getRecommendedBatch(listOf(hidden, visible, c, d), batchSize = 1)
 
         assertTrue("歧义记录不得因屏蔽过滤被猜卷迁移", legacyKeyExists(42L))
-        assertTrue("未猜卷写出身份键", preferences.getPickCooldownIndex().byIdentityKey.isEmpty())
+        assertTrue(
+            "未为 42 猜卷写出身份键（池内他行正常记录不在禁列）",
+            preferences.getPickCooldownIndex().byIdentityKey.keys.none { it.endsWith("|42") }
+        )
         assertTrue("可见同 ID 行仍被裸键冷却抑制", visible !in batch)
         assertTrue("推荐抽样仍按原规则过滤：屏蔽行不可入选", hidden !in batch)
     }
@@ -226,7 +229,10 @@ class PickCooldownIdentityTest {
         val batch = engine.getRecommendedBatch(listOf(hidden, visible, c, d), batchSize = 1)
 
         assertTrue("解除屏蔽后裸键仍在", legacyKeyExists(42L))
-        assertTrue("未发生身份键迁移", preferences.getPickCooldownIndex().byIdentityKey.isEmpty())
+        assertTrue(
+            "未为 42 发生身份键迁移（池内他行正常记录不在禁列）",
+            preferences.getPickCooldownIndex().byIdentityKey.keys.none { it.endsWith("|42") }
+        )
         assertTrue("冷却仍有效：同 ID 两行均被抑制", batch.single().id != 42L)
     }
 }

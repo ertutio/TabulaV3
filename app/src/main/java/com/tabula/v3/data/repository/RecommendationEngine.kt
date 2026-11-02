@@ -56,11 +56,16 @@ class RecommendationEngine(
             android.util.Log.d(TAG, "No images available after filtering excluded albums")
             return@withContext emptyList()
         }
-        
+
         when (preferences.recommendMode) {
             RecommendMode.RANDOM_WALK -> {
                 // 清理过期的抽取记录
                 preferences.cleanupExpiredPickRecords()
+                // C1/T03-DECKCOOLDOWN 复验轮：旧裸 ID 记录的唯一性判定必须用
+                // 屏蔽过滤前的完整候选集——屏蔽是可逆的可见性状态，被屏蔽的
+                // 同 ID 行不参与判定会把歧义记录猜卷迁移到可见行。迁移后仍按
+                // filteredImages 抽样（推荐规则不变）。
+                migrateLegacyPickRecords(allImages)
                 getRandomWalkBatch(filteredImages, batchSize)
             }
             RecommendMode.SIMILAR -> {
@@ -169,11 +174,18 @@ class RecommendationEngine(
      * 如果可用照片不足，则从冷却期内的照片中补充（按冷却期剩余时间排序）。
      */
     /**
-     * C1/T03-DECKCOOLDOWN 旧数据迁移：裸数值 ID 冷却记录在当前媒体集合内
+     * C1/T03-DECKCOOLDOWN 旧数据迁移：裸数值 ID 冷却记录在完整候选集内
      * 唯一可解析时改写为完整媒体身份键（幂等，迁移后裸键消失）。歧义
      * （跨卷同 ID 多行）或缺失（行已不在）保留旧键安全降级——裸键对该 ID
      * 各卷行均抑制，方向安全，过期后由 cleanupExpiredPickRecords 清除。
-     * 每次批前调用；唯一可解析项首轮迁完，之后零写入。
+     * 每次批前调用（getRecommendedBatch，屏蔽过滤**之前**，见该处注释）；
+     * 唯一可解析项首轮迁完，之后零写入。
+     *
+     * 上游边界：getRecommendedBatch 的入参是 deck 池（MainActivity 传
+     * imagesForSorting——已归类/已删除照片在更上游被移出）。已离开池的行
+     * 不在本消费者宇宙内，其遗留裸键按缺失保留、待过期清理；屏蔽图集是
+     * 可逆可见性状态，行仍在池内，必须参与唯一性判定（不得因屏蔽把歧义
+     * 猜卷迁移到可见行）。
      */
     private fun migrateLegacyPickRecords(allImages: List<ImageFile>) {
         val legacy = preferences.getPickCooldownIndex().byLegacyBareId
@@ -190,8 +202,7 @@ class RecommendationEngine(
         allImages: List<ImageFile>,
         batchSize: Int
     ): List<ImageFile> {
-        // 旧裸 ID 记录唯一可解析时迁移为身份键，再一次性读取冷却池
-        migrateLegacyPickRecords(allImages)
+        // 旧裸 ID 记录已在 getRecommendedBatch 用过滤前完整候选集迁移完毕
         val cooldown = preferences.getPickCooldownIndex()
 
         // 冷却判定按完整媒体身份（卷|ID）；旧裸 ID 键仅对未迁移记录兜底
