@@ -7,6 +7,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import com.tabula.v3.data.repository.LocalImageRepository
 
+/** 一条抽取冷却记录：抽取时间 + 随机冷却天数。 */
+data class PickCooldownEntry(val pickedAt: Long, val days: Int)
+
+/**
+ * C1/T03-DECKCOOLDOWN：随机抽取冷却池索引——完整媒体身份键（卷|ID）与
+ * 旧裸数值 ID 双视图。新格式键形如 "external_primary|42"（非纯数字），
+ * 旧格式键为纯数字 ID（升级前数据）。
+ */
+data class PickCooldownIndex(
+    val byIdentityKey: Map<String, PickCooldownEntry>,
+    val byLegacyBareId: Map<Long, PickCooldownEntry>
+)
+
 /**
  * 应用设置管理器
  */
@@ -412,39 +425,43 @@ class AppPreferences(context: Context) {
     private val similarGroupCooldownOptions = listOf(3, 5, 7)
 
     /**
-     * 记录照片被抽取的时间，并随机分配冷却天数
+     * 批量记录照片被抽取的时间（C1/T03-DECKCOOLDOWN：完整媒体身份键），
+     * 并随机分配冷却天数
      */
-    fun recordImagePicked(imageId: Long) {
-        val randomCooldownDays = cooldownOptions.random()
-        pickTimestampsPrefs.edit()
-            .putLong("time_$imageId", System.currentTimeMillis())
-            .putInt("days_$imageId", randomCooldownDays)
-            .apply()
+    fun recordImagesPickedByIdentity(identityKeys: Collection<String>) {
+        if (identityKeys.isEmpty()) return
+        val editor = pickTimestampsPrefs.edit()
+        val now = System.currentTimeMillis()
+
+        identityKeys.forEach { key ->
+            val randomCooldownDays = cooldownOptions.random()
+            editor.putLong("time_$key", now)
+            editor.putInt("days_$key", randomCooldownDays)
+        }
+
+        editor.apply()
     }
 
     /**
-     * 获取照片上次被抽取的时间，如果从未被抽取则返回0
+     * C1/T03-DECKCOOLDOWN 旧数据迁移：裸数值 ID 记录在调用方确认当前媒体
+     * 集合内唯一可解析后，改写为完整媒体身份键。put+remove 同一 editor
+     * 单事务，中断后重跑幂等；身份键已存在时保留新记录、仅清裸键。
+     *
+     * @return 是否发生改写
      */
-    fun getImagePickedTimestamp(imageId: Long): Long {
-        return pickTimestampsPrefs.getLong("time_$imageId", 0L)
-    }
-
-    /**
-     * 获取照片的冷却天数
-     */
-    fun getImageCooldownDays(imageId: Long): Int {
-        return pickTimestampsPrefs.getInt("days_$imageId", cooldownOptions.first())
-    }
-
-    /**
-     * 检查照片是否在冷却期内
-     */
-    fun isImageInCooldown(imageId: Long): Boolean {
-        val pickedTime = getImagePickedTimestamp(imageId)
-        if (pickedTime == 0L) return false
-        val cooldownDays = getImageCooldownDays(imageId)
-        val cooldownMillis = cooldownDays.toLong() * 24 * 60 * 60 * 1000
-        return System.currentTimeMillis() - pickedTime < cooldownMillis
+    fun migratePickRecordToIdentity(bareId: Long, identityKey: String): Boolean {
+        val pickedAt = pickTimestampsPrefs.getLong("time_$bareId", 0L)
+        if (pickedAt == 0L) return false
+        val days = pickTimestampsPrefs.getInt("days_$bareId", cooldownOptions.first())
+        val editor = pickTimestampsPrefs.edit()
+        if (!pickTimestampsPrefs.contains("time_$identityKey")) {
+            editor.putLong("time_$identityKey", pickedAt)
+            editor.putInt("days_$identityKey", days)
+        }
+        editor.remove("time_$bareId")
+        editor.remove("days_$bareId")
+        editor.apply()
+        return true
     }
 
     /**
@@ -470,64 +487,47 @@ class AppPreferences(context: Context) {
     }
 
     /**
-     * 批量获取当前在冷却期内的图片ID集合
-     * 一次性读取所有记录，避免多次单独读取 SharedPreferences
+     * 批量读取当前冷却池（C1/T03-DECKCOOLDOWN）。
+     * 一次性读取所有记录，避免多次单独读取 SharedPreferences；
+     * 新格式身份键与旧裸数值键分别归入双视图，过期记录不返回。
      */
-    fun getCooldownImageIds(): Set<Long> {
+    fun getPickCooldownIndex(): PickCooldownIndex {
         val now = System.currentTimeMillis()
-        val cooldownIds = mutableSetOf<Long>()
-        
+        val byIdentity = mutableMapOf<String, PickCooldownEntry>()
+        val byLegacy = mutableMapOf<Long, PickCooldownEntry>()
+
         pickTimestampsPrefs.all.forEach { (key, value) ->
-            if (key.startsWith("time_") && value is Long) {
-                val imageIdStr = key.removePrefix("time_")
-                val imageId = imageIdStr.toLongOrNull() ?: return@forEach
-                val cooldownDays = pickTimestampsPrefs.getInt("days_$imageIdStr", cooldownOptions.first())
-                val cooldownMillis = cooldownDays.toLong() * 24 * 60 * 60 * 1000
-                
-                if (now - value < cooldownMillis) {
-                    cooldownIds.add(imageId)
-                }
-            }
+            if (!key.startsWith("time_") || value !is Long) return@forEach
+            val suffix = key.removePrefix("time_")
+            val cooldownDays = pickTimestampsPrefs.getInt("days_$suffix", cooldownOptions.first())
+            val cooldownMillis = cooldownDays.toLong() * 24 * 60 * 60 * 1000
+            if (now - value >= cooldownMillis) return@forEach
+            val entry = PickCooldownEntry(value, cooldownDays)
+            val bareId = suffix.toLongOrNull()
+            if (bareId != null) byLegacy[bareId] = entry else byIdentity[suffix] = entry
         }
-        
-        return cooldownIds
+
+        return PickCooldownIndex(byIdentity, byLegacy)
     }
 
     /**
-     * 批量记录照片被抽取的时间
-     */
-    fun recordImagesPicked(imageIds: List<Long>) {
-        if (imageIds.isEmpty()) return
-        val editor = pickTimestampsPrefs.edit()
-        val now = System.currentTimeMillis()
-        
-        imageIds.forEach { imageId ->
-            val randomCooldownDays = cooldownOptions.random()
-            editor.putLong("time_$imageId", now)
-            editor.putInt("days_$imageId", randomCooldownDays)
-        }
-        
-        editor.apply()
-    }
-    
-    /**
-     * 从冷却池中移除指定的照片
+     * 从冷却池中移除指定身份键的照片
      * 用于切换推荐算法时，将未浏览的照片从冷却池中移除
-     * 
+     *
      * 注意：使用 commit() 而非 apply() 以确保移除操作在返回前完成，
      * 避免与后续的批次获取产生竞态条件。
-     * 
-     * @param imageIds 要移除的照片ID列表
+     *
+     * @param identityKeys 要移除的照片完整媒体身份键列表
      */
-    fun removeImagesFromCooldown(imageIds: List<Long>) {
-        if (imageIds.isEmpty()) return
+    fun removeImagesFromCooldownByIdentity(identityKeys: Collection<String>) {
+        if (identityKeys.isEmpty()) return
         val editor = pickTimestampsPrefs.edit()
-        
-        imageIds.forEach { imageId ->
-            editor.remove("time_$imageId")
-            editor.remove("days_$imageId")
+
+        identityKeys.forEach { key ->
+            editor.remove("time_$key")
+            editor.remove("days_$key")
         }
-        
+
         // 使用 commit() 同步执行，确保移除完成后再返回
         // 这样后续获取新批次时，这些照片不会被排除
         editor.commit()

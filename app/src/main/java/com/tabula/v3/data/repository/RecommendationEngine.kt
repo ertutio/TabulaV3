@@ -155,10 +155,11 @@ class RecommendationEngine(
      * - 从随机漫步切换走时：未浏览的单张照片被移除冷却，可被新算法重新推荐
      * - 从相似推荐切换走时：当前组已部分浏览，保留在组冷却池中是合理的
      * 
-     * @param imageIds 要移除的照片ID列表
+     * @param images 要移除冷却的照片行（C1/T03-DECKCOOLDOWN：按完整媒体
+     * 身份键 (卷|ID) 移除——跨卷同数值 ID 的他卷已看记录不受影响）
      */
-    fun removeFromCooldown(imageIds: List<Long>) {
-        preferences.removeImagesFromCooldown(imageIds)
+    fun removeFromCooldown(images: List<ImageFile>) {
+        preferences.removeImagesFromCooldownByIdentity(images.map { it.mediaIdentityKey() })
     }
     
     /**
@@ -167,47 +168,74 @@ class RecommendationEngine(
      * 真正随机抽取照片，但排除在冷却期内的照片。
      * 如果可用照片不足，则从冷却期内的照片中补充（按冷却期剩余时间排序）。
      */
+    /**
+     * C1/T03-DECKCOOLDOWN 旧数据迁移：裸数值 ID 冷却记录在当前媒体集合内
+     * 唯一可解析时改写为完整媒体身份键（幂等，迁移后裸键消失）。歧义
+     * （跨卷同 ID 多行）或缺失（行已不在）保留旧键安全降级——裸键对该 ID
+     * 各卷行均抑制，方向安全，过期后由 cleanupExpiredPickRecords 清除。
+     * 每次批前调用；唯一可解析项首轮迁完，之后零写入。
+     */
+    private fun migrateLegacyPickRecords(allImages: List<ImageFile>) {
+        val legacy = preferences.getPickCooldownIndex().byLegacyBareId
+        if (legacy.isEmpty()) return
+        legacy.forEach { (bareId, _) ->
+            val rows = allImages.filter { it.id == bareId }
+            if (rows.size == 1) {
+                preferences.migratePickRecordToIdentity(bareId, rows.single().mediaIdentityKey())
+            }
+        }
+    }
+
     private fun getRandomWalkBatch(
         allImages: List<ImageFile>,
         batchSize: Int
     ): List<ImageFile> {
-        // 一次性获取所有冷却中的图片ID
-        val cooldownIds = preferences.getCooldownImageIds()
-        
+        // 旧裸 ID 记录唯一可解析时迁移为身份键，再一次性读取冷却池
+        migrateLegacyPickRecords(allImages)
+        val cooldown = preferences.getPickCooldownIndex()
+
+        // 冷却判定按完整媒体身份（卷|ID）；旧裸 ID 键仅对未迁移记录兜底
+        fun inCooldown(image: ImageFile): Boolean =
+            cooldown.byIdentityKey.containsKey(image.mediaIdentityKey()) ||
+                cooldown.byLegacyBareId.containsKey(image.id)
+
+        fun pickedAt(image: ImageFile): Long =
+            cooldown.byIdentityKey[image.mediaIdentityKey()]?.pickedAt
+                ?: cooldown.byLegacyBareId[image.id]?.pickedAt
+                ?: 0L
+
         // 分离可用照片和冷却中的照片
-        val (cooldownImages, availableImages) = allImages.partition { 
-            it.id in cooldownIds
-        }
-        
+        val (cooldownImages, availableImages) = allImages.partition(::inCooldown)
+
         val result = mutableListOf<ImageFile>()
-        val usedIds = mutableSetOf<Long>()  // 防止批次内重复
-        
+        val usedKeys = mutableSetOf<String>()  // 防止批次内重复（身份键：跨卷同 ID 不互斥）
+
         // 优先从可用照片中随机抽取
         val shuffledAvailable = availableImages.shuffled()
         val newlyPicked = shuffledAvailable.take(batchSize)
         for (img in newlyPicked) {
-            if (img.id !in usedIds) {
+            val key = img.mediaIdentityKey()
+            if (key !in usedKeys) {
                 result.add(img)
-                usedIds.add(img.id)
+                usedKeys.add(key)
             }
         }
-        
+
         // 如果可用照片不足，从冷却中的照片补充（优先选择冷却期即将结束的）
         if (result.size < batchSize && cooldownImages.isNotEmpty()) {
-            val sortedCooldown = cooldownImages.sortedBy { 
-                preferences.getImagePickedTimestamp(it.id) 
-            }
+            val sortedCooldown = cooldownImages.sortedBy { img -> pickedAt(img) }
             for (img in sortedCooldown) {
                 if (result.size >= batchSize) break
-                if (img.id !in usedIds) {
+                val key = img.mediaIdentityKey()
+                if (key !in usedKeys) {
                     result.add(img)
-                    usedIds.add(img.id)
+                    usedKeys.add(key)
                 }
             }
         }
-        
+
         // 只记录新抽取的照片（不在冷却中的），避免重置从冷却中补充的照片的冷却期
-        preferences.recordImagesPicked(newlyPicked.map { it.id })
+        preferences.recordImagesPickedByIdentity(newlyPicked.map { it.mediaIdentityKey() })
         
         // 如果总照片数 <= batchSize，清理冷却池避免无限循环
         if (allImages.size <= batchSize) {
