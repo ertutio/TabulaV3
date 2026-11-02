@@ -31,6 +31,7 @@ class PickCooldownIdentityTest {
     private val context: Context get() = RuntimeEnvironment.getApplication()
     private val preferences: AppPreferences get() = AppPreferences(context)
     private val engine: RecommendationEngine get() = RecommendationEngine(context)
+    private val albumManager: AlbumManager get() = AlbumManager.getInstance(context)
 
     /** 旧格式裸键种子（升级前数据；AppPreferences 已不提供裸键写入口）。 */
     private fun seedLegacyPickRecord(bareId: Long, pickedAt: Long, days: Int) {
@@ -46,7 +47,9 @@ class PickCooldownIdentityTest {
         context.getSharedPreferences("tabula_pick_timestamps", Context.MODE_PRIVATE)
             .contains("time_$bareId")
 
-    private fun row(volume: String, id: Long) = ImageFile(
+    private fun row(volume: String, id: Long) = rowInBucket(volume, id, "Camera")
+
+    private fun rowInBucket(volume: String, id: Long, bucket: String) = ImageFile(
         id = id,
         uri = Uri.parse("content://media/$volume/images/media/$id"),
         displayName = "img-$volume-$id.jpg",
@@ -54,7 +57,7 @@ class PickCooldownIdentityTest {
         size = 100L,
         width = 64,
         height = 64,
-        bucketDisplayName = "Camera",
+        bucketDisplayName = bucket,
         volumeName = volume
     )
 
@@ -185,5 +188,45 @@ class PickCooldownIdentityTest {
         assertTrue(
             preferences.getPickCooldownIndex().byIdentityKey.containsKey(picked.mediaIdentityKey())
         )
+    }
+
+    @Test
+    fun excludedRowDoesNotMakeCrossVolumeLegacyRecordMigratable() = runBlocking {
+        // 复验轮：跨卷同 ID、其中一行在屏蔽图集。迁移唯一性必须用屏蔽
+        // 过滤前的完整候选集判定——过滤后"看似唯一"不得猜卷迁移，裸键保留。
+        // 池内另备两张可见行，避开小图库清空路径（filtered<=batchSize）。
+        val hidden = rowInBucket("external_primary", 42L, "HiddenAlbum")
+        val visible = rowInBucket("external_secondary", 42L, "Camera")
+        val c = row("external_primary", 43L)
+        val d = row("external_primary", 44L)
+        seedLegacyPickRecord(42L, pickedAt = System.currentTimeMillis(), days = 24)
+        albumManager.setAlbumExcludedFromRecommend("HiddenAlbum", true)
+
+        val batch = engine.getRecommendedBatch(listOf(hidden, visible, c, d), batchSize = 1)
+
+        assertTrue("歧义记录不得因屏蔽过滤被猜卷迁移", legacyKeyExists(42L))
+        assertTrue("未猜卷写出身份键", preferences.getPickCooldownIndex().byIdentityKey.isEmpty())
+        assertTrue("可见同 ID 行仍被裸键冷却抑制", visible !in batch)
+        assertTrue("推荐抽样仍按原规则过滤：屏蔽行不可入选", hidden !in batch)
+    }
+
+    @Test
+    fun cooldownSurvivesExcludeToggleForCrossVolumeLegacyRecord() = runBlocking {
+        // 屏蔽期间不迁移；解除屏蔽后完整候选集仍歧义——裸键保留，
+        // 冷却对两行继续有效（两行均不出现在抽样批次）。
+        val hidden = rowInBucket("external_primary", 42L, "HiddenAlbum")
+        val visible = rowInBucket("external_secondary", 42L, "Camera")
+        val c = row("external_primary", 43L)
+        val d = row("external_primary", 44L)
+        seedLegacyPickRecord(42L, pickedAt = System.currentTimeMillis(), days = 24)
+        albumManager.setAlbumExcludedFromRecommend("HiddenAlbum", true)
+        engine.getRecommendedBatch(listOf(hidden, visible, c, d), batchSize = 1)
+
+        albumManager.setAlbumExcludedFromRecommend("HiddenAlbum", false)
+        val batch = engine.getRecommendedBatch(listOf(hidden, visible, c, d), batchSize = 1)
+
+        assertTrue("解除屏蔽后裸键仍在", legacyKeyExists(42L))
+        assertTrue("未发生身份键迁移", preferences.getPickCooldownIndex().byIdentityKey.isEmpty())
+        assertTrue("冷却仍有效：同 ID 两行均被抑制", batch.single().id != 42L)
     }
 }
