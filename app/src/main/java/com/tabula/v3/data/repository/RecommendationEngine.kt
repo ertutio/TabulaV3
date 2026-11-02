@@ -38,15 +38,17 @@ class RecommendationEngine(
     /**
      * 根据当前推荐模式获取一批照片
      * 
-     * @param allImages 所有可用照片
+     * @param allImages 本批可抽样的照片
      * @param batchSize 批次大小（仅随机模式使用，相似模式返回动态大小）
      * @param anchorImage 锚点照片（已废弃，保留参数兼容性）
+     * @param identityCandidates 旧冷却身份解析集合，包含已归类及可恢复的回收站照片；不参与抽样
      * @return 推荐的照片列表
      */
     suspend fun getRecommendedBatch(
         allImages: List<ImageFile>,
         batchSize: Int,
-        anchorImage: ImageFile? = null
+        anchorImage: ImageFile? = null,
+        identityCandidates: List<ImageFile> = allImages
     ): List<ImageFile> = withContext(Dispatchers.IO) {
         if (allImages.isEmpty()) return@withContext emptyList()
         
@@ -61,11 +63,10 @@ class RecommendationEngine(
             RecommendMode.RANDOM_WALK -> {
                 // 清理过期的抽取记录
                 preferences.cleanupExpiredPickRecords()
-                // C1/T03-DECKCOOLDOWN 复验轮：旧裸 ID 记录的唯一性判定必须用
-                // 屏蔽过滤前的完整候选集——屏蔽是可逆的可见性状态，被屏蔽的
-                // 同 ID 行不参与判定会把歧义记录猜卷迁移到可见行。迁移后仍按
-                // filteredImages 抽样（推荐规则不变）。
-                migrateLegacyPickRecords(allImages)
+                // 身份解析不能只看 deck：屏蔽、归类和软删除都可能使同 ID
+                // 的他卷照片暂时离池。合并本批输入，避免解析集合遗漏 deck 行；
+                // 迁移之外仍只按 filteredImages 抽样。
+                migrateLegacyPickRecords(identityCandidates + allImages)
                 getRandomWalkBatch(filteredImages, batchSize)
             }
             RecommendMode.SIMILAR -> {
@@ -178,23 +179,21 @@ class RecommendationEngine(
      * 唯一可解析时改写为完整媒体身份键（幂等，迁移后裸键消失）。歧义
      * （跨卷同 ID 多行）或缺失（行已不在）保留旧键安全降级——裸键对该 ID
      * 各卷行均抑制，方向安全，过期后由 cleanupExpiredPickRecords 清除。
-     * 随机模式批前调用（getRecommendedBatch 的 RANDOM_WALK 分支，屏蔽
-     * 过滤**之前**，见该处注释）；唯一可解析项首轮迁完，之后零写入。
+     * 随机模式批前调用，身份解析不受 deck 或屏蔽过滤影响；唯一可解析项
+     * 首轮迁完，之后零写入。
      * SIMILAR 模式回退随机路径不经迁移——裸键兜底抑制方向不变，下次
      * 随机批即迁移。屏蔽全池（过滤后为空）时不产出批次、迁移跳过，
      * 裸键兜底保留，恢复可见后恢复迁移。
      *
-     * 上游边界：getRecommendedBatch 的入参是 deck 池（MainActivity 传
-     * imagesForSorting——已归类/已删除照片在更上游被移出）。已离开池的行
-     * 不在本消费者宇宙内，其遗留裸键按缺失保留、待过期清理；屏蔽图集是
-     * 可逆可见性状态，行仍在池内，必须参与唯一性判定（不得因屏蔽把歧义
-     * 猜卷迁移到可见行）。
+     * MainActivity 提供完整图库和回收站身份；同一身份可能在多个快照中
+     * 重复出现，先按完整身份去重，再判断裸 ID 是否唯一。
      */
-    private fun migrateLegacyPickRecords(allImages: List<ImageFile>) {
+    private fun migrateLegacyPickRecords(identityCandidates: List<ImageFile>) {
         val legacy = preferences.getPickCooldownIndex().byLegacyBareId
         if (legacy.isEmpty()) return
+        val candidates = identityCandidates.distinctBy { it.mediaIdentityKey() }
         legacy.forEach { (bareId, _) ->
-            val rows = allImages.filter { it.id == bareId }
+            val rows = candidates.filter { it.id == bareId }
             if (rows.size == 1) {
                 preferences.migratePickRecordToIdentity(bareId, rows.single().mediaIdentityKey())
             }

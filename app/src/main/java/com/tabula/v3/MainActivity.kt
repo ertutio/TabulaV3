@@ -873,7 +873,10 @@ fun TabulaApp(
             },
             // 推荐算法回调 - 使用 RecommendationEngine
             getRecommendedBatch = { images, size ->
-                recommendationEngine.getRecommendedBatch(images, size)
+                recommendationEngine.getRecommendedBatch(
+                    images, size,
+                    identityCandidates = allImages + deletedImages
+                )
             },
             // 推荐模式刷新触发器（切换算法时刷新批次）
             recommendModeRefreshKey = recommendModeRefreshKey,

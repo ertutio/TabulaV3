@@ -191,6 +191,76 @@ class PickCooldownIdentityTest {
     }
 
     @Test
+    fun legacyCooldownSurvivesRecycleBinProjectionAndRestore() = runBlocking {
+        val a = row("external_primary", 42L)
+        val b = row("external_secondary", 42L)
+        val c = row("external_primary", 43L)
+        val d = row("external_primary", 44L)
+        val snapshot = LocalImageRepository.LoadResult(listOf(a, b, c, d), listOf(a, b, c, d), emptyList())
+        val deleted = listOf(a)
+        val projected = projectSnapshot(snapshot, deleted)
+        val pickedAt = System.currentTimeMillis()
+        seedLegacyPickRecord(42L, pickedAt, days = 24)
+        seedLegacyPickRecord(99L, pickedAt, days = 12)
+
+        // Match MainActivity: the deck uses the projected pool, but identities
+        // include all visible albums and recoverable recycle-bin records.
+        val first = engine.getRecommendedBatch(
+            projected.imagesExcludingTabula, batchSize = 1,
+            identityCandidates = projected.allImages + deleted
+        )
+        assertTrue(a !in first && b !in first)
+        assertTrue("Recoverable cross-volume ambiguity must retain the bare key", legacyKeyExists(42L))
+        assertTrue(preferences.getPickCooldownIndex().byIdentityKey.keys.none { it.endsWith("|42") })
+
+        val restored = projectSnapshot(snapshot, emptyList())
+        val second = engine.getRecommendedBatch(
+            restored.imagesExcludingTabula, batchSize = 1,
+            identityCandidates = restored.allImages
+        )
+        assertTrue("Both volumes remain cooled after restoration", second.single().id != 42L)
+        val legacy = preferences.getPickCooldownIndex().byLegacyBareId
+        assertEquals(pickedAt, legacy[42L]!!.pickedAt)
+        assertEquals(24, legacy[42L]!!.days)
+        assertEquals("Unrelated missing record is preserved", pickedAt, legacy[99L]!!.pickedAt)
+    }
+
+    @Test
+    fun classifiedRowOutsideDeckStillMakesLegacyIdAmbiguous() = runBlocking {
+        val classified = rowInBucket("external_primary", 42L, "Tabula/Sorted")
+        val visible = row("external_secondary", 42L)
+        val c = row("external_primary", 43L)
+        val d = row("external_primary", 44L)
+        seedLegacyPickRecord(42L, System.currentTimeMillis(), days = 24)
+
+        val batch = engine.getRecommendedBatch(
+            listOf(visible, c, d), batchSize = 1,
+            identityCandidates = listOf(classified, visible, c, d)
+        )
+
+        assertTrue(legacyKeyExists(42L))
+        assertTrue(classified !in batch && visible !in batch)
+        assertTrue(preferences.getPickCooldownIndex().byIdentityKey.keys.none { it.endsWith("|42") })
+    }
+
+    @Test
+    fun repeatedIdentityAcrossSnapshotsDoesNotPreventUniqueMigration() = runBlocking {
+        val a = row("external_primary", 42L)
+        val b = row("external_primary", 43L)
+        val offDeck = row("external_primary", 44L)
+        seedLegacyPickRecord(42L, System.currentTimeMillis(), days = 24)
+
+        val batch = engine.getRecommendedBatch(
+            listOf(a, b), batchSize = 1,
+            identityCandidates = listOf(a, a.copy(dateModified = 2_000L), b, offDeck)
+        )
+
+        assertEquals("Extra identity candidates must never enter the sample", listOf(b), batch)
+        assertFalse(legacyKeyExists(42L))
+        assertEquals(24, preferences.getPickCooldownIndex().byIdentityKey[a.mediaIdentityKey()]!!.days)
+    }
+
+    @Test
     fun excludedRowDoesNotMakeCrossVolumeLegacyRecordMigratable() = runBlocking {
         // 复验轮：跨卷同 ID、其中一行在屏蔽图集。迁移唯一性必须用屏蔽
         // 过滤前的完整候选集判定——过滤后"看似唯一"不得猜卷迁移，裸键保留。
