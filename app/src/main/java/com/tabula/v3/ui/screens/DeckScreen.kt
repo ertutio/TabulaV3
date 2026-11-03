@@ -200,8 +200,9 @@ fun DeckScreen(
     },
     // 推荐模式刷新触发器（用于切换算法时刷新批次）
     recommendModeRefreshKey: Int = 0,
-    // 从冷却池移除照片的回调（切换算法时用于移除未浏览的照片）
-    onRemoveFromCooldown: (List<Long>) -> Unit = {},
+    // 从冷却池移除照片的回调（切换算法时用于移除未浏览的照片；
+    // C1/T03-DECKCOOLDOWN：传照片行，接收端按完整媒体身份键移除）
+    onRemoveFromCooldown: (List<ImageFile>) -> Unit = {},
     // 相册归类相关
     albums: List<Album> = emptyList(),
     systemBuckets: List<LocalImageRepository.SystemBucket> = emptyList(),
@@ -555,11 +556,11 @@ fun DeckScreen(
             if (currentBatch.isNotEmpty() && currentIndex < currentBatch.size) {
                 val unviewedImages = currentBatch.drop(currentIndex + 1)
                 if (unviewedImages.isNotEmpty()) {
-                    val unviewedIds = unviewedImages.map { it.id }
-                    android.util.Log.d("DeckScreen", "Removing ${unviewedIds.size} unviewed images from cooldown")
-                    // 在 IO 线程执行移除操作，commit() 会同步完成
+                    android.util.Log.d("DeckScreen", "Removing ${unviewedImages.size} unviewed images from cooldown")
+                    // 在 IO 线程执行移除操作，commit() 会同步完成；
+                    // C1/T03-DECKCOOLDOWN：传行而非裸 ID，跨卷同 ID 他卷已看记录不受影响
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        onRemoveFromCooldown(unviewedIds)
+                        onRemoveFromCooldown(unviewedImages)
                     }
                 }
             }

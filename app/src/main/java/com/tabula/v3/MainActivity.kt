@@ -873,13 +873,17 @@ fun TabulaApp(
             },
             // 推荐算法回调 - 使用 RecommendationEngine
             getRecommendedBatch = { images, size ->
-                recommendationEngine.getRecommendedBatch(images, size)
+                recommendationEngine.getRecommendedBatch(
+                    images, size,
+                    identityCandidates = allImages + deletedImages
+                )
             },
             // 推荐模式刷新触发器（切换算法时刷新批次）
             recommendModeRefreshKey = recommendModeRefreshKey,
-            // 从冷却池移除照片的回调（切换算法时移除未浏览的照片）
-            onRemoveFromCooldown = { imageIds ->
-                recommendationEngine.removeFromCooldown(imageIds)
+            // 从冷却池移除照片的回调（切换算法时移除未浏览的照片；
+            // C1/T03-DECKCOOLDOWN：按完整媒体身份键移除）
+            onRemoveFromCooldown = { unviewedImages ->
+                recommendationEngine.removeFromCooldown(unviewedImages)
             },
             // 刷新按钮回调（系统相册集成后，不需要同步，只需刷新）
             onSyncClick = {
