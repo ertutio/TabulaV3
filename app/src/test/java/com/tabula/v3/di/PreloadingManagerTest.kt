@@ -288,6 +288,55 @@ class PreloadingManagerTest {
         assertTrue(fakeLoader.disposables.all { it.isDisposed })
         Unit
     }
+
+    @Test
+    fun pauseWithinDebounceWindowHoldsEnqueueUntilResume() {
+        // 竞争时序：preloadAround 的防抖任务（100ms 延迟）尚未执行时 pause——
+        // 窗口过后不得补发（pause 置 isPaused 且推进 generation，job 醒来时
+        // 守卫直接返回；测试钉的是这一可观察行为，不区分守卫与 debounceJob
+        // 取消哪层生效）。resume 后同一中心可重新排队。现有用例均在入队
+        // 完成后才 pause，本用例钉住"排队阶段"的生命周期语义。
+        manager.preloadAround(images(3), 1, cardSize)
+        manager.pause()
+
+        Thread.sleep(300) // 窗口已过：若入队未被抑制，此处会观察到新请求
+        assertEquals("paused manager must not enqueue past the debounce window", 0, fakeLoader.enqueued.size)
+
+        manager.resume()
+        manager.preloadAround(images(3), 1, cardSize)
+        awaitEnqueued(3)
+    }
+
+    @Test
+    fun resetWithinDebounceWindowHoldsEnqueueAndManagerRemainsReusable() {
+        // reset 同样抑制防抖窗口内的排队入队（generation 推进使 job 醒来时
+        // 守卫返回）；与 dispose 不同，reset 后管理器可继续使用（再次
+        // preloadAround 正常入队）。
+        manager.preloadAround(images(3), 1, cardSize)
+        manager.reset()
+
+        Thread.sleep(300)
+        assertEquals("reset must not enqueue past the debounce window", 0, fakeLoader.enqueued.size)
+
+        manager.preloadAround(images(3), 1, cardSize)
+        awaitEnqueued(3)
+    }
+
+    @Test
+    fun disposeWithinDebounceWindowHoldsEnqueueAndPreventsSubsequentWork() {
+        // dispose 停用一切后续工作：窗口过后不补发（disposed 守卫 + debounceJob
+        // 取消 + scope.cancel 三道防线），后续 preloadAround 也不再入队
+        //（区别于 reset 的可复用）。
+        manager.preloadAround(images(3), 1, cardSize)
+        manager.dispose()
+
+        Thread.sleep(300)
+        assertEquals("disposed manager must not enqueue past the debounce window", 0, fakeLoader.enqueued.size)
+
+        manager.preloadAround(images(3), 1, cardSize)
+        Thread.sleep(300)
+        assertEquals(0, fakeLoader.enqueued.size)
+    }
 }
 
 private class FakeDisposable : Disposable {
