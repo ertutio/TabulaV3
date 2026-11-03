@@ -148,19 +148,41 @@ class ForegroundRefreshSyncTest {
     }
 
     @Test
-    fun removedCountBeforeCountsOnlyRowsBeforeCurrentIndex() {
-        val original = listOf(
-            row("external_primary", 1L),
-            row("external_primary", 2L),
-            row("external_primary", 3L),
-            row("external_primary", 4L)
-        )
-        val snapshotKeys = setOf("external_primary|2", "external_primary|4") // 1/3 失效
+    fun relocatedIndexKeepsTheViewedCardStable() {
+        // C-1 主场景（清理批内删 A 留 B 后提交 A，视图仍在 C）：deck 空间
+        // 已剔除用户已处理行，同步以当前行为锚——当前行存活时视图不回跳、
+        // 不复现已删卡片。
+        val b = row("external_primary", 2L)
+        val c = row("external_primary", 3L)
+        val d = row("external_primary", 4L)
+        val deckRows = listOf(b, c, d)          // deck 空间：A 已被用户删除
+        val syncedDeck = listOf(b, c, d)        // 同步后内容不变（全部存活）
 
-        assertEquals(1, removedCountBefore(original, snapshotKeys, currentIndex = 2)) // 1 号失效在索引前
-        assertEquals(2, removedCountBefore(original, snapshotKeys, currentIndex = 4)) // 1/3 都在索引前
-        assertEquals(1, removedCountBefore(original, snapshotKeys, currentIndex = 1)) // 索引前仅 1 号且其已失效
-        assertEquals(0, removedCountBefore(original, snapshotKeys, currentIndex = 0))
+        assertEquals(1, relocatedIndexAfterSync(deckRows, syncedDeck, currentIndex = 1))
+    }
+
+    @Test
+    fun relocatedIndexFollowsAnchorWhenEarlierRowsVanish() {
+        // 锚行之前的行外部失效：视图跟随同一张卡（索引前移）
+        val b = row("external_primary", 2L)
+        val c = row("external_primary", 3L)
+        val deckRows = listOf(row("external_primary", 1L), b, c)
+        val syncedDeck = listOf(b, c)
+
+        assertEquals(0, relocatedIndexAfterSync(deckRows, syncedDeck, currentIndex = 1))
+    }
+
+    @Test
+    fun relocatedIndexFallsForwardWhenAnchorVanishes() {
+        // 锚行自身外部失效：回退到锚位起（含）第一个存活行；其后无存活行钳到末张
+        val a = row("external_primary", 1L)
+        val c = row("external_primary", 3L)
+        val d = row("external_primary", 4L)
+        val deckRows = listOf(a, row("external_primary", 2L), c, d)
+        val syncedDeck = listOf(a, c, d) // 2 号失效
+
+        assertEquals(1, relocatedIndexAfterSync(deckRows, syncedDeck, currentIndex = 1)) // 锚=2 号失效 → C
+        assertEquals(0, relocatedIndexAfterSync(deckRows, listOf(a), currentIndex = 1))  // 锚及其后全失效 → 末张
     }
 
     @Test

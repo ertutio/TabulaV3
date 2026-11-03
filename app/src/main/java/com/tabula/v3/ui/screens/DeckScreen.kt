@@ -92,7 +92,7 @@ import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.ui.util.refreshedViewerImage
-import com.tabula.v3.ui.util.removedCountBefore
+import com.tabula.v3.ui.util.relocatedIndexAfterSync
 import com.tabula.v3.ui.util.syncCleanupBatchToSnapshot
 import com.tabula.v3.ui.util.syncRowsToSnapshot
 import com.tabula.v3.data.repository.resolveCoverRow
@@ -697,44 +697,55 @@ fun DeckScreen(
         val pool = if (allImagesForCleanup.isNotEmpty()) allImagesForCleanup else allImages
         if (pool.isEmpty()) return@LaunchedEffect
 
-        if (isAlbumCleanupMode) {
-            preloadedNextBatch?.let { batch ->
-                val synced = syncCleanupBatchToSnapshot(batch, pool)
-                if (synced !== batch) preloadedNextBatch = synced
+        // C-2/C-3 顺序：预取与月份快照先同步（完成通道会消费两者），再处理
+        // 活动批次。
+        preloadedNextBatch?.let { batch ->
+            val synced = syncCleanupBatchToSnapshot(batch, pool)
+            // 预取批整批失效：直接丢弃（预取 effect 会在刷新后的池上重取；
+            // 保留空批会被完成通道消费成空界面）
+            preloadedNextBatch = if (synced.images.isEmpty()) null else synced
+        }
+        selectedCleanupMonth?.let { month ->
+            val syncedImages = syncRowsToSnapshot(month.images, pool)
+            if (syncedImages != month.images) {
+                selectedCleanupMonth = month.copy(images = syncedImages)
             }
-            currentCleanupBatch?.let { batch ->
-                val synced = syncCleanupBatchToSnapshot(batch, pool)
-                if (synced !== batch) {
-                    if (synced.images.isEmpty()) {
-                        // 整批失效（组内已无可操作行）：按完成语义标记组并取
-                        // 下一批——不退出清理、不重置引擎进度
-                        handleCleanupBatchCompletion()
-                        return@let
-                    }
-                    val snapshotKeys = pool.map { it.mediaIdentityKey() }.toSet()
-                    currentIndex = (currentIndex - removedCountBefore(batch.images, snapshotKeys, currentIndex))
-                        .coerceIn(0, synced.images.lastIndex)
-                    currentCleanupBatch = synced
-                    currentBatch = synced.images
-                }
-            }
-            selectedCleanupMonth?.let { month ->
-                val syncedImages = syncRowsToSnapshot(month.images, pool)
-                if (syncedImages != month.images) {
-                    selectedCleanupMonth = month.copy(images = syncedImages)
-                }
-            }
-        } else if (currentBatch.isNotEmpty()) {
-            val synced = syncRowsToSnapshot(currentBatch, allImages)
-            if (synced != currentBatch) {
-                val snapshotKeys = allImages.map { it.mediaIdentityKey() }.toSet()
-                val removedBeforeCurrent = removedCountBefore(currentBatch, snapshotKeys, currentIndex)
-                currentBatch = synced
-                if (synced.isEmpty()) {
-                    currentIndex = 0
-                    needsInitialBatch = true
+        }
+        var completionHandled = false
+        currentCleanupBatch?.let { batch ->
+            val synced = syncCleanupBatchToSnapshot(batch, pool)
+            if (synced !== batch) {
+                if (synced.images.isEmpty()) {
+                    // 整批失效（组内已无可操作行）：走既有完成通道标记组并取
+                    // 下一批——不退出清理、不重置引擎进度
+                    completionHandled = true
+                    handleCleanupBatchCompletion()
                 } else {
-                    currentIndex = (currentIndex - removedBeforeCurrent).coerceIn(0, synced.lastIndex)
+                    currentCleanupBatch = synced
+                }
+            }
+        }
+        if (!completionHandled && currentBatch.isNotEmpty()) {
+            // deck 空间同步（C-1：与清理空间分列——deck 已剔除用户已处理行，
+            // 清理批仍含之，两空间索引互不可算；索引按当前行身份在同步后
+            // 列表中重定位）
+            val syncedDeck = syncRowsToSnapshot(currentBatch, pool)
+            if (syncedDeck != currentBatch) {
+                if (syncedDeck.isEmpty()) {
+                    // deck 可见行全部失效而清理批仍有行（已处理行）：无剩余
+                    // 可操作行，按完成语义收尾
+                    if (currentCleanupBatch != null) {
+                        completionHandled = true
+                        handleCleanupBatchCompletion()
+                    } else {
+                        currentIndex = 0
+                        currentBatch = syncedDeck
+                        needsInitialBatch = true
+                    }
+                } else {
+                    currentIndex = relocatedIndexAfterSync(currentBatch, syncedDeck, currentIndex)
+                        .coerceIn(0, syncedDeck.lastIndex)
+                    currentBatch = syncedDeck
                 }
             }
         }

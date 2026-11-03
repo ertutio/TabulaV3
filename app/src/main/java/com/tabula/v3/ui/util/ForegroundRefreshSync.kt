@@ -22,14 +22,33 @@ internal fun syncRowsToSnapshot(rows: List<ImageFile>, snapshot: List<ImageFile>
 }
 
 /**
- * originalRows 中位于 [currentIndex] 之前、在 snapshotKeys 中已不存在的行数
- * ——同步后索引按该值前移（移除都在索引之后时索引不动且仍有效）。
+ * 同步后在 deck 空间内重定位当前索引（C4/T07 P2 复审 C-1 修正）。
+ *
+ * 以"用户正看的当前行"为锚：锚行在同步后列表中按完整媒体身份重定位——
+ * 身份仍存在 → 新位置（其前有行被剔除时视图跟随同一张卡）；锚行自身外部
+ * 失效 → 回退到锚位起（含）第一个存活行；其后无存活行 → 钳到末张。
+ *
+ * 关键约束：[deckRows] 与 [syncedDeck] 必须同属 deck 空间（用户已处理的行
+ * 已被 deck 自身路径剔除）。不得以清理空间的批次行作对照——清理批仍含
+ * 已处理行，两空间索引互不可算（混算会在用户删除提交时双扣导致视图回跳、
+ * 已删卡片复现）。
  */
-internal fun removedCountBefore(
-    originalRows: List<ImageFile>,
-    snapshotKeys: Set<String>,
+internal fun relocatedIndexAfterSync(
+    deckRows: List<ImageFile>,
+    syncedDeck: List<ImageFile>,
     currentIndex: Int
-): Int = originalRows.take(currentIndex).count { it.mediaIdentityKey() !in snapshotKeys }
+): Int {
+    if (syncedDeck.isEmpty()) return 0
+    val current = deckRows.getOrNull(currentIndex)
+    if (current != null) {
+        val key = current.mediaIdentityKey()
+        val at = syncedDeck.indexOfFirst { it.mediaIdentityKey() == key }
+        if (at >= 0) return at
+    }
+    val keysAtOrAfter = deckRows.drop(currentIndex).map { it.mediaIdentityKey() }.toSet()
+    return syncedDeck.indexOfFirst { it.mediaIdentityKey() in keysAtOrAfter }.takeIf { it >= 0 }
+        ?: syncedDeck.lastIndex
+}
 
 /**
  * 清理批次同步：组内行按快照替换/剔除，组序与 groupIds 保持不变（批次完成
