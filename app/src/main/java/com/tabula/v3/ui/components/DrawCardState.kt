@@ -168,3 +168,28 @@ fun drawCardReducer(
         }
     }
 }
+
+/**
+ * 外部 deck 变化（如删除图片导致索引移动）后，对已发牌栈做重校验：
+ * 过滤已不存在的图片记录并重算 originalIndex（仅保留位于新 currentIndex
+ * 之前的条目）。纯内存状态（dealtStack 仅存于 Compose 状态，无持久化）。
+ */
+internal fun revalidateDealtStack(
+    dealtStack: List<DealtCard>,
+    images: List<ImageFile>,
+    currentIndex: Int
+): List<DealtCard> {
+    val currentImageIds = images.map { it.id }.toSet()
+    return dealtStack.mapNotNull { dealtCard ->
+        if (dealtCard.cardId in currentImageIds) {
+            val newIndex = images.indexOfFirst { it.id == dealtCard.cardId }
+            if (newIndex != -1 && newIndex < currentIndex) {
+                dealtCard.copy(originalIndex = newIndex)
+            } else {
+                null
+            }
+        } else {
+            null
+        }
+    }
+}
