@@ -342,38 +342,64 @@ class AlbumCleanupEngine(
         // 过滤出未处理的组（同时排除指定的组ID）
         val allExcludeIds = permanentlyProcessedIds + excludeGroupIds.toSet()
         val availableGroups = groups.filter { it.id !in allExcludeIds }
-        
+
         if (availableGroups.isEmpty()) {
             currentState = State.COMPLETED
             preferences.markAlbumCleanupCompleted(albumId)
             return@withContext null
         }
-        
+
+        // C4/T07 P2：批次行按调用方传入的最新快照校验——cachedGroups 的行对象
+        // 来自分析/恢复时刻，后续取批与重新预取会把外部删除的行、外部编辑的
+        // 陈旧对象带进新批次。完整媒体身份口径：存活行替换为快照最新
+        // ImageFile；整组失效的组按完成语义标记（组内已无可操作行）并跳过——
+        // 不清进度、不重分析。组对象保持原样（id 为成员身份键摘要，剪枝后
+        // copy 会漂移完成标记对账），剪枝只作用于交付的批次行。
+        val snapshotByKey = allImages.associateBy { it.mediaIdentityKey() }
+        val vanishedGroupIds = mutableListOf<String>()
+        val operableGroups = availableGroups.mapNotNull { group ->
+            val syncedRows = group.images.mapNotNull { snapshotByKey[it.mediaIdentityKey()] }
+            if (syncedRows.isEmpty()) {
+                vanishedGroupIds.add(group.id)
+                null
+            } else {
+                group to syncedRows
+            }
+        }
+        if (vanishedGroupIds.isNotEmpty()) {
+            markGroupsProcessed(vanishedGroupIds)
+        }
+        if (operableGroups.isEmpty()) {
+            currentState = State.COMPLETED
+            preferences.markAlbumCleanupCompleted(albumId)
+            return@withContext null
+        }
+
         currentState = State.CLEANING
-        
+
         // 构建批次（小组合并逻辑）
         val batchImages = mutableListOf<ImageFile>()
         val batchGroupIds = mutableListOf<String>()
         val batchBoundaries = mutableListOf<Int>()
-        
+
         var currentSize = 0
-        for (group in availableGroups) {
+        for ((group, groupRows) in operableGroups) {
             // 检查是否超过最大批次大小
-            if (currentSize > 0 && currentSize + group.size > MAX_BATCH_SIZE) {
+            if (currentSize > 0 && currentSize + groupRows.size > MAX_BATCH_SIZE) {
                 break
             }
-            
+
             // 记录边界
             batchBoundaries.add(currentSize)
             batchGroupIds.add(group.id)
-            batchImages.addAll(group.images)
-            currentSize += group.size
-            
+            batchImages.addAll(groupRows)
+            currentSize += groupRows.size
+
             // 如果当前组超过阈值，不再合并
-            if (group.size > SMALL_GROUP_THRESHOLD) {
+            if (groupRows.size > SMALL_GROUP_THRESHOLD) {
                 break
             }
-            
+
             // 如果总大小已经超过阈值，不再合并
             if (currentSize > SMALL_GROUP_THRESHOLD) {
                 break
@@ -782,20 +808,35 @@ class AlbumCleanupEngine(
             return@withContext null
         }
 
+        // C4/T07 P2：断点批行按最新快照校验——任一保存行已不在快照（外部删除/
+        // 权限收窄）→ 组成变化，按既有"组成变化放弃断点"语义安全重开（仅清
+        // 断点，不清除永久处理意图）；存活行替换为快照最新对象（外部编辑后
+        // 恢复不再返回旧版本），行数不变、边界与断点索引不受影响。
+        val checkpointSnapshotByKey = allImages.associateBy { it.mediaIdentityKey() }
+        if (batchImages.any { checkpointSnapshotByKey[it.mediaIdentityKey()] == null }) {
+            android.util.Log.w(
+                TAG,
+                "Checkpoint rows missing in fresh snapshot for $albumId; abandoning resume"
+            )
+            clearCheckpoint(albumId)
+            return@withContext null
+        }
+        val syncedBatchImages = batchImages.map { checkpointSnapshotByKey[it.mediaIdentityKey()]!! }
+
         // 确保索引在有效范围内
-        val validIndex = savedIndex.coerceIn(0, batchImages.size - 1)
-        
+        val validIndex = savedIndex.coerceIn(0, syncedBatchImages.size - 1)
+
         currentState = State.CLEANING
         currentAlbumId = albumId
-        
-        android.util.Log.d(TAG, "Restored checkpoint batch: ${batchImages.size} images, starting at index $validIndex")
-        
+
+        android.util.Log.d(TAG, "Restored checkpoint batch: ${syncedBatchImages.size} images, starting at index $validIndex")
+
         val batch = AlbumCleanupBatch(
-            images = batchImages,
+            images = syncedBatchImages,
             groupIds = batchGroupIds,
             groupBoundaries = batchBoundaries
         )
-        
+
         Pair(batch, validIndex)
     }
     

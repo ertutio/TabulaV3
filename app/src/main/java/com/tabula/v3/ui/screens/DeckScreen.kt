@@ -695,7 +695,10 @@ fun DeckScreen(
     //   对象（保持查看位置），已失效则关闭查看器。
     androidx.compose.runtime.LaunchedEffect(allImages, allImagesForCleanup) {
         val pool = if (allImagesForCleanup.isNotEmpty()) allImagesForCleanup else allImages
-        if (pool.isEmpty()) return@LaunchedEffect
+        // 尚未加载完成：等待首次加载。pool 为空且加载已完成 = 有效空快照（全部
+        // 照片被外部删除/权限收窄至空）：各面按空池同步——查看器关闭、普通
+        // 批次清空待重取、清理批次走完成通道收尾为 COMPLETED 并清断点
+        if (pool.isEmpty() && isLoading) return@LaunchedEffect
 
         // C-2/C-3 顺序：预取与月份快照先同步（完成通道会消费两者），再处理
         // 活动批次。
