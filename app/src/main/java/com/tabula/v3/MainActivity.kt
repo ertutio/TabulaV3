@@ -170,6 +170,12 @@ private suspend fun resolveMediaVolumeName(context: Context, uri: Uri): String? 
 class MainActivity : ComponentActivity() {
 
     private var hasPermission by mutableStateOf(false)
+
+    // C4/T07：前台权限/快照刷新触发器——访问级别变化或带权限回前台时递增，
+    // 作为 TabulaApp 加载 LaunchedEffect 的键（重启即取消在途扫描，晚到结果
+    // 不覆盖新权限态）。
+    private var mediaAccessRevision by mutableStateOf(0)
+    private var lastAccessLevel: MediaPermissionPolicy.MediaAccessLevel? = null
     
     // 流体云：跟踪当前批次剩余数量
     private var currentBatchRemaining = 0
@@ -180,10 +186,11 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grantResults ->
         val sdkInt = android.os.Build.VERSION.SDK_INT
-        hasPermission = MediaPermissionPolicy.hasMediaReadPermission(sdkInt) { permission ->
+        val level = MediaPermissionPolicy.mediaAccessLevel(sdkInt) { permission ->
             grantResults[permission] == true ||
                 ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
         }
+        applyAccessLevel(level, foregroundRefresh = false)
 
         if (!hasPermission) {
             val requestedPermissions = MediaPermissionPolicy.requiredPermissionsForSdk(sdkInt)
@@ -252,6 +259,7 @@ class MainActivity : ComponentActivity() {
                 if (hasPermission) {
                     TabulaApp(
                         preferences = preferences,
+                        mediaAccessRevision = mediaAccessRevision,
                         onThemeChange = { theme -> currentTheme = theme },
                         onRequestDeletePermission = { intentSender, callback ->
                             deletePermissionSession.launch(callback) {
@@ -277,8 +285,10 @@ class MainActivity : ComponentActivity() {
     
     override fun onResume() {
         super.onResume()
-        // 返回应用时重新检查权限（用户可能在系统设置中撤销了权限）
-        checkPermission()
+        // 返回应用时重新核对媒体访问权限（用户可能在系统设置中撤销了权限、
+        // 修改了允许访问的照片选择，或后台期间外部增删改了媒体）——级别变化
+        // 或带权限回前台都会触发按现有快照契约的刷新。
+        checkPermission(foregroundRefresh = true)
         // 返回应用时隐藏流体云
         FluidCloudService.hide(this)
     }
@@ -299,10 +309,44 @@ class MainActivity : ComponentActivity() {
         isFluidCloudEnabled = fluidCloudEnabled
     }
 
-    private fun checkPermission() {
+    private fun checkPermission(foregroundRefresh: Boolean = false) {
         val sdkInt = android.os.Build.VERSION.SDK_INT
-        hasPermission = MediaPermissionPolicy.hasMediaReadPermission(sdkInt) { permission ->
+        val level = MediaPermissionPolicy.mediaAccessLevel(sdkInt) { permission ->
             ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+        }
+        applyAccessLevel(level, foregroundRefresh)
+    }
+
+    /**
+     * C4/T07：应用新的访问级别并按需触发刷新。
+     *
+     * 状态转换约定：
+     * - 级别变化（NONE/PARTIAL/FULL 互切，含系统设置中的撤销与部分选择集
+     *   变更）：更新门控；新级别非 NONE 时递增 [mediaAccessRevision] 触发
+     *   按现有快照契约（loadAllData + projectSnapshot）的整表刷新——失去访问
+     *   权的旧条目随 MediaStore 重查自然消失，恢复/升级后重新加载。
+     * - 级别不变且带权限回前台（[foregroundRefresh]）：同样递增——后台期间
+     *   的外部删除/修改在返回时按快照契约刷新。
+     * - NONE：不加载（权限门控屏接管；重新授权后经本约定刷新/全新加载）。
+     * - 首次检查（previous == null，onCreate 路径）不触发：组合后的首次
+     *   加载已覆盖。
+     * - 在途扫描防护：revision 作为 LaunchedEffect 键，重启即取消旧协程，
+     *   较早启动的扫描结果不会写入较新的权限状态。
+     *
+     * 失败约定：刷新走既有加载路径的失败处理（回收站读取失败对话框 + 重试），
+     * 权限拒绝由门控屏呈现，本函数不新增失败通道。
+     */
+    private fun applyAccessLevel(
+        level: MediaPermissionPolicy.MediaAccessLevel,
+        foregroundRefresh: Boolean
+    ) {
+        val previous = lastAccessLevel
+        lastAccessLevel = level
+        hasPermission = level != MediaPermissionPolicy.MediaAccessLevel.NONE
+        if (level == MediaPermissionPolicy.MediaAccessLevel.NONE) return
+        if (previous == null) return
+        if (level != previous || foregroundRefresh) {
+            mediaAccessRevision++
         }
     }
 
@@ -321,6 +365,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun TabulaApp(
     preferences: AppPreferences,
+    mediaAccessRevision: Int = 0,
     onThemeChange: (ThemeMode) -> Unit,
     onRequestDeletePermission: (android.content.IntentSender, (Boolean) -> Unit) -> Unit,
     deletePermissionInFlight: Boolean = false,
@@ -472,7 +517,17 @@ fun TabulaApp(
     }
 
     // A restored system request must finish before we classify its pending journal.
-    LaunchedEffect(deletionRecoveryRevision, deletePermissionInFlight, recycleBinLoadRevision, isDeletingRecycleBin) {
+    // mediaAccessRevision（C4/T07）：回前台权限级别变化或带权限回前台时递增——
+    // 作为键重启本 effect 取消在途扫描（晚到结果不覆盖新权限态），并按现有
+    // 快照契约（loadAllData + projectSnapshot）整表刷新：失去访问权的旧条目
+    // 随 MediaStore 重查消失，外部删除/修改与部分选择集变更在返回时更新。
+    LaunchedEffect(
+        mediaAccessRevision,
+        deletionRecoveryRevision,
+        deletePermissionInFlight,
+        recycleBinLoadRevision,
+        isDeletingRecycleBin
+    ) {
         if (isDeletingRecycleBin) return@LaunchedEffect
         try {
             if (!deletePermissionInFlight) {
