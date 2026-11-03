@@ -1617,32 +1617,13 @@ private fun DrawModeCardStack(
     var drawState by remember { mutableStateOf(DrawCardState(currentIndex = currentIndex)) }
     
     // 当外部 currentIndex 变化时同步状态（如删除图片后）
-    // 改进：保留 dealtStack 中仍然有效的条目，只清理已删除的图片记录
+    // 重校验按发牌时捕获的完整媒体身份 (卷,ID) 定位（revalidateDealtStack），
+    // 不同卷的同数值 ID 行不会互串；缺失/歧义按缺失丢弃，不回退裸 ID 匹配
     LaunchedEffect(currentIndex, images.size) {
         if (drawState.currentIndex != currentIndex) {
-            // 构建当前图片 ID 集合，用于快速查找
-            val currentImageIds = images.map { it.id }.toSet()
-            
-            // 过滤 dealtStack，只保留仍然存在的图片记录
-            // 同时重新计算 originalIndex（因为删除操作可能改变了索引）
-            val validDealtStack = drawState.dealtStack.mapNotNull { dealtCard ->
-                if (dealtCard.cardId in currentImageIds) {
-                    // 卡片仍然存在，查找新的索引位置
-                    val newIndex = images.indexOfFirst { it.id == dealtCard.cardId }
-                    if (newIndex != -1 && newIndex < currentIndex) {
-                        // 只保留在当前索引之前的条目
-                        dealtCard.copy(originalIndex = newIndex)
-                    } else {
-                        null
-                    }
-                } else {
-                    null  // 卡片已被删除
-                }
-            }
-            
             drawState = drawState.copy(
                 currentIndex = currentIndex,
-                dealtStack = validDealtStack,
+                dealtStack = revalidateDealtStack(drawState.dealtStack, images, currentIndex),
                 // 清除动画状态
                 returningCard = null,
                 exitingRightCard = null
