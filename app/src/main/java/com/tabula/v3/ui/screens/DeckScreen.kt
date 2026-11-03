@@ -91,6 +91,10 @@ import com.tabula.v3.R
 import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.mediaIdentityKey
+import com.tabula.v3.ui.util.refreshedViewerImage
+import com.tabula.v3.ui.util.removedCountBefore
+import com.tabula.v3.ui.util.syncCleanupBatchToSnapshot
+import com.tabula.v3.ui.util.syncRowsToSnapshot
 import com.tabula.v3.data.repository.resolveCoverRow
 import com.tabula.v3.ui.util.coverImageRequest
 
@@ -527,31 +531,6 @@ fun DeckScreen(
         }
     }
 
-    // C4/T07：回前台刷新（mediaAccessRevision）产生新的 allImages 后，批次中
-    // 已失去访问权的行（外部删除、权限收窄）按完整媒体身份剪除并对齐
-    // currentIndex——对齐 AlbumViewScreen 的 LaunchedEffect(allImages) 剪枝
-    // 范式；身份键（卷|ID）与 O5③ 同口径，跨卷同数值 ID 行不连带。剪空时
-    // 复用初始批次通道（needsInitialBatch）重新取批。图集清理模式的批次由
-    // 其自身流程管理，不在此处理。
-    androidx.compose.runtime.LaunchedEffect(allImages) {
-        if (isAlbumCleanupMode) return@LaunchedEffect
-        if (currentBatch.isEmpty()) return@LaunchedEffect
-        val validIdentityKeys = allImages.map { it.mediaIdentityKey() }.toSet()
-        val pruned = currentBatch.filter { it.mediaIdentityKey() in validIdentityKeys }
-        if (pruned.size == currentBatch.size) return@LaunchedEffect
-        val removedBeforeCurrent = currentBatch.take(currentIndex)
-            .count { it.mediaIdentityKey() !in validIdentityKeys }
-        currentBatch = pruned
-        if (pruned.isEmpty()) {
-            currentIndex = 0
-            needsInitialBatch = true
-        } else {
-            // 钳制对齐 deck 自身移除路径的约定（currentIndex >= size → size-1）：
-            // 当前行被剪且其后无保留行时 c-r == pruned.size 会越界，钳到末张。
-            currentIndex = (currentIndex - removedBeforeCurrent).coerceIn(0, pruned.lastIndex)
-        }
-    }
-
     // 监听推荐模式切换，实时刷新批次
     // 用于在设置中切换算法后，卡片界面立即显示新算法的推荐结果
     var lastRecommendModeRefreshKey by remember { mutableIntStateOf(recommendModeRefreshKey) }
@@ -700,6 +679,76 @@ fun DeckScreen(
         }
     }
     
+    // C4/T07：回前台刷新（mediaAccessRevision）产生的新快照向可见消费面同步
+    //（P2 复审项，纯逻辑见 ui/util/ForegroundRefreshSync）——完整媒体身份
+    // 键（卷|ID，O5③ 同口径）。本 effect 声明在 handleCleanupBatchCompletion
+    // 之后：清理批次整批失效时走该既有完成通道（标组+取下批，引擎进度与
+    // 断点语义不变）。
+    // · 普通批次：存活行替换为快照最新 ImageFile（dateModified/尺寸随外部
+    //   编辑更新），失效行剔除、顺序保持、currentIndex 对齐（钳制同 deck
+    //   移除路径约定）；剪空走 needsInitialBatch 重新取批。
+    // · 图集/月份清理（活动批次不打断）：同步 currentCleanupBatch 与
+    //   preloadedNextBatch（组内行替换/剔除、groupIds 与完成标记语义不变、
+    //   groupBoundaries 按组重算）及月份快照 selectedCleanupMonth.images；
+    //   不退出清理、不重置断点/进度（索引对齐后由既有防抖 effect 落新断点）。
+    // · 大图查看器：viewerState.image 按新快照校验——身份仍存在则更新图片
+    //   对象（保持查看位置），已失效则关闭查看器。
+    androidx.compose.runtime.LaunchedEffect(allImages, allImagesForCleanup) {
+        val pool = if (allImagesForCleanup.isNotEmpty()) allImagesForCleanup else allImages
+        if (pool.isEmpty()) return@LaunchedEffect
+
+        if (isAlbumCleanupMode) {
+            preloadedNextBatch?.let { batch ->
+                val synced = syncCleanupBatchToSnapshot(batch, pool)
+                if (synced !== batch) preloadedNextBatch = synced
+            }
+            currentCleanupBatch?.let { batch ->
+                val synced = syncCleanupBatchToSnapshot(batch, pool)
+                if (synced !== batch) {
+                    if (synced.images.isEmpty()) {
+                        // 整批失效（组内已无可操作行）：按完成语义标记组并取
+                        // 下一批——不退出清理、不重置引擎进度
+                        handleCleanupBatchCompletion()
+                        return@let
+                    }
+                    val snapshotKeys = pool.map { it.mediaIdentityKey() }.toSet()
+                    currentIndex = (currentIndex - removedCountBefore(batch.images, snapshotKeys, currentIndex))
+                        .coerceIn(0, synced.images.lastIndex)
+                    currentCleanupBatch = synced
+                    currentBatch = synced.images
+                }
+            }
+            selectedCleanupMonth?.let { month ->
+                val syncedImages = syncRowsToSnapshot(month.images, pool)
+                if (syncedImages != month.images) {
+                    selectedCleanupMonth = month.copy(images = syncedImages)
+                }
+            }
+        } else if (currentBatch.isNotEmpty()) {
+            val synced = syncRowsToSnapshot(currentBatch, allImages)
+            if (synced != currentBatch) {
+                val snapshotKeys = allImages.map { it.mediaIdentityKey() }.toSet()
+                val removedBeforeCurrent = removedCountBefore(currentBatch, snapshotKeys, currentIndex)
+                currentBatch = synced
+                if (synced.isEmpty()) {
+                    currentIndex = 0
+                    needsInitialBatch = true
+                } else {
+                    currentIndex = (currentIndex - removedBeforeCurrent).coerceIn(0, synced.lastIndex)
+                }
+            }
+        }
+
+        viewerState?.let { state ->
+            val refreshed = refreshedViewerImage(state.image, pool)
+            if (refreshed == null) {
+                viewerState = null
+            } else if (refreshed != state.image) {
+                viewerState = state.copy(image = refreshed)
+            }
+        }
+    }
+
     // 图集/月份清理模式：开始下一组（图集模式可能切换到其他图集，月份模式只继续当前月份）
     fun startNextCleanupBatch() {
         if (isLoadingNextBatch || albumCleanupEngine == null) return
