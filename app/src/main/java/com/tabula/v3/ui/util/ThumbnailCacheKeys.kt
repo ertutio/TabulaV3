@@ -58,3 +58,31 @@ fun coverImageRequest(
         .crossfade(crossfade)
         .build()
 }
+
+/**
+ * deck 查看器（ViewerOverlay）底层缩略图请求构造——240×240 INEXACT
+ * RGB_565、非硬件位图，作为查看器打开瞬间的即时占位层（上层高清请求
+ * 加载完成后淡入覆盖）。
+ *
+ * 本函数提取自 ViewerOverlay 内联构建，行为保持。键语义为现状
+ * （C3/T06-VIEWERKEY 登记）：deck 两种卡片模式的卡片位图由 cardMemoryCacheKey
+ * （卷限定 URI + DATE_MODIFIED）生产/消费，而本请求键为裸 ID 前缀
+ * album_grid_——与网格现行的 grid_ 身份键及 deck 的 card_ 键均不匹配
+ * （无生产者、温命中失效），且键不含卷与内容版本（查看器自写自读下
+ * 跨卷同 ID 串图、同 ID 编辑后陈旧）。修复提交另行接线。
+ */
+internal fun deckViewerThumbnailRequest(
+    context: Context,
+    image: ImageFile
+): ImageRequest = ImageRequest.Builder(context)
+    .data(image.uri)
+    .size(coil.size.Size(240, 240))
+    .precision(Precision.INEXACT)
+    .bitmapConfig(Bitmap.Config.RGB_565)
+    .memoryCacheKey("album_grid_${image.id}")
+    .diskCacheKey("album_grid_${image.id}")
+    .memoryCachePolicy(CachePolicy.ENABLED)
+    .diskCachePolicy(CachePolicy.ENABLED)
+    .crossfade(false)
+    .allowHardware(false)
+    .build()
