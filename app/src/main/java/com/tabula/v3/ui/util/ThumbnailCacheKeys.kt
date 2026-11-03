@@ -8,6 +8,7 @@ import coil.size.Precision
 import coil.size.Size
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.mediaIdentityKey
+import com.tabula.v3.di.cardMemoryCacheKey
 
 /**
  * 图集/系统图集网格缩略图的 Coil memory/disk 缓存键。
@@ -58,3 +59,36 @@ fun coverImageRequest(
         .crossfade(crossfade)
         .build()
 }
+
+/**
+ * deck 查看器（ViewerOverlay）底层缩略图请求构造——240×240 INEXACT
+ * RGB_565、非硬件位图，作为查看器打开瞬间的即时占位层（上层高清请求
+ * 加载完成后淡入覆盖）。
+ *
+ * C3/T06-VIEWERKEY：deck 两种卡片模式的卡片位图由 cardMemoryCacheKey
+ * （卷限定 URI + DATE_MODIFIED 内容版本）生产/消费（ImageCard 显示请求与
+ * PreloadingManager 预载）。本请求复用同一键——键含卷（跨卷同数值 ID 行
+ * 不串图）与内容版本（同 ID 编辑后自然失效），且从卡片点开查看器时占位
+ * 层温命中卡片已解码位图（修复原裸 ID album_grid_ 键的错配：无生产者、
+ * 自写自读跨卷串图、内容更新陈旧）。
+ *
+ * 内存策略 READ_ONLY：查看器 240px 解码规格与卡片 720px 不同，命中即借用
+ * 展示、未命中解码后不回写，避免不同规格位图互相挤占同一键的条目；磁盘
+ * 缓存按键存原始来源字节（两请求均无变换），与卡片共享同一磁盘条目无别名。
+ * 解码规格（尺寸/RGB_565/非硬件/无渐变）为占位层既有视觉行为，保持不变。
+ */
+internal fun deckViewerThumbnailRequest(
+    context: Context,
+    image: ImageFile
+): ImageRequest = ImageRequest.Builder(context)
+    .data(image.uri)
+    .size(coil.size.Size(240, 240))
+    .precision(Precision.INEXACT)
+    .bitmapConfig(Bitmap.Config.RGB_565)
+    .memoryCacheKey(cardMemoryCacheKey(image))
+    .diskCacheKey(cardMemoryCacheKey(image))
+    .memoryCachePolicy(CachePolicy.READ_ONLY)
+    .diskCachePolicy(CachePolicy.ENABLED)
+    .crossfade(false)
+    .allowHardware(false)
+    .build()
