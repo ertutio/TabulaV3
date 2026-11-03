@@ -90,6 +90,7 @@ import androidx.compose.ui.platform.LocalDensity
 import com.tabula.v3.R
 import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.resolveCoverRow
 import com.tabula.v3.ui.util.coverImageRequest
 
@@ -525,7 +526,28 @@ fun DeckScreen(
             }
         }
     }
-    
+
+    // C4/T07：回前台刷新（mediaAccessRevision）产生新的 allImages 后，批次中
+    // 已失去访问权的行（外部删除、权限收窄）按完整媒体身份剪除并对齐
+    // currentIndex——对齐 AlbumViewScreen 的 LaunchedEffect(allImages) 剪枝
+    // 范式；身份键（卷|ID）与 O5③ 同口径，跨卷同数值 ID 行不连带。剪空时
+    // 复用初始批次通道（needsInitialBatch）重新取批。图集清理模式的批次由
+    // 其自身流程管理，不在此处理。
+    androidx.compose.runtime.LaunchedEffect(allImages) {
+        if (isAlbumCleanupMode) return@LaunchedEffect
+        if (currentBatch.isEmpty()) return@LaunchedEffect
+        val validIdentityKeys = allImages.map { it.mediaIdentityKey() }.toSet()
+        val pruned = currentBatch.filter { it.mediaIdentityKey() in validIdentityKeys }
+        if (pruned.size == currentBatch.size) return@LaunchedEffect
+        val removedBeforeCurrent = currentBatch.take(currentIndex)
+            .count { it.mediaIdentityKey() !in validIdentityKeys }
+        currentBatch = pruned
+        currentIndex = (currentIndex - removedBeforeCurrent).coerceAtLeast(0)
+        if (pruned.isEmpty()) {
+            needsInitialBatch = true
+        }
+    }
+
     // 监听推荐模式切换，实时刷新批次
     // 用于在设置中切换算法后，卡片界面立即显示新算法的推荐结果
     var lastRecommendModeRefreshKey by remember { mutableIntStateOf(recommendModeRefreshKey) }
