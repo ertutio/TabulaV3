@@ -89,4 +89,59 @@ class DrawCardRecallIdentityTest {
         // 回牌消费路径命中最后发出的那张
         assertEquals(deck[1].uri, imagesAfter[revalidated.last().originalIndex].uri)
     }
+
+    @Test
+    fun drawActionCapturesRowVolumeIdentity() {
+        // 发牌时逐行捕获卷身份，后续重校验才有 (卷,ID) 可用
+        val deck = listOf(
+            row("external_primary", 5L),
+            row("external_secondary", 5L),
+            row("external_primary", 7L)
+        )
+        var state = DrawCardState(currentIndex = 0)
+        state = drawCardReducer(state, DrawCardAction.Draw, deck)
+        state = drawCardReducer(state, DrawCardAction.Draw, deck)
+
+        assertEquals("external_primary", state.dealtStack[0].cardVolumeName)
+        assertEquals("external_secondary", state.dealtStack[1].cardVolumeName)
+    }
+
+    @Test
+    fun missingIdentityDoesNotMislocateToOtherVolumeSameIdRow() {
+        // 目标照片已离开当前 deck，但另一卷仍有同数值 ID 行：
+        // 按缺失丢弃该条，不得回退裸 ID 误定位到另一卷行
+        val dealt = DealtCard(originalIndex = 1, cardId = 5L, cardVolumeName = "external_secondary")
+        val images = listOf(row("external_primary", 5L), row("external_primary", 6L))
+
+        val revalidated = revalidateDealtStack(listOf(dealt), images, currentIndex = 2)
+
+        assertEquals(0, revalidated.size)
+    }
+
+    @Test
+    fun legacyNullVolumeDealtCardResolvesUniqueSameIdRow() {
+        // 旧口径兼容：发牌行卷未知（T03 前数据），库内该 ID 唯一时按原语义解析
+        val dealt = DealtCard(originalIndex = 0, cardId = 5L, cardVolumeName = null)
+        val images = listOf(row("external_primary", 5L), row("external_primary", 7L))
+
+        val revalidated = revalidateDealtStack(listOf(dealt), images, currentIndex = 2)
+
+        assertEquals(1, revalidated.size)
+        assertEquals(0, revalidated[0].originalIndex)
+    }
+
+    @Test
+    fun legacyNullVolumeDealtCardWithAmbiguousSameIdRowsIsDropped() {
+        // 旧口径 + 跨卷歧义：不猜选卷，按缺失丢弃（与封面行解析同协议）
+        val dealt = DealtCard(originalIndex = 0, cardId = 5L, cardVolumeName = null)
+        val images = listOf(
+            row("external_primary", 5L),
+            row("external_secondary", 5L),
+            row("external_primary", 7L)
+        )
+
+        val revalidated = revalidateDealtStack(listOf(dealt), images, currentIndex = 3)
+
+        assertEquals(0, revalidated.size)
+    }
 }

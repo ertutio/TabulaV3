@@ -1617,8 +1617,8 @@ private fun DrawModeCardStack(
     var drawState by remember { mutableStateOf(DrawCardState(currentIndex = currentIndex)) }
     
     // 当外部 currentIndex 变化时同步状态（如删除图片后）
-    // 保留 dealtStack 中仍然有效的条目，只清理已删除的图片记录并重算索引
-    //（revalidateDealtStack，纯逻辑提取自本处原内联实现）
+    // 重校验按发牌时捕获的完整媒体身份 (卷,ID) 定位（revalidateDealtStack），
+    // 不同卷的同数值 ID 行不会互串；缺失/歧义按缺失丢弃，不回退裸 ID 匹配
     LaunchedEffect(currentIndex, images.size) {
         if (drawState.currentIndex != currentIndex) {
             drawState = drawState.copy(

@@ -2,17 +2,22 @@ package com.tabula.v3.ui.components
 
 import androidx.compose.runtime.Stable
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.repository.resolveCoverRow
 
 /**
  * 已发出的卡片记录
- * 
+ *
  * @param originalIndex 在原始 deck 中的索引位置
  * @param cardId ImageFile.id，稳定标识
+ * @param cardVolumeName 发牌时该行所在存储卷（T03 媒体身份）；deck 变化后的
+ * 重校验/回牌定位按 (卷,ID) 完整身份解析，不同卷的同数值 ID 行不会互串。
+ * 仅内存状态（Compose 状态，无持久化），无需迁移机制。
  */
 @Stable
 data class DealtCard(
     val originalIndex: Int,
-    val cardId: Long
+    val cardId: Long,
+    val cardVolumeName: String?
 )
 
 /**
@@ -122,7 +127,8 @@ fun drawCardReducer(
             val currentCard = deck[state.currentIndex]
             val newDealtCard = DealtCard(
                 originalIndex = state.currentIndex,
-                cardId = currentCard.id
+                cardId = currentCard.id,
+                cardVolumeName = currentCard.volumeName
             )
             
             state.copy(
@@ -170,26 +176,32 @@ fun drawCardReducer(
 }
 
 /**
- * 外部 deck 变化（如删除图片导致索引移动）后，对已发牌栈做重校验：
- * 过滤已不存在的图片记录并重算 originalIndex（仅保留位于新 currentIndex
- * 之前的条目）。纯内存状态（dealtStack 仅存于 Compose 状态，无持久化）。
+ * 外部 deck 变化（如删除图片导致索引移动）后，对已发牌栈做身份重校验：
+ *
+ * 每条 DealtCard 按发牌时捕获的完整媒体身份 (cardVolumeName, cardId) 在当前
+ * deck 中定位行——复用 resolveCoverRow 三态协议（C1/T03-COVER 同款）：卷已知
+ * 精确匹配该卷行；卷未知（T03 前旧口径）同 ID 候选唯一才解析，跨卷歧义不猜
+ * 选。定位成功的条目重算 originalIndex（仅保留位于新 currentIndex 之前的条
+ * 目）；目标身份已不在当前 deck（删除/暂不可读/跨卷歧义）按缺失处理丢弃该
+ * 条，不回退到裸 ID 匹配——多卷 deck 中同数值 ID 会让回牌飞回另一卷的同 ID
+ * 照片。
+ *
+ * 纯内存状态重校验（dealtStack 仅存于 Compose 状态，无持久化记录，无需迁移）。
  */
 internal fun revalidateDealtStack(
     dealtStack: List<DealtCard>,
     images: List<ImageFile>,
     currentIndex: Int
-): List<DealtCard> {
-    val currentImageIds = images.map { it.id }.toSet()
-    return dealtStack.mapNotNull { dealtCard ->
-        if (dealtCard.cardId in currentImageIds) {
-            val newIndex = images.indexOfFirst { it.id == dealtCard.cardId }
-            if (newIndex != -1 && newIndex < currentIndex) {
-                dealtCard.copy(originalIndex = newIndex)
-            } else {
-                null
-            }
-        } else {
-            null
-        }
+): List<DealtCard> = dealtStack.mapNotNull { dealtCard ->
+    val resolved = resolveCoverRow(
+        dealtCard.cardVolumeName,
+        dealtCard.cardId,
+        images.filter { it.id == dealtCard.cardId }
+    )
+    val newIndex = resolved?.let(images::indexOf)
+    if (newIndex != null && newIndex < currentIndex) {
+        dealtCard.copy(originalIndex = newIndex)
+    } else {
+        null
     }
 }
