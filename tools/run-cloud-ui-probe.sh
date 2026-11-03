@@ -59,7 +59,7 @@ for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTe
     echo "Device state or log check failed for $class" >&2
     status=1
   fi
-  if ! grep -Eq "^OK \(${expected_tests} tests\)" "$output"; then
+  if ! grep -Eq "^OK \(${expected_tests} tests?\)" "$output"; then
     echo "Expected ${expected_tests} passing tests in $class" >&2
     status=1
   fi
