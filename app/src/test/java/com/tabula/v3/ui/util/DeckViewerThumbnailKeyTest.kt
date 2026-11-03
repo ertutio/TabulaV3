@@ -74,11 +74,13 @@ class DeckViewerThumbnailKeyTest {
     fun viewerThumbnailKeyMatchesDeckCardBitmapKey() {
         // 生产消费键匹配：查看器占位层请求键必须等于 deck 卡片位图键
         // （ImageCard 显示请求与 PreloadingManager 预载的 cardMemoryCacheKey），
-        // 从卡片点开查看器时占位层温命中已解码的卡片位图。
+        // 从卡片点开查看器时占位层温命中已解码的卡片位图。Coil 的
+        // memoryCacheKey 是 MemoryCache.Key（取 .key 字符串比较），
+        // diskCacheKey 本身就是 String，直接比较。
         val image = row("external_primary", 5L)
         val request = deckViewerThumbnailRequest(context, image)
 
-        assertEquals(cardMemoryCacheKey(image), request.memoryCacheKey)
+        assertEquals(cardMemoryCacheKey(image), request.memoryCacheKey?.key)
         assertEquals(cardMemoryCacheKey(image), request.diskCacheKey)
     }
 
@@ -91,5 +93,20 @@ class DeckViewerThumbnailKeyTest {
 
         assertEquals(first.memoryCacheKey, second.memoryCacheKey)
         assertEquals(first.diskCacheKey, second.diskCacheKey)
+    }
+
+    @Test
+    fun viewerThumbnailRequestKeepsPlaceholderDecodeSpec() {
+        // 占位层解码规格保持：RGB_565、非硬件位图、INEXACT；内存只读借用
+        //（不回写挤占卡片 720px 条目）、磁盘共享来源字节。请求尺寸（240×240）
+        // 与无渐变在 Coil 2.7 的 ImageRequest 上不作为属性暴露，由函数源码
+        // 审读钉住，不在本测试宣称。
+        val request = deckViewerThumbnailRequest(context, row("external_primary", 5L))
+
+        assertEquals(android.graphics.Bitmap.Config.RGB_565, request.bitmapConfig)
+        assertEquals(false, request.allowHardware)
+        assertEquals(coil.size.Precision.INEXACT, request.precision)
+        assertEquals(CachePolicy.READ_ONLY, request.memoryCachePolicy)
+        assertEquals(CachePolicy.ENABLED, request.diskCachePolicy)
     }
 }

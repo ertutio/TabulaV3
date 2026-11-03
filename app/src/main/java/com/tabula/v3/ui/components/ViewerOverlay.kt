@@ -150,8 +150,9 @@ fun ViewerOverlay(
     var isUltraHdLoaded by remember { mutableStateOf(false) }
     var shouldLoadUltraHd by remember { mutableStateOf(false) }
     
-    // 缩略图请求：C3/T06-VIEWERKEY——底层缩略图请求构造统一走
-    // deckViewerThumbnailRequest（ui.util），键语义与修复状态见该函数 KDoc。
+    // 底层缩略图请求：C3/T06-VIEWERKEY——构造统一走 deckViewerThumbnailRequest
+    //（ui.util）：键与 deck 卡片位图一致（卷限定 URI+DATE_MODIFIED，跨卷同
+    // ID 不串图、编辑后自然失效），内存只读借用卡片位图温命中、不回写挤占。
 
     // 计算目标位置（居中显示，保持原比例）
     // 使用 actualWidth/actualHeight 考虑 EXIF 旋转，确保收缩动画位置正确
