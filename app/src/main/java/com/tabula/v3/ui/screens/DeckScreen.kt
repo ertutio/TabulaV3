@@ -542,9 +542,13 @@ fun DeckScreen(
         val removedBeforeCurrent = currentBatch.take(currentIndex)
             .count { it.mediaIdentityKey() !in validIdentityKeys }
         currentBatch = pruned
-        currentIndex = (currentIndex - removedBeforeCurrent).coerceAtLeast(0)
         if (pruned.isEmpty()) {
+            currentIndex = 0
             needsInitialBatch = true
+        } else {
+            // 钳制对齐 deck 自身移除路径的约定（currentIndex >= size → size-1）：
+            // 当前行被剪且其后无保留行时 c-r == pruned.size 会越界，钳到末张。
+            currentIndex = (currentIndex - removedBeforeCurrent).coerceIn(0, pruned.lastIndex)
         }
     }
 

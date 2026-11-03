@@ -114,7 +114,17 @@ class ForegroundPermissionUiTest {
     }
 
     private fun launchToForeground() {
-        activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        val current = activity
+        if (current != null && !current.isDestroyed) {
+            // 回前台路径（C4/T07 设备证据修正，CI 41703684508 用例 2）：
+            // startActivitySync 要求主线程进入空闲，回前台重组/卡片动画持续
+            // 出帧时会 45s 超时——改用 am start 带回任务（已有任务回前台或
+            // 进程被杀后冷启动），就绪判定交给 waitFor/waitUntilGone 轮询。
+            shell("am start -n ${ctx.packageName}/com.tabula.v3.MainActivity")
+            SystemClock.sleep(800)
+        } else {
+            activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
     }
 
     private fun background() {
