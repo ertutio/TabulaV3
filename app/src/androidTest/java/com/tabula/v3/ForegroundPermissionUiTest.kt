@@ -26,19 +26,22 @@ import java.io.FileInputStream
 import java.util.UUID
 
 /**
- * C4/T07：应用回前台后重新核对媒体访问权限并刷新可见列表——真实系统授权与
- * 真实 UI。
+ * C4/T07：应用回前台后按快照契约刷新可见列表——真实 UI 与真实 MediaStore。
  *
- * 覆盖（真实系统场景）：
- * - 系统设置撤销权限（pm revoke）后回前台：权限门控屏呈现，旧列表不可操作；
- *   重新授权后回前台：按快照契约重新加载，夹具照片重新可见。
- * - 后台期间照片被外部删除：回前台后列表按快照契约更新（被删照片消失，
- *   其余照片保留）。
+ * 覆盖（真实系统场景）：后台期间照片被外部删除，回前台后列表按快照契约
+ * 更新（被删照片的卡片离树，其余照片保留）——前台重载 + deck 批次身份
+ * 剪枝的全链设备证据。
  *
- * 已知边界（如实登记）：PARTIAL（READ_MEDIA_VISUAL_USER_SELECTED）的真实
- * "用户选中集合"无法经 pm 确定性夹具化（选择集由 MediaProvider 用户会话持有），
- * 部分授权的设备级切换未在本套件执行——级别映射由单元测试钉住，刷新机制与
- * 级别无关（任何带权限回前台都触发）。
+ * 已知边界（如实登记）：
+ * - PARTIAL（READ_MEDIA_VISUAL_USER_SELECTED）的真实"用户选中集合"无法经
+ *   pm 确定性夹具化（选择集由 MediaProvider 用户会话持有）——部分授权的
+ *   设备级切换未在本套件执行；级别映射由单元测试钉住，刷新机制与级别
+ *   无关（任何带权限回前台都触发）。
+ * - 撤销权限（pm revoke/系统设置）路径不可经 in-process instrumentation
+ *   执行：Android 对存储权限撤销会强停应用进程（CI 41706417934 双 API
+ *   实证：revoke 后 instrumentation 随宿主进程死亡，Process crashed），
+ *   强停后应用侧行为 = 用户重开 → onCreate 级别检查 → 权限门控（既有
+ *   路径 + 单测级别映射）。真实撤销手工验收属既有真实设备 blocked 口径。
  */
 @RunWith(AndroidJUnit4::class)
 class ForegroundPermissionUiTest {
@@ -132,14 +135,6 @@ class ForegroundPermissionUiTest {
         SystemClock.sleep(1000)
     }
 
-    private fun grantReadMediaImages() {
-        shell("pm grant ${ctx.packageName} ${Manifest.permission.READ_MEDIA_IMAGES}")
-    }
-
-    private fun revokeReadMediaImages() {
-        shell("pm revoke ${ctx.packageName} ${Manifest.permission.READ_MEDIA_IMAGES}")
-    }
-
     private fun find(node: AccessibilityNodeInfo?, label: String): AccessibilityNodeInfo? {
         if (node == null) return null
         if (node.isVisibleToUser && (node.text?.toString()?.contains(label) == true || node.contentDescription?.toString()?.contains(label) == true)) return node
@@ -170,28 +165,6 @@ class ForegroundPermissionUiTest {
         }
         captureUiFailure("still visible: $label")
         error("UI element still present: $label")
-    }
-
-    @Test
-    fun revokeWhileBackgroundedShowsGateAndRegainReloadsList() {
-        val photo = photo()
-        val name = displayNameOf(photo)
-
-        launchToForeground()
-        waitFor(name) // 初始加载完成，夹具照片可见
-
-        background()
-        revokeReadMediaImages()
-        launchToForeground()
-        // 回前台重查权限：NONE → 门控屏接管，旧列表不再呈现
-        waitFor("欢迎使用 Tabula")
-        waitUntilGone(name)
-
-        grantReadMediaImages()
-        background()
-        launchToForeground()
-        // 重新授权回前台：级别 NONE→FULL，按快照契约重新加载
-        waitFor(name)
     }
 
     @Test

@@ -24,13 +24,13 @@ status=0
 #  unknownDeleteVerificationKeepsSourceRecordAndReportsReason），
 # CloudRestoreUiTest 3 例（singleRestore / batchRestore / restoreKeepsUnknown）。
 # CreateAlbumDiagnosticDeviceTest 2 例（O2 诊断：createBucket 分阶段 + createAlbum 真实入口）。
-# ForegroundPermissionUiTest 2 例（C4/T07：撤销/重授权门控切换 + 外部删除回前台刷新）。
+# ForegroundPermissionUiTest 1 例（C4/T07：外部删除回前台刷新；撤销路径强停应用进程含 instrumentation，探针不可执行，见套件 KDoc）。
 for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest; do
   case "$class" in
     CloudCleanupUiTest) expected_tests=8 ;;
     CloudRestoreUiTest) expected_tests=3 ;;
     CreateAlbumDiagnosticDeviceTest) expected_tests=2 ;;
-    ForegroundPermissionUiTest) expected_tests=2 ;;
+    ForegroundPermissionUiTest) expected_tests=1 ;;
     *) expected_tests=2 ;;
   esac
   dir="device-results/$class"
