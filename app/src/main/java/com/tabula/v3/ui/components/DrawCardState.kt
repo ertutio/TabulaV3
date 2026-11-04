@@ -205,3 +205,19 @@ internal fun revalidateDealtStack(
         null
     }
 }
+
+/**
+ * 收牌预览目标（C4/T07 任务 B）：发牌栈栈顶条目在**当前** deck 中的行。
+ *
+ * 调用方必须以 dealtStack 与 images 两者为 remember 键——快照替换（同身份
+ * 行更新为最新 ImageFile，尺寸与顺序不变）不改变 dealtStack，只以栈为键会
+ * 持续返回旧对象，预览停留在编辑前版本而实际收牌（recall 时按
+ * images[originalIndex] 现取）已指向新版本。身份失效/越界返回 null，不回退
+ * 到按裸 ID 收回其他照片。
+ */
+internal fun previewReturningCardOf(
+    dealtStack: List<DealtCard>,
+    images: List<ImageFile>
+): ImageFile? = dealtStack.lastOrNull()?.let { dealt ->
+    images.getOrNull(dealt.originalIndex)
+}
