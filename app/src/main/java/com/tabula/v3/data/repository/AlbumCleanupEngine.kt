@@ -352,26 +352,19 @@ class AlbumCleanupEngine(
         // C4/T07 P2：批次行按调用方传入的最新快照校验——cachedGroups 的行对象
         // 来自分析/恢复时刻，后续取批与重新预取会把外部删除的行、外部编辑的
         // 陈旧对象带进新批次。完整媒体身份口径：存活行替换为快照最新
-        // ImageFile；整组失效的组按完成语义标记（组内已无可操作行）并跳过——
-        // 不清进度、不重分析。组对象保持原样（id 为成员身份键摘要，剪枝后
-        // copy 会漂移完成标记对账），剪枝只作用于交付的批次行。
+        // ImageFile；整组当前不可操作的组**持有**（跳过交付、不标记完成）——
+        // 快照缺席区分不了"外部永久删除"与"权限收窄后暂时不可见"（任务 A），
+        // 永久完成只能来自用户实际处理（markGroupsProcessed 调用方）；访问
+        // 恢复后这些组按最新快照照常交付。组对象保持原样（id 为成员身份键
+        // 摘要，剪枝后 copy 会漂移完成标记对账），剪枝只作用于交付的批次行。
         val snapshotByKey = allImages.associateBy { it.mediaIdentityKey() }
-        val vanishedGroupIds = mutableListOf<String>()
         val operableGroups = availableGroups.mapNotNull { group ->
             val syncedRows = group.images.mapNotNull { snapshotByKey[it.mediaIdentityKey()] }
-            if (syncedRows.isEmpty()) {
-                vanishedGroupIds.add(group.id)
-                null
-            } else {
-                group to syncedRows
-            }
-        }
-        if (vanishedGroupIds.isNotEmpty()) {
-            markGroupsProcessed(vanishedGroupIds)
+            if (syncedRows.isEmpty()) null else group to syncedRows
         }
         if (operableGroups.isEmpty()) {
-            currentState = State.COMPLETED
-            preferences.markAlbumCleanupCompleted(albumId)
+            // 全部剩余组当前不可操作（持有）：不置 COMPLETED、不清进度、
+            // 不重分析——返回 null 表示"当前无可交付"，未处理意图保留
             return@withContext null
         }
 

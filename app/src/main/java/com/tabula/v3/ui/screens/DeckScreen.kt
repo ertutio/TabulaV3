@@ -92,6 +92,7 @@ import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.ui.util.refreshedViewerImage
+import com.tabula.v3.ui.components.buildMonthInfos
 import com.tabula.v3.ui.util.relocatedIndexAfterSync
 import com.tabula.v3.ui.util.syncCleanupBatchToSnapshot
 import com.tabula.v3.ui.util.syncRowsToSnapshot
@@ -425,7 +426,7 @@ fun DeckScreen(
             
             // 根据是月份清理还是图集清理，获取对应的 ID 和图片列表
             val cleanupId: String?
-            val cleanupImages: List<ImageFile>
+            var cleanupImages: List<ImageFile>
             val cleanupName: String?
             
             if (isMonthCleanupMode && selectedCleanupMonth != null) {
@@ -433,6 +434,18 @@ fun DeckScreen(
                 cleanupId = selectedCleanupMonth?.cleanupAlbumId
                 cleanupImages = selectedCleanupMonth?.images ?: emptyList()
                 cleanupName = selectedCleanupMonth?.displayName
+                // 任务 A：持有期月快照可能已被空快照同步清空——访问恢复后按
+                // 最新池重建该月（year/month 标识仍在），否则恢复通道拿到的
+                // 永远是空列表，无法续接
+                if (cleanupImages.isEmpty() && allImagesForCleanup.isNotEmpty()) {
+                    val held = selectedCleanupMonth!!
+                    val rebuilt = buildMonthInfos(allImagesForCleanup)
+                        .firstOrNull { it.year == held.year && it.month == held.month }
+                    if (rebuilt != null) {
+                        selectedCleanupMonth = rebuilt
+                        cleanupImages = rebuilt.images
+                    }
+                }
             } else if (!isMonthCleanupMode && selectedCleanupAlbum != null) {
                 // 图集清理模式
                 val album = selectedCleanupAlbum!!
@@ -443,13 +456,18 @@ fun DeckScreen(
                 // 没有有效的清理目标，退出
                 return@LaunchedEffect
             }
-            
+
             if (cleanupId == null || cleanupImages.isEmpty()) {
-                // 没有图片，退出清理模式
-                onAlbumCleanupModeChange(false)
-                onSelectedCleanupAlbumChange(null)
-                selectedCleanupMonth = null
-                isMonthCleanupMode = false
+                // 任务 A：清空可能源于权限收窄/外部删除（暂时不可见）——存在
+                // 断点即持有会话（隐藏照片、保留断点与未处理意图），访问恢复
+                // 后经本 effect 续接；无断点才退出清理
+                val hasHeldIntent = cleanupId != null && albumCleanupEngine.getCheckpoint(cleanupId) != null
+                if (!hasHeldIntent) {
+                    onAlbumCleanupModeChange(false)
+                    onSelectedCleanupAlbumChange(null)
+                    selectedCleanupMonth = null
+                    isMonthCleanupMode = false
+                }
                 return@LaunchedEffect
             }
             
@@ -696,12 +714,11 @@ fun DeckScreen(
     androidx.compose.runtime.LaunchedEffect(allImages, allImagesForCleanup) {
         val pool = if (allImagesForCleanup.isNotEmpty()) allImagesForCleanup else allImages
         // 尚未加载完成：等待首次加载。pool 为空且加载已完成 = 有效空快照（全部
-        // 照片被外部删除/权限收窄至空）：各面按空池同步——查看器关闭、普通
-        // 批次清空待重取、清理批次走完成通道收尾为 COMPLETED 并清断点
+        // 照片被外部删除/权限收窄至空）：各面按空池同步——查看器关闭、批次
+        // 清空、清理会话转入持有（不标记完成、不清断点），访问恢复后续接
         if (pool.isEmpty() && isLoading) return@LaunchedEffect
 
-        // C-2/C-3 顺序：预取与月份快照先同步（完成通道会消费两者），再处理
-        // 活动批次。
+        // C-2/C-3 顺序：预取与月份快照先同步，再处理活动批次。
         preloadedNextBatch?.let { batch ->
             val synced = syncCleanupBatchToSnapshot(batch, pool)
             // 预取批整批失效：直接丢弃（预取 effect 会在刷新后的池上重取；
@@ -714,32 +731,37 @@ fun DeckScreen(
                 selectedCleanupMonth = month.copy(images = syncedImages)
             }
         }
-        var completionHandled = false
         currentCleanupBatch?.let { batch ->
             val synced = syncCleanupBatchToSnapshot(batch, pool)
             if (synced !== batch) {
                 if (synced.images.isEmpty()) {
-                    // 整批失效（组内已无可操作行）：走既有完成通道标记组并取
-                    // 下一批——不退出清理、不重置引擎进度
-                    completionHandled = true
-                    handleCleanupBatchCompletion()
+                    // 任务 A：批次行整体不可见 ≠ 用户完成——快照缺席区分不了
+                    // 外部删除与权限收窄，不得按完成语义标记组。转入持有：
+                    // 清运行态批次（恢复通道在访问恢复后按断点/最新快照续接）、
+                    // 保留断点与未处理意图、隐藏不可操作照片
+                    currentCleanupBatch = null
+                    currentBatch = emptyList()
+                    currentIndex = 0
+                    deckState = DeckState.BROWSING
                 } else {
                     currentCleanupBatch = synced
                 }
             }
         }
-        if (!completionHandled && currentBatch.isNotEmpty()) {
+        if (currentBatch.isNotEmpty()) {
             // deck 空间同步（C-1：与清理空间分列——deck 已剔除用户已处理行，
             // 清理批仍含之，两空间索引互不可算；索引按当前行身份在同步后
             // 列表中重定位）
             val syncedDeck = syncRowsToSnapshot(currentBatch, pool)
             if (syncedDeck != currentBatch) {
                 if (syncedDeck.isEmpty()) {
-                    // deck 可见行全部失效而清理批仍有行（已处理行）：无剩余
-                    // 可操作行，按完成语义收尾
-                    if (currentCleanupBatch != null) {
-                        completionHandled = true
-                        handleCleanupBatchCompletion()
+                    // deck 可见行全部失效：清理模式下转入持有（同上，不标记
+                    // 不清断点）；普通模式清空待重取
+                    if (isAlbumCleanupMode && currentCleanupBatch != null) {
+                        currentCleanupBatch = null
+                        currentBatch = emptyList()
+                        currentIndex = 0
+                        deckState = DeckState.BROWSING
                     } else {
                         currentIndex = 0
                         currentBatch = syncedDeck

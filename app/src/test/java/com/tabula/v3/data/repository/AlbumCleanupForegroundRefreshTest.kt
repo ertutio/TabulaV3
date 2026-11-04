@@ -6,6 +6,7 @@ import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.preferences.AppPreferences
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -113,7 +114,7 @@ class AlbumCleanupForegroundRefreshTest {
     }
 
     @Test
-    fun fullyVanishedGroupIsMarkedProcessedAndSkipped() = runBlocking {
+    fun fullyVanishedGroupIsHeldNotMarkedAndResumesAfterAccessRestore() = runBlocking {
         val g1 = (1L..12L).map { row(it) }
         val g2 = listOf(row(13L), row(14L))
         val g3 = (15L..24L).map { row(it) }
@@ -124,15 +125,24 @@ class AlbumCleanupForegroundRefreshTest {
         engine.markGroupsProcessed(batch1!!.groupIds)
         val remainingBefore = engine.getRemainingGroups(albumId)
 
-        // 后台：G2 两行全部外部删除（刷新池无 13/14 号）
-        val refreshed = g1 + g3
-        val batch2 = engine.getNextBatch(albumId, refreshed)
+        // 后台：G2 两行不可见（外部删除或权限收窄——引擎无法区分，均不得
+        // 永久完成；刷新池无 13/14 号）
+        val narrowed = g1 + g3
+        val batch2 = engine.getNextBatch(albumId, narrowed)
 
-        assertFalse("整组失效的组不得进入批次", batch2!!.groupIds.contains(groupIdOf(g2)))
+        assertFalse("不可操作组不得进入批次", batch2!!.groupIds.contains(groupIdOf(g2)))
         assertTrue(batch2.groupIds.contains(groupIdOf(g3)))
-        assertEquals("整组失效必须按完成语义标记（剩余组数如实递减）", remainingBefore - 1, engine.getRemainingGroups(albumId))
+        assertEquals("持有组不得被标记（剩余组数不变，未处理意图保留）", remainingBefore, engine.getRemainingGroups(albumId))
+        assertFalse("持有不得持久化完成标志", preferences.isAlbumCleanupCompleted(albumId))
         engine.markGroupsProcessed(batch2.groupIds)
-        assertNull(engine.getNextBatch(albumId, refreshed))
+
+        // 访问恢复（FULL）：13/14 号回到最新池——持有的 G2 按最新快照重新交付
+        //（其余组已处理，不重复交付）
+        val batch3 = engine.getNextBatch(albumId, g1 + g2.map { row(it.id, dateModified = 9_000L + it.id) } + g3)
+        assertEquals(listOf(groupIdOf(g2)), batch3!!.groupIds)
+        assertTrue("恢复后的行必须是最新版本对象", batch3.images.all { it.dateModified == 9_000L + it.id })
+        engine.markGroupsProcessed(batch3.groupIds)
+        assertNull("恢复后全部组处理完才真正完成", engine.getNextBatch(albumId, g1 + g2 + g3))
     }
 
     @Test
@@ -193,26 +203,71 @@ class AlbumCleanupForegroundRefreshTest {
         assertEquals(listOf(b6), batch2!!.images)
         assertFalse(batch2.images.any { it.volumeName == "external_primary" })
 
-        // B 卷组整组失效（B5/B6 均删）而 A 卷同 ID 行存在：组按完成语义标记、
-        // 不交付批次（A 卷同 ID 行不得误当作该组仍可操作）
+        // B 卷组被用户标记完成后：该组不再交付（A 卷同 ID 行不得误当作
+        // 该组仍可操作）
         val batch3 = engine.getNextBatch(xAlbum, listOf(b5, b6))
         engine.markGroupsProcessed(batch3!!.groupIds)
         assertNull(engine.getNextBatch(xAlbum, listOf(a5New)))
     }
 
     @Test
-    fun emptySnapshotMarksRemainingGroupsAndCompletes() = runBlocking {
-        val g1 = (1L..11L).map { row(it) }
-        val g2 = (12L..22L).map { row(it) }
+    fun emptySnapshotHoldsIntentAndResumesWhenAccessRestores() = runBlocking {
+        val g1 = (1L..12L).map { row(it) }
+        val g2 = (13L..22L).map { row(it) }
         seedGroups(g1 + g2, listOf(g1, g2))
         val engine = AlbumCleanupEngine(context)
 
         val batch1 = engine.getNextBatch(albumId, g1 + g2)
         engine.markGroupsProcessed(batch1!!.groupIds)
 
-        // 有效空快照（全部照片被删/权限收窄至空）：剩余组按完成语义标记，
-        // 取批返回 null——不挂起、不返回旧行
+        // 有效空快照（权限收窄至空/全部外部删除）：取批返回 null，不持久化
+        // 完成标志、不丢未处理意图
         assertNull(engine.getNextBatch(albumId, emptyList()))
-        assertEquals(0, engine.getRemainingGroups(albumId))
+        assertFalse("空快照不得持久化完成标志", preferences.isAlbumCleanupCompleted(albumId))
+        assertEquals("持有组不标记（剩余 = 总数 - 已处理）", 1, engine.getRemainingGroups(albumId))
+
+        // 权限恢复（FULL）：G2 照常交付（行可为最新版本对象）
+        val batch2 = engine.getNextBatch(albumId, g1 + g2.map { row(it.id, dateModified = 9_000L + it.id) })
+        assertEquals(listOf(groupIdOf(g2)), batch2!!.groupIds)
+        assertTrue(batch2.images.all { it.dateModified == 9_000L + it.id })
+    }
+
+    @Test
+    fun permissionNarrowRoundTripSurvivesEngineRecreationAndReentry() = runBlocking {
+        // FULL → PARTIAL（取批/持有）→ 重建引擎（普通重新进入）→ FULL 恢复
+        val g1 = (1L..12L).map { row(it) }
+        val g2 = (13L..23L).map { row(it) }
+        val g3 = (24L..32L).map { row(it) }
+        seedGroups(g1 + g2 + g3, listOf(g1, g2, g3))
+        val engine = AlbumCleanupEngine(context)
+
+        // FULL：处理 G1，G2 断点留在中途
+        val batch1 = engine.getNextBatch(albumId, g1 + g2 + g3)
+        engine.markGroupsProcessed(batch1!!.groupIds)
+        val batch2 = engine.getNextBatch(albumId, g1 + g2 + g3)
+        engine.saveCheckpoint(batch2!!.groupIds, 4)
+
+        // PARTIAL：G2/G3 全部不可见——取批持有（null、不标记、完成标志不落）；
+        // 重建引擎（应用重建/普通重新进入）后语义一致，断点不因持有被清除
+        val narrowed = g1
+        assertNull(AlbumCleanupEngine(context).getNextBatch(albumId, narrowed))
+        assertFalse(preferences.isAlbumCleanupCompleted(albumId))
+        assertNotNull("持有不得清除断点", preferences.getAlbumCleanupCheckpoint(albumId))
+        assertEquals(2, engine.getRemainingGroups(albumId)) // G2/G3 未标记
+
+        // FULL 恢复：断点批按最新快照恢复（行数不变 → 断点索引保持），G3
+        // 照常排队；已处理 G1 不重复
+        val freshEngine = AlbumCleanupEngine(context)
+        val restored = freshEngine.getCheckpointBatch(albumId, g1 + g2 + g3)
+        assertNotNull(restored)
+        assertEquals(4, restored!!.second)
+        assertEquals(groupIdOf(g2), restored.first.groupIds.single())
+        // 恢复后正常取批先交付断点持有的 G2（未完成组不丢失），G3 随后
+        val next = freshEngine.getNextBatch(albumId, g1 + g2 + g3)
+        assertEquals(listOf(groupIdOf(g2)), next!!.groupIds)
+        freshEngine.markGroupsProcessed(next.groupIds)
+        val last = freshEngine.getNextBatch(albumId, g1 + g2 + g3)
+        assertEquals(listOf(groupIdOf(g3)), last!!.groupIds)
+        assertFalse("已处理的 G1 不重复交付", (next.images + last.images).any { it.id in 1L..12L })
     }
 }
