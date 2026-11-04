@@ -109,7 +109,15 @@ class ValidFixtureTest(unittest.TestCase):
             output = Path(tmp) / "out"
             report.make_report(root, output)
             baseline = json.loads((output / "baseline.json").read_text())
-            self.assertIn("candidate", baseline["comparison"])
+            # comparison 按指标名键控（baseline/candidate 成对逐会话计算）
+            self.assertIn(
+                "a_coldStartup.timeToInitialDisplayMs",
+                baseline["comparison"],
+            )
+            paired = baseline["comparison"]["a_coldStartup.timeToInitialDisplayMs"][
+                "pairedChangePercent"
+            ]
+            self.assertEqual({"a", "b"}, set(paired.keys()))
 
 
 class NegativeFixtureTest(unittest.TestCase):
