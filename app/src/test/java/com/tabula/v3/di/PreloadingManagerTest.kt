@@ -305,7 +305,9 @@ class PreloadingManagerTest {
     @Test
     fun pauseWithinDebounceWindowHoldsEnqueueUntilResumeDeterministically() {
         // 任务 E：确定性验证——防抖 body 与 delay 恢复都在测试调度器上，
-        // advanceTimeBy 显式驱动时钟；pause 取消后推进时钟不产生入队，
+        // advanceTimeBy 显式驱动时钟；窗口内 pause 后推进时钟不产生入队
+        //（可观察行为；isPaused/generation 守卫与 debounceJob 取消为冗余
+        // 双保险，测试不区分哪层生效——变异分析见任务 E 审计），
         // resume 后同一中心可继续。
         val (deterministic, runner) = managerWithTestScope()
         deterministic.preloadAround(images(3), 1, cardSize)
@@ -327,8 +329,9 @@ class PreloadingManagerTest {
 
     @Test
     fun resetCancelsOldGenerationWorkAndManagerRemainsReusableDeterministically() {
-        // 任务 E：reset 取消旧代防抖工作（旧代 delay 恢复被取消吸收、不入队），
-        // 管理器可复用；旧代迟到回调不污染新代状态。
+        // 任务 E：reset 后旧代防抖工作不再入队（可观察行为；守卫与取消为
+        // 冗余双保险，不区分哪层生效），管理器可复用；旧代迟到回调
+        // 不污染新代状态。
         val (deterministic, runner) = managerWithTestScope()
         deterministic.preloadAround(images(1), 0, cardSize)
         runner.testScheduler.advanceUntilIdle()
@@ -349,7 +352,8 @@ class PreloadingManagerTest {
 
     @Test
     fun disposeCancelsWorkAndPreventsSubsequentEnqueueDeterministically() {
-        // 任务 E：dispose 取消防抖工作且不再接受新请求（scope 取消）。
+        // 任务 E：dispose 后不再入队、不接受新请求（可观察行为；disposed
+        // 守卫/debounceJob 取消/scope.cancel 为冗余多保险，不区分哪层）。
         val (deterministic, runner) = managerWithTestScope()
         deterministic.preloadAround(images(3), 1, cardSize)
         runner.testScheduler.advanceTimeBy(50)
