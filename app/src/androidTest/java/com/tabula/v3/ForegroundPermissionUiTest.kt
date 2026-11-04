@@ -204,6 +204,11 @@ class ForegroundPermissionUiTest {
 
         background()
         val before = dateModifiedOf(photo)
+        // 已发布条的裸流写不保证 DATE_MODIFIED 立即派生（首跑 CI 41878788776
+        // 实证）：按 photo() 同款 pending 发布舞蹈触发媒体扫描
+        ctx.contentResolver.update(primaryItem(photo), ContentValues().apply {
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }, null, null)
         val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
         try {
             bitmap.eraseColor(-0x10000) // 与初始底色不同
@@ -213,6 +218,9 @@ class ForegroundPermissionUiTest {
         } finally {
             bitmap.recycle()
         }
+        check(ctx.contentResolver.update(primaryItem(photo), ContentValues().apply {
+            put(MediaStore.MediaColumns.IS_PENDING, 0)
+        }, null, null) == 1)
         val after = dateModifiedOf(photo)
         assertTrue("编辑必须改变内容版本（DATE_MODIFIED 派生）", after > before)
 
