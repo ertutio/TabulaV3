@@ -188,4 +188,44 @@ class ForegroundPermissionUiTest {
         waitFor(keptName)
         waitUntilGone(removedName)
     }
+    @Test
+    fun externalEditWhileBackgroundedKeepsPhotoVisibleAfterReturn() {
+        // C4/T07 任务 F：后台外部编辑（重写字节，DATE_MODIFIED 由 MediaStore
+        // 派生）→ 回前台按快照契约刷新——身份存活行以最新对象替换（卡片
+        // 缓存键含 DATE_MODIFIED）。可观察面：编辑确实落库（DATE_MODIFIED
+        // 变化）、回前台后照片仍可见、应用可用不崩溃；卡片像素级刷新不属
+        // UI dump 可验证面（如实登记，键语义由 ViewerHdRequestTest/
+        // DeckViewerThumbnailKeyTest 钉住）。
+        val photo = photo()
+        val name = displayNameOf(photo)
+
+        launchToForeground()
+        waitFor(name)
+
+        background()
+        val before = dateModifiedOf(photo)
+        val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+        try {
+            bitmap.eraseColor(-0x10000) // 与初始底色不同
+            ctx.contentResolver.openOutputStream(primaryItem(photo), "w")!!.use {
+                check(bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it))
+            }
+        } finally {
+            bitmap.recycle()
+        }
+        val after = dateModifiedOf(photo)
+        assertTrue("编辑必须改变内容版本（DATE_MODIFIED 派生）", after > before)
+
+        launchToForeground()
+        // 回前台：全链重载+同步（存活行对象替换）后照片仍可见、应用可用
+        waitFor(name)
+        assertTrue(ctx.contentResolver.query(primaryItem(photo), null, null, null, null)!!.use { it.moveToFirst() })
+    }
+
+    private fun dateModifiedOf(uri: Uri): Long = requireNotNull(
+        ctx.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DATE_MODIFIED), null, null, null)
+    ) { "MediaStore query returned null: $uri" }.use {
+        check(it.moveToFirst()) { "No row for $uri" }
+        it.getLong(0)
+    }
 }
