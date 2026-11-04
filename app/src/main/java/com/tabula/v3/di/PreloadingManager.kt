@@ -31,9 +31,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 class PreloadingManager(
     private val context: Context,
     private val preloadRange: Int = 1,  // 从 2 降到 1，减少内存压力
-    providedLoader: coil.ImageLoader? = null
+    providedLoader: coil.ImageLoader? = null,
+    // C4/T07 任务 E：测试注入确定性调度 scope（防抖时序不再依赖真实 IO
+    // 调度与 Thread.sleep）；生产路径不传，默认 scope 行为不变
+    providedScope: CoroutineScope? = null
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope: CoroutineScope = providedScope ?: CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val imageLoader: coil.ImageLoader = providedLoader ?: CoilSetup.getImageLoader(context)
 
     private val lock = Any()
