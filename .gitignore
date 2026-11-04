@@ -20,3 +20,5 @@ app/build/
 build/
 
 .worktrees/
+__pycache__/
+*.pyc
