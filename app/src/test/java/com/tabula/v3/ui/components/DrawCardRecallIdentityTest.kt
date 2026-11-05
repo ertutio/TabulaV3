@@ -3,6 +3,7 @@ package com.tabula.v3.ui.components
 import android.net.Uri
 import com.tabula.v3.data.model.ImageFile
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -144,4 +145,42 @@ class DrawCardRecallIdentityTest {
 
         assertEquals(0, revalidated.size)
     }
+    @Test
+    fun previewReturningCardServesCurrentDeckRowAfterSnapshotReplacement() {
+        // C4/T07 任务 B：快照替换（同身份行更新为最新对象、尺寸与顺序不变）
+        // 后，收牌预览必须指向当前 deck 的行（最新对象）——实际收牌在 recall
+        // 时按 images[originalIndex] 现取，预览与之一致；调用方 remember 须以
+        // dealtStack 与 images 双键
+        val deck = listOf(
+            row("external_primary", 1L),
+            row("external_primary", 2L),
+            row("external_primary", 3L)
+        )
+        var state = DrawCardState(currentIndex = 0)
+        repeat(2) { state = drawCardReducer(state, DrawCardAction.Draw, deck) }
+
+        // 同尺寸同索引，2 号被外部编辑（新对象）
+        val edited = row("external_primary", 2L).copy(dateModified = 9_000L)
+        val refreshed = listOf(deck[0], edited, deck[2])
+
+        val preview = previewReturningCardOf(state.dealtStack, refreshed)
+        assertSame("预览必须是最新版本对象", edited, preview)
+
+        // 身份失效（行被剪、尺寸变化）→ 重校验后栈顶条目定位到新位置或丢弃
+        // 2 号被剪：重校验丢弃该条，栈顶变为 1 号（不得收回其他照片）
+        val pruned = listOf(deck[0], deck[2])
+        val revalidated = revalidateDealtStack(state.dealtStack, pruned, currentIndex = 2)
+        assertEquals(1, revalidated.size)
+        val previewAfterPrune = previewReturningCardOf(revalidated, pruned)
+        assertEquals(deck[0].uri, previewAfterPrune!!.uri)
+    }
+
+    @Test
+    fun previewReturningCardReturnsNullForEmptyStackAndOutOfRangeIndex() {
+        assertEquals(null, previewReturningCardOf(emptyList(), listOf(row("external_primary", 1L))))
+        val stale = DealtCard(originalIndex = 5, cardId = 2L, cardVolumeName = "external_primary")
+        assertEquals(null, previewReturningCardOf(listOf(stale), listOf(row("external_primary", 1L))))
+    }
+
 }
+

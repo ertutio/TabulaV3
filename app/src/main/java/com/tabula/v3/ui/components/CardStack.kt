@@ -1785,10 +1785,11 @@ private fun DrawModeCardStack(
     val rightCard = drawState.getRightCard(images)   // deck[i+2]
     
     // 预览返回牌（左滑收牌时显示）
-    val previewReturningCard = remember(drawState.dealtStack) {
-        if (drawState.canRecall()) {
-            drawState.dealtStack.lastOrNull()?.let { images.getOrNull(it.originalIndex) }
-        } else null
+    // C4/T07 任务 B：预览必须随快照替换刷新——dealtStack 与 images 双键
+    //（同身份行更新为最新对象时 dealtStack 不变，单键会停留旧版本；实际
+    // 收牌在 recall 时现取 images[originalIndex]，预览须与之一致）
+    val previewReturningCard = remember(drawState.dealtStack, images) {
+        if (drawState.canRecall()) previewReturningCardOf(drawState.dealtStack, images) else null
     }
     
     // 计算卡片比例
