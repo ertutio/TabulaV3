@@ -1424,3 +1424,44 @@ class AlbumManager(private val context: Context) {
         pendingArchiveQueue.clear()
     }
 }
+
+/**
+ * T07/TC56-RESULT：移动/复制的界面反馈——成功数 + 未完成项按
+ * 授权拒绝/失败/选择失效分项如实列出，只列非零项。
+ */
+internal fun transferResultMessage(
+    doneVerb: String,
+    doneCount: Int,
+    permissionBlockedCount: Int,
+    failedCount: Int,
+    unexplainedCount: Int
+): String {
+    val retainedTotal = permissionBlockedCount + failedCount + unexplainedCount
+    if (retainedTotal == 0) {
+        return "${doneVerb} $doneCount 张图片"
+    }
+    val parts = buildList {
+        if (permissionBlockedCount > 0) add("${permissionBlockedCount} 项需系统授权")
+        if (failedCount > 0) add("${failedCount} 项失败")
+        if (unexplainedCount > 0) add("${unexplainedCount} 项选择已失效")
+    }
+    return "${doneVerb} $doneCount 张，$retainedTotal 张未完成（${parts.joinToString("、")}）"
+}
+
+internal fun moveImagesResultMessage(result: AlbumManager.MoveImagesResult): String =
+    transferResultMessage(
+        doneVerb = "已移动",
+        doneCount = result.movedCount,
+        permissionBlockedCount = result.permissionBlockedCount,
+        failedCount = result.failedCount,
+        unexplainedCount = result.retainedCount - result.permissionBlockedCount - result.failedCount
+    )
+
+internal fun copyImagesResultMessage(result: AlbumManager.CopyImagesResult): String =
+    transferResultMessage(
+        doneVerb = "已复制",
+        doneCount = result.copiedCount,
+        permissionBlockedCount = result.permissionBlockedCount,
+        failedCount = result.failedCount,
+        unexplainedCount = result.requestedCount - result.copiedCount - result.permissionBlockedCount - result.failedCount
+    )

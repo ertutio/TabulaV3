@@ -69,6 +69,8 @@ import com.tabula.v3.data.preferences.TopBarDisplayMode
 import com.tabula.v3.data.repository.DeletionVerification
 import com.tabula.v3.data.repository.FileOperationManager
 import com.tabula.v3.data.repository.LocalImageRepository
+import com.tabula.v3.data.repository.copyImagesResultMessage
+import com.tabula.v3.data.repository.moveImagesResultMessage
 import com.tabula.v3.data.repository.matchesSameMediaIdentity
 import com.tabula.v3.data.repository.partitionByConfirmedIdentity
 import com.tabula.v3.data.repository.projectSnapshot
@@ -1460,18 +1462,16 @@ fun TabulaApp(
                         // C1/T03-MOVECOPY-IDENTITY：完整身份选择键直达消费端，
                         // AlbumManager 从当前媒体集合按身份重新解析。
                         val result = albumManager.moveImagesByIdentity(identityKeys, currentAlbumId, targetAlbumId)
-                        val message = if (result.retainedCount > 0) {
-                            "已移动 ${result.movedCount} 张，${result.retainedCount} 张未移动"
-                        } else {
-                            "已移动 ${result.movedCount} 张图片"
-                        }
-                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                        // T07/TC56-RESULT：授权拒绝/失败/失效选择分项如实反馈
+                        Toast.makeText(context, moveImagesResultMessage(result), Toast.LENGTH_LONG).show()
                     }
                 }
             },
             onCopyToAlbum = { identityKeys, targetAlbumId ->
                 scope.launch {
-                    albumManager.copyImagesByIdentity(identityKeys, targetAlbumId)
+                    // T07/TC56-RESULT：复制同样按逐项结果如实反馈（此前无任何反馈）
+                    val result = albumManager.copyImagesByIdentity(identityKeys, targetAlbumId)
+                    Toast.makeText(context, copyImagesResultMessage(result), Toast.LENGTH_LONG).show()
                 }
             },
             onDeleteImages = { identityKeys ->

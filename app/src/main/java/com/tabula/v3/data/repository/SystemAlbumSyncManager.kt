@@ -96,18 +96,19 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
     private sealed class CopyOutcome {
         data class Created(val uri: Uri, val byteCount: Long, val sha256Hex: String) : CopyOutcome()
         data class Reused(val uri: Uri, val byteCount: Long, val sha256Hex: String) : CopyOutcome()
+        object NeedsPermission : CopyOutcome()
         object Failed : CopyOutcome()
 
         fun uriOrNull(): Uri? = when (this) {
             is Created -> uri
             is Reused -> uri
-            Failed -> null
+            NeedsPermission, Failed -> null
         }
 
         fun toCopyResultOrNull(): CopyResult? = when (this) {
             is Created -> CopyResult(uri, byteCount, sha256Hex)
             is Reused -> CopyResult(uri, byteCount, sha256Hex)
-            Failed -> null
+            NeedsPermission, Failed -> null
         }
     }
 
@@ -403,13 +404,11 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
         imageUri: Uri,
         albumName: String,
         displayName: String? = null
-    ): MediaTransferResult {
-        val evidence = copyImageWithEvidence(imageUri, albumName, displayName)
-        return if (evidence != null) {
-            MediaTransferResult(MediaTransferOutcome.SUCCEEDED, evidence.uri)
-        } else {
-            MediaTransferResult(MediaTransferOutcome.FAILED)
-        }
+    ): MediaTransferResult = when (val outcome = copyImageToSystemAlbum(imageUri, albumName, displayName)) {
+        is CopyOutcome.Created -> MediaTransferResult(MediaTransferOutcome.SUCCEEDED, outcome.uri)
+        is CopyOutcome.Reused -> MediaTransferResult(MediaTransferOutcome.SUCCEEDED, outcome.uri)
+        CopyOutcome.NeedsPermission -> MediaTransferResult(MediaTransferOutcome.NEEDS_PERMISSION)
+        CopyOutcome.Failed -> MediaTransferResult(MediaTransferOutcome.FAILED)
     }
 
     /**
@@ -495,6 +494,11 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
         } catch (e: CancellationException) {
             cleanupOwnedCopyTarget(ownedTarget)
             throw e
+        } catch (e: SecurityException) {
+            // TC56-RESULT：系统授权拒绝如实单列（复制无目标落地、源保留）
+            cleanupOwnedCopyTarget(ownedTarget)
+            Log.w(TAG, "Copy denied by system permission; source retained: $imageUri")
+            return CopyOutcome.NeedsPermission
         } catch (e: Exception) {
             cleanupOwnedCopyTarget(ownedTarget)
             Log.e(TAG, "Error adding image to system album", e)
@@ -875,6 +879,11 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
                 Log.w(TAG, "Copy cancelled before insert returned a URI; any provider side effect cannot be safely identified")
             }
             throw e
+        } catch (e: SecurityException) {
+            // TC56-RESULT：insert/写入流的授权拒绝如实单列，已拥有的目标回滚，源保留
+            cleanupOwnedCopyTarget(ownedTarget)
+            Log.w(TAG, "Copy denied by system permission; owned target rolled back, source retained")
+            return CopyOutcome.NeedsPermission
         } catch (e: Exception) {
             cleanupOwnedCopyTarget(ownedTarget)
             Log.e(TAG, "Error copying image using MediaStore", e)
@@ -1253,6 +1262,11 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
                         uriMapping[uri.toString()] = result.uri
                         Log.d("DEBUG_SYNC", "[B1,B2] Image sync result | index=$index | fileName=$fileName | status=verified-existing | resultUri=${result.uri}")
                     }
+                    CopyOutcome.NeedsPermission -> {
+                        // TC56-RESULT：授权拒绝按未同步计数，与一般失败同归 failed 但日志区分
+                        failed++
+                        Log.w("DEBUG_SYNC", "[B1,B2] Image sync result | index=$index | fileName=$fileName | status=needs-permission")
+                    }
                     CopyOutcome.Failed -> {
                         failed++
                         Log.d("DEBUG_SYNC", "[B1,B2] Image sync result | index=$index | fileName=$fileName | status=failed")
@@ -1390,6 +1404,10 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
             MediaTransferResult(MediaTransferOutcome.FAILED)
         } catch (e: CancellationException) {
             throw e
+        } catch (e: SecurityException) {
+            // TC56-RESULT：系统授权拒绝（含 RecoverableSecurityException）如实单列，源保留
+            Log.w(TAG, "Move denied by system permission; retaining source image: $targetBucketName/$imageUri")
+            MediaTransferResult(MediaTransferOutcome.NEEDS_PERMISSION)
         } catch (e: Exception) {
             Log.e(TAG, "Error moving image to bucket: $targetBucketName", e)
             MediaTransferResult(MediaTransferOutcome.FAILED)
