@@ -333,6 +333,24 @@ fun DeckScreen(
     
     // 断点续传：保存当前位置（防抖处理，避免频繁写入）
     var lastSavedIndex by remember { mutableIntStateOf(-1) }
+
+    // No currently accessible batch does not imply that unfinished groups were reviewed.
+    fun showCleanupAvailability(cleanupId: String) {
+        currentCleanupBatch = null
+        preloadedNextBatch = null
+        currentBatch = emptyList()
+        currentIndex = 0
+        needsInitialBatch = false
+        albumCleanupTotalGroups = albumCleanupEngine?.getTotalGroups(cleanupId) ?: 0
+        albumCleanupRemainingGroups = albumCleanupEngine?.getRemainingGroups(cleanupId) ?: 0
+        albumCleanupTotalImages = albumCleanupEngine?.getTotalImages(cleanupId) ?: 0
+        albumCleanupRemainingImages = albumCleanupEngine?.getRemainingImages(cleanupId) ?: 0
+        deckState = if (albumCleanupEngine?.isAlbumCompleted(cleanupId) == true) {
+            DeckState.COMPLETED
+        } else {
+            DeckState.BROWSING
+        }
+    }
     androidx.compose.runtime.LaunchedEffect(currentIndex, isAlbumCleanupMode, currentCleanupBatch) {
         if (!isAlbumCleanupMode || albumCleanupEngine == null || currentCleanupBatch == null) return@LaunchedEffect
         // 只在索引真正变化时保存，且至少变化2张才保存（减少写入频率）
@@ -420,7 +438,7 @@ fun DeckScreen(
     }
 
     // 图集/月份清理模式恢复：当从设置返回时，状态已保持但批次数据需要重新加载
-    androidx.compose.runtime.LaunchedEffect(isAlbumCleanupMode, selectedCleanupAlbum, selectedCleanupMonth, isMonthCleanupMode, allImages, allImagesForCleanup, isLoading) {
+    androidx.compose.runtime.LaunchedEffect(isAlbumCleanupMode, selectedCleanupAlbum, selectedCleanupMonth, isMonthCleanupMode, allImages, allImagesForCleanup, isLoading, currentCleanupBatch) {
         // 如果处于清理模式，但批次数据为空（组件重建后丢失），需要恢复
         if (isAlbumCleanupMode && currentCleanupBatch == null && 
             !isLoading && albumCleanupEngine != null) {
@@ -500,8 +518,7 @@ fun DeckScreen(
                     albumCleanupTotalImages = albumCleanupEngine.getTotalImages(cleanupId)
                     albumCleanupRemainingImages = albumCleanupEngine.getRemainingImages(cleanupId)
                 } else {
-                    // 清理完成
-                    deckState = DeckState.COMPLETED
+                    showCleanupAvailability(cleanupId)
                     onRefreshAlbumCleanupInfos()
                 }
             }
@@ -679,8 +696,7 @@ fun DeckScreen(
                 currentIndex = 0
                 markedCount = 0
             } else {
-                // 清理完成
-                deckState = DeckState.COMPLETED
+                showCleanupAvailability(cleanupId)
                 onRefreshAlbumCleanupInfos()
             }
         } else {
@@ -692,18 +708,15 @@ fun DeckScreen(
     // C4/T07：回前台刷新（mediaAccessRevision）产生的新快照向可见消费面同步
     //（P2 复审项，纯逻辑见 ui/util/ForegroundRefreshSync）——完整媒体身份
     // 键（卷|ID，O5③ 同口径）。本 effect 声明在 handleCleanupBatchCompletion
-    // 之后：清理批次整批失效时走该既有完成通道（标组+取下批，引擎进度与
-    // 断点语义不变）。
+    // 之后：不可访问的未处理组保持待恢复，不按用户完成标记。
     // · 普通批次：存活行替换为快照最新 ImageFile（dateModified/尺寸随外部
     //   编辑更新），失效行剔除、顺序保持、currentIndex 对齐（钳制同 deck
     //   移除路径约定）；剪空走 needsInitialBatch 重新取批。
-    // · 图集/月份清理（活动批次不打断）：同步 currentCleanupBatch 与
-    //   preloadedNextBatch（组内行替换/剔除、groupIds 与完成标记语义不变、
-    //   groupBoundaries 按组重算）及月份快照 selectedCleanupMonth.images；
-    //   不退出清理、不重置断点/进度（索引对齐后由既有防抖 effect 落新断点）。
+    // · 清理批次：仅保留待处理成员完整可见的组，按组重建边界；缺席组
+    //   保留持久处理意图，月份成员从完整新池重建。
     // · 大图查看器：viewerState.image 按新快照校验——身份仍存在则更新图片
     //   对象（保持查看位置），已失效则关闭查看器。
-    androidx.compose.runtime.LaunchedEffect(allImages, allImagesForCleanup) {
+    androidx.compose.runtime.LaunchedEffect(allImages, allImagesForCleanup, isLoading) {
         val pool = if (allImagesForCleanup.isNotEmpty()) allImagesForCleanup else allImages
         // 尚未加载完成：等待首次加载。pool 为空且加载已完成 = 有效空快照（全部
         // 照片被外部删除/权限收窄至空）：各面按空池同步——查看器关闭、批次
@@ -721,7 +734,7 @@ fun DeckScreen(
             selectedCleanupMonth = refreshedCleanupMonth(month, pool)
         }
         currentCleanupBatch?.let { batch ->
-            val synced = syncCleanupBatchToSnapshot(batch, pool)
+            val synced = syncCleanupBatchToSnapshot(batch, pool, currentBatch.drop(currentIndex))
             if (synced !== batch) {
                 if (synced.images.isEmpty()) {
                     // 任务 A：批次行整体不可见 ≠ 用户完成——快照缺席区分不了
@@ -741,7 +754,11 @@ fun DeckScreen(
             // deck 空间同步（C-1：与清理空间分列——deck 已剔除用户已处理行，
             // 清理批仍含之，两空间索引互不可算；索引按当前行身份在同步后
             // 列表中重定位）
-            val syncedDeck = syncRowsToSnapshot(currentBatch, pool)
+            val refreshedDeck = syncRowsToSnapshot(currentBatch, pool)
+            val allowedKeys = currentCleanupBatch?.images?.map { it.mediaIdentityKey() }?.toSet()
+            val syncedDeck = if (isAlbumCleanupMode && allowedKeys != null) {
+                refreshedDeck.filter { it.mediaIdentityKey() in allowedKeys }
+            } else refreshedDeck
             if (syncedDeck != currentBatch) {
                 if (syncedDeck.isEmpty()) {
                     // deck 可见行全部失效：清理模式下转入持有（同上，不标记
@@ -799,7 +816,7 @@ fun DeckScreen(
                     return@launch
                 }
                 
-                if (cleanupId == null || cleanupImages.isEmpty()) {
+                if (cleanupId == null) {
                     deckState = DeckState.COMPLETED
                     return@launch
                 }
@@ -822,6 +839,8 @@ fun DeckScreen(
                         albumCleanupRemainingImages = albumCleanupEngine.getRemainingImages(cleanupId)
                         return@launch
                     }
+                    showCleanupAvailability(cleanupId)
+                    return@launch
                 }
                 
                 // 当前清理目标已完成
@@ -886,8 +905,7 @@ fun DeckScreen(
                     // 刷新图集清理信息
                     onRefreshAlbumCleanupInfos()
                 } else {
-                    // 获取失败，显示完成状态
-                    deckState = DeckState.COMPLETED
+                    showCleanupAvailability(nextAlbum.id)
                 }
             } finally {
                 isLoadingNextBatch = false
@@ -1534,9 +1552,11 @@ fun DeckScreen(
                 return@launch
             }
             
-            // 分析图集
-            engine.analyzeAlbum(album, albumImages).collect { progress ->
-                analysisProgress = progress
+            // Preserve a complete persisted directory when current access is partial.
+            if (forceReset || engine.getTotalGroups(album.id) < 0) {
+                engine.analyzeAlbum(album, albumImages).collect { progress ->
+                    analysisProgress = progress
+                }
             }
             
             analyzingAlbumId = null
@@ -1583,16 +1603,14 @@ fun DeckScreen(
                     albumCleanupRemainingImages = engine.getRemainingImages(album.id)
                 } else {
                     // 没有照片需要整理
-                    albumCleanupTotalGroups = 0
-                    albumCleanupRemainingGroups = 0
-                    albumCleanupTotalImages = 0
-                    albumCleanupRemainingImages = 0
+                    albumCleanupTotalGroups = engine.getTotalGroups(album.id)
+                    albumCleanupRemainingGroups = engine.getRemainingGroups(album.id)
+                    albumCleanupTotalImages = engine.getTotalImages(album.id)
+                    albumCleanupRemainingImages = engine.getRemainingImages(album.id)
                     
                     onAlbumCleanupModeChange(true)
                     onSelectedCleanupAlbumChange(album)
-                    currentCleanupBatch = null
-                    currentBatch = emptyList()
-                    deckState = DeckState.COMPLETED
+                    showCleanupAvailability(album.id)
                 }
             }
             
@@ -1631,9 +1649,10 @@ fun DeckScreen(
             
             android.util.Log.d("DeckScreen", "Starting month cleanup: ${monthInfo.displayName}, ${monthImages.size} images")
             
-            // 分析月份图片
-            engine.analyzeAlbum(virtualAlbum, monthImages).collect { progress ->
-                analysisProgress = progress
+            if (forceReset || engine.getTotalGroups(albumId) < 0) {
+                engine.analyzeAlbum(virtualAlbum, monthImages).collect { progress ->
+                    analysisProgress = progress
+                }
             }
             
             analyzingAlbumId = null
@@ -1684,16 +1703,14 @@ fun DeckScreen(
                     android.util.Log.d("DeckScreen", "Month cleanup started: ${batch.imageCount} images in ${batch.groupCount} groups")
                 } else {
                     // 没有照片需要整理
-                    albumCleanupTotalGroups = 0
-                    albumCleanupRemainingGroups = 0
-                    albumCleanupTotalImages = 0
-                    albumCleanupRemainingImages = 0
+                    albumCleanupTotalGroups = engine.getTotalGroups(albumId)
+                    albumCleanupRemainingGroups = engine.getRemainingGroups(albumId)
+                    albumCleanupTotalImages = engine.getTotalImages(albumId)
+                    albumCleanupRemainingImages = engine.getRemainingImages(albumId)
                     
                     onAlbumCleanupModeChange(true)
                     isMonthCleanupMode = true
-                    currentCleanupBatch = null
-                    currentBatch = emptyList()
-                    deckState = DeckState.COMPLETED
+                    showCleanupAvailability(albumId)
                 }
             }
             

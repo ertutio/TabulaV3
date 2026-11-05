@@ -141,6 +141,22 @@ class AlbumCleanupEngine(
     // 缓存的相似组（使用 Mutex 保护，避免并发问题）
     private var cachedGroups: List<SimilarGroup>? = null
     private val cacheMutex = Mutex()
+
+    /** 持久组身份与当前可操作行分离；已确认成员缺席不会改变原组 ID。 */
+    private data class CleanupGroup(
+        val id: String,
+        val images: List<ImageFile>,
+        val memberKeys: List<String>,
+        val original: SimilarGroup?
+    )
+
+    private fun SimilarGroup.asCleanupGroup() =
+        CleanupGroup(id, images, images.map { it.mediaIdentityKey() }, this)
+
+    /** 在软删除成功后调用；确认事实保留至该图集显式重置。 */
+    fun recordUserRemovedImage(image: ImageFile) {
+        preferences.acknowledgeCleanupMember(image.mediaIdentityKey())
+    }
     
     /**
      * 获取当前状态
@@ -309,34 +325,30 @@ class AlbumCleanupEngine(
             preferences.currentCleanupAlbumId = albumId
         }
         
-        // 获取或恢复相似组（使用 Mutex 保护，避免并发问题）
+        // 回收记录证明用户已处理；权限快照缺席不证明。保留软删成员身份以恢复
+        // 原组 ID，交付时再排除。读取失败须传播，不能当成空回收站继续。
+        val recycledRows = RecycleBinManager.getInstance(context).loadRecycleBin()
+        val recoveryRows = (recycledRows + allImages).associateBy { it.mediaIdentityKey() }.values.toList()
+        // 每次从完整持久目录恢复，不能将 PARTIAL 子集作为后续 FULL 的缓存基准。
         val groups = cacheMutex.withLock {
-            cachedGroups ?: run {
-                // 【性能优化】优先从持久化数据恢复，避免重新检测
-                val restored = restoreGroupsFromPrefs(albumId, allImages)
-                if (restored != null) {
-                    android.util.Log.d(TAG, "Restored ${restored.size} groups from preferences for album $albumId")
-                    cachedGroups = restored
-                    restored
-                } else {
-                    // 没有持久化数据，需要重新检测
-                    android.util.Log.d(TAG, "No persisted data, detecting similar groups for album $albumId")
-                    val detected = similarGroupDetector.detectSimilarGroups(allImages)
-                    cachedGroups = detected
-                    detected
-                }
-            }
-        }
-        
-        if (groups.isEmpty()) {
-            currentState = State.COMPLETED
-            return@withContext null
+            val restored = restoreGroupsFromPrefs(albumId, recoveryRows)
+            restored ?: (cachedGroups ?: similarGroupDetector.detectSimilarGroups(allImages)
+                .also { cachedGroups = it }).map { it.asCleanupGroup() }
         }
         
         // 获取已永久处理的组ID（图集清理模式使用永久标记）
         // C1/T03-GROUPID：先迁移旧口径永久标记（唯一映射→新身份 ID，
         // 歧义/失配原样保留），再读取标记集合。
-        migrateLegacyProcessedGroupIds(albumId, groups)
+        migrateLegacyProcessedGroupIds(albumId, groups.mapNotNull { it.original })
+        // 兼容已有回收记录；确认持久化后即使清空回收站也可恢复同一个原组。
+        preferences.acknowledgeCleanupMembers(recycledRows.map { it.mediaIdentityKey() }.toSet())
+        val acknowledgedKeys = preferences.getAlbumAcknowledgedCleanupMembers(albumId)
+        val fullyRecycledGroupIds = groups.filter { group ->
+            group.memberKeys.isNotEmpty() && group.memberKeys.all { it in acknowledgedKeys }
+        }.map { it.id }
+        if (fullyRecycledGroupIds.isNotEmpty()) {
+            preferences.markAlbumGroupsPermanentlyProcessed(albumId, fullyRecycledGroupIds)
+        }
         val permanentlyProcessedIds = preferences.getAlbumPermanentlyProcessedGroups(albumId)
 
         // 过滤出未处理的组（同时排除指定的组ID）
@@ -344,8 +356,13 @@ class AlbumCleanupEngine(
         val availableGroups = groups.filter { it.id !in allExcludeIds }
 
         if (availableGroups.isEmpty()) {
-            currentState = State.COMPLETED
-            preferences.markAlbumCleanupCompleted(albumId)
+            // 空集合也可能由权限持有或预取排除造成；只按完整目录确认完成。
+            val directoryIds = preferences.getAlbumGroupIds(albumId)
+                .ifEmpty { groups.map { it.id }.toSet() }
+            if (directoryIds.all { it in permanentlyProcessedIds }) {
+                currentState = State.COMPLETED
+                preferences.markAlbumCleanupCompleted(albumId)
+            }
             return@withContext null
         }
 
@@ -360,7 +377,12 @@ class AlbumCleanupEngine(
         val snapshotByKey = allImages.associateBy { it.mediaIdentityKey() }
         val operableGroups = availableGroups.mapNotNull { group ->
             val syncedRows = group.images.mapNotNull { snapshotByKey[it.mediaIdentityKey()] }
-            if (syncedRows.isEmpty()) null else group to syncedRows
+            // 任何未处理成员缺席都持有整组，不能交付子集后按原 ID 整组完成。
+            if (group.memberKeys.any { it !in snapshotByKey && it !in acknowledgedKeys }) {
+                null
+            } else {
+                group to syncedRows.filterNot { it.mediaIdentityKey() in acknowledgedKeys }
+            }
         }
         if (operableGroups.isEmpty()) {
             // 全部剩余组当前不可操作（持有）：不置 COMPLETED、不清进度、
@@ -577,7 +599,7 @@ class AlbumCleanupEngine(
         }
     }
 
-    private fun restoreGroupsFromPrefs(albumId: String, allImages: List<ImageFile>): List<SimilarGroup>? {
+    private fun restoreGroupsFromPrefs(albumId: String, allImages: List<ImageFile>): List<CleanupGroup>? {
         // 检查是否有持久化数据
         if (!preferences.hasPersistedGroupData(albumId)) {
             return null
@@ -585,7 +607,7 @@ class AlbumCleanupEngine(
 
         val groupIds = preferences.getAlbumGroupIds(albumId)
         if (groupIds.isEmpty()) {
-            return null
+            return emptyList()
         }
 
         // C1/T03-GROUPID：恢复按完整媒体身份解析——新格式成员键精确匹配；
@@ -594,7 +616,7 @@ class AlbumCleanupEngine(
         val imageMap = allImages.associateBy { it.mediaIdentityKey() }
         val imagesById = allImages.groupBy { it.id }
 
-        val restoredGroups = mutableListOf<SimilarGroup>()
+        val restoredGroups = mutableListOf<CleanupGroup>()
 
         for (groupId in groupIds) {
             val memberKeys = preferences.getGroupImageIds(albumId, groupId)
@@ -604,26 +626,34 @@ class AlbumCleanupEngine(
                 return null
             }
 
-            // 恢复组内成员（身份解析 + 过滤已不存在的照片）
+            // 成员目录是完整组，快照只是本次可见行。缺席时持有整组，不能
+            // 将子集重建成另一个组 ID，也不能丢掉目录后触发局部重新检测。
             val groupImages = mutableListOf<ImageFile>()
+            val resolvedKeys = mutableListOf<String>()
+            var hasMissingMember = false
             for (key in memberKeys) {
                 val exact = imageMap[key]
                 if (exact != null) {
                     groupImages.add(exact)
+                    resolvedKeys.add(exact.mediaIdentityKey())
                     continue
                 }
                 if (key.toLongOrNull() == null) {
-                    // 新格式身份键但行已不存在：成员缺失，丢弃该成员（既有语义）。
+                    hasMissingMember = true
+                    resolvedKeys.add(key)
                     continue
                 }
                 // 旧格式裸 ID：唯一才解析；跨卷歧义不得猜测。
                 val candidates = imagesById[key.toLongOrNull()]
                 when {
                     candidates == null -> {
-                        // 照片已被用户删除：成员缺失，丢弃（既有语义）。
-                        android.util.Log.d(TAG, "Legacy member $key no longer exists; dropped")
+                        hasMissingMember = true
+                        resolvedKeys.add(key)
                     }
-                    candidates.size == 1 -> groupImages.add(candidates.single())
+                    candidates.size == 1 -> {
+                        groupImages.add(candidates.single())
+                        resolvedKeys.add(candidates.single().mediaIdentityKey())
+                    }
                     else -> {
                         android.util.Log.w(
                             TAG,
@@ -634,28 +664,32 @@ class AlbumCleanupEngine(
                 }
             }
 
-            if (groupImages.isEmpty()) {
-                // 组内图片全部不存在（可能被用户删除），跳过该组
-                continue
-            }
-
-            // 重建 SimilarGroup
-            val sortedImages = groupImages.sortedBy { it.dateModified }
-            restoredGroups.add(
+            val original = if (!hasMissingMember && groupImages.isNotEmpty()) {
                 SimilarGroup(
-                    images = sortedImages,
-                    startTime = sortedImages.first().dateModified,
-                    endTime = sortedImages.last().dateModified
+                    // 保留持久成员顺序：外部编辑不应移动旧断点指向的身份。
+                    images = groupImages,
+                    startTime = groupImages.minOf { it.dateModified },
+                    endTime = groupImages.maxOf { it.dateModified }
+                )
+            } else null
+            // 已是新组 ID、成员值仍是旧裸 ID 时，也只在全员唯一解析后升级。
+            // 成功删除回调随后才能按完整卷身份确认，不能把裸 ID 当作确认键。
+            if (original != null && !isLegacyGroupId(groupId) && memberKeys != resolvedKeys) {
+                preferences.saveGroupsImageIds(albumId, mapOf(groupId to resolvedKeys))
+            }
+            restoredGroups.add(
+                CleanupGroup(
+                    id = if (isLegacyGroupId(groupId) && original != null) original.id else groupId,
+                    images = groupImages,
+                    memberKeys = resolvedKeys,
+                    original = original
                 )
             )
         }
 
-        if (restoredGroups.isEmpty()) {
-            return null
-        }
-
+        // 有效目录但没有完整可见组是持有，不是“没有持久数据”。
         // 按组大小降序排列（与原始检测结果一致）
-        return restoredGroups.sortedByDescending { it.images.size }
+        return restoredGroups.sortedByDescending { it.memberKeys.size }
     }
     
     // ==================== 断点续传 ====================
@@ -709,21 +743,12 @@ class AlbumCleanupEngine(
         val checkpoint = getCheckpoint(albumId) ?: return@withContext null
         val (savedGroupIds, savedIndex) = checkpoint
         
-        // 获取或恢复相似组（使用 Mutex 保护，避免并发问题）
-        // 【性能优化】优先从持久化数据恢复
+        val recycledRows = RecycleBinManager.getInstance(context).loadRecycleBin()
+        val recoveryRows = (recycledRows + allImages).associateBy { it.mediaIdentityKey() }.values.toList()
         val groups = cacheMutex.withLock {
-            cachedGroups ?: run {
-                val restored = restoreGroupsFromPrefs(albumId, allImages)
-                if (restored != null) {
-                    android.util.Log.d(TAG, "Checkpoint restore: restored ${restored.size} groups from preferences")
-                    cachedGroups = restored
-                    restored
-                } else {
-                    val detected = similarGroupDetector.detectSimilarGroups(allImages)
-                    cachedGroups = detected
-                    detected
-                }
-            }
+            restoreGroupsFromPrefs(albumId, recoveryRows)
+                ?: (cachedGroups ?: similarGroupDetector.detectSimilarGroups(allImages)
+                    .also { cachedGroups = it }).map { it.asCleanupGroup() }
         }
         
         if (groups.isEmpty()) return@withContext null
@@ -731,7 +756,10 @@ class AlbumCleanupEngine(
         // C1/T03-GROUPID：与 getNextBatch 同口径——先迁移旧口径持久化身份
         // （唯一映射→新身份 ID，歧义原样保留），升级窗口内断点记录的旧 ID
         // 才不会漏掉已迁移的标记与组目录。
-        migrateLegacyProcessedGroupIds(albumId, groups)
+        migrateLegacyProcessedGroupIds(albumId, groups.mapNotNull { it.original })
+        preferences.acknowledgeCleanupMembers(recycledRows.map { it.mediaIdentityKey() }.toSet())
+        val acknowledgedKeys = preferences.getAlbumAcknowledgedCleanupMembers(albumId)
+        val checkpointSnapshotByKey = allImages.associateBy { it.mediaIdentityKey() }
         // 获取已永久处理的组ID
         val permanentlyProcessedIds = preferences.getAlbumPermanentlyProcessedGroups(albumId)
 
@@ -740,7 +768,9 @@ class AlbumCleanupEngine(
         // **唯一候选**时解析——两卷的不同组共用同一旧别名时，任何 last-wins
         // 猜选都会把旧索引套到错误组上跳过照片。此时明确放弃续接并安全重算
         // （仅清断点，不清除永久处理意图、不自动标记任一候选）。
-        val aliasGroups = groups.groupBy { group -> "${group.startTime}_${group.images.firstOrNull()?.id ?: 0}" }
+        val aliasGroups = groups.filter { it.original != null }.groupBy { group ->
+            "${group.original!!.startTime}_${group.images.firstOrNull()?.id ?: 0}"
+        }
         val hasAmbiguousSavedId = savedGroupIds.any { savedId ->
             groups.none { it.id == savedId } && (aliasGroups[savedId]?.size ?: 0) >= 2
         }
@@ -759,6 +789,16 @@ class AlbumCleanupEngine(
             val group = groupMap[groupId]
             val effectiveId = group?.id ?: groupId
             if (group != null && effectiveId !in permanentlyProcessedIds) {
+                if (group.memberKeys.any { it !in checkpointSnapshotByKey && it !in acknowledgedKeys }) {
+                    // 临时不可见：保留原 ID、顺序和位置，FULL 后同实例可再次恢复。
+                    return@withContext null
+                }
+                if (group.memberKeys.any { it in acknowledgedKeys }) {
+                    // 明确删除已缩短可操作成员，旧索引无法判断保存与删除先后。
+                    // 安全从该原组剩余行重开，不能盲目平移而漏掉尚未浏览的成员。
+                    clearCheckpoint(albumId)
+                    return@withContext null
+                }
                 batchBoundaries.add(batchImages.size)
                 batchGroupIds.add(effectiveId)
                 batchImages.addAll(group.images)
@@ -801,17 +841,12 @@ class AlbumCleanupEngine(
             return@withContext null
         }
 
-        // C4/T07 P2：断点批行按最新快照校验——任一保存行已不在快照（外部删除/
-        // 权限收窄）→ 组成变化，按既有"组成变化放弃断点"语义安全重开（仅清
-        // 断点，不清除永久处理意图）；存活行替换为快照最新对象（外部编辑后
-        // 恢复不再返回旧版本），行数不变、边界与断点索引不受影响。
-        val checkpointSnapshotByKey = allImages.associateBy { it.mediaIdentityKey() }
+        // 行版本取最新快照，顺序取持久成员目录。缺席只持有，不清断点。
         if (batchImages.any { checkpointSnapshotByKey[it.mediaIdentityKey()] == null }) {
             android.util.Log.w(
                 TAG,
-                "Checkpoint rows missing in fresh snapshot for $albumId; abandoning resume"
+                "Checkpoint rows missing in fresh snapshot for $albumId; holding resume"
             )
-            clearCheckpoint(albumId)
             return@withContext null
         }
         val syncedBatchImages = batchImages.map { checkpointSnapshotByKey[it.mediaIdentityKey()]!! }

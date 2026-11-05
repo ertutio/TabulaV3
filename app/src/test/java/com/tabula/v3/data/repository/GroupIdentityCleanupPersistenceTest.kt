@@ -252,17 +252,25 @@ class GroupIdentityCleanupPersistenceTest {
     }
 
     @Test
-    fun memberMissingSinceSaveDropsMemberKeepsGroup() = runBlocking {
-        // 成员缺失（照片已被删除）：丢弃缺失成员、保留其余组（既有语义保持）。
+    fun memberMissingSinceSaveHoldsGroupAndResumesWhenVisible() = runBlocking {
+        // 快照缺席不能证明用户已处理：旧成员键也必须持有整组及原断点。
         seedLegacyGroup("legacy3", legacyGroupId, listOf(10L, 11L))
         val onlyP10 = listOf(p10)
         val engine = AlbumCleanupEngine(context)
         val restored = engine.getCheckpointBatch("legacy3", onlyP10)
-        assertNotNull(restored)
+        assertNull(restored)
+        assertEquals(listOf(legacyGroupId) to 0, engine.getCheckpoint("legacy3"))
+        assertEquals(setOf(legacyGroupId), preferences.getAlbumGroupIds("legacy3"))
+        assertNull(engine.getNextBatch("legacy3", onlyP10))
+        assertFalse(preferences.isAlbumCleanupCompleted("legacy3"))
+        val full = engine.getCheckpointBatch("legacy3", listOf(p10, p11))
+        assertNotNull(full)
         assertEquals(
-            setOf(p10.uri),
-            restored!!.first.images.map { it.uri }.toSet()
+            setOf(p10.uri, p11.uri),
+            full!!.first.images.map { it.uri }.toSet()
         )
+        assertEquals(0, full.second)
+        assertEquals(listOf(expectedGroupA().id), full.first.groupIds)
     }
 
     // ========== 永久处理标记的旧格式兼容（唯一映射迁移 / 歧义保留） ==========

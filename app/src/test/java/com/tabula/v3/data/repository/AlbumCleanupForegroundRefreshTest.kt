@@ -1,6 +1,7 @@
 package com.tabula.v3.data.repository
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.preferences.AppPreferences
@@ -44,6 +45,7 @@ class AlbumCleanupForegroundRefreshTest {
     fun setUp() {
         preferences = AppPreferences.getInstance(context)
         preferences.clearAllAlbumCleanupState()
+        runBlocking { RecycleBinManager.getInstance(context).clearRecycleBin() }
     }
 
     private fun row(id: Long, volume: String = "external_primary", dateModified: Long = 1_000L + id) = ImageFile(
@@ -80,6 +82,173 @@ class AlbumCleanupForegroundRefreshTest {
     }
 
     private fun idOf(image: ImageFile) = image.mediaIdentityKey()
+
+    @Test
+    fun userRemovalSurvivesRecycleClearAndEngineRecreationWithoutChangingGroupIdentity() = runBlocking {
+        val members = (1L..3L).map { row(it) }
+        val originalId = groupIdOf(members)
+        seedGroups(members, listOf(members))
+        val engine = AlbumCleanupEngine(context)
+        assertEquals(listOf(originalId), engine.getNextBatch(albumId, members)!!.groupIds)
+        engine.saveCheckpoint(listOf(originalId), 1)
+        val recycle = RecycleBinManager.getInstance(context)
+        recycle.addToRecycleBin(members.first())
+        engine.recordUserRemovedImage(members.first())
+        recycle.clearRecycleBin()
+
+        val freshEngine = AlbumCleanupEngine(context)
+        val remaining = members.drop(1).map { it.copy(dateModified = 90_000L + it.id) }
+        assertNull(freshEngine.getCheckpointBatch(albumId, remaining))
+        assertNull(freshEngine.getCheckpoint(albumId)) // 删除改变成员数，安全重开旧索引。
+        val resumed = freshEngine.getNextBatch(albumId, remaining)!!
+        assertEquals(listOf(originalId), resumed.groupIds)
+        assertEquals(remaining.map(::idOf), resumed.images.map(::idOf))
+        assertEquals(remaining.map { it.dateModified }, resumed.images.map { it.dateModified })
+        assertEquals(setOf(idOf(members.first())), preferences.getAlbumAcknowledgedCleanupMembers(albumId))
+        assertEquals(members.map(::idOf), preferences.getGroupImageIds(albumId, originalId))
+        assertFalse(preferences.isAlbumCleanupCompleted(albumId))
+        freshEngine.markGroupsProcessed(resumed.groupIds)
+        assertNull(freshEngine.getNextBatch(albumId, remaining))
+        assertTrue(preferences.isAlbumCleanupCompleted(albumId))
+        preferences.resetAlbumCleanupState(albumId)
+        assertTrue(preferences.getAlbumAcknowledgedCleanupMembers(albumId).isEmpty())
+    }
+
+    @Test
+    fun directRecycleClearAcknowledgesExistingRecordWithoutEngineBackfill() = runBlocking {
+        val members = listOf(row(1), row(2))
+        val originalId = groupIdOf(members)
+        seedGroups(members, listOf(members))
+        val recycle = RecycleBinManager.getInstance(context)
+        recycle.addToRecycleBin(members.first())
+        // 模拟旧版本记录或 add 成功后确认前崩溃；从未调用 engine/record 回填。
+        assertTrue(preferences.getAlbumAcknowledgedCleanupMembers(albumId).isEmpty())
+        recycle.clearRecycleBin()
+        assertTrue(recycle.loadRecycleBin().isEmpty())
+        val freshPreferences = AppPreferences(context)
+        assertEquals(setOf(idOf(members.first())), freshPreferences.getAlbumAcknowledgedCleanupMembers(albumId))
+        val resumed = AlbumCleanupEngine(context).getNextBatch(albumId, members.drop(1))!!
+        assertEquals(listOf(originalId), resumed.groupIds)
+        assertEquals(members.drop(1), resumed.images)
+        assertEquals(members.map(::idOf), freshPreferences.getGroupImageIds(albumId, originalId))
+        assertFalse(freshPreferences.isAlbumCleanupCompleted(albumId))
+    }
+
+    @Test
+    fun failedAcknowledgementCommitIsRetriedBeforeRecycleClearAndRestart() = runBlocking {
+        val members = listOf(row(1), row(2))
+        val originalId = groupIdOf(members)
+        seedGroups(members, listOf(members))
+        val field = AppPreferences::class.java.getDeclaredField("albumCleanupPrefs").apply {
+            isAccessible = true
+        }
+        val backing = field.get(preferences) as SharedPreferences
+        fun snapshot(): Map<String, Any?> = backing.all.mapValues { (_, value) ->
+            if (value is Set<*>) value.toSet() else value
+        }
+        // 独立保存“磁盘”快照：首次 commit 已更新可读内存，但持久化失败。
+        var durable = snapshot()
+        var commitAttempts = 0
+        val failingOnce = object : SharedPreferences by backing {
+            override fun edit(): SharedPreferences.Editor {
+                val editor = backing.edit()
+                return object : SharedPreferences.Editor by editor {
+                    override fun commit(): Boolean {
+                        check(editor.commit())
+                        commitAttempts++
+                        if (commitAttempts == 1) return false
+                        durable = snapshot()
+                        return true
+                    }
+                }
+            }
+        }
+        field.set(preferences, failingOnce)
+        try {
+            val recycle = RecycleBinManager.getInstance(context)
+            recycle.addToRecycleBin(members.first())
+            val engine = AlbumCleanupEngine(context)
+            var failed = false
+            try {
+                engine.recordUserRemovedImage(members.first())
+            } catch (expected: IllegalStateException) {
+                failed = true
+            }
+            assertTrue("首次持久化失败须上报", failed)
+            assertEquals(setOf(idOf(members.first())), preferences.getAlbumAcknowledgedCleanupMembers(albumId))
+            assertNull(durable["acknowledged_members_$albumId"])
+
+            // 真实取批的回收记录回填必须重试，不能因内存已有同值而跳过落盘。
+            val remaining = members.drop(1)
+            assertEquals(remaining, engine.getNextBatch(albumId, remaining)!!.images)
+            assertEquals(2, commitAttempts)
+            assertEquals(setOf(idOf(members.first())), durable["acknowledged_members_$albumId"])
+            recycle.clearRecycleBin()
+
+            // 只从成功写入的快照重建偏好，丢弃首次失败后残留的内存状态。
+            val restarted = context.getSharedPreferences("cleanup-ack-restart-fixture", Context.MODE_PRIVATE)
+            val editor = restarted.edit().clear()
+            durable.forEach { (key, value) ->
+                when (value) {
+                    is String -> editor.putString(key, value)
+                    is Int -> editor.putInt(key, value)
+                    is Long -> editor.putLong(key, value)
+                    is Boolean -> editor.putBoolean(key, value)
+                    is Float -> editor.putFloat(key, value)
+                    is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
+                    else -> error("Unexpected fixture preference: $key")
+                }
+            }
+            assertTrue(editor.commit())
+            field.set(preferences, restarted)
+            val resumed = AlbumCleanupEngine(context).getNextBatch(albumId, remaining)!!
+            assertEquals(listOf(originalId), resumed.groupIds)
+            assertEquals(remaining, resumed.images)
+        } finally {
+            field.set(preferences, backing)
+        }
+    }
+
+    @Test
+    fun existingRecycleRowsBackfillDurableAcknowledgementAndNeverAcknowledgeOtherVolume() = runBlocking {
+        val a = row(5, "external_primary")
+        val b = row(5, "1111-2222")
+        val companion = row(6, "1111-2222")
+        seedGroups(listOf(a, b, companion), listOf(listOf(a), listOf(b, companion)))
+        val recycle = RecycleBinManager.getInstance(context)
+        recycle.addToRecycleBin(a)
+        val engine = AlbumCleanupEngine(context)
+        assertNull(engine.getNextBatch(albumId, listOf(companion)))
+        assertEquals(setOf(idOf(a)), preferences.getAlbumAcknowledgedCleanupMembers(albumId))
+        assertEquals(setOf(groupIdOf(listOf(a))), preferences.getAlbumPermanentlyProcessedGroups(albumId))
+        assertFalse(preferences.isAlbumCleanupCompleted(albumId))
+        recycle.clearRecycleBin()
+        val resumed = AlbumCleanupEngine(context).getNextBatch(albumId, listOf(b, companion))!!
+        assertEquals(listOf(groupIdOf(listOf(b, companion))), resumed.groupIds)
+        assertEquals(listOf(idOf(b), idOf(companion)), resumed.images.map(::idOf))
+    }
+
+    @Test
+    fun legacyBareMembersRequireUniqueIdentityUpgradeBeforeAcknowledgement() = runBlocking {
+        val a = row(5, "external_primary")
+        val b = row(5, "1111-2222")
+        val companion = row(6, "1111-2222")
+        val originalId = groupIdOf(listOf(b, companion))
+        preferences.saveAlbumAnalysisResult(albumId, 1, listOf(originalId))
+        preferences.saveGroupImageIds(albumId, originalId, listOf(5L, 6L))
+        val engine = AlbumCleanupEngine(context)
+        engine.recordUserRemovedImage(a)
+        assertTrue(preferences.getAlbumAcknowledgedCleanupMembers(albumId).isEmpty())
+        // 唯一解析得到 B 卷后才升级目录；A 卷同数字 ID 仍不算用户处理 B。
+        assertNotNull(engine.getNextBatch(albumId, listOf(b, companion)))
+        engine.recordUserRemovedImage(a)
+        assertTrue(preferences.getAlbumAcknowledgedCleanupMembers(albumId).isEmpty())
+        engine.recordUserRemovedImage(b)
+        assertEquals(setOf(idOf(b)), preferences.getAlbumAcknowledgedCleanupMembers(albumId))
+        val fresh = AlbumCleanupEngine(context).getNextBatch(albumId, listOf(companion))!!
+        assertEquals(listOf(originalId), fresh.groupIds)
+        assertEquals(listOf(companion), fresh.images)
+    }
 
     @Test
     fun subsequentBatchesServeFreshRowsAfterExternalDeleteAndEdit() = runBlocking {

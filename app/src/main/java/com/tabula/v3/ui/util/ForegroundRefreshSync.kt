@@ -58,29 +58,36 @@ internal fun relocatedIndexAfterSync(
 }
 
 /**
- * 清理批次同步：组内行按快照替换/剔除，组序与 groupIds 保持不变（批次完成
- * 时按 groupIds 整组标记的语义不受影响），groupBoundaries 按组重算——组内
- * 存活行数变化时边界前移；整组失效收拢为 start==end 的空段（getGroupIdForIndex
- * /isLastInGroup 对空段无匹配，完成标记仍覆盖该组）。无变化时返回原实例。
+ * Only fully accessible pending groups may be completed. Withhold an entire group
+ * when any pending member disappears; its persisted directory remains available
+ * for access restoration. Already reviewed/deleted rows are not pending work.
  */
 internal fun syncCleanupBatchToSnapshot(
     batch: AlbumCleanupBatch,
-    snapshot: List<ImageFile>
+    snapshot: List<ImageFile>,
+    pendingImages: List<ImageFile> = batch.images
 ): AlbumCleanupBatch {
     val byKey = snapshot.associateBy { it.mediaIdentityKey() }
+    val pendingKeys = pendingImages.map { it.mediaIdentityKey() }.toSet()
     val syncedImages = ArrayList<ImageFile>(batch.images.size)
+    val syncedGroupIds = ArrayList<String>(batch.groupIds.size)
     val newBoundaries = ArrayList<Int>(batch.groupBoundaries.size)
     for (g in batch.groupIds.indices) {
         val start = batch.groupBoundaries[g]
         val end = if (g + 1 < batch.groupBoundaries.size) batch.groupBoundaries[g + 1] else batch.images.size
+        if ((start until end).any { i ->
+                val key = batch.images[i].mediaIdentityKey()
+                key in pendingKeys && key !in byKey
+            }) continue
+        syncedGroupIds.add(batch.groupIds[g])
         newBoundaries.add(syncedImages.size)
         for (i in start until end) {
             val refreshed = byKey[batch.images[i].mediaIdentityKey()]
             if (refreshed != null) syncedImages.add(refreshed)
         }
     }
-    if (syncedImages.size == batch.images.size && syncedImages == batch.images) return batch
-    return AlbumCleanupBatch(images = syncedImages, groupIds = batch.groupIds, groupBoundaries = newBoundaries)
+    if (syncedGroupIds == batch.groupIds && syncedImages == batch.images) return batch
+    return AlbumCleanupBatch(images = syncedImages, groupIds = syncedGroupIds, groupBoundaries = newBoundaries)
 }
 
 /**

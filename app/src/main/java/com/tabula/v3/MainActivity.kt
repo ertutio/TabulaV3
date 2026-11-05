@@ -666,7 +666,7 @@ fun TabulaApp(
                 }
                 // 单一记录事务：只移除核验通过的条目；未知项原样保留。
                 if (restorable.isNotEmpty()) recycleBinManager.removeAllFromRecycleBin(restorable)
-                if (missing.isNotEmpty()) recycleBinManager.removeAllFromRecycleBin(missing)
+                if (missing.isNotEmpty()) recycleBinManager.removeAllFromRecycleBin(missing, permanentlyRemoved = true)
                 // T03：内存态与持久层同口径——按媒体身份移除/回插，跨卷同数值
                 // ID 记录互不影响。
                 val removed = restorable + missing
@@ -828,6 +828,7 @@ fun TabulaApp(
                 scope.launch {
                     try {
                         recycleBinManager.addToRecycleBin(image)
+                        albumCleanupEngine.recordUserRemovedImage(image)
                         val persisted = recycleBinManager.loadRecycleBin()
                         // 即时状态与刷新后的投影同口径：按媒体身份（卷, ID）过滤，
                         // 跨卷同数值 ID 的其他照片不受本次回收影响。

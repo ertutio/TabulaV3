@@ -92,10 +92,7 @@ class ForegroundRefreshSyncTest {
     }
 
     @Test
-    fun cleanupBatchSyncUpdatesSurvivorsDropsVanishedAndRebuildsBoundaries() {
-        // 三组批次（边界 [0,2,4]）：第 0 组两行存活且其一被编辑；第 1 组两行
-        // 全部失效（整组空段）；第 2 组首行失效次行存活。groupIds 与组序不变，
-        // 边界按组重算，空段 start==end。
+    fun cleanupBatchSyncWithholdsIncompleteGroupsAndRebuildsBoundaries() {
         val g1a = row("external_primary", 1L)
         val g1b = row("external_primary", 2L)
         val g2a = row("external_primary", 3L)
@@ -116,23 +113,27 @@ class ForegroundRefreshSyncTest {
 
         val synced = syncCleanupBatchToSnapshot(batch, snapshot)
 
-        assertEquals(listOf("g1", "g2", "g3"), synced.groupIds)
+        assertEquals(listOf("g1"), synced.groupIds)
         // 组 1：1 号更新为最新版本、2 号存活
         assertEquals(9_000L, synced.images[0].dateModified)
         assertSame(g1b, synced.images[1])
-        // 组 2：整组失效 → 空段
-        assertEquals(2, synced.groupBoundaries[1])
-        assertEquals(synced.groupBoundaries[2], synced.groupBoundaries[1])
-        // 组 3：仅 6 号存活
-        assertEquals(listOf(g3b), synced.images.subList(2, synced.images.size))
-        // 边界与组对齐；整组失效收拢为 start==end 的空段（g2: [2,2)）
-        assertEquals(batch.groupBoundaries.size, synced.groupBoundaries.size)
-        assertEquals(listOf(0, 2, 2), synced.groupBoundaries)
-        assertEquals(0, synced.groupBoundaries[0])
-        // 组定位查找在剪枝后仍正确：索引 1 属于仍有 2 行存活的组 1；空段无索引映射
+        assertEquals(2, synced.images.size)
+        assertEquals(listOf(0), synced.groupBoundaries)
         assertEquals("g1", synced.getGroupIdForIndex(0))
         assertEquals("g1", synced.getGroupIdForIndex(1))
-        assertEquals("g3", synced.getGroupIdForIndex(2))
+        assertNull(synced.getGroupIdForIndex(2))
+    }
+
+    @Test
+    fun alreadyReviewedOrDeletedMemberDoesNotHoldRemainingPendingWork() {
+        val removed = row("external_primary", 1L)
+        val kept = row("external_primary", 2L)
+        val pending = row("external_secondary", 1L)
+        val batch = AlbumCleanupBatch(listOf(removed, kept, pending), listOf("g1"), listOf(0))
+        val synced = syncCleanupBatchToSnapshot(batch, listOf(kept, pending), listOf(pending))
+        assertEquals(listOf("g1"), synced.groupIds)
+        assertEquals(listOf(kept, pending), synced.images)
+        assertEquals(listOf(0), synced.groupBoundaries)
     }
 
     @Test
