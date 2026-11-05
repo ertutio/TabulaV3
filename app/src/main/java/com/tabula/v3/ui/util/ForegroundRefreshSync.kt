@@ -3,6 +3,13 @@ package com.tabula.v3.ui.util
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.AlbumCleanupBatch
 import com.tabula.v3.data.repository.mediaIdentityKey
+import com.tabula.v3.ui.components.MonthInfo
+import com.tabula.v3.ui.components.buildMonthInfos
+
+/** Rebuild membership from the authoritative snapshot, including rows whose access returned. */
+internal fun refreshedCleanupMonth(month: MonthInfo, snapshot: List<ImageFile>): MonthInfo =
+    buildMonthInfos(snapshot).firstOrNull { it.year == month.year && it.month == month.month }
+        ?: month.copy(imageCount = 0, coverImageId = null, coverVolumeName = null, images = emptyList())
 
 /**
  * C4/T07 前台刷新落地（P2 复审项）：回前台重查产生的新快照（MediaStore 全量

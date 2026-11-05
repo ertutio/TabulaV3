@@ -4,6 +4,7 @@ import android.net.Uri
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.AlbumCleanupBatch
 import com.tabula.v3.data.repository.mediaIdentityKey
+import com.tabula.v3.ui.components.buildMonthInfos
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -132,6 +133,53 @@ class ForegroundRefreshSyncTest {
         assertEquals("g1", synced.getGroupIdForIndex(0))
         assertEquals("g1", synced.getGroupIdForIndex(1))
         assertEquals("g3", synced.getGroupIdForIndex(2))
+    }
+
+    @Test
+    fun monthMembershipReturnsAfterPartialAccessWithoutRepeatingTheNarrowedSubset() {
+        val a = row("external_primary", 1L)
+        val b = row("external_secondary", 1L)
+        val month = buildMonthInfos(listOf(a, b)).single()
+        val partial = refreshedCleanupMonth(month, listOf(a))
+        assertEquals(listOf(a), partial.images)
+        assertEquals(1, partial.imageCount)
+
+        val edited = b.copy(dateModified = 2_000L, width = 128)
+        val restored = refreshedCleanupMonth(partial, listOf(a, edited))
+        assertEquals(setOf(a.mediaIdentityKey(), b.mediaIdentityKey()), restored.images.map { it.mediaIdentityKey() }.toSet())
+        assertSame(edited, restored.images.first { it.mediaIdentityKey() == b.mediaIdentityKey() })
+        assertEquals(2, restored.imageCount)
+        val empty = refreshedCleanupMonth(restored, emptyList())
+        assertTrue(empty.images.isEmpty())
+        assertEquals(0, empty.imageCount)
+        assertNull(empty.coverImageId)
+        assertEquals(restored, refreshedCleanupMonth(empty, listOf(a, edited)))
+    }
+
+    @Test
+    fun mixedBatchOnlyCompletesGroupsWhosePendingMembersRemainVisible() {
+        val a = row("external_primary", 1L)
+        val b = row("external_secondary", 1L)
+        val batch = AlbumCleanupBatch(listOf(a, b), listOf("g1", "g2"), listOf(0, 1))
+
+        val synced = syncCleanupBatchToSnapshot(batch, listOf(a))
+
+        assertEquals(listOf("g1"), synced.groupIds)
+        assertEquals(listOf(a), synced.images)
+        assertEquals(listOf(0), synced.groupBoundaries)
+    }
+
+    @Test
+    fun partiallyVisibleGroupIsHeldInsteadOfCompletingItsUnseenMembers() {
+        val a = row("external_primary", 1L)
+        val b = row("external_secondary", 1L)
+        val batch = AlbumCleanupBatch(listOf(a, b), listOf("g1"), listOf(0))
+
+        val synced = syncCleanupBatchToSnapshot(batch, listOf(a))
+
+        assertTrue(synced.groupIds.isEmpty())
+        assertTrue(synced.images.isEmpty())
+        assertTrue(synced.groupBoundaries.isEmpty())
     }
 
     @Test

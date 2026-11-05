@@ -92,6 +92,7 @@ import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.ui.util.refreshedViewerImage
+import com.tabula.v3.ui.util.refreshedCleanupMonth
 import com.tabula.v3.ui.components.buildMonthInfos
 import com.tabula.v3.ui.util.relocatedIndexAfterSync
 import com.tabula.v3.ui.util.syncCleanupBatchToSnapshot
@@ -434,18 +435,9 @@ fun DeckScreen(
                 cleanupId = selectedCleanupMonth?.cleanupAlbumId
                 cleanupImages = selectedCleanupMonth?.images ?: emptyList()
                 cleanupName = selectedCleanupMonth?.displayName
-                // 任务 A：持有期月快照可能已被空快照同步清空——访问恢复后按
-                // 最新池重建该月（year/month 标识仍在），否则恢复通道拿到的
-                // 永远是空列表，无法续接
-                if (cleanupImages.isEmpty() && allImagesForCleanup.isNotEmpty()) {
-                    val held = selectedCleanupMonth!!
-                    val rebuilt = buildMonthInfos(allImagesForCleanup)
-                        .firstOrNull { it.year == held.year && it.month == held.month }
-                    if (rebuilt != null) {
-                        selectedCleanupMonth = rebuilt
-                        cleanupImages = rebuilt.images
-                    }
-                }
+                val rebuilt = refreshedCleanupMonth(selectedCleanupMonth!!, allImagesForCleanup)
+                selectedCleanupMonth = rebuilt
+                cleanupImages = rebuilt.images
             } else if (!isMonthCleanupMode && selectedCleanupAlbum != null) {
                 // 图集清理模式
                 val album = selectedCleanupAlbum!!
@@ -726,10 +718,7 @@ fun DeckScreen(
             preloadedNextBatch = if (synced.images.isEmpty()) null else synced
         }
         selectedCleanupMonth?.let { month ->
-            val syncedImages = syncRowsToSnapshot(month.images, pool)
-            if (syncedImages != month.images) {
-                selectedCleanupMonth = month.copy(images = syncedImages)
-            }
+            selectedCleanupMonth = refreshedCleanupMonth(month, pool)
         }
         currentCleanupBatch?.let { batch ->
             val synced = syncCleanupBatchToSnapshot(batch, pool)
