@@ -82,7 +82,12 @@ fun ImageCard(
     }
     
     // 使用稳定的缓存键，基于图片 ID
-    val cacheKey = remember(imageFile.id, imageFile.dateModified) { cardMemoryCacheKey(imageFile) }
+    // C4/T07 任务 C：remember 键必须含 uri——cardMemoryCacheKey 的键格式含
+    // 卷限定 URI，同 ID 同 DATE_MODIFIED 但卷/URI 不同的行（跨卷同数值 ID）
+    // 若只按 (id, dateModified) 记忆，请求会用新 URI 取数据却挂在旧卷的缓存
+    // 键下（串图/缓存污染）。uri + dateModified 双键：内容版本或行 URI 变化
+    // 都重算；普通重组两键不变，无多余请求变化
+    val cacheKey = remember(imageFile.uri, imageFile.dateModified) { cardMemoryCacheKey(imageFile) }
 
     Box(
         modifier = modifier
