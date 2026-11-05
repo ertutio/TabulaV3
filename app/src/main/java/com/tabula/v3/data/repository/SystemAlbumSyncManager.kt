@@ -79,6 +79,20 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
         val sha256Hex: String
     )
 
+    /**
+     * T07/TC56-RESULT：移动/复制逐项明确结果。
+     * SUCCEEDED=该项已按目标语义落地（移动：RELATIVE_PATH 更新成功且同 ID 保留；
+     * 复制：目标副本已发布或验证复用）。NEEDS_PERMISSION=系统以 SecurityException
+     * 拒绝（含 RecoverableSecurityException），源保留，与一般失败分开如实反馈。
+     * FAILED=其余失败（0 行更新、IO/校验失败等），源同样保留。
+     */
+    enum class MediaTransferOutcome { SUCCEEDED, NEEDS_PERMISSION, FAILED }
+
+    data class MediaTransferResult(
+        val outcome: MediaTransferOutcome,
+        val uri: Uri? = null
+    )
+
     private sealed class CopyOutcome {
         data class Created(val uri: Uri, val byteCount: Long, val sha256Hex: String) : CopyOutcome()
         data class Reused(val uri: Uri, val byteCount: Long, val sha256Hex: String) : CopyOutcome()
@@ -380,6 +394,23 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
         albumName: String,
         displayName: String? = null
     ): Uri? = copyImageWithEvidence(imageUri, albumName, displayName)?.uri
+
+    /**
+     * 逐项复制结果（T07/TC56-RESULT）：行为同 [addImageToSystemAlbum]，失败不再
+     * 折叠成单一 null——按授权拒绝/一般失败分类；复制任何失败下源都保留。
+     */
+    suspend fun addImageToSystemAlbumOutcome(
+        imageUri: Uri,
+        albumName: String,
+        displayName: String? = null
+    ): MediaTransferResult {
+        val evidence = copyImageWithEvidence(imageUri, albumName, displayName)
+        return if (evidence != null) {
+            MediaTransferResult(MediaTransferOutcome.SUCCEEDED, evidence.uri)
+        } else {
+            MediaTransferResult(MediaTransferOutcome.FAILED)
+        }
+    }
 
     /**
      * 复制并返回可核验的副本证据（目标 URI、字节数与回读 SHA-256）。
@@ -1319,21 +1350,31 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
         imageUri: Uri,
         targetBucketName: String,
         targetRelativePath: String? = null
-    ): Uri? = withContext(Dispatchers.IO) {
+    ): Uri? = moveImageToBucketOutcome(imageUri, targetBucketName, targetRelativePath).uri
+
+    /**
+     * 逐项移动结果（T07/TC56-RESULT）：行为同 [moveImageToBucket]，失败不再折叠成
+     * 单一 null——按授权拒绝/一般失败分类；任何失败下源都保留。
+     */
+    suspend fun moveImageToBucketOutcome(
+        imageUri: Uri,
+        targetBucketName: String,
+        targetRelativePath: String? = null
+    ): MediaTransferResult = withContext(Dispatchers.IO) {
         try {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                 Log.w(TAG, "Cannot safely move image to bucket on Android versions below Q: $imageUri")
-                return@withContext null
+                return@withContext MediaTransferResult(MediaTransferOutcome.FAILED)
             }
 
             val fileName = getFileNameFromUri(imageUri) ?: "IMG_${System.currentTimeMillis()}.jpg"
-            
+
             // 确定目标路径
-            val finalRelativePath = targetRelativePath 
+            val finalRelativePath = targetRelativePath
                 ?: getAlbumRelativePath(targetBucketName)
-            
+
             Log.d(TAG, "Moving image to bucket: $targetBucketName, path: $finalRelativePath")
-            
+
             val updateValues = ContentValues().apply {
                 put(MediaStore.Images.Media.RELATIVE_PATH, finalRelativePath)
                 put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
@@ -1342,16 +1383,16 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
             val updated = contentResolver.update(imageUri, updateValues, null, null)
             if (updated > 0) {
                 Log.d(TAG, "Moved image using MediaStore update: $fileName -> $finalRelativePath")
-                return@withContext imageUri
+                return@withContext MediaTransferResult(MediaTransferOutcome.SUCCEEDED, imageUri)
             }
-            
+
             Log.w(TAG, "MediaStore update failed; retaining source image: $targetBucketName/$fileName")
-            null
+            MediaTransferResult(MediaTransferOutcome.FAILED)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error moving image to bucket: $targetBucketName", e)
-            null
+            MediaTransferResult(MediaTransferOutcome.FAILED)
         }
     }
 

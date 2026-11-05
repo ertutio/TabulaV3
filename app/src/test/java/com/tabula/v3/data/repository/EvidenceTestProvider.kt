@@ -76,6 +76,12 @@ internal class EvidenceTestProvider(
     var insertBehavior = EvidenceInsertBehavior.FRESH
     var insertedTargetUri: Uri? = null
         private set
+    /** T07/TC56-RESULT：insert 时注入的异常（如 SecurityException），供授权拒绝分类测试使用。 */
+    var insertException: Exception? = null
+    /** T07/TC56-RESULT：非 publish RELATIVE_PATH 更新的异常注入器（按行 ID），返回 null 表示正常。 */
+    var nonPublishUpdateExceptionFor: ((id: Long?) -> Exception?)? = null
+    /** T07/TC56-RESULT：非 publish 更新的返回行数（默认 1），供 0 行更新失败分类测试使用。 */
+    var nonPublishUpdateResult: Int = 1
     var failSourceReadOpen = false
     var failSourceReadAfterBytes: Int? = null
     var sourceEofAfterBytes: Int? = null
@@ -154,6 +160,9 @@ internal class EvidenceTestProvider(
         insertedTargetUri = null
         insertCalls = 0
         insertBehavior = EvidenceInsertBehavior.FRESH
+        insertException = null
+        nonPublishUpdateExceptionFor = null
+        nonPublishUpdateResult = 1
         failSourceReadOpen = false
         failSourceReadAfterBytes = null
         sourceEofAfterBytes = null
@@ -265,6 +274,7 @@ internal class EvidenceTestProvider(
 
     override fun insert(uri: Uri, values: ContentValues?): Uri? {
         insertCalls++
+        insertException?.let { throw it }
         if (insertBehavior == EvidenceInsertBehavior.NULL) return null
         if (insertBehavior == EvidenceInsertBehavior.SOURCE_URI) {
             insertedTargetUri = sourceUri
@@ -342,7 +352,8 @@ internal class EvidenceTestProvider(
         values?.getAsString(MediaStore.Images.Media.RELATIVE_PATH)?.let { row?.relativePath = if (it.endsWith('/')) it else "$it/" }
         values?.getAsInteger(MediaStore.Images.Media.IS_PENDING)?.let { row?.isPending = it == 1 }
         events += "update:$id"
-        return 1
+        nonPublishUpdateExceptionFor?.invoke(id)?.let { throw it }
+        return nonPublishUpdateResult
     }
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {

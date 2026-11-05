@@ -628,16 +628,19 @@ class AlbumManager(private val context: Context) {
         val resolvedRows = imageRepository.getAllImages().filter { it.mediaIdentityKey() in keySet }
 
         var movedCount = 0
+        var permissionBlockedCount = 0
+        var failedCount = 0
         // Includes failed moves, stale selections and missing rows; this count does not
         // assert their URIs remain readable.
         var retainedCount = selectedIdentityKeys.size - resolvedRows.size
         for (image in resolvedRows) {
-            if (syncManager.moveImageToBucket(image.uri, toAlbumId, targetPath) != null) {
-                movedCount++
-            } else {
-                retainedCount++
+            when (syncManager.moveImageToBucketOutcome(image.uri, toAlbumId, targetPath).outcome) {
+                SystemAlbumSyncManager.MediaTransferOutcome.SUCCEEDED -> movedCount++
+                SystemAlbumSyncManager.MediaTransferOutcome.NEEDS_PERMISSION -> permissionBlockedCount++
+                SystemAlbumSyncManager.MediaTransferOutcome.FAILED -> failedCount++
             }
         }
+        retainedCount += permissionBlockedCount + failedCount
 
         if (movedCount > 0) {
             // 只在有成功移动时刷新图集列表，失败项仍保留在原图集中。
@@ -645,7 +648,12 @@ class AlbumManager(private val context: Context) {
         }
 
         Log.d(TAG, "Moved $movedCount identity-selected images to $toAlbumId; retained $retainedCount at source")
-        MoveImagesResult(movedCount = movedCount, retainedCount = retainedCount)
+        MoveImagesResult(
+            movedCount = movedCount,
+            retainedCount = retainedCount,
+            permissionBlockedCount = permissionBlockedCount,
+            failedCount = failedCount
+        )
     }
 
     /**
@@ -656,8 +664,8 @@ class AlbumManager(private val context: Context) {
     suspend fun copyImagesByIdentity(
         selectedIdentityKeys: Collection<String>,
         toAlbumId: String
-    ) = withContext(Dispatchers.IO) {
-        if (selectedIdentityKeys.isEmpty()) return@withContext
+    ): CopyImagesResult = withContext(Dispatchers.IO) {
+        if (selectedIdentityKeys.isEmpty()) return@withContext CopyImagesResult(0, 0, 0, 0)
 
         Log.d(TAG, "Copying ${selectedIdentityKeys.size} identity-selected images to $toAlbumId")
 
@@ -665,14 +673,27 @@ class AlbumManager(private val context: Context) {
         // 每行复制各自的卷限定源；失效选择跳过，不回退同数值 ID 的另一卷。
         val keySet = selectedIdentityKeys.toSet()
         val resolvedRows = imageRepository.getAllImages().filter { it.mediaIdentityKey() in keySet }
+        var copiedCount = 0
+        var permissionBlockedCount = 0
+        var failedCount = 0
         for (image in resolvedRows) {
-            syncManager.addImageToSystemAlbum(image.uri, toAlbumId)
+            when (syncManager.addImageToSystemAlbumOutcome(image.uri, toAlbumId).outcome) {
+                SystemAlbumSyncManager.MediaTransferOutcome.SUCCEEDED -> copiedCount++
+                SystemAlbumSyncManager.MediaTransferOutcome.NEEDS_PERMISSION -> permissionBlockedCount++
+                SystemAlbumSyncManager.MediaTransferOutcome.FAILED -> failedCount++
+            }
         }
 
         // 刷新图集列表
         refreshAlbumsFromSystem()
 
         Log.d(TAG, "Copied ${resolvedRows.size}/${selectedIdentityKeys.size} identity-selected images to $toAlbumId")
+        CopyImagesResult(
+            copiedCount = copiedCount,
+            permissionBlockedCount = permissionBlockedCount,
+            failedCount = failedCount,
+            requestedCount = selectedIdentityKeys.size
+        )
     }
 
     /**
@@ -692,6 +713,8 @@ class AlbumManager(private val context: Context) {
         
         val images = imageRepository.getAllImages()
         var movedCount = 0
+        var permissionBlockedCount = 0
+        var failedCount = 0
         // Includes failed moves and missing IDs; this count does not assert their URIs remain readable.
         var retainedCount = 0
         for (imageId in imageIds) {
@@ -701,20 +724,26 @@ class AlbumManager(private val context: Context) {
                 continue
             }
 
-            if (syncManager.moveImageToBucket(image.uri, toAlbumId, targetPath) != null) {
-                movedCount++
-            } else {
-                retainedCount++
+            when (syncManager.moveImageToBucketOutcome(image.uri, toAlbumId, targetPath).outcome) {
+                SystemAlbumSyncManager.MediaTransferOutcome.SUCCEEDED -> movedCount++
+                SystemAlbumSyncManager.MediaTransferOutcome.NEEDS_PERMISSION -> permissionBlockedCount++
+                SystemAlbumSyncManager.MediaTransferOutcome.FAILED -> failedCount++
             }
         }
-        
+        retainedCount += permissionBlockedCount + failedCount
+
         if (movedCount > 0) {
             // 只在有成功移动时刷新图集列表，失败项仍保留在原图集中。
             refreshAlbumsFromSystem()
         }
-        
+
         Log.d(TAG, "Moved $movedCount images to $toAlbumId; retained $retainedCount at source")
-        MoveImagesResult(movedCount = movedCount, retainedCount = retainedCount)
+        MoveImagesResult(
+            movedCount = movedCount,
+            retainedCount = retainedCount,
+            permissionBlockedCount = permissionBlockedCount,
+            failedCount = failedCount
+        )
     }
 
     /**
@@ -1220,9 +1249,24 @@ class AlbumManager(private val context: Context) {
         val unverifiedSourceCount: Int get() = (sourceTotalCount - sourceUris.size).coerceAtLeast(0)
     }
 
+    /**
+     * T07/TC56-RESULT：retainedCount 语义不变（未被本次移动的请求数，含失效选择）；
+     * permissionBlockedCount/failedCount 是 retained 的细分——系统授权拒绝与一般失败
+     * 分开计数，moved + retained == 请求数。
+     */
     data class MoveImagesResult(
         val movedCount: Int,
-        val retainedCount: Int
+        val retainedCount: Int,
+        val permissionBlockedCount: Int = 0,
+        val failedCount: Int = 0
+    )
+
+    /** T07/TC56-RESULT：逐项复制结果；copied + permissionBlocked + failed + 失效选择 == requested。 */
+    data class CopyImagesResult(
+        val copiedCount: Int,
+        val permissionBlockedCount: Int,
+        val failedCount: Int,
+        val requestedCount: Int
     )
 
     // ========== 延迟执行归档功能（撤销核心） ==========
