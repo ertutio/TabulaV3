@@ -10,6 +10,8 @@ import coil.request.SuccessResult
 import coil.decode.DataSource
 import android.graphics.drawable.ColorDrawable
 import com.tabula.v3.data.model.ImageFile
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -36,6 +38,17 @@ class PreloadingManagerTest {
     fun setUp() {
         fakeLoader = FakeImageLoader(context)
         manager = PreloadingManager(context, preloadRange = 1, providedLoader = fakeLoader)
+    }
+
+    private fun managerWithTestScope(): Pair<PreloadingManager, TestScope> {
+        val scope = TestScope()
+        val mgr = PreloadingManager(
+            context,
+            preloadRange = 1,
+            providedLoader = fakeLoader,
+            providedScope = scope
+        )
+        return mgr to scope
     }
 
     @After
@@ -290,51 +303,68 @@ class PreloadingManagerTest {
     }
 
     @Test
-    fun pauseWithinDebounceWindowHoldsEnqueueUntilResume() {
-        // 竞争时序：preloadAround 的防抖任务（100ms 延迟）尚未执行时 pause——
-        // 窗口过后不得补发（pause 置 isPaused 且推进 generation，job 醒来时
-        // 守卫直接返回；测试钉的是这一可观察行为，不区分守卫与 debounceJob
-        // 取消哪层生效）。resume 后同一中心可重新排队。现有用例均在入队
-        // 完成后才 pause，本用例钉住"排队阶段"的生命周期语义。
-        manager.preloadAround(images(3), 1, cardSize)
-        manager.pause()
+    fun pauseWithinDebounceWindowHoldsEnqueueUntilResumeDeterministically() {
+        // 任务 E：确定性验证——防抖 body 与 delay 恢复都在测试调度器上，
+        // advanceTimeBy 显式驱动时钟；窗口内 pause 后推进时钟不产生入队
+        //（可观察行为；isPaused/generation 守卫与 debounceJob 取消为冗余
+        // 双保险，测试不区分哪层生效——变异分析见任务 E 审计），
+        // resume 后同一中心可继续。
+        val (deterministic, runner) = managerWithTestScope()
+        deterministic.preloadAround(images(3), 1, cardSize)
+        runner.testScheduler.advanceTimeBy(50)         // 窗口中段：body 停在 delay
+        runner.testScheduler.runCurrent()
+        assertEquals(0, fakeLoader.enqueued.size)
 
-        Thread.sleep(300) // 窗口已过：若入队未被抑制，此处会观察到新请求
+        deterministic.pause()            // 窗口等待期内取消
+        runner.testScheduler.advanceTimeBy(200)
+        runner.testScheduler.runCurrent()
         assertEquals("paused manager must not enqueue past the debounce window", 0, fakeLoader.enqueued.size)
 
-        manager.resume()
-        manager.preloadAround(images(3), 1, cardSize)
-        awaitEnqueued(3)
+        deterministic.resume()
+        deterministic.preloadAround(images(3), 1, cardSize)
+        runner.testScheduler.advanceUntilIdle()
+        assertEquals(3, fakeLoader.enqueued.size)
+        deterministic.dispose()
     }
 
     @Test
-    fun resetWithinDebounceWindowHoldsEnqueueAndManagerRemainsReusable() {
-        // reset 同样抑制防抖窗口内的排队入队（generation 推进使 job 醒来时
-        // 守卫返回）；与 dispose 不同，reset 后管理器可继续使用（再次
-        // preloadAround 正常入队）。
-        manager.preloadAround(images(3), 1, cardSize)
-        manager.reset()
+    fun resetCancelsOldGenerationWorkAndManagerRemainsReusableDeterministically() {
+        // 任务 E：reset 后旧代防抖工作不再入队（可观察行为；守卫与取消为
+        // 冗余双保险，不区分哪层生效），管理器可复用；旧代迟到回调
+        // 不污染新代状态。
+        val (deterministic, runner) = managerWithTestScope()
+        deterministic.preloadAround(images(1), 0, cardSize)
+        runner.testScheduler.advanceUntilIdle()
+        assertEquals(1, fakeLoader.enqueued.size)
+        val oldRequest = fakeLoader.enqueued.first()
 
-        Thread.sleep(300)
-        assertEquals("reset must not enqueue past the debounce window", 0, fakeLoader.enqueued.size)
+        deterministic.preloadAround(images(1), 0, cardSize)  // 旧代防抖未消化时再次请求
+        deterministic.reset()
+        runner.testScheduler.advanceUntilIdle()
+        assertEquals("reset must not enqueue past the debounce window", 1, fakeLoader.enqueued.size)
+        fakeLoader.succeed(oldRequest)   // 旧代回调不得污染新状态
 
-        manager.preloadAround(images(3), 1, cardSize)
-        awaitEnqueued(3)
+        deterministic.preloadAround(images(1), 0, cardSize)
+        runner.testScheduler.advanceUntilIdle()
+        assertEquals(2, fakeLoader.enqueued.size)
+        deterministic.dispose()
     }
 
     @Test
-    fun disposeWithinDebounceWindowHoldsEnqueueAndPreventsSubsequentWork() {
-        // dispose 停用一切后续工作：窗口过后不补发（disposed 守卫 + debounceJob
-        // 取消 + scope.cancel 三道防线），后续 preloadAround 也不再入队
-        //（区别于 reset 的可复用）。
-        manager.preloadAround(images(3), 1, cardSize)
-        manager.dispose()
-
-        Thread.sleep(300)
+    fun disposeCancelsWorkAndPreventsSubsequentEnqueueDeterministically() {
+        // 任务 E：dispose 后不再入队、不接受新请求（可观察行为；disposed
+        // 守卫/debounceJob 取消/scope.cancel 为冗余多保险，不区分哪层）。
+        val (deterministic, runner) = managerWithTestScope()
+        deterministic.preloadAround(images(3), 1, cardSize)
+        runner.testScheduler.advanceTimeBy(50)
+        runner.testScheduler.runCurrent()
+        deterministic.dispose()
+        runner.testScheduler.advanceTimeBy(200)
+        runner.testScheduler.runCurrent()
         assertEquals("disposed manager must not enqueue past the debounce window", 0, fakeLoader.enqueued.size)
 
-        manager.preloadAround(images(3), 1, cardSize)
-        Thread.sleep(300)
+        deterministic.preloadAround(images(3), 1, cardSize)
+        runner.testScheduler.advanceUntilIdle()
         assertEquals(0, fakeLoader.enqueued.size)
     }
 }

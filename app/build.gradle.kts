@@ -110,6 +110,8 @@ dependencies {
 
     // Tests
     testImplementation(libs.junit)
+    // C4/T07 任务 E：防抖时序确定性验证用（与 coroutines 同版本，仅测试作用域）
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
