@@ -42,6 +42,36 @@ class RecycleBinManagerTest {
         catch (expected: RecycleBinPersistenceException) { assertNotNull(expected.cause) }
     }
 
+    @Test fun failedCleanupAcknowledgementRetainsRecordsAndDeletionJournalForRetry() = runBlocking {
+        val storage = MemoryRecycleBinStorage()
+        val pending = MemoryRecycleBinStorage()
+        var failAcknowledgement = true
+        val acknowledged = mutableListOf<ImageFile>()
+        val manager = RecycleBinManager(storage, pending) { rows ->
+            if (failAcknowledgement) throw IOException("Injected cleanup acknowledgement failure")
+            acknowledged.addAll(rows)
+        }
+        val a = fixturePhoto(1)
+        val b = fixturePhoto(2)
+        manager.addAllToRecycleBin(listOf(a, b))
+        val stored = manager.loadRecycleBin()
+        manager.beginDeletion(listOf(a.uri))
+        expectFailure { manager.finishDeletion(setOf(a.uri)) }
+        assertEquals(stored, manager.loadRecycleBin())
+        assertEquals(listOf(a.uri), manager.pendingDeletionUris())
+        expectFailure { manager.clearRecycleBin() }
+        expectFailure { manager.removeAllFromRecycleBin(listOf(b), permanentlyRemoved = true) }
+        assertEquals(stored, manager.loadRecycleBin())
+        failAcknowledgement = false
+        manager.finishDeletion(setOf(a.uri))
+        assertEquals(listOf(stored[0]), acknowledged)
+        assertEquals(listOf(stored[1]), manager.loadRecycleBin())
+        assertTrue(manager.pendingDeletionUris().isEmpty())
+        manager.clearRecycleBin()
+        assertEquals(stored, acknowledged)
+        assertTrue(manager.loadRecycleBin().isEmpty())
+    }
+
     @Test fun missingFileIsEmptyButUnreadableFileDoesNotOverwrite() = runBlocking {
         val storage = MemoryRecycleBinStorage()
         val manager = RecycleBinManager(storage, MemoryRecycleBinStorage())

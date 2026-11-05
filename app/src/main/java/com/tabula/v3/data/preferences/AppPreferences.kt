@@ -920,6 +920,7 @@ class AppPreferences(context: Context) {
             .remove("groups_$albumId")
             .remove("analyzed_$albumId")
             .remove("processed_$albumId")  // 清除永久处理记录
+            .remove("acknowledged_members_$albumId")
             .putStringSet(KEY_COMPLETED_CLEANUP_ALBUMS, completedSet)
             .apply()
     }
@@ -1030,6 +1031,40 @@ class AppPreferences(context: Context) {
             .apply()
     }
     
+    /** 仅记录用户明确移入回收站的完整媒体身份；权限快照缺席不得调用此接口。 */
+    fun acknowledgeCleanupMember(identityKey: String) {
+        acknowledgeCleanupMembers(setOf(identityKey))
+    }
+
+    fun acknowledgeCleanupMembers(identityKeys: Set<String>) {
+        if (identityKeys.isEmpty()) return
+        // 不同 AppPreferences 实例仍共享此对象，读并集与写入必须共用同一把锁。
+        synchronized(albumCleanupPrefs) {
+            val albumIds = albumCleanupPrefs.all.keys.filter { it.startsWith("groups_") }
+                .map { it.removePrefix("groups_") }
+            val editor = albumCleanupPrefs.edit()
+            var hasConfirmedMembers = false
+            for (albumId in albumIds) {
+                // 不按裸 ID 猜卷；旧目录在唯一身份迁移后才能加入确认集。
+                val members = getAlbumGroupIds(albumId).flatMap { groupId ->
+                    getGroupImageIds(albumId, groupId).orEmpty()
+                }.toSet()
+                val confirmed = identityKeys.intersect(members)
+                if (confirmed.isEmpty()) continue
+                val acknowledged = getAlbumAcknowledgedCleanupMembers(albumId)
+                editor.putStringSet("acknowledged_members_$albumId", acknowledged + confirmed)
+                hasConfirmedMembers = true
+            }
+            // commit=false 也可能先改变内存；同值重试仍须同步落盘，不能据内存跳过。
+            if (hasConfirmedMembers && !editor.commit()) {
+                throw IllegalStateException("Could not persist acknowledged cleanup member")
+            }
+        }
+    }
+
+    fun getAlbumAcknowledgedCleanupMembers(albumId: String): Set<String> =
+        albumCleanupPrefs.getStringSet("acknowledged_members_$albumId", emptySet())?.toSet() ?: emptySet()
+
     // ==================== 相似组图片 ID 持久化（性能优化）====================
     
     /**

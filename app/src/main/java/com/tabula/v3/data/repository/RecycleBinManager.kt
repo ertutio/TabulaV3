@@ -3,6 +3,7 @@ package com.tabula.v3.data.repository
 import android.content.Context
 import android.net.Uri
 import android.util.AtomicFile
+import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.model.ImageFile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -50,11 +51,13 @@ class RecycleBinPersistenceException(cause: Exception) : IOException("回收站�
 /** All read-modify-write transactions, including migration and the recovery journal, share a lock. */
 class RecycleBinManager internal constructor(
     private val storage: RecycleBinStorage,
-    private val pendingStorage: RecycleBinStorage
+    private val pendingStorage: RecycleBinStorage,
+    private val beforeDiscard: (List<ImageFile>) -> Unit = {}
 ) {
     constructor(context: Context) : this(
         AtomicRecycleBinStorage(File(context.filesDir, "recycle_bin.json")),
-        AtomicRecycleBinStorage(File(context.filesDir, "recycle_bin_pending.json"))
+        AtomicRecycleBinStorage(File(context.filesDir, "recycle_bin_pending.json")),
+        { rows -> AppPreferences(context).acknowledgeCleanupMembers(rows.map { it.mediaIdentityKey() }.toSet()) }
     )
 
     companion object {
@@ -98,15 +101,17 @@ class RecycleBinManager internal constructor(
 
     suspend fun removeFromRecycleBin(image: ImageFile) = removeAllFromRecycleBin(listOf(image))
 
-    suspend fun removeAllFromRecycleBin(images: List<ImageFile>) = transaction {
+    suspend fun removeAllFromRecycleBin(images: List<ImageFile>, permanentlyRemoved: Boolean = false) = transaction {
         // T03：按媒体身份移除，恢复一卷记录不得连带移除另一卷的同数值 ID 记录。
-        saveUnlocked(
-            loadUnlocked().filterNot { record -> images.any { it.matchesSameMediaIdentity(record) } }
-        )
+        val items = loadUnlocked()
+        val removed = items.filter { record -> images.any { it.matchesSameMediaIdentity(record) } }
+        if (permanentlyRemoved) beforeDiscard(removed)
+        saveUnlocked(items - removed.toSet())
     }
 
     suspend fun clearRecycleBin() = transaction {
-        loadUnlocked() // A failed read must never be overwritten with an empty list.
+        val items = loadUnlocked() // A failed read must never be overwritten with an empty list.
+        beforeDiscard(items)
         saveUnlocked(emptyList())
     }
 
@@ -142,7 +147,12 @@ class RecycleBinManager internal constructor(
         val coveredSet = covered ?: pending
         require(deleted.all { it in coveredSet } && unknown.all { it in coveredSet })
         val items = loadUnlocked()
-        if (deleted.isNotEmpty()) saveUnlocked(items.filterNot { it.uri in deleted })
+        if (deleted.isNotEmpty()) {
+            // Persist cleanup intent before removing the last recoverable identity record.
+            // Failure retains both the recycle records and the pending recovery journal.
+            beforeDiscard(items.filter { it.uri in deleted })
+            saveUnlocked(items.filterNot { it.uri in deleted })
+        }
         savePendingUnlocked(((pending - coveredSet) + unknown).distinct().toList())
     }
 
