@@ -91,7 +91,65 @@ def read_session(folder):
         raise ValueError("Not all viewer cycles executed")
     if not any(r["action"] == "decodedFixtureSmoke" for r in events):
         raise ValueError("Decoded-image preflight is missing")
+    validate_round_traces(folder)
     return {"build": json.loads((folder / "build.json").read_text()), "metrics": metrics}
+
+
+def validate_trace_file(path):
+    """校验单个 .perfetto-trace 证据文件（T08/TC36-42：坏证据必须拒绝 valid）。
+
+    接受两种真实形态：
+    - gzip/zstd 容器魔数（perfetto trace_processor 同样按魔数识别压缩 trace）；
+    - 未压缩 protobuf Trace（`repeated TracePacket packet = 1`，见 perfetto
+      TracePacket 参考文档）：逐记录走顶层 field-1 记录——tag 0x0A + varint
+      长度 + 载荷，直到 EOF。截断/损坏/非 trace 内容在此被拒绝。
+    空文件、零包文件一律拒绝。"""
+    data = path.read_bytes()
+    if not data:
+        raise ValueError(f"Empty trace file: {path.name}")
+    if data[:2] == b"\x1f\x8b" or data[:4] == b"\x28\xb5\x2f\xfd":
+        return
+    n = len(data)
+    pos = 0
+    packets = 0
+    while pos < n:
+        if data[pos] != 0x0A:
+            raise ValueError(f"Unparseable trace (expected packet field tag at offset {pos}): {path.name}")
+        pos += 1
+        length = 0
+        shift = 0
+        while True:
+            if pos >= n:
+                raise ValueError(f"Corrupt trace (packet length varint truncated): {path.name}")
+            byte = data[pos]
+            pos += 1
+            length |= (byte & 0x7F) << shift
+            if not byte & 0x80:
+                break
+            shift += 7
+            if shift > 63:
+                raise ValueError(f"Corrupt trace (packet length varint overrun): {path.name}")
+        if pos + length > n:
+            raise ValueError(f"Corrupt trace (packet extends past end of file): {path.name}")
+        pos += length
+        packets += 1
+    if packets == 0:
+        raise ValueError(f"Trace contains no packets: {path.name}")
+
+
+def validate_round_traces(folder):
+    """校验一轮测量的 Perfetto trace 证据（androidx.benchmark 每用例每迭代
+    输出 *.perfetto-trace，文件名含用例名）。要求：轮内至少一份 trace、每个
+    预期用例至少一份可归属 trace（文件名含用例名），且轮内所有 trace 均可通过
+    [validate_trace_file]——缺失/空/损坏/无法解析/来源不匹配均拒绝。"""
+    trace_files = sorted(folder.rglob("*.perfetto-trace"))
+    if not trace_files:
+        raise ValueError("No perfetto traces captured for this round")
+    for name in EXPECTED:
+        if not any(name in p.name for p in trace_files):
+            raise ValueError(f"Missing perfetto trace for benchmark case {name}")
+    for path in trace_files:
+        validate_trace_file(path)
 
 def make_report(root, output):
     output.mkdir(parents=True, exist_ok=True)

@@ -57,6 +57,19 @@ def meminfo_text(seed):
             f" Graphics: {512 + seed} 4000\n TOTAL PSS: {4096 + seed} TOTAL RSS: 30000")
 
 
+# 最小合法未压缩 Perfetto trace：顶层 `repeated TracePacket packet = 1`
+# 两条记录（tag 0x0A + varint 长度 + 载荷），可通过 report.validate_trace_file。
+VALID_TRACE_BODY = b"\x0a\x03\x08\x01\x0c" + b"\x0a\x02ab"
+
+TRACE_CLASS_PREFIX = "com.tabula.v3.benchmark.TabulaPerformanceBenchmark."
+
+
+def write_traces(folder, case_names=None):
+    """androidx.benchmark 形态：每用例一份 trace，文件名 = <类>.<用例>_<迭代>.perfetto-trace。"""
+    for name in (case_names if case_names is not None else EXPECTED):
+        (folder / f"{TRACE_CLASS_PREFIX}{name}_0.perfetto-trace").write_bytes(VALID_TRACE_BODY)
+
+
 def write_round(folder, seed):
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "build.json").write_text(json.dumps(BUILD))
@@ -72,6 +85,7 @@ def write_round(folder, seed):
     events += [{"action": "viewerOpenClose", "n": n} for n in range(31)]
     events.append({"action": "decodedFixtureSmoke"})
     (folder / "operations.jsonl").write_text("\n".join(json.dumps(e) for e in events))
+    write_traces(folder)
 
 
 def write_valid_input(root):
@@ -158,7 +172,7 @@ class NegativeFixtureTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Compared versions differ"):
                 report.make_report(root, Path(tmp) / "out")
 
-    def test_corruptTraceAndBrokenDataAreRejected(self):
+    def test_corruptInstrumentationLogAndBrokenJsonAreRejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = write_valid_input(Path(tmp))
             folder = root / "session-a" / "baseline"
@@ -182,6 +196,85 @@ class NegativeFixtureTest(unittest.TestCase):
             (folder / "operations.jsonl").write_text("\n".join(json.dumps(e) for e in events))
             with self.assertRaisesRegex(ValueError, "180 card advances"):
                 report.read_session(folder)
+
+
+class TraceFixtureTest(unittest.TestCase):
+    """T08/TC36-42 trace 证据校验：坏 JSON 测试不能替代 trace 校验——
+    生产报告入口必须对真实 trace 文件做存在/空/损坏/解析/归属校验。"""
+
+    def round(self, tmp):
+        root = write_valid_input(Path(tmp))
+        return root, root / "session-a" / "baseline"
+
+    def test_validTracesFromEveryExpectedCasePassThroughRealEntry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, _ = self.round(tmp)
+            output = Path(tmp) / "out"
+            report.make_report(root, output)
+            baseline = json.loads((output / "baseline.json").read_text())
+            self.assertTrue(baseline["valid"])
+
+    def test_roundWithoutTracesIsRejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            for p in folder.rglob("*.perfetto-trace"):
+                p.unlink()
+            with self.assertRaisesRegex(ValueError, "No perfetto traces"):
+                report.read_session(folder)
+
+    def test_traceMissingForOneExpectedCaseIsRejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "c_shuffleCards" in p.name)
+            victim.unlink()
+            with self.assertRaisesRegex(ValueError, "Missing perfetto trace for benchmark case c_shuffleCards"):
+                report.read_session(folder)
+
+    def test_emptyTraceFileIsRejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "d_drawCards" in p.name)
+            victim.write_bytes(b"")
+            with self.assertRaisesRegex(ValueError, "Empty trace file"):
+                report.read_session(folder)
+
+    def test_truncatedTraceIsRejected(self):
+        # 长度 varint 声称超出文件末尾——真实截断 trace 的典型形态
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "a_coldStartup" in p.name)
+            victim.write_bytes(b"\x0a\x40\x01\x02")
+            with self.assertRaisesRegex(ValueError, "Corrupt trace"):
+                report.read_session(folder)
+
+    def test_unparseableTraceContentIsRejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "b_warmStartup" in p.name)
+            victim.write_text("this is not a perfetto trace")
+            with self.assertRaisesRegex(ValueError, "Unparseable trace"):
+                report.read_session(folder)
+
+    def test_tracesFromUnrelatedSourcesCannotCoverExpectedCases(self):
+        # 来源不匹配：全部 trace 来自无关用例名（外来来源/异次运行拼接），
+        # 不得充当本轮预期用例的 trace 证据
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            for p in folder.rglob("*.perfetto-trace"):
+                p.unlink()
+            write_traces(folder, case_names=["someOtherBenchmark"])
+            with self.assertRaisesRegex(ValueError, "Missing perfetto trace for benchmark case a_coldStartup"):
+                report.read_session(folder)
+
+    def test_gzipContainerTraceMagicIsAccepted(self):
+        # gzip 容器魔数按压缩 trace 接受（trace_processor 同样按魔数识别）
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "a_coldStartup" in p.name)
+            victim.write_bytes(b"\x1f\x8b" + b"\x00" * 16)
+            output = Path(tmp) / "out"
+            report.make_report(root, output)
+            self.assertTrue(json.loads((output / "baseline.json").read_text())["valid"])
 
 
 if __name__ == "__main__":
