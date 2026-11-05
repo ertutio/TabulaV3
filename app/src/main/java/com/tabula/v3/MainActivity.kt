@@ -88,6 +88,7 @@ import com.tabula.v3.ui.screens.AboutScreen
 import com.tabula.v3.ui.screens.DeckScreen
 import com.tabula.v3.ui.screens.RecycleBinScreen
 import com.tabula.v3.ui.screens.SettingsScreen
+import com.tabula.v3.ui.screens.SupportScreen
 import com.tabula.v3.ui.screens.VibrationSoundScreen
 import com.tabula.v3.ui.screens.LabScreen
 import com.tabula.v3.ui.screens.DisplaySettingsScreen
@@ -1137,6 +1138,7 @@ fun TabulaApp(
                 preferences.swipeHapticsEnabled = enabled
             },
             onNavigateToAbout = { currentScreen = AppScreen.ABOUT },
+            onNavigateToSupport = { currentScreen = AppScreen.SUPPORT },
             onNavigateBack = { currentScreen = AppScreen.DECK },
             onNavigateToStatistics = { currentScreen = AppScreen.STATISTICS },
             onRecommendModeChange = { 
@@ -1366,6 +1368,12 @@ fun TabulaApp(
 
     val aboutContent: @Composable () -> Unit = {
         AboutScreen(
+            onNavigateBack = { currentScreen = AppScreen.SETTINGS }
+        )
+    }
+
+    val supportContent: @Composable () -> Unit = {
+        SupportScreen(
             onNavigateBack = { currentScreen = AppScreen.SETTINGS }
         )
     }
@@ -1610,6 +1618,7 @@ fun TabulaApp(
         AppScreen.RECYCLE_BIN -> deckContent to recycleBinContent
         AppScreen.SETTINGS -> deckContent to settingsContent
         AppScreen.ABOUT -> settingsContent to aboutContent
+        AppScreen.SUPPORT -> settingsContent to supportContent
         AppScreen.STATISTICS -> settingsContent to statisticsContent
         AppScreen.ALBUM_VIEW -> deckContent to albumViewContent
         AppScreen.SYSTEM_ALBUM_VIEW -> deckContent to systemAlbumViewContent
@@ -1637,6 +1646,7 @@ fun TabulaApp(
                     AppScreen.RECYCLE_BIN -> AppScreen.DECK
                     AppScreen.SETTINGS -> AppScreen.DECK
                     AppScreen.ABOUT -> AppScreen.SETTINGS
+                    AppScreen.SUPPORT -> AppScreen.SETTINGS
                     AppScreen.STATISTICS -> AppScreen.SETTINGS
                     AppScreen.ALBUM_VIEW -> AppScreen.DECK
                     AppScreen.SYSTEM_ALBUM_VIEW -> AppScreen.DECK
