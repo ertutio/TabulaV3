@@ -121,3 +121,42 @@ internal fun viewerHdRequest(
         .diskCacheKey(key)
         .build()
 }
+
+/**
+ * deck 清理模式"下一批"预取请求规格（T06 登记项：DeckScreen 清理预取裸键）。
+ *
+ * 基线形状（verbatim 提取自 DeckScreen 预取 LaunchedEffect 的内联构造）：裸
+ * URI 字符串内存键、512×512 固定尺寸、无磁盘键。卡片显示（ImageCard/CardStack）
+ * 与卡片预载（PreloadingManager）统一按 cardMemoryCacheKey（卷|ID + DATE_MODIFIED
+ * 内容版本）+ cardLoadSize（720px 上限）生产/消费 "card_" 键条目——基线键无人
+ * 读取：预取结果既不被下一批卡片命中（目的落空），又以裸键白占内存缓存；且
+ * 512 规格与卡片共享键的既有规格不一致。规格测试钉住目标契约，由修复提交对齐。
+ * （Coil 2.7 的 SizeResolver 仅暴露 suspend 解析，规格以本结构体为可测契约面。）
+ */
+internal data class DeckCleanupPrefetchSpec(
+    val data: android.net.Uri,
+    val memoryCacheKey: String,
+    val diskCacheKey: String?,
+    val size: coil.size.Size
+)
+
+internal fun deckCleanupPrefetchSpec(image: ImageFile): DeckCleanupPrefetchSpec =
+    DeckCleanupPrefetchSpec(
+        data = image.uri,
+        memoryCacheKey = image.uri.toString(),
+        diskCacheKey = null,
+        size = coil.size.Size(512, 512)
+    )
+
+internal fun deckCleanupPrefetchRequest(
+    context: Context,
+    image: ImageFile
+): ImageRequest {
+    val spec = deckCleanupPrefetchSpec(image)
+    return ImageRequest.Builder(context)
+        .data(spec.data)
+        .size(spec.size)
+        .memoryCacheKey(spec.memoryCacheKey)
+        .diskCacheKey(spec.diskCacheKey)
+        .build()
+}

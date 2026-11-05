@@ -91,6 +91,7 @@ import com.tabula.v3.R
 import com.tabula.v3.data.model.Album
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.mediaIdentityKey
+import com.tabula.v3.ui.util.deckCleanupPrefetchRequest
 import com.tabula.v3.ui.util.refreshedViewerImage
 import com.tabula.v3.ui.util.refreshedCleanupMonth
 import com.tabula.v3.ui.components.buildMonthInfos
@@ -426,12 +427,10 @@ fun DeckScreen(
                 
                 // 只预加载前 3 张图片，使用低优先级
                 nextBatch.images.take(3).forEach { image ->
-                    val request = coil.request.ImageRequest.Builder(context)
-                        .data(image.uri)
-                        .size(512, 512)  // 使用较小尺寸预加载
-                        .memoryCacheKey(image.uri.toString())
-                        .build()
-                    imageLoader.enqueue(request)
+                    // T06：预取请求规格统一走 deckCleanupPrefetchRequest
+                    // （cardMemoryCacheKey 身份/版本键 + cardLoadSize 卡片规格），
+                    // 使下一批卡片显示请求真正命中预取条目
+                    imageLoader.enqueue(deckCleanupPrefetchRequest(context, image))
                 }
             }
             
