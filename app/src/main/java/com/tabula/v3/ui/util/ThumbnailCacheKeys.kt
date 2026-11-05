@@ -8,6 +8,7 @@ import coil.size.Precision
 import coil.size.Size
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.mediaIdentityKey
+import com.tabula.v3.di.cardLoadSize
 import com.tabula.v3.di.cardMemoryCacheKey
 
 /**
@@ -123,15 +124,18 @@ internal fun viewerHdRequest(
 }
 
 /**
- * deck 清理模式"下一批"预取请求规格（T06 登记项：DeckScreen 清理预取裸键）。
+ * deck 清理模式"下一批"预取请求规格（T06 登记项：DeckScreen 清理预取裸键，
+ * 修复提交）。
  *
- * 基线形状（verbatim 提取自 DeckScreen 预取 LaunchedEffect 的内联构造）：裸
- * URI 字符串内存键、512×512 固定尺寸、无磁盘键。卡片显示（ImageCard/CardStack）
- * 与卡片预载（PreloadingManager）统一按 cardMemoryCacheKey（卷|ID + DATE_MODIFIED
- * 内容版本）+ cardLoadSize（720px 上限）生产/消费 "card_" 键条目——基线键无人
- * 读取：预取结果既不被下一批卡片命中（目的落空），又以裸键白占内存缓存；且
- * 512 规格与卡片共享键的既有规格不一致。规格测试钉住目标契约，由修复提交对齐。
- * （Coil 2.7 的 SizeResolver 仅暴露 suspend 解析，规格以本结构体为可测契约面。）
+ * 修复：预取与卡片显示（ImageCard/CardStack）/卡片预载（PreloadingManager）
+ * 共用同一 "card_" 键契约——cardMemoryCacheKey（卷|ID + DATE_MODIFIED 内容
+ * 版本，编辑后自然失效、跨卷同数值 ID 不串图）+ cardLoadSize（720px 上限，
+ * 显式键命中不校验尺寸，规格必须一致）。原裸 URI 字符串键无任何读取者：
+ * 预取结果不被下一批卡片命中（目的落空），又以裸键白占内存缓存。
+ * 内存策略沿用 PreloadingManager 的 allowHardware=false——"card_" 键条目
+ * 统一为非硬件位图，避免硬件位图塞进可能被软件路径读取的共享键
+ * （DeckScreen 预取为一次性 enqueue，不引入 PreloadingManager 生命周期，
+ * 预取量固定为下一批前 3 张）。
  */
 internal data class DeckCleanupPrefetchSpec(
     val data: android.net.Uri,
@@ -143,9 +147,9 @@ internal data class DeckCleanupPrefetchSpec(
 internal fun deckCleanupPrefetchSpec(image: ImageFile): DeckCleanupPrefetchSpec =
     DeckCleanupPrefetchSpec(
         data = image.uri,
-        memoryCacheKey = image.uri.toString(),
-        diskCacheKey = null,
-        size = coil.size.Size(512, 512)
+        memoryCacheKey = cardMemoryCacheKey(image),
+        diskCacheKey = cardMemoryCacheKey(image),
+        size = cardLoadSize(image)
     )
 
 internal fun deckCleanupPrefetchRequest(
@@ -158,5 +162,6 @@ internal fun deckCleanupPrefetchRequest(
         .size(spec.size)
         .memoryCacheKey(spec.memoryCacheKey)
         .diskCacheKey(spec.diskCacheKey)
+        .allowHardware(false)
         .build()
 }

@@ -89,5 +89,7 @@ class CleanupPrefetchRequestSpecTest {
         assertEquals(spec.data, request.data)
         assertEquals(spec.memoryCacheKey, request.memoryCacheKey?.key)
         assertEquals(spec.diskCacheKey, request.diskCacheKey)
+        // "card_" 键条目统一非硬件位图（PreloadingManager 同款规格）
+        assertEquals(false, request.allowHardware)
     }
 }
