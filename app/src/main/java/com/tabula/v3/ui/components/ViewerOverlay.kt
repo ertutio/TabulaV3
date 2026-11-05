@@ -53,6 +53,7 @@ import coil.size.Precision
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.di.CoilSetup
 import com.tabula.v3.ui.util.deckViewerThumbnailRequest
+import com.tabula.v3.ui.util.viewerHdRequest
 import com.tabula.v3.ui.util.findActivity
 import com.tabula.v3.ui.util.rememberImageFeatures
 import kotlinx.coroutines.delay
@@ -557,13 +558,7 @@ fun ViewerOverlay(
             // 否则 TextureView 会覆盖底层的 HDR 图片，导致 HDR 效果消失
             Box(modifier = Modifier.fillMaxSize()) {
                 AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(image.uri)
-                        .size(hdTargetSize)
-                        .precision(Precision.INEXACT)
-                        .crossfade(200)
-                        .bitmapConfig(Bitmap.Config.ARGB_8888)
-                        .build(),
+                    model = viewerHdRequest(context, image, hdTargetSize),
                     contentDescription = image.displayName,
                     imageLoader = imageLoader,
                     contentScale = ContentScale.Fit,

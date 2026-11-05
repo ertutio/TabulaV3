@@ -92,3 +92,32 @@ internal fun deckViewerThumbnailRequest(
     .crossfade(false)
     .allowHardware(false)
     .build()
+
+/**
+ * deck 查看器高清层请求构造（C4/T07 任务 D）——上层全质量图（ARGB_8888、
+ * 动态目标尺寸、INEXACT），加载完成后淡入覆盖底层缩略图占位。
+ *
+ * 原实现无显式缓存键：Coil 默认内存键落到 URI 字符串，不含内容版本——同
+ * URI 原地编辑（DATE_MODIFIED 更新）后旧高清位图被持续命中（新图片被旧
+ * 高清缓存覆盖）。显式键沿用既有约定：gridThumbnailCacheKey（完整媒体身份
+ * 卷|ID + DATE_MODIFIED 内容版本，viewer_hd_ 前缀独立命名空间）——编辑后
+ * 键变化自然失效；跨卷同数值 ID 行不串图；未更新图片键不变照常复用。
+ * 尺寸维度沿用默认行为（显式键下由 Coil isSizeValid 按请求尺寸校验命中，
+ * 与原默认键的尺寸语义一致）；解码规格（ARGB_8888/INEXACT/渐变 200）不变。
+ */
+internal fun viewerHdRequest(
+    context: Context,
+    image: ImageFile,
+    targetSize: coil.size.Size
+): coil.request.ImageRequest {
+    val key = gridThumbnailCacheKey("viewer_hd_", image)
+    return ImageRequest.Builder(context)
+        .data(image.uri)
+        .size(targetSize)
+        .precision(Precision.INEXACT)
+        .crossfade(200)
+        .bitmapConfig(Bitmap.Config.ARGB_8888)
+        .memoryCacheKey(key)
+        .diskCacheKey(key)
+        .build()
+}
