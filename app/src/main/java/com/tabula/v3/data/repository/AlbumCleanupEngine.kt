@@ -310,12 +310,14 @@ class AlbumCleanupEngine(
      * @param albumId 图集ID
      * @param allImages 图集内的所有图片
      * @param excludeGroupIds 需要排除的组ID（用于预加载时排除当前正在处理的组）
+     * @param latestSnapshot 最新可访问全池；只用于恢复既有成员，不扩大回退检测范围
      * @return 清理批次，如果没有更多组则返回 null
      */
     suspend fun getNextBatch(
         albumId: String,
         allImages: List<ImageFile>,
-        excludeGroupIds: List<String> = emptyList()
+        excludeGroupIds: List<String> = emptyList(),
+        latestSnapshot: List<ImageFile> = allImages
     ): AlbumCleanupBatch? = withContext(Dispatchers.IO) {
         // 切换图集时：更新 currentAlbumId 并清空过期的缓存
         if (currentAlbumId != albumId) {
@@ -328,7 +330,7 @@ class AlbumCleanupEngine(
         // 回收记录证明用户已处理；权限快照缺席不证明。保留软删成员身份以恢复
         // 原组 ID，交付时再排除。读取失败须传播，不能当成空回收站继续。
         val recycledRows = RecycleBinManager.getInstance(context).loadRecycleBin()
-        val recoveryRows = (recycledRows + allImages).associateBy { it.mediaIdentityKey() }.values.toList()
+        val recoveryRows = (recycledRows + latestSnapshot).associateBy { it.mediaIdentityKey() }.values.toList()
         // 每次从完整持久目录恢复，不能将 PARTIAL 子集作为后续 FULL 的缓存基准。
         val groups = cacheMutex.withLock {
             val restored = restoreGroupsFromPrefs(albumId, recoveryRows)
@@ -374,7 +376,7 @@ class AlbumCleanupEngine(
         // 永久完成只能来自用户实际处理（markGroupsProcessed 调用方）；访问
         // 恢复后这些组按最新快照照常交付。组对象保持原样（id 为成员身份键
         // 摘要，剪枝后 copy 会漂移完成标记对账），剪枝只作用于交付的批次行。
-        val snapshotByKey = allImages.associateBy { it.mediaIdentityKey() }
+        val snapshotByKey = latestSnapshot.associateBy { it.mediaIdentityKey() }
         val operableGroups = availableGroups.mapNotNull { group ->
             val syncedRows = group.images.mapNotNull { snapshotByKey[it.mediaIdentityKey()] }
             // 任何未处理成员缺席都持有整组，不能交付子集后按原 ID 整组完成。
@@ -734,17 +736,19 @@ class AlbumCleanupEngine(
      * 
      * @param albumId 图集ID
      * @param allImages 图集内的所有图片
+     * @param latestSnapshot 最新可访问全池；跨月编辑不改变持久成员身份
      * @return 恢复的批次和起始索引，如果无法恢复返回 null
      */
     suspend fun getCheckpointBatch(
         albumId: String,
-        allImages: List<ImageFile>
+        allImages: List<ImageFile>,
+        latestSnapshot: List<ImageFile> = allImages
     ): Pair<AlbumCleanupBatch, Int>? = withContext(Dispatchers.IO) {
         val checkpoint = getCheckpoint(albumId) ?: return@withContext null
         val (savedGroupIds, savedIndex) = checkpoint
         
         val recycledRows = RecycleBinManager.getInstance(context).loadRecycleBin()
-        val recoveryRows = (recycledRows + allImages).associateBy { it.mediaIdentityKey() }.values.toList()
+        val recoveryRows = (recycledRows + latestSnapshot).associateBy { it.mediaIdentityKey() }.values.toList()
         val groups = cacheMutex.withLock {
             restoreGroupsFromPrefs(albumId, recoveryRows)
                 ?: (cachedGroups ?: similarGroupDetector.detectSimilarGroups(allImages)
@@ -759,7 +763,7 @@ class AlbumCleanupEngine(
         migrateLegacyProcessedGroupIds(albumId, groups.mapNotNull { it.original })
         preferences.acknowledgeCleanupMembers(recycledRows.map { it.mediaIdentityKey() }.toSet())
         val acknowledgedKeys = preferences.getAlbumAcknowledgedCleanupMembers(albumId)
-        val checkpointSnapshotByKey = allImages.associateBy { it.mediaIdentityKey() }
+        val checkpointSnapshotByKey = latestSnapshot.associateBy { it.mediaIdentityKey() }
         // 获取已永久处理的组ID
         val permanentlyProcessedIds = preferences.getAlbumPermanentlyProcessedGroups(albumId)
 

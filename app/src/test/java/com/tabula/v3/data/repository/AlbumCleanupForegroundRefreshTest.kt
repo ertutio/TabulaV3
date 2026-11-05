@@ -3,6 +3,8 @@ package com.tabula.v3.data.repository
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
+import com.tabula.v3.data.cache.ImageHashCache
+import com.tabula.v3.data.cache.toHashKey
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.ui.util.syncCleanupBatchToSnapshot
@@ -82,6 +84,52 @@ class AlbumCleanupForegroundRefreshTest {
     }
 
     private fun idOf(image: ImageFile) = image.mediaIdentityKey()
+
+    @Test
+    fun editedMemberMovingOutsideTargetMonthUsesFullSnapshotAndKeepsCheckpointIdentity() = runBlocking {
+        val january = 1_767_225_600_000L
+        val february = january + 31L * 24 * 60 * 60 * 1_000
+        val members = listOf(row(1, dateModified = january), row(2, dateModified = january + 1_000))
+        val originalId = groupIdOf(members)
+        seedGroups(members, listOf(members))
+        val engine = AlbumCleanupEngine(context)
+        engine.getNextBatch(albumId, members)
+        engine.saveCheckpoint(listOf(originalId), 1)
+        val edited = members[1].copy(dateModified = february)
+        val targetSubset = listOf(members[0])
+        val latest = listOf(members[0], edited)
+
+        val next = engine.getNextBatch(albumId, targetSubset, latestSnapshot = latest)!!
+        assertEquals(listOf(originalId), next.groupIds)
+        assertEquals(latest, next.images)
+        assertSame(edited, next.images[1])
+        val resumed = AlbumCleanupEngine(context).getCheckpointBatch(
+            albumId, targetSubset, latestSnapshot = latest
+        )!!
+        assertEquals(1, resumed.second)
+        assertEquals(listOf(originalId), resumed.first.groupIds)
+        assertEquals(latest, resumed.first.images)
+        assertSame(edited, resumed.first.images[1])
+        assertEquals(members.map(::idOf), preferences.getGroupImageIds(albumId, originalId))
+        assertTrue(preferences.getAlbumPermanentlyProcessedGroups(albumId).isEmpty())
+    }
+
+    @Test
+    fun missingDirectoryFallbackDetectsOnlyTargetPoolDespiteFullLatestSnapshot() = runBlocking {
+        val target = listOf(row(1001, dateModified = 1_000_000), row(1002, dateModified = 1_001_000))
+        val outside = listOf(row(2001, dateModified = 90_000_000), row(2002, dateModified = 90_001_000))
+        val hashCache = ImageHashCache.getInstance(context)
+        (target + outside).forEach {
+            hashCache.saveHash(it.toHashKey(), PerceptualHash.HashResult.Success(0L), it.dateModified)
+        }
+        assertFalse(preferences.hasPersistedGroupData(albumId))
+        val next = AlbumCleanupEngine(context).getNextBatch(
+            albumId, target, latestSnapshot = target + outside
+        )!!
+        assertEquals(target, next.images)
+        assertEquals(listOf(groupIdOf(target)), next.groupIds)
+        assertTrue(next.images.none { it.mediaIdentityKey() in outside.map(::idOf) })
+    }
 
     @Test
     fun userRemovalSurvivesRecycleClearAndEngineRecreationWithoutChangingGroupIdentity() = runBlocking {

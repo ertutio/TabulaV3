@@ -408,7 +408,7 @@ fun DeckScreen(
             return@LaunchedEffect
         }
         
-        if (cleanupId == null || cleanupImages.isEmpty()) return@LaunchedEffect
+        if (cleanupId == null) return@LaunchedEffect
         
         val remaining = (currentBatch.size - currentIndex - 1).coerceAtLeast(0)
         // 【性能优化】更积极的预加载：从 ≤3 改成 ≤5，给预加载更多时间完成
@@ -417,8 +417,10 @@ fun DeckScreen(
             isPreloadingNextBatch = true
             
             // 预取下一批数据，排除当前正在处理的组（避免重复）
+            // 分析范围仍是当前图集/月；已保存成员的访问与版本校验使用完整快照，
+            // 避免外部编辑跨月或移动图集后把仍可访问的成员误判为权限缺席。
             val currentGroupIds = currentCleanupBatch?.groupIds ?: emptyList()
-            val nextBatch = albumCleanupEngine.getNextBatch(cleanupId, cleanupImages, currentGroupIds)
+            val nextBatch = albumCleanupEngine.getNextBatch(cleanupId, cleanupImages, currentGroupIds, latestSnapshot = allImagesForCleanup)
             if (nextBatch != null) {
                 preloadedNextBatch = nextBatch
                 
@@ -467,7 +469,7 @@ fun DeckScreen(
                 return@LaunchedEffect
             }
 
-            if (cleanupId == null || cleanupImages.isEmpty()) {
+            if (cleanupId == null || (cleanupImages.isEmpty() && albumCleanupEngine.getTotalGroups(cleanupId) < 0)) {
                 // 任务 A：清空可能源于权限收窄/外部删除（暂时不可见）——存在
                 // 断点即持有会话（隐藏照片、保留断点与未处理意图），访问恢复
                 // 后经本 effect 续接；无断点才退出清理
@@ -484,7 +486,7 @@ fun DeckScreen(
             android.util.Log.d("DeckScreen", "Restoring cleanup mode for: $cleanupName")
             
             // 尝试从断点恢复
-            val checkpointResult = albumCleanupEngine.getCheckpointBatch(cleanupId, cleanupImages)
+            val checkpointResult = albumCleanupEngine.getCheckpointBatch(cleanupId, cleanupImages, latestSnapshot = allImagesForCleanup)
             if (checkpointResult != null) {
                 val (batch, savedIndex) = checkpointResult
                 currentCleanupBatch = batch
@@ -503,7 +505,7 @@ fun DeckScreen(
                 android.util.Log.d("DeckScreen", "Restored from checkpoint: index=$savedIndex")
             } else {
                 // 没有断点，获取下一批
-                val batch = albumCleanupEngine.getNextBatch(cleanupId, cleanupImages)
+                val batch = albumCleanupEngine.getNextBatch(cleanupId, cleanupImages, latestSnapshot = allImagesForCleanup)
                 if (batch != null) {
                     currentCleanupBatch = batch
                     currentBatch = batch.images
@@ -687,7 +689,7 @@ fun DeckScreen(
                 batch
             } else {
                 // 没有预加载，实时获取
-                albumCleanupEngine.getNextBatch(cleanupId, cleanupImages)
+                albumCleanupEngine.getNextBatch(cleanupId, cleanupImages, latestSnapshot = allImagesForCleanup)
             }
             
             if (nextBatch != null) {
@@ -826,7 +828,7 @@ fun DeckScreen(
                 
                 if (remaining > 0) {
                     // 还有剩余组，继续当前清理目标
-                    val nextBatch = albumCleanupEngine.getNextBatch(cleanupId, cleanupImages)
+                    val nextBatch = albumCleanupEngine.getNextBatch(cleanupId, cleanupImages, latestSnapshot = allImagesForCleanup)
                     if (nextBatch != null) {
                         currentCleanupBatch = nextBatch
                         currentBatch = nextBatch.images
@@ -888,7 +890,7 @@ fun DeckScreen(
                 }
                 
                 // 获取新批次
-                val nextBatch = albumCleanupEngine.getNextBatch(nextAlbum.id, albumImages)
+                val nextBatch = albumCleanupEngine.getNextBatch(nextAlbum.id, albumImages, latestSnapshot = allImagesForCleanup)
                 if (nextBatch != null) {
                     currentCleanupBatch = nextBatch
                     currentBatch = nextBatch.images
@@ -1546,7 +1548,7 @@ fun DeckScreen(
             // 获取图集内的图片
             val albumImages = resolveAlbumCleanupImages(album, allImagesForCleanup)
             
-            if (albumImages.isEmpty()) {
+            if (albumImages.isEmpty() && (forceReset || engine.getTotalGroups(album.id) < 0)) {
                 analyzingAlbumId = null
                 Toast.makeText(context, "该图集没有可清理的照片", Toast.LENGTH_SHORT).show()
                 return@launch
@@ -1565,7 +1567,7 @@ fun DeckScreen(
             val checkpointResult = if (forceReset) {
                 null
             } else {
-                engine.getCheckpointBatch(album.id, albumImages)
+                engine.getCheckpointBatch(album.id, albumImages, latestSnapshot = allImagesForCleanup)
             }
             
             if (checkpointResult != null) {
@@ -1587,7 +1589,7 @@ fun DeckScreen(
                 android.util.Log.d("DeckScreen", "Restored from checkpoint: index=$savedIndex")
             } else {
                 // 没有断点，正常获取下一批
-                val batch = engine.getNextBatch(album.id, albumImages)
+                val batch = engine.getNextBatch(album.id, albumImages, latestSnapshot = allImagesForCleanup)
                 if (batch != null) {
                     onAlbumCleanupModeChange(true)
                     currentCleanupBatch = batch
@@ -1642,7 +1644,7 @@ fun DeckScreen(
             // 使用月份的图片列表
             val monthImages = monthInfo.images
             
-            if (monthImages.isEmpty()) {
+            if (monthImages.isEmpty() && (forceReset || engine.getTotalGroups(albumId) < 0)) {
                 analyzingAlbumId = null
                 return@launch
             }
@@ -1661,7 +1663,7 @@ fun DeckScreen(
             val checkpointResult = if (forceReset) {
                 null
             } else {
-                engine.getCheckpointBatch(albumId, monthImages)
+                engine.getCheckpointBatch(albumId, monthImages, latestSnapshot = allImagesForCleanup)
             }
             
             if (checkpointResult != null) {
@@ -1684,7 +1686,7 @@ fun DeckScreen(
                 android.util.Log.d("DeckScreen", "Month cleanup restored from checkpoint: index=$savedIndex")
             } else {
                 // 没有断点，正常获取下一批
-                val batch = engine.getNextBatch(albumId, monthImages)
+                val batch = engine.getNextBatch(albumId, monthImages, latestSnapshot = allImagesForCleanup)
                 if (batch != null) {
                     onAlbumCleanupModeChange(true)
                     isMonthCleanupMode = true
