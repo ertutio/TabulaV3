@@ -272,4 +272,57 @@ class RecycleBinDeletionTest {
         assertEquals(1, manager.getRecycleBinCount())
         assertTrue(manager.pendingDeletionUris().isEmpty())
     }
+
+    @Test
+    fun twoThousandOneRecycleRecordsSplitThroughProductionComposition() = runBlocking {
+        // C2/T04 登记候选（回收站入口，仅测试）：2001 条回收站记录经生产组合
+        // （deleteRecycleBinSelection = deleteInBatches + deleteRecycleBinBatch，
+        // 即回收站 UI 批量清除的实际形态）分批——每请求 ≤100 项、顺序无丢失
+        // 重复、逐批授权+核验、已确认 2000 条按批落盘（增量交付 20 次）、
+        // 末批服务错误停止且不把整体结果当每项结果。SERVICE 停止后续批与
+        // SERVICE 不可拆分分别由 globalErrorsAreNotSplitAndStopAfterOneRequest
+        // 与 BatchDeletionTest 套件层钉死，此处不重复。
+        val all = (1..2001).map { volumePhoto(it.toLong()) }
+        val manager = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        manager.addAllToRecycleBin(all)
+
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val sender = android.app.PendingIntent.getBroadcast(context, 7,
+            android.content.Intent("recycle-bin-2001"), android.app.PendingIntent.FLAG_IMMUTABLE).intentSender
+        val requests = mutableListOf<List<Uri>>()
+        val delivered = mutableListOf<Set<Uri>>()
+
+        val summary = deleteRecycleBinSelection(
+            uris = all.map { it.uri },
+            manager = manager,
+            request = { uris ->
+                requests += uris
+                if (uris.size == 1) {
+                    // 末批（1 条）服务错误：不可拆分失败并停止。
+                    FileOperationManager.DeleteResult.Error("删除服务不可用", DeleteFailureKind.SERVICE)
+                } else {
+                    FileOperationManager.DeleteResult.NeedsPermission(sender, uris)
+                }
+            },
+            permission = { true },
+            verify = { DeletionVerification(it.toSet(), emptySet(), emptySet()) },
+            onDeleted = { delivered += it }
+        )
+
+        val allUris = all.map { it.uri }
+        assertEquals(21, requests.size)
+        assertEquals((1..20).map { 100 }, requests.take(20).map { it.size })
+        assertEquals(1, requests.last().size)
+        assertEquals(allUris, requests.flatten())
+        // 按项结果逐批更新回收站记录：前 2000 条已出站，仅末条留存；无悬挂 journal。
+        assertEquals(allUris.dropLast(1).toSet(), summary.deleted)
+        assertEquals(setOf(allUris[2000]), summary.remaining)
+        assertEquals(false, summary.cancelled)
+        assertEquals("删除服务不可用", summary.error)
+        assertEquals(20, delivered.size)
+        assertEquals(allUris.dropLast(1), delivered.flatten())
+        assertEquals(2000, delivered.flatten().toSet().size)
+        assertEquals(listOf(allUris[2000]), manager.loadRecycleBin().map { it.uri })
+        assertTrue(manager.pendingDeletionUris().isEmpty())
+    }
 }
