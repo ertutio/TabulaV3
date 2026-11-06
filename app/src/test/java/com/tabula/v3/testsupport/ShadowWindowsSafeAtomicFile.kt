@@ -31,8 +31,17 @@ import java.nio.file.StandardCopyOption
  * （legacy .bak 回迁）、finishWrite（.new→base 提交）、openRead（.bak 回迁 +
  * 过期 .new 清理）；其余方法（failWrite/delete/truncate/openAppend 等）无
  * rename 依赖，回退真实实现。
+ *
+ * 适用范围（审计限定）：本 shadow 按 API 34 的 AtomicFile 协议实现（.new 提交
+ * + legacy .bak 回迁，android-all 14 字节码核对）；`minSdk = 34` 限定只在已
+ * 验证的 SDK 上生效——更旧 SDK（如 28）的 startWrite 是"base→bak 先备份"
+ * 的旧协议，不可直接套用本 shadow，回退真实实现。
+ *
+ * 等价性声明（审计限定）：已验证 Windows JVM（本机全量）与 Linux CI（同
+ * shadow）的替换语义；不据此宣称与 Android 各文件系统/内核在全平台的全面
+ * 等价——生产路径仍在 Android 真实 rename(2) 上运行，本 shadow 仅测试树。
  */
-@Implements(AtomicFile::class)
+@Implements(value = AtomicFile::class, minSdk = 34)
 class ShadowWindowsSafeAtomicFile {
     @RealObject
     lateinit var real: AtomicFile
@@ -78,8 +87,14 @@ class ShadowWindowsSafeAtomicFile {
     @Implementation
     fun finishWrite(str: FileOutputStream?) {
         if (str == null) return
+        // 审计轮：sync 与 close 分开处理——sync 失败后仍尝试关闭流
+        // （对齐 AOSP finishWrite 的独立 try 块故障语义）。
         try {
             str.fd.sync()
+        } catch (e: IOException) {
+            Log.e("AtomicFile", "Failed to sync file output stream", e)
+        }
+        try {
             str.close()
         } catch (e: IOException) {
             Log.e("AtomicFile", "Failed to close file output stream", e)
