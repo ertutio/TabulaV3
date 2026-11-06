@@ -88,13 +88,7 @@ class PreloadingManager(
     }
 
     // cardSize 为兼容调用方保留；沿用固定 720px 上限，身份键记录实际解码尺寸。
-    private fun loadSize(image: ImageFile): Size = if (!image.hasDimensionInfo) {
-        Size(540, 720)
-    } else if (image.aspectRatio < 1f) {
-        Size((720 * image.aspectRatio).toInt().coerceAtLeast(270), 720)
-    } else {
-        Size(720, (720 / image.aspectRatio).toInt().coerceAtLeast(270))
-    }
+    private fun loadSize(image: ImageFile): Size = cardLoadSize(image)
 
     private fun requestIdentity(image: ImageFile): String = "${cardMemoryCacheKey(image)}|${loadSize(image)}|hardware=false"
 
@@ -181,3 +175,16 @@ class PreloadingManager(
  * 同 id 内容编辑后自然失效。所有 "card_" 键的读写必须经此函数，避免各处键格式漂移。
  */
 fun cardMemoryCacheKey(image: ImageFile): String = "card_${image.uri}_${image.dateModified}"
+
+/**
+ * T06b：卡片显示/预加载共用解码规格（固定 720px 上限，按纵横比适配）。
+ * "card_" 键下的条目统一由此规格生产——cardMemoryCacheKey 为显式键，命中不校验
+ * 尺寸，不同站点往同一键写不同规格位图会互相挤占/错配。
+ */
+internal fun cardLoadSize(image: ImageFile): Size = if (!image.hasDimensionInfo) {
+    Size(540, 720)
+} else if (image.aspectRatio < 1f) {
+    Size((720 * image.aspectRatio).toInt().coerceAtLeast(270), 720)
+} else {
+    Size(720, (720 / image.aspectRatio).toInt().coerceAtLeast(270))
+}
