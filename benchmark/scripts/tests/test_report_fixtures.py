@@ -1,17 +1,22 @@
-"""C5/T08 任务 G：测量工具自身的正反夹具。
+"""C5/T08 任务 G（+审计轮）：测量工具自身的正反夹具。
 
 既有 test_report.py 覆盖缺失测量/坏样本/meminfo 口径；本文件补：
 - 完整成功 fixture 通过（正例：两轮独立会话产出 valid 报告）；
-- 迭代错配、环境不兼容、APK 不一致、版本集合不一致、损坏 trace 的明确失败；
+- 迭代错配、环境不兼容、APK 不一致、版本集合不一致的明确失败；
 - 缺少证据不输出通过（read_session/make_report 任一校验失败即异常，valid=True
-  仅在全部校验通过后写盘）。
+  仅在全部校验通过后写盘）；
+- trace 证据真实校验（审计轮）：真实 perfetto 工具样本（tracebox v59.1 产出、
+  trace_processor 解析干净）正例；缺失/单用例缺失/空/截断/无法解析/文件名
+  不可归属负例；gzip 完整解压校验（损坏/截断拒绝）；zstd 明确拒绝。
 
 只验证测量工具本身：不产出性能数字、不恢复 PR6 的历史测量任务、不构成
-任何冻结基线。运行：python -m unittest benchmark.scripts.tests.test_report_fixtures
-（或直接 python -m unittest discover benchmark/scripts/tests）。
+任何冻结基线。测试计数口径：本文件 20 项 + 既有 test_report.py 3 项 =
+discover 全量 23 项。运行：python -m unittest
+benchmark.scripts.tests.test_report_fixtures（或 discover benchmark/scripts/tests）。
 """
 
 import importlib.util
+import gzip
 import json
 import tempfile
 import unittest
@@ -24,6 +29,12 @@ spec.loader.exec_module(report)
 
 EXPECTED = dict(report.EXPECTED)
 STAGES = report.STAGES
+
+# 真实成功样本：perfetto v59.1 tracebox（linux-amd64，traced 内嵌）以
+# track_event 配置实际产出，并经 trace_processor v59.1 干净解析（零
+# error/data-loss 统计）。977 字节、18 个 TracePacket。
+REAL_PERFETTO_TRACE = (Path(__file__).parent / "fixtures" /
+                       "real_perfetto_trace.perfetto-trace").read_bytes()
 
 ENVIRONMENT = {
     "sdk": 36, "fingerprint": "emulator_fingerprint", "abi": "arm64-v8a",
@@ -256,8 +267,8 @@ class TraceFixtureTest(unittest.TestCase):
                 report.read_session(folder)
 
     def test_tracesFromUnrelatedSourcesCannotCoverExpectedCases(self):
-        # 来源不匹配：全部 trace 来自无关用例名（外来来源/异次运行拼接），
-        # 不得充当本轮预期用例的 trace 证据
+        # 文件名不可归属：全部 trace 来自无关用例名（文件名归属之外的同名文件
+        # 不得充当本轮预期用例的 trace 证据；轮次来源证明由 build/env 校验承担）
         with tempfile.TemporaryDirectory() as tmp:
             root, folder = self.round(tmp)
             for p in folder.rglob("*.perfetto-trace"):
@@ -266,15 +277,59 @@ class TraceFixtureTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Missing perfetto trace for benchmark case a_coldStartup"):
                 report.read_session(folder)
 
-    def test_gzipContainerTraceMagicIsAccepted(self):
-        # gzip 容器魔数按压缩 trace 接受（trace_processor 同样按魔数识别）
+    def test_realPerfettoToolTraceIsAcceptedThroughRealEntry(self):
+        # 真实成功样本：perfetto v59.1 tracebox（linux-amd64）+ track_event 配置
+        # 实际产出、并经 trace_processor v59.1 干净解析（零 error/data-loss 统计）
+        # 的 977 字节 trace（fixtures/real_perfetto_trace.perfetto-trace，18 个
+        # TracePacket）——经真实 read_session 入口接受。
         with tempfile.TemporaryDirectory() as tmp:
             root, folder = self.round(tmp)
             victim = next(p for p in folder.rglob("*.perfetto-trace") if "a_coldStartup" in p.name)
-            victim.write_bytes(b"\x1f\x8b" + b"\x00" * 16)
+            victim.write_bytes(REAL_PERFETTO_TRACE)
             output = Path(tmp) / "out"
             report.make_report(root, output)
             self.assertTrue(json.loads((output / "baseline.json").read_text())["valid"])
+
+    def test_gzipCompressedRealTraceIsValidatedAfterDecompression(self):
+        # gzip 容器：完整解压（CRC 校验）+ 解压载荷 protobuf 走查——有效压缩
+        # trace 通过真实入口
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "a_coldStartup" in p.name)
+            victim.write_bytes(gzip.compress(REAL_PERFETTO_TRACE))
+            output = Path(tmp) / "out"
+            report.make_report(root, output)
+            self.assertTrue(json.loads((output / "baseline.json").read_text())["valid"])
+
+    def test_corruptGzipTraceIsRejected(self):
+        # 损坏压缩内容：gzip 流中部字节翻转——解压失败必须拒绝
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "a_coldStartup" in p.name)
+            compressed = bytearray(gzip.compress(REAL_PERFETTO_TRACE))
+            mid = len(compressed) // 2
+            compressed[mid] ^= 0xFF
+            victim.write_bytes(bytes(compressed))
+            with self.assertRaisesRegex(ValueError, "Corrupt gzip trace"):
+                report.read_session(folder)
+
+    def test_truncatedGzipTraceIsRejected(self):
+        # 截断压缩内容：gzip 流尾部截断——解压失败必须拒绝
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "d_drawCards" in p.name)
+            victim.write_bytes(gzip.compress(REAL_PERFETTO_TRACE)[:-6])
+            with self.assertRaisesRegex(ValueError, "Corrupt gzip trace"):
+                report.read_session(folder)
+
+    def test_zstdTraceIsExplicitlyRejectedAsUnsupported(self):
+        # 本工具无法实际解压验证的压缩格式（zstd）明确拒绝，不凭魔数放行
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "e_viewer" in p.name)
+            victim.write_bytes(b"\x28\xb5\x2f\xfd" + b"\x00" * 24)
+            with self.assertRaisesRegex(ValueError, "Unsupported compressed trace format"):
+                report.read_session(folder)
 
 
 if __name__ == "__main__":

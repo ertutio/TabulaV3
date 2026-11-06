@@ -1,10 +1,12 @@
 import argparse
 import csv
+import gzip
 import json
 import math
 from pathlib import Path
 import re
 import statistics
+import zlib
 
 EXPECTED = {"a_coldStartup": 10, "b_warmStartup": 10, "c_shuffleCards": 5,
             "d_drawCards": 5, "e_viewer": 5}
@@ -98,17 +100,26 @@ def read_session(folder):
 def validate_trace_file(path):
     """校验单个 .perfetto-trace 证据文件（T08/TC36-42：坏证据必须拒绝 valid）。
 
-    接受两种真实形态：
-    - gzip/zstd 容器魔数（perfetto trace_processor 同样按魔数识别压缩 trace）；
+    接受两种形态，均做实际解析：
+    - gzip 容器：先完整解压（gzip.decompress 校验 CRC 与长度，损坏/截断在此
+      拒绝），再对解压载荷做 protobuf 走查；
     - 未压缩 protobuf Trace（`repeated TracePacket packet = 1`，见 perfetto
-      TracePacket 参考文档）：逐记录走顶层 field-1 记录——tag 0x0A + varint
+      TracePacket 参考文档）：逐记录走查顶层 field-1 记录——tag 0x0A + varint
       长度 + 载荷，直到 EOF。截断/损坏/非 trace 内容在此被拒绝。
+    zstd 等本工具无法实际解压验证的压缩格式**明确拒绝**（不凭魔数放行）。
     空文件、零包文件一律拒绝。"""
     data = path.read_bytes()
     if not data:
         raise ValueError(f"Empty trace file: {path.name}")
-    if data[:2] == b"\x1f\x8b" or data[:4] == b"\x28\xb5\x2f\xfd":
-        return
+    if data[:2] == b"\x1f\x8b":
+        try:
+            data = gzip.decompress(data)
+        except (OSError, EOFError, zlib.error) as error:
+            raise ValueError(f"Corrupt gzip trace ({error}): {path.name}")
+        if not data:
+            raise ValueError(f"Gzip trace decompressed to empty payload: {path.name}")
+    elif data[:4] == b"\x28\xb5\x2f\xfd":
+        raise ValueError(f"Unsupported compressed trace format (zstd is not validated by this tool): {path.name}")
     n = len(data)
     pos = 0
     packets = 0
@@ -140,8 +151,12 @@ def validate_trace_file(path):
 def validate_round_traces(folder):
     """校验一轮测量的 Perfetto trace 证据（androidx.benchmark 每用例每迭代
     输出 *.perfetto-trace，文件名含用例名）。要求：轮内至少一份 trace、每个
-    预期用例至少一份可归属 trace（文件名含用例名），且轮内所有 trace 均可通过
-    [validate_trace_file]——缺失/空/损坏/无法解析/来源不匹配均拒绝。"""
+    预期用例至少一份可归属 trace，且轮内所有 trace 均可通过
+    [validate_trace_file]——缺失/空/损坏/无法解析/文件名不可归属均拒绝。
+
+    归属能力边界（审计更正）：用例匹配基于**文件名包含**——这是弱归属，不是
+    本次运行来源的证明（同名文件可来自其他来源）；轮次来源证明由 build.json
+    与 environment 字段校验承担（本工具内已另行验证）。"""
     trace_files = sorted(folder.rglob("*.perfetto-trace"))
     if not trace_files:
         raise ValueError("No perfetto traces captured for this round")
