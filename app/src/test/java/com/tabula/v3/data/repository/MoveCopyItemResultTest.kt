@@ -157,6 +157,57 @@ class MoveCopyItemResultTest {
         assertSourceUnchanged()
     }
 
+    // ---------- 身份查询授权拒绝（T07/TC56-RESULT 审计轮） ----------
+
+    @Test
+    fun sourceIdentityQueryPermissionDenialClassifiesNeedsPermissionWithoutSideEffects() = runBlocking {
+        // 源元数据查询被拒：原因保留并传播为 NEEDS_PERMISSION；未发起插入、
+        // 源不删除、无任何清理副作用。
+        provider.queryExceptionFor = { SecurityException("synthetic source query denial") }
+
+        val result = syncManager.addImageToSystemAlbumOutcome(sourceUri, "Target")
+
+        assertEquals(SystemAlbumSyncManager.MediaTransferOutcome.NEEDS_PERMISSION, result.outcome)
+        assertNull(result.uri)
+        assertEquals(0, provider.insertCalls)
+        assertTrue(provider.deleteUris.isEmpty())
+        assertSourceUnchanged()
+    }
+
+    @Test
+    fun targetIdentityQueryPermissionDenialClassifiesNeedsPermissionAndLeavesTargetUntouched() = runBlocking {
+        // 插入后目标身份查询被拒：目标所有权未知——不得擅自清理已插入行，
+        // 源同样保留；原因传播为 NEEDS_PERMISSION。
+        provider.queryExceptionFor = { uri ->
+            if (uri.lastPathSegment?.toLongOrNull()?.let { it >= 100L } == true) {
+                SecurityException("synthetic target query denial")
+            } else null
+        }
+
+        val result = syncManager.addImageToSystemAlbumOutcome(sourceUri, "Target")
+
+        assertEquals(SystemAlbumSyncManager.MediaTransferOutcome.NEEDS_PERMISSION, result.outcome)
+        assertNull(result.uri)
+        assertEquals(1, provider.insertCalls)
+        // 所有权未证明的插入行保留（不清理）；源字节不变。
+        assertTrue(provider.rows.values.any { it.id >= 100L })
+        assertTrue(provider.deleteUris.isEmpty())
+        assertSourceUnchanged()
+    }
+
+    @Test
+    fun sourceIdentityQueryNonSecurityFailureKeepsFailedClassification() = runBlocking {
+        // 对照：非授权类查询失败维持既有 FAILED 语义（不误判为权限拒绝）。
+        provider.queryExceptionFor = { java.io.IOException("synthetic query failure") }
+
+        val result = syncManager.addImageToSystemAlbumOutcome(sourceUri, "Target")
+
+        assertEquals(SystemAlbumSyncManager.MediaTransferOutcome.FAILED, result.outcome)
+        assertEquals(0, provider.insertCalls)
+        assertTrue(provider.deleteUris.isEmpty())
+        assertSourceUnchanged()
+    }
+
     // ---------- AlbumManager 聚合（身份选择入口；行 10=源，12=桶内行） ----------
 
     @Test

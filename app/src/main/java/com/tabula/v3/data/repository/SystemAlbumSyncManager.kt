@@ -815,7 +815,9 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
 
             // Resolve ownership before checking cancellation: insert may return a URI after
             // the caller's Job was cancelled, and a proven new row must still be rolled back.
-            val targetKey = resolveMediaItemKey(targetUri!!)
+            // T07/TC56-RESULT 审计轮：身份查询被系统授权拒绝时原因向上传播
+            // （→ NEEDS_PERMISSION，目标所有权未知不清理）；其余失败仍折叠 null。
+            val targetKey = resolveOwnedTargetItemKey(targetUri!!)
             if (targetKey == null) {
                 Log.w(TAG, "Inserted copy target has unknown identity; leaving it untouched: $targetUri")
                 currentCoroutineContext().ensureActive()
@@ -900,6 +902,9 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
             MediaStore.Images.Media.DATE_ADDED,
             MediaStore.Images.Media.DATE_MODIFIED
         )
+        // T07/TC56-RESULT：授权拒绝原因保留——单次查询被拒不提前判失败，
+        // 继续备用查询路径；全部备用耗尽后才如实向上传播（→ NEEDS_PERMISSION）。
+        var permissionDenied: SecurityException? = null
         for (queryUri in mediaStoreQueryUris(sourceUri)) {
             currentCoroutineContext().ensureActive()
             try {
@@ -920,10 +925,14 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
                 if (metadata != null) return metadata
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: SecurityException) {
+                permissionDenied = e
+                Log.w(TAG, "Source MediaStore identity query denied through $queryUri", e)
             } catch (e: Exception) {
                 Log.w(TAG, "Could not resolve source MediaStore identity through $queryUri", e)
             }
         }
+        if (permissionDenied != null) throw permissionDenied
         return null
     }
 
@@ -941,6 +950,36 @@ class SystemAlbumSyncManager private constructor(private val context: Context) {
                 Log.w(TAG, "Could not resolve MediaStore item identity through $queryUri", e)
             }
         }
+        return null
+    }
+
+    /**
+     * 复制目标的身份解析（T07/TC56-RESULT，审计轮）：查询协议与
+     * [resolveMediaItemKey] 相同（备用路径继续尝试、可成功解析不过早判失败），
+     * 但授权拒绝原因保留并向上传播——插入后身份未知归类 NEEDS_PERMISSION；
+     * 其余失败仍折叠 null（保守保留目标，不清理）。
+     * 仅复制流的插入后身份查询使用；[isIndependentExistingCopy] 等其他调用方
+     * 维持原全折语义。
+     */
+    private fun resolveOwnedTargetItemKey(uri: Uri): MediaItemKey? {
+        val projection = arrayOf(MediaStore.Images.Media._ID, MediaStore.MediaColumns.VOLUME_NAME)
+        var permissionDenied: SecurityException? = null
+        for (queryUri in mediaStoreQueryUris(uri)) {
+            try {
+                val key = contentResolver.query(queryUri, projection, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) mediaStoreItemKey(cursor) else null
+                }
+                if (key != null) return key
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SecurityException) {
+                permissionDenied = e
+                Log.w(TAG, "Copy target identity query denied through $queryUri", e)
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not resolve MediaStore item identity through $queryUri", e)
+            }
+        }
+        if (permissionDenied != null) throw permissionDenied
         return null
     }
 

@@ -78,6 +78,8 @@ internal class EvidenceTestProvider(
         private set
     /** T07/TC56-RESULT：insert 时注入的异常（如 SecurityException），供授权拒绝分类测试使用。 */
     var insertException: Exception? = null
+    /** T07/TC56-RESULT：query 时按 URI 注入的异常（如 SecurityException），供身份查询授权拒绝分类测试使用。 */
+    var queryExceptionFor: ((uri: Uri) -> Exception?)? = null
     /** T07/TC56-RESULT：非 publish RELATIVE_PATH 更新的异常注入器（按行 ID），返回 null 表示正常。 */
     var nonPublishUpdateExceptionFor: ((id: Long?) -> Exception?)? = null
     /** T07/TC56-RESULT：非 publish 更新的返回行数（默认 1），供 0 行更新失败分类测试使用。 */
@@ -161,6 +163,7 @@ internal class EvidenceTestProvider(
         insertCalls = 0
         insertBehavior = EvidenceInsertBehavior.FRESH
         insertException = null
+        queryExceptionFor = null
         nonPublishUpdateExceptionFor = null
         nonPublishUpdateResult = 1
         failSourceReadOpen = false
@@ -208,6 +211,7 @@ internal class EvidenceTestProvider(
         selectionArgs: Array<out String>?,
         sortOrder: String?
     ): Cursor? {
+        queryExceptionFor?.invoke(uri)?.let { throw it }
         val columns = projection ?: arrayOf(MediaStore.Images.Media._ID)
         val cursor = MatrixCursor(columns)
         val itemId = uri.lastPathSegment?.toLongOrNull()
