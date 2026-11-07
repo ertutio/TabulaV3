@@ -323,6 +323,28 @@ class PixelRefreshUiTest {
         return Triple((r / count).toInt(), (g / count).toInt(), (b / count).toInt())
     }
 
+    /**
+     * 打开查看器的点击：优先无障碍原生 ACTION_CLICK（节点或最近可点击祖先），
+     * 全部失败时回退为节点中心坐标 tap。返回实际使用的点击方式描述。
+     */
+    private fun openViewerByClick(node: AccessibilityNodeInfo): String {
+        if (node.isClickable) {
+            if (node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return "node ACTION_CLICK"
+        }
+        var parent: AccessibilityNodeInfo? = node.parent
+        var hops = 0
+        while (parent != null && hops < 6) {
+            if (parent.isClickable && parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                return "ancestor ACTION_CLICK (hops=$hops)"
+            }
+            parent = parent.parent
+            hops++
+        }
+        val rect = android.graphics.Rect().also { node.getBoundsInScreen(it) }
+        shell("input tap ${rect.centerX()} ${rect.centerY()}")
+        return "coordinate tap fallback"
+    }
+
     /** 按通道关系分类：R≫G,B=红；B≫R,G=蓝；其余 unknown。 */
     private fun classify(avg: Triple<Int, Int, Int>): String = when {
         avg.first > avg.second + 50 && avg.first > avg.third + 50 -> "red"
@@ -370,7 +392,8 @@ class PixelRefreshUiTest {
 
         // ---- 查看器阶段（A）：实际卡片位置点击 → 查看器专属状态 → 像素 = 红 ----
         val rect = android.graphics.Rect().also { cardNode.getBoundsInScreen(it) }
-        shell("input tap ${rect.centerX()} ${rect.centerY()}")
+        val clickMethod = openViewerByClick(cardNode)
+        Log.i(TAG, "card-A click via: $clickMethod")
         // 查看器专属状态：displayName 仍在（查看器 HD 图的描述）且 deck 状态
         // 文本消失（查看器全屏覆盖 deck）
         // 每 100ms 轮询同时记录（状态, 颜色）——时间线证据：查看器何时打开、
@@ -427,7 +450,8 @@ class PixelRefreshUiTest {
         // ---- 查看器阶段（B）：状态链 + 像素 = 蓝 ----
         val cardNodeB = waitForLargestNode(name)
         val rectB = android.graphics.Rect().also { cardNodeB.getBoundsInScreen(it) }
-        shell("input tap ${rectB.centerX()} ${rectB.centerY()}")
+        val clickMethodB = openViewerByClick(cardNodeB)
+        Log.i(TAG, "card-B click via: $clickMethodB")
         var viewerOpenSeenB = false
         val endB = SystemClock.uptimeMillis() + 15000
         var lastB = Triple(-1, -1, -1)
