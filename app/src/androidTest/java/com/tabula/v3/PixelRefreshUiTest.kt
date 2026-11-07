@@ -3,6 +3,7 @@ package com.tabula.v3
 import android.Manifest
 import android.content.ContentUris
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -12,6 +13,7 @@ import android.os.Build
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tabula.v3.data.preferences.AppPreferences
@@ -23,31 +25,33 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.FileInputStream
 import java.util.UUID
 
 /**
- * C4/T07 审计轮：卡片与查看器的像素级刷新——实际显示层验收（此前登记为
- * "UI dump 不可验证面"的补齐；设施盘点结论：条件具备，见台账 U17）。
+ * C4/T07 审计轮：卡片与查看器的像素级刷新——实际显示层验收（状态链版）。
  *
- * 场景（真实系统、真实 MediaStore、真实渲染）：
- * 1. 种子照片 = 纯红 A（同一媒体身份，单一种子保证 deck 当前卡即被测照片）；
- *    启动应用 → 卡片显示 A（同时预热 card_/viewer_hd_ 缓存——缓存键
- *    cardMemoryCacheKey 含 DATE_MODIFIED 内容版本）；
- * 2. 点按卡片中心 → 查看器显示 A；
- * 3. 应用退后台 → 同一媒体经 IS_PENDING 发布链更新为纯蓝 B（内容版本变化，
- *    与 PR41 设备链一致）；
- * 4. 回前台 → 卡片与查看器都必须显示 B——陈旧缓存会继续显示 A，故本断言
- *    即缓存失效证明。
+ * 状态链（全部使用现有可访问性节点，无生产改动）：
+ * 1. 卡片阶段：displayName 节点可见（确认卡片对应被测媒体）→ 在**该节点实际
+ *    边界**内采样像素（红 A）；
+ * 2. 点击该节点边界中心 → 等待"查看器专属状态"= displayName 节点仍在且
+ *    deck 专属的"张待整理"状态文本**消失**（查看器全屏覆盖 deck 的可观察
+ *    面貌；deck 卡片同样暴露 displayName，故必须以 deck 状态文本消失区分）→
+ *    确认后采样查看器像素（红 A）；
+ * 3. KEYCODE_BACK 退出 → 等待"张待整理"状态文本恢复（已回到卡片页面）；
+ * 4. 后台 → 同一媒体经 IS_PENDING 链更新为蓝 B（内容版本变化、身份不变）→
+ *    回前台重复 1-3，卡片与查看器都必须显示蓝 B——陈旧缓存/旧行会继续显示
+ *    红 A，此断言即刷新与缓存失效证明。
  *
- * 像素断言：仅采样屏幕中心稳定图块（卡片/查看器图像的中央区域），不整屏
- * hash（时间/动画/系统栏噪声按审计要求排除）；颜色按通道关系分类
- * （R≫G,B=红；B≫R,G=蓝），JPEG 压缩与缩放的中心均值偏移在分类阈值内。
- * 等待均为有截止时间的轮询（无固定 sleep 等状态）。
+ * 若"查看器专属状态"超时未出现，测试在该步失败——即"点击未打开查看器（或
+ * 被立即关闭）"路径的必然失败（不以中心颜色误判为查看器已打开）。
  *
- * 证据：A/B 两阶段截图写入 cloud-ui-failures/（CI trap 拉取为 artifact）；
- * 请求键与媒体内容版本经 Log 记录（logcat 随 CI 归档）。测试结束删除自建
- * 媒体（@After 与 ForegroundPermissionUiTest 同款收尾）。
+ * 证据：card-A/viewer-A/card-B/viewer-B 四阶段截图**总是**写入
+ * cloud-ui-failures/（CI trap 拉取为 artifact）；失败时额外保存辅助树 dump、
+ * 媒体身份（uri/卷/ID）、内容版本（DATE_MODIFIED 秒→毫秒）与**预期**请求键
+ * （card_<uri>_<版本毫秒>，手工拼接的预期值——实际请求证据需按需经 Coil 调试
+ * 接口采集，本测试登记该边界）。等待均为有截止时间的轮询。
  */
 @RunWith(AndroidJUnit4::class)
 class PixelRefreshUiTest {
@@ -58,6 +62,7 @@ class PixelRefreshUiTest {
 
     private val colorA = 0xFFFF0000.toInt() // 红
     private val colorB = 0xFF0000FF.toInt() // 蓝
+    private val deckStatusMarker = "张待整理"
 
     private fun shell(command: String): String = ins.uiAutomation.executeShellCommand(command).use { p ->
         FileInputStream(p.fileDescriptor).use { it.readBytes().toString(Charsets.UTF_8) }
@@ -68,6 +73,44 @@ class PixelRefreshUiTest {
             val out = ByteArrayOutputStream()
             stream.copyTo(out)
             out.toByteArray()
+        }
+    }
+
+    private fun evidenceDir(): File = File(
+        ctx.getExternalFilesDir(null) ?: ctx.filesDir, "cloud-ui-failures"
+    ).apply { mkdirs() }
+
+    private fun saveScreenshot(tag: String) {
+        try {
+            val png = shellBytes("screencap -p")
+            File(evidenceDir(), "pixel-refresh-$tag.png").writeBytes(png)
+            Log.i(TAG, "screenshot saved: $tag")
+        } catch (e: Exception) {
+            Log.w(TAG, "screenshot save failed: $tag", e)
+        }
+    }
+
+    /** 辅助树 dump（失败诊断用）：递归输出可见节点的类/文本/描述/边界。 */
+    private fun dumpTree(tag: String) {
+        try {
+            val sb = StringBuilder()
+            fun walk(node: AccessibilityNodeInfo?, depth: Int) {
+                if (node == null || depth > 25) return
+                if (node.isVisibleToUser) {
+                    val rect = android.graphics.Rect().also { node.getBoundsInScreen(it) }
+                    sb.append(" ".repeat(depth))
+                    sb.append(node.className).append(" text=").append(node.text)
+                        .append(" desc=").append(node.contentDescription)
+                        .append(" bounds=").append(rect.toShortString())
+                        .append('\n')
+                }
+                for (i in 0 until node.childCount) walk(node.getChild(i), depth + 1)
+            }
+            walk(ins.uiAutomation.rootInActiveWindow, 0)
+            File(evidenceDir(), "pixel-refresh-$tag-tree.txt").writeText(sb.toString())
+            Log.i(TAG, "tree dump saved: $tag (${sb.length} chars)")
+        } catch (e: Exception) {
+            Log.w(TAG, "tree dump failed: $tag", e)
         }
     }
 
@@ -105,7 +148,6 @@ class PixelRefreshUiTest {
         MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), ContentUris.parseId(uri)
     )
 
-    /** 种子纯色照片（同一媒体身份的 A/B 更新共用同一行）。 */
     private fun solidPhoto(color: Int): Uri {
         val name = "pixel-" + UUID.randomUUID() + ".jpg"
         val item = requireNotNull(ctx.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -173,33 +215,54 @@ class PixelRefreshUiTest {
         SystemClock.sleep(1000)
     }
 
-    private fun find(node: android.view.accessibility.AccessibilityNodeInfo?, label: String): android.view.accessibility.AccessibilityNodeInfo? {
+    private fun find(node: AccessibilityNodeInfo?, label: String): AccessibilityNodeInfo? {
         if (node == null) return null
         if (node.isVisibleToUser && (node.text?.toString()?.contains(label) == true || node.contentDescription?.toString()?.contains(label) == true)) return node
         for (i in 0 until node.childCount) find(node.getChild(i), label)?.let { return it }
         return null
     }
 
-    private fun waitFor(label: String, timeout: Long = 20000): android.view.accessibility.AccessibilityNodeInfo {
+    private fun waitForNode(label: String, timeout: Long = 20000): AccessibilityNodeInfo {
         val end = SystemClock.uptimeMillis() + timeout
         while (SystemClock.uptimeMillis() < end) {
             find(ins.uiAutomation.rootInActiveWindow, label)?.let { return it }
             SystemClock.sleep(100)
         }
+        dumpTree("missing-$label")
         error("UI element not found: $label")
     }
 
-    /** 屏幕中心稳定图块均值（卡片/查看器图像中央区域；避开边缘/文字/系统栏）。 */
-    private fun centerPatchAverage(): Triple<Int, Int, Int> {
+    /** 有截止时间的复合状态等待：条件成立返回，否则失败并留存证据。 */
+    private fun waitForState(
+        description: String, timeoutMs: Long = 20000,
+        poll: (AccessibilityNodeInfo) -> Boolean
+    ) {
+        val end = SystemClock.uptimeMillis() + timeoutMs
+        while (SystemClock.uptimeMillis() < end) {
+            val root = ins.uiAutomation.rootInActiveWindow
+            if (root != null && poll(root)) return
+            SystemClock.sleep(150)
+        }
+        dumpTree("state-timeout-$description")
+        saveScreenshot("state-timeout-$description")
+        error("state not reached: $description")
+    }
+
+    /**
+     * 采样指定节点边界内的中心图块均值（节点实际位置而非盲目屏幕中心；
+     * 避开边缘/文字）。
+     */
+    private fun sampleNodeCenter(node: AccessibilityNodeInfo): Triple<Int, Int, Int> {
+        val rect = android.graphics.Rect().also { node.getBoundsInScreen(it) }
         val png = shellBytes("screencap -p")
         val bitmap = requireNotNull(BitmapFactory.decodeByteArray(png, 0, png.size)) { "screencap decode failed" }
-        val w = bitmap.width
-        val h = bitmap.height
-        val halfW = w / 10
-        val halfH = h / 12
+        val cx = rect.centerX().coerceIn(0, bitmap.width - 1)
+        val cy = rect.centerY().coerceIn(0, bitmap.height - 1)
+        val halfW = minOf(rect.width() / 4, 120).coerceAtLeast(8)
+        val halfH = minOf(rect.height() / 4, 120).coerceAtLeast(8)
         var r = 0L; var g = 0L; var b = 0L; var count = 0L
-        for (x in (w / 2 - halfW) until (w / 2 + halfW) step 6) {
-            for (y in (h / 2 - halfH) until (h / 2 + halfH) step 6) {
+        for (x in (cx - halfW).coerceAtLeast(0) until (cx + halfW).coerceAtMost(bitmap.width) step 6) {
+            for (y in (cy - halfH).coerceAtLeast(0) until (cy + halfH).coerceAtMost(bitmap.height) step 6) {
                 val pixel = bitmap.getPixel(x, y)
                 r += (pixel shr 16) and 0xFF
                 g += (pixel shr 8) and 0xFF
@@ -218,86 +281,106 @@ class PixelRefreshUiTest {
         else -> "unknown"
     }
 
-    /** 有截止时间的颜色轮询（无固定 sleep 等状态；截图节奏即轮询节奏）。 */
-    private fun waitForColor(expected: String, evidenceTag: String, timeoutMs: Long = 15000): Triple<Int, Int, Int> {
+    /** 有截止时间的像素轮询：节点边界内采样，直到分类命中期望颜色。 */
+    private fun waitForColorInNode(
+        nodeLabel: String, expected: String, evidenceTag: String, timeoutMs: Long = 15000
+    ): Triple<Int, Int, Int> {
         val end = SystemClock.uptimeMillis() + timeoutMs
         var last = Triple(-1, -1, -1)
         var lastClass = "unknown"
         while (SystemClock.uptimeMillis() < end) {
-            last = centerPatchAverage()
-            lastClass = classify(last)
-            Log.i("PixelRefresh", "$evidenceTag avg=$last class=$lastClass")
-            if (lastClass == expected) return last
-            SystemClock.sleep(500)
+            val node = find(ins.uiAutomation.rootInActiveWindow, nodeLabel)
+            if (node != null) {
+                last = sampleNodeCenter(node)
+                lastClass = classify(last)
+                Log.i(TAG, "$evidenceTag avg=$last class=$lastClass")
+                if (lastClass == expected) return last
+            }
+            SystemClock.sleep(400)
         }
         saveScreenshot(evidenceTag)
+        dumpTree("color-timeout-$evidenceTag")
         error("expected $expected at $evidenceTag but saw $lastClass avg=$last")
-    }
-
-    private fun saveScreenshot(tag: String) {
-        try {
-            val png = shellBytes("screencap -p")
-            val dir = java.io.File(
-                ctx.getExternalFilesDir(null) ?: ctx.filesDir, "cloud-ui-failures"
-            ).apply { mkdirs() }
-            java.io.File(dir, "pixel-refresh-$tag.png").writeBytes(png)
-            Log.i("PixelRefresh", "screenshot saved: $tag")
-        } catch (e: Exception) {
-            Log.w("PixelRefresh", "screenshot save failed: $tag", e)
-        }
     }
 
     @Test
     fun externalEditUpdatesCardAndViewerPixelsAfterForegroundReturn() {
         val photo = solidPhoto(colorA)
         val name = displayNameOf(photo)
-        val versionBefore = dateModifiedOf(photo)
+        val versionBeforeSec = dateModifiedOf(photo)
+        val identityKey = "external_primary|${ContentUris.parseId(photo)}"
+        // 预期请求键（手工拼接，格式与 cardMemoryCacheKey 一致；实际请求证据
+        // 需经 Coil 调试接口按需采集——本测试登记该边界）
+        val expectedKeyBefore = "card_${photo}_${versionBeforeSec * 1000}"
 
-        // A：卡片显示（预热 card_/viewer_hd_ 缓存——键含内容版本）
+        // ---- 卡片阶段（A）：确认卡片对应被测媒体 → 卡片像素 = 红 ----
         launchToForeground()
-        waitFor(name)
-        waitForColor("red", evidenceTag = "card-A")
+        val cardNode = waitForNode(name)
+        waitForColorInNode(name, "red", evidenceTag = "card-A")
+        saveScreenshot("card-A")
 
-        // 查看器：点按卡片中心打开，确认查看器同样显示 A
-        val metrics = ctx.resources.displayMetrics
-        shell("input tap ${metrics.widthPixels / 2} ${metrics.heightPixels / 2}")
-        waitForColor("red", evidenceTag = "viewer-A")
-        // 关闭查看器，回到卡面（后台前固定 UI 状态）
+        // ---- 查看器阶段（A）：实际卡片位置点击 → 查看器专属状态 → 像素 = 红 ----
+        val rect = android.graphics.Rect().also { cardNode.getBoundsInScreen(it) }
+        shell("input tap ${rect.centerX()} ${rect.centerY()}")
+        // 查看器专属状态：displayName 仍在（查看器 HD 图的描述）且 deck 状态
+        // 文本消失（查看器全屏覆盖 deck）
+        waitForState("viewer-open-A", timeoutMs = 15000) { root ->
+            find(root, name) != null && find(root, deckStatusMarker) == null
+        }
+        val viewerNode = waitForNode(name)
+        waitForColorInNode(name, "red", evidenceTag = "viewer-A")
+        saveScreenshot("viewer-A")
+
+        // ---- 退出查看器：确认回到卡片页面 ----
         shell("input keyevent KEYCODE_BACK")
-        SystemClock.sleep(500)
+        waitForState("back-to-deck", timeoutMs = 10000) { root ->
+            find(root, deckStatusMarker) != null
+        }
 
-        // 后台期间同一媒体更新为 B（内容版本变化；媒体身份不变）
+        // ---- 后台编辑：同一媒体 → 蓝 B（内容版本变化、身份不变）----
         background()
         updateColor(photo, colorB)
-        val versionAfter = dateModifiedOf(photo)
-        assertTrue("编辑必须改变内容版本（DATE_MODIFIED 派生）", versionAfter > versionBefore)
-        // 清除首轮推荐写入的冷却记录（相似组 + 抽取时间戳）：首轮显示已把该
-        // 照片的组记入冷却，前台重载后引擎重组为空批（"0 张待整理"），显示层
-        // 回到引擎缓存的陈旧行——这是引擎推荐冷却语义而非显示层缺陷。像素
-        // 验收需要照片留在 deck 批次中（清除后引擎重新分析、批次含 B 行）。
-        // 直接清 SharedPreferences 文件（与 AppPreferences 同名文件）。
-        ctx.getSharedPreferences("tabula_similar_groups", android.content.Context.MODE_PRIVATE)
+        val versionAfterSec = dateModifiedOf(photo)
+        assertTrue("编辑必须改变内容版本（DATE_MODIFIED 派生）", versionAfterSec > versionBeforeSec)
+        // 清除首轮推荐写入的冷却记录（相似组 + 抽取时间戳）：保留理由 = 首轮
+        // 显示已把该照片的组记入推荐冷却，前台重载后引擎重组空批会使显示层
+        // 回到引擎缓存的陈旧行——掩盖被验收的显示路径；影响范围仅测试准备
+        // （清除后引擎重新分析、批次含 B 行），不改变任何显示层行为。
+        ctx.getSharedPreferences("tabula_similar_groups", Context.MODE_PRIVATE)
             .edit().clear().commit()
-        ctx.getSharedPreferences("tabula_pick_timestamps", android.content.Context.MODE_PRIVATE)
+        ctx.getSharedPreferences("tabula_pick_timestamps", Context.MODE_PRIVATE)
             .edit().clear().commit()
-        // 请求键格式与 cardMemoryCacheKey 一致（card_<uri>_<DATE_MODIFIED 毫秒>）
         Log.i(
-            "PixelRefresh",
-            "media=$photo versionBefore=${versionBefore * 1000} versionAfter=${versionAfter * 1000} " +
-                "requestKeyBefore=card_${photo}_${versionBefore * 1000} " +
-                "requestKeyAfter=card_${photo}_${versionAfter * 1000}"
+            TAG,
+            "media=$photo identity=$identityKey versionBeforeSec=$versionBeforeSec versionAfterSec=$versionAfterSec " +
+                "expectedRequestKeyBefore=$expectedKeyBefore " +
+                "expectedRequestKeyAfter=card_${photo}_${versionAfterSec * 1000} (预期值，手工拼接)"
         )
 
-        // 回前台：卡片必须显示 B（陈旧缓存会继续显示 A——本断言即缓存失效证明）
+        // ---- 卡片阶段（B）：像素 = 蓝 ----
         launchToForeground()
-        waitFor(name)
-        waitForColor("blue", evidenceTag = "card-B")
+        waitForNode(name)
+        waitForColorInNode(name, "blue", evidenceTag = "card-B")
+        saveScreenshot("card-B")
 
-        // 查看器必须显示 B
-        shell("input tap ${metrics.widthPixels / 2} ${metrics.heightPixels / 2}")
-        waitForColor("blue", evidenceTag = "viewer-B")
+        // ---- 查看器阶段（B）：状态链 + 像素 = 蓝 ----
+        val cardNodeB = waitForNode(name)
+        val rectB = android.graphics.Rect().also { cardNodeB.getBoundsInScreen(it) }
+        shell("input tap ${rectB.centerX()} ${rectB.centerY()}")
+        waitForState("viewer-open-B", timeoutMs = 15000) { root ->
+            find(root, name) != null && find(root, deckStatusMarker) == null
+        }
+        waitForColorInNode(name, "blue", evidenceTag = "viewer-B")
+        saveScreenshot("viewer-B")
+
+        // ---- 退出并确认回到卡片页面 ----
         shell("input keyevent KEYCODE_BACK")
-        SystemClock.sleep(500)
-        saveScreenshot("final-B")
+        waitForState("back-to-deck-final", timeoutMs = 10000) { root ->
+            find(root, deckStatusMarker) != null
+        }
+    }
+
+    private companion object {
+        const val TAG = "PixelRefresh"
     }
 }
