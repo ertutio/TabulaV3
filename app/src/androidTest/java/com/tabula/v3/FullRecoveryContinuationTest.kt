@@ -72,10 +72,16 @@ class FullRecoveryContinuationTest {
         assertEquals(checkpointIndex, resumed.second)
         assertEquals(listOf(groupId), resumed.first.groupIds)
 
-        // 实际续接：处理意图推进到位置 2 并持久化
+        // 实际续接（用户路径）：getNextBatch 从断点恢复批次 → 处理推进 →
+        // saveCheckpoint 持久化（注意：saveCheckpoint 仅在引擎已进入该图集
+        // 后生效——currentAlbumId 由 getNextBatch 设置；全新引擎实例上直接
+        // 调用是静默 no-op，审计轮 7 实证）
+        val next = requireNotNull(
+            engine.getNextBatch(albumId, rows, latestSnapshot = rows)
+        ) { "getNextBatch returned no batch for the restored group" }
+        assertEquals(listOf(groupId), next.groupIds)
         engine.saveCheckpoint(listOf(groupId), checkpointIndex + 1)
-        val advanced = requireNotNull(engine.getCheckpointBatch(albumId, rows))
-        assertEquals(checkpointIndex + 1, advanced.second)
-        assertEquals(listOf(groupId), advanced.first.groupIds)
+        val checkpoint = requireNotNull(engine.getCheckpoint(albumId)) { "checkpoint lost after advancing" }
+        assertEquals(checkpointIndex + 1, checkpoint.second)
     }
 }
