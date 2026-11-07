@@ -455,19 +455,19 @@ class PixelRefreshUiTest {
         Log.i(TAG, "card-B click via: $clickMethodB")
         var successB = false
         var lastObservationB = "no poll executed"
+        val overlayDescB = "viewer_overlay:$name"
         val endB = SystemClock.uptimeMillis() + 15000
         while (SystemClock.uptimeMillis() < endB) {
             val root = ins.uiAutomation.rootInActiveWindow
-            val nameNode = root?.let { find(it, name) }
-            val statusGone = root != null && find(root, deckStatusMarker) == null
+            val overlayNode = root?.let { find(it, overlayDescB) }
             val avg = centerPatchAverage()
             val cls = classify(avg)
-            lastObservationB = "open=${nameNode != null && statusGone} nameNode=${nameNode != null} " +
-                "statusGone=$statusGone avg=$avg class=$cls"
+            lastObservationB = "overlay=${overlayNode != null} avg=$avg class=$cls"
             Log.i(TAG, "viewer-B poll $lastObservationB")
             if (ViewerPollPolicy.pollSuccess(
-                    viewerStatePresent = nameNode != null, mediaNamePresent = nameNode != null,
-                    deckStatusGone = statusGone, colorClass = cls, expected = "blue"
+                    viewerOverlayPresent = overlayNode != null,
+                    mediaIdentityMatches = overlayNode != null,
+                    colorClass = cls, expected = "blue"
                 )
             ) {
                 successB = true
@@ -506,27 +506,26 @@ class PixelRefreshUiTest {
  */
     @Test
     fun openedThenClosedWithMatchingCardColorNeverPasses() {
-        // 第 1 次轮询：查看器在，但颜色不符（红 ≠ 期望蓝）
+        // 第 1 次轮询：查看器标识在，但颜色不符（红 ≠ 期望蓝）
         assertFalse(
             ViewerPollPolicy.pollSuccess(
-                viewerStatePresent = true, mediaNamePresent = true,
-                deckStatusGone = true, colorClass = "red", expected = "blue"
+                viewerOverlayPresent = true, mediaIdentityMatches = true,
+                colorClass = "red", expected = "blue"
             )
         )
-        // 第 2 次轮询：查看器已关闭（状态不在、deck 状态文本回来了），
-        // 颜色恰好符合——拼接不得通过
+        // 第 2 次轮询：查看器标识已消失（关闭），卡片颜色恰好符合——拼接不得通过
         assertFalse(
             "查看器关闭后的卡片颜色不能冒充查看器验收",
             ViewerPollPolicy.pollSuccess(
-                viewerStatePresent = false, mediaNamePresent = true,
-                deckStatusGone = false, colorClass = "blue", expected = "blue"
+                viewerOverlayPresent = false, mediaIdentityMatches = false,
+                colorClass = "blue", expected = "blue"
             )
         )
-        // 对照：同一次轮询三条件齐备才通过
+        // 对照：同一次轮询条件齐备才通过
         assertTrue(
             ViewerPollPolicy.pollSuccess(
-                viewerStatePresent = true, mediaNamePresent = true,
-                deckStatusGone = true, colorClass = "blue", expected = "blue"
+                viewerOverlayPresent = true, mediaIdentityMatches = true,
+                colorClass = "blue", expected = "blue"
             )
         )
     }
