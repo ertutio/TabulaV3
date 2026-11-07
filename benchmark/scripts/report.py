@@ -97,17 +97,91 @@ def read_session(folder):
     return {"build": json.loads((folder / "build.json").read_text()), "metrics": metrics}
 
 
+def _validate_packet_framing(payload: bytes, path_name: str):
+    """校验单个 TracePacket 载荷的顶层 protobuf 框架（无 schema 的可靠范围）。
+
+    逐字段走查：tag varint → field number ≥1、wire type ∈ {0,1,2,5}（proto3
+    不产生 groups，6/7 非法），长度定界字段不得越界、消息必须在载荷末尾恰好
+    结束。不递归进入 length-delimited 字段——无 schema 时无法区分嵌套消息与
+    任意字符串字节（递归会误拒含任意文本的合法 trace）；更深层内容校验属
+    schema 级工具（trace_processor）范围，本工具登记为边界。"""
+    n = len(payload)
+    pos = 0
+    while pos < n:
+        tag = 0
+        shift = 0
+        while True:
+            if pos >= n:
+                raise ValueError(f"Corrupt trace packet (field tag truncated): {path_name}")
+            byte = payload[pos]
+            pos += 1
+            tag |= (byte & 0x7F) << shift
+            if not byte & 0x80:
+                break
+            shift += 7
+            if shift > 63:
+                raise ValueError(f"Corrupt trace packet (field tag varint overrun): {path_name}")
+        field_number = tag >> 3
+        wire_type = tag & 0x07
+        if field_number == 0:
+            raise ValueError(f"Corrupt trace packet (invalid field number 0): {path_name}")
+        if wire_type == 0:
+            value = 0
+            shift = 0
+            while True:
+                if pos >= n:
+                    raise ValueError(f"Corrupt trace packet (varint value truncated): {path_name}")
+                byte = payload[pos]
+                pos += 1
+                value |= (byte & 0x7F) << shift
+                if not byte & 0x80:
+                    break
+                shift += 7
+                if shift > 63:
+                    raise ValueError(f"Corrupt trace packet (varint value overrun): {path_name}")
+        elif wire_type == 1:
+            if pos + 8 > n:
+                raise ValueError(f"Corrupt trace packet (fixed64 payload past end): {path_name}")
+            pos += 8
+        elif wire_type == 2:
+            length = 0
+            shift = 0
+            while True:
+                if pos >= n:
+                    raise ValueError(f"Corrupt trace packet (field length truncated): {path_name}")
+                byte = payload[pos]
+                pos += 1
+                length |= (byte & 0x7F) << shift
+                if not byte & 0x80:
+                    break
+                shift += 7
+                if shift > 63:
+                    raise ValueError(f"Corrupt trace packet (field length varint overrun): {path_name}")
+            if pos + length > n:
+                raise ValueError(f"Corrupt trace packet (field payload past end): {path_name}")
+            pos += length
+        elif wire_type == 5:
+            if pos + 4 > n:
+                raise ValueError(f"Corrupt trace packet (fixed32 payload past end): {path_name}")
+            pos += 4
+        else:
+            raise ValueError(f"Corrupt trace packet (unsupported wire type {wire_type}): {path_name}")
+
+
 def validate_trace_file(path):
     """校验单个 .perfetto-trace 证据文件（T08/TC36-42：坏证据必须拒绝 valid）。
 
-    接受两种形态，均做实际解析：
+    接受两种形态，均做实际解析（valid 依赖解析成功）：
     - gzip 容器：先完整解压（gzip.decompress 校验 CRC 与长度，损坏/截断在此
-      拒绝），再对解压载荷做 protobuf 走查；
+      拒绝），再对解压载荷做 trace 框架走查；
     - 未压缩 protobuf Trace（`repeated TracePacket packet = 1`，见 perfetto
       TracePacket 参考文档）：逐记录走查顶层 field-1 记录——tag 0x0A + varint
-      长度 + 载荷，直到 EOF。截断/损坏/非 trace 内容在此被拒绝。
-    zstd 等本工具无法实际解压验证的压缩格式**明确拒绝**（不凭魔数放行）。
-    空文件、零包文件一律拒绝。"""
+      长度 + 载荷直到 EOF，**且每个包载荷经 [_validate_packet_framing] 实际
+      解析其顶层 protobuf 框架**（审计轮：外层框架合法但包内损坏的字节如
+      `0a 01 ff` 不再被接受）。
+    更深层的包内嵌套内容校验需要 schema（trace_processor 级），本工具不递归、
+    不声称覆盖——登记为能力边界。zstd 等本工具无法实际解压验证的压缩格式
+    明确拒绝（不凭魔数放行）。空文件、零包文件一律拒绝。"""
     data = path.read_bytes()
     if not data:
         raise ValueError(f"Empty trace file: {path.name}")
@@ -142,6 +216,7 @@ def validate_trace_file(path):
                 raise ValueError(f"Corrupt trace (packet length varint overrun): {path.name}")
         if pos + length > n:
             raise ValueError(f"Corrupt trace (packet extends past end of file): {path.name}")
+        _validate_packet_framing(data[pos:pos + length], path.name)
         pos += length
         packets += 1
     if packets == 0:
@@ -154,9 +229,15 @@ def validate_round_traces(folder):
     预期用例至少一份可归属 trace，且轮内所有 trace 均可通过
     [validate_trace_file]——缺失/空/损坏/无法解析/文件名不可归属均拒绝。
 
-    归属能力边界（审计更正）：用例匹配基于**文件名包含**——这是弱归属，不是
-    本次运行来源的证明（同名文件可来自其他来源）；轮次来源证明由 build.json
-    与 environment 字段校验承担（本工具内已另行验证）。"""
+    证据能力边界（审计轮 2 逐项声明，各证明到什么程度）：
+    - **文件名归属**：弱归属——证明"该文件被标注为某用例的 trace"，不证明
+      其内容确属该用例或本次运行；
+    - **环境一致性**：environment.json 必需字段与 build.json（APK 摘要）的
+      两轮相等校验——证明两轮在**声明的**环境/APK 维度一致，不证明字段之外
+      的宿主差异；
+    - **trace 本次运行来源**：本工具**不能证明** trace 文件产生于本次运行
+      （文件名与内容均不绑定运行标识）；来源证明需测量时内嵌运行绑定（如
+      trace 内写入 session 标识），当前协议未含，登记为协议边界。"""
     trace_files = sorted(folder.rglob("*.perfetto-trace"))
     if not trace_files:
         raise ValueError("No perfetto traces captured for this round")

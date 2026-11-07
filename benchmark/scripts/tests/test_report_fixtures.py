@@ -1,17 +1,19 @@
-"""C5/T08 任务 G（+审计轮）：测量工具自身的正反夹具。
+"""C5/T08 任务 G（+审计轮 1/2）：测量工具自身的正反夹具。
 
 既有 test_report.py 覆盖缺失测量/坏样本/meminfo 口径；本文件补：
 - 完整成功 fixture 通过（正例：两轮独立会话产出 valid 报告）；
 - 迭代错配、环境不兼容、APK 不一致、版本集合不一致的明确失败；
 - 缺少证据不输出通过（read_session/make_report 任一校验失败即异常，valid=True
   仅在全部校验通过后写盘）；
-- trace 证据真实校验（审计轮）：真实 perfetto 工具样本（tracebox v59.1 产出、
+- trace 证据真实校验（审计轮 1）：真实 perfetto 工具样本（tracebox v59.1 产出、
   trace_processor 解析干净）正例；缺失/单用例缺失/空/截断/无法解析/文件名
-  不可归属负例；gzip 完整解压校验（损坏/截断拒绝）；zstd 明确拒绝。
+  不可归属负例；gzip 完整解压校验（损坏/截断拒绝）；zstd 明确拒绝；
+- 包内容实际解析（审计轮 2）：每个包载荷顶层 protobuf 框架走查——外层框架
+  合法但包内损坏（如 0a 01 ff）的普通与 gzip 形态均拒绝，valid 依赖解析成功。
 
 只验证测量工具本身：不产出性能数字、不恢复 PR6 的历史测量任务、不构成
-任何冻结基线。测试计数口径：本文件 20 项 + 既有 test_report.py 3 项 =
-discover 全量 23 项。运行：python -m unittest
+任何冻结基线。测试计数口径：本文件 23 项 + 既有 test_report.py 3 项 =
+discover 全量 26 项。运行：python -m unittest
 benchmark.scripts.tests.test_report_fixtures（或 discover benchmark/scripts/tests）。
 """
 
@@ -69,8 +71,10 @@ def meminfo_text(seed):
 
 
 # 最小合法未压缩 Perfetto trace：顶层 `repeated TracePacket packet = 1`
-# 两条记录（tag 0x0A + varint 长度 + 载荷），可通过 report.validate_trace_file。
-VALID_TRACE_BODY = b"\x0a\x03\x08\x01\x0c" + b"\x0a\x02ab"
+# 两条记录（tag 0x0A + varint 长度 + 载荷）。包载荷为合法 protobuf 顶层框架：
+# 包1 = field1(varint)=1、包2 = field2(varint)=7（审计轮 2 更正——原夹具载荷
+# `08 01 0c` 的尾字节 0c 是非法 wiretype，旧校验器不查包内故未暴露）。
+VALID_TRACE_BODY = b"\x0a\x02\x08\x01" + b"\x0a\x02\x10\x07"
 
 TRACE_CLASS_PREFIX = "com.tabula.v3.benchmark.TabulaPerformanceBenchmark."
 
@@ -329,6 +333,36 @@ class TraceFixtureTest(unittest.TestCase):
             victim = next(p for p in folder.rglob("*.perfetto-trace") if "e_viewer" in p.name)
             victim.write_bytes(b"\x28\xb5\x2f\xfd" + b"\x00" * 24)
             with self.assertRaisesRegex(ValueError, "Unsupported compressed trace format"):
+                report.read_session(folder)
+
+    def test_corruptPacketContentIsRejectedThroughRealEntry(self):
+        # 审计轮：外层框架合法（tag 0x0A len 1）但包内 protobuf 损坏（0xff）——
+        # 包载荷必须实际解析，valid 依赖解析成功
+        corrupt = b"\x0a\x01\xff"
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "a_coldStartup" in p.name)
+            victim.write_bytes(corrupt)
+            with self.assertRaisesRegex(ValueError, "Corrupt trace packet"):
+                report.read_session(folder)
+
+    def test_corruptPacketContentInsideGzipIsRejectedThroughRealEntry(self):
+        # 同一损坏内容经合法 gzip 包装：解压后仍须拒绝
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "b_warmStartup" in p.name)
+            victim.write_bytes(gzip.compress(b"\x0a\x01\xff"))
+            with self.assertRaisesRegex(ValueError, "Corrupt trace packet"):
+                report.read_session(folder)
+
+    def test_corruptVarintValueInsidePacketIsRejected(self):
+        # 包内 varint 值截断（tag 合法但 value 越界）——顶层框架走查覆盖
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "c_shuffleCards" in p.name)
+            # field 1 (timestamp, varint) 声明继续但载荷耗尽
+            victim.write_bytes(b"\x0a\x04\x08\xff\xff\xff\xff")
+            with self.assertRaisesRegex(ValueError, "Corrupt trace packet"):
                 report.read_session(folder)
 
 
