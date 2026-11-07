@@ -8,6 +8,20 @@ import re
 import statistics
 import zlib
 
+# Perfetto TracePacket 消息型字段表（审计轮 3）：自动生成自 perfetto_trace.proto
+# （perfetto 主分支，googlesource 抓取于 2026-11-07；解析 message TracePacket 块
+# 中 `TYPE name = N;` 声明并排除标量关键字，共 82 个 message 型字段号，含
+# field 11=TrackEvent、60=TrackDescriptor）。string/bytes 与标量字段不在表内——
+# 按协议不递归（无 schema 不可区分嵌套消息与任意字符串字节，盲递归会误拒含
+# 任意文本的合法 trace）。校验语义见 _validate_packet_framing。
+TRACE_PACKET_MESSAGE_FIELDS = frozenset([
+    1, 2, 4, 5, 6, 7, 9, 11, 12, 33, 34, 35, 37, 38, 39, 40, 43, 44, 45, 46,
+    47, 48, 49, 51, 52, 53, 54, 56, 57, 59, 60, 61, 62, 63, 64, 65, 66, 67,
+    68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 80, 81, 82, 83, 84, 86, 88,
+    89, 90, 91, 92, 93, 94, 95, 96, 97, 99, 100, 101, 102, 103, 104, 105,
+    107, 109, 110, 111, 112, 113, 114, 115, 116, 900,
+])
+
 EXPECTED = {"a_coldStartup": 10, "b_warmStartup": 10, "c_shuffleCards": 5,
             "d_drawCards": 5, "e_viewer": 5}
 STAGES = ["startup", "after12Swipes", "viewer", "afterViewerClose"]
@@ -97,14 +111,17 @@ def read_session(folder):
     return {"build": json.loads((folder / "build.json").read_text()), "metrics": metrics}
 
 
-def _validate_packet_framing(payload: bytes, path_name: str):
-    """校验单个 TracePacket 载荷的顶层 protobuf 框架（无 schema 的可靠范围）。
+def _validate_packet_framing(payload: bytes, path_name: str, message_fields: frozenset = frozenset(), depth: int = 0):
+    """校验一个 protobuf 消息载荷的顶层框架。
 
     逐字段走查：tag varint → field number ≥1、wire type ∈ {0,1,2,5}（proto3
     不产生 groups，6/7 非法），长度定界字段不得越界、消息必须在载荷末尾恰好
-    结束。不递归进入 length-delimited 字段——无 schema 时无法区分嵌套消息与
-    任意字符串字节（递归会误拒含任意文本的合法 trace）；更深层内容校验属
-    schema 级工具（trace_processor）范围，本工具登记为边界。"""
+    结束。递归规则（schema 驱动，不盲递归）：wire type=2 且 field number 命中
+    [TRACE_PACKET_MESSAGE_FIELDS] 的字段，其载荷按本函数递归一层——这些是
+    schema 声明的消息型字段；string/bytes 与标量载荷不递归（无 schema 不可
+    区分嵌套消息与任意字符串字节，盲递归会误拒含任意文本的合法 trace）。
+    depth ≥1 后不再递归——已知嵌套消息（如 TrackEvent）的更深层字段需要
+    各消息自己的 schema 表，登记为能力边界（schema 级工具范围）。"""
     n = len(payload)
     pos = 0
     while pos < n:
@@ -159,6 +176,9 @@ def _validate_packet_framing(payload: bytes, path_name: str):
                     raise ValueError(f"Corrupt trace packet (field length varint overrun): {path_name}")
             if pos + length > n:
                 raise ValueError(f"Corrupt trace packet (field payload past end): {path_name}")
+            if depth == 0 and field_number in message_fields:
+                # schema 声明的消息型字段：载荷按消息框架实际解析一层（审计轮 3）
+                _validate_packet_framing(payload[pos:pos + length], path_name, depth=depth + 1)
             pos += length
         elif wire_type == 5:
             if pos + 4 > n:
@@ -216,7 +236,7 @@ def validate_trace_file(path):
                 raise ValueError(f"Corrupt trace (packet length varint overrun): {path.name}")
         if pos + length > n:
             raise ValueError(f"Corrupt trace (packet extends past end of file): {path.name}")
-        _validate_packet_framing(data[pos:pos + length], path.name)
+        _validate_packet_framing(data[pos:pos + length], path.name, message_fields=TRACE_PACKET_MESSAGE_FIELDS)
         pos += length
         packets += 1
     if packets == 0:

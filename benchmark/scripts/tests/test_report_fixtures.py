@@ -9,11 +9,17 @@
   trace_processor 解析干净）正例；缺失/单用例缺失/空/截断/无法解析/文件名
   不可归属负例；gzip 完整解压校验（损坏/截断拒绝）；zstd 明确拒绝；
 - 包内容实际解析（审计轮 2）：每个包载荷顶层 protobuf 框架走查——外层框架
-  合法但包内损坏（如 0a 01 ff）的普通与 gzip 形态均拒绝，valid 依赖解析成功。
+  合法但包内损坏（如 0a 01 ff）的普通与 gzip 形态均拒绝，valid 依赖解析成功；
+- 嵌套消息 schema 校验（审计轮 3）：TracePacket 的 82 个 schema 声明消息型
+  字段（自动生成自 perfetto_trace.proto，含 field 11=TrackEvent）载荷递归
+  一层实际解析——嵌套损坏（0a 03 5a 01 ff）普通与 gzip 均拒；string/bytes
+  按协议不递归（防误拒测试覆盖）；已知嵌套消息的更深层字段需各消息自己的
+  schema，登记为能力边界。校验为内嵌 schema 表（无外部解析工具依赖），
+  解析失败即异常传播 → 报告不得标为有效。
 
 只验证测量工具本身：不产出性能数字、不恢复 PR6 的历史测量任务、不构成
-任何冻结基线。测试计数口径：本文件 23 项 + 既有 test_report.py 3 项 =
-discover 全量 26 项。运行：python -m unittest
+任何冻结基线。测试计数口径（实跑）：本文件 26 项 + 既有 test_report.py 3 项 =
+discover 全量 29 项，零失败零跳过。运行：python -m unittest
 benchmark.scripts.tests.test_report_fixtures（或 discover benchmark/scripts/tests）。
 """
 
@@ -364,6 +370,35 @@ class TraceFixtureTest(unittest.TestCase):
             victim.write_bytes(b"\x0a\x04\x08\xff\xff\xff\xff")
             with self.assertRaisesRegex(ValueError, "Corrupt trace packet"):
                 report.read_session(folder)
+
+    def test_corruptNestedMessageIsRejectedThroughRealEntry(self):
+        # 审计轮 3：0a 03 5a 01 ff = TracePacket，field 11（TrackEvent，schema
+        # 声明的消息型字段）载荷 ff 损坏——schema 驱动递归必须识别
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "a_coldStartup" in p.name)
+            victim.write_bytes(b"\x0a\x03\x5a\x01\xff")
+            with self.assertRaisesRegex(ValueError, "Corrupt trace packet"):
+                report.read_session(folder)
+
+    def test_corruptNestedMessageInsideGzipIsRejectedThroughRealEntry(self):
+        # 同一嵌套损坏经合法 gzip 包装：解压后仍须拒绝
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "b_warmStartup" in p.name)
+            victim.write_bytes(gzip.compress(b"\x0a\x03\x5a\x01\xff"))
+            with self.assertRaisesRegex(ValueError, "Corrupt trace packet"):
+                report.read_session(folder)
+
+    def test_stringFieldPayloadIsNotRecursedAsMessage(self):
+        # 防误拒：消息型字段之外的 length-delimited 载荷（按协议可能是字符串/
+        # 任意字节）不得被当作消息递归——含任意文本的合法 trace 必须通过。
+        # field 36 在 schema 中为 string 型（不在消息表）。
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "e_viewer" in p.name)
+            victim.write_bytes(b"\x0a\x0e\xa2\x02\x0bhello world")
+            report.read_session(folder)  # 不抛出即通过
 
 
 if __name__ == "__main__":
