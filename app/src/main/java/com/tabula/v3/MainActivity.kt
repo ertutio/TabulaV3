@@ -169,6 +169,60 @@ private suspend fun resolveMediaVolumeName(context: Context, uri: Uri): String? 
         }.getOrNull()
     }
 
+/**
+ * C4/T07：回前台权限刷新的加载-提交链（mediaAccessRevision LaunchedEffect 体
+ * 的 verbatim 提取；审计轮为"旧扫描晚返回不覆盖新权限状态"的受控竞争测试
+ * 提供真实接缝——测试阻塞注入的 load、按框架键控语义取消旧扫描、断言提交
+ * 路径只归最新扫描且取消不落 error 态）。
+ *
+ * 取消纪律（既有语义，保持不变）：调用方取消在任意挂起点传播为
+ * CancellationException 原样抛出——apply/onError 均不会为被取消的扫描执行；
+ * onFinally 仅做 UI 收尾（isLoading），不承载提交。
+ * load 默认为真实生产链（loadAllData + loadRecycleBin）；生产接线不注入。
+ */
+internal suspend fun loadAndApplyMediaSnapshot(
+    context: Context,
+    recycleBinManager: RecycleBinManager,
+    albumManager: AlbumManager,
+    fileOperationManager: FileOperationManager,
+    deletePermissionInFlight: Boolean,
+    onRecycleUnknown: () -> Unit,
+    onError: (Exception) -> Unit,
+    onFinally: () -> Unit,
+    load: suspend () -> Pair<LocalImageRepository.LoadResult, List<ImageFile>> = {
+        Pair(LocalImageRepository(context).loadAllData(), recycleBinManager.loadRecycleBin())
+    },
+    apply: (LocalImageRepository.LoadResult, List<ImageFile>) -> Unit
+) {
+    try {
+        if (!deletePermissionInFlight) {
+            val recovered = reconcileRecycleBinDeletion(
+                recycleBinManager,
+                resolveVolume = { resolveMediaVolumeName(context, it) },
+                verify = fileOperationManager::verifyDeletionState
+            )
+            if (recovered.unknown.isNotEmpty()) {
+                onRecycleUnknown()
+            }
+        }
+        val loadedData = withContext(Dispatchers.IO) {
+            val loadResult = load()
+            // 浏览/推荐由"快照 − 软删除集合"派生，相册计数与封面同步重算。
+            val projected = projectSnapshot(loadResult.first, loadResult.second)
+            albumManager.initialize(preloadedBuckets = projected.systemBuckets)
+            Pair(projected, loadResult.second)
+        }
+        apply(loadedData.first, loadedData.second)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.e("TabulaApp", "Could not load/reconcile recycle bin", e)
+        onError(e)
+    } finally {
+        onFinally()
+    }
+}
+
 class MainActivity : ComponentActivity() {
 
     private var hasPermission by mutableStateOf(false)
@@ -523,6 +577,9 @@ fun TabulaApp(
     // 作为键重启本 effect 取消在途扫描（晚到结果不覆盖新权限态），并按现有
     // 快照契约（loadAllData + projectSnapshot）整表刷新：失去访问权的旧条目
     // 随 MediaStore 重查消失，外部删除/修改与部分选择集变更在返回时更新。
+    // 加载-提交链在 loadAndApplyMediaSnapshot（verbatim 提取；审计轮为受控
+    // 竞争测试提供真实接缝），取消语义不变：键变化 → effect 取消 → 扫描体
+    // 经 CancellationException 原样退出，apply/error 不为被取消扫描执行。
     LaunchedEffect(
         mediaAccessRevision,
         deletionRecoveryRevision,
@@ -531,39 +588,28 @@ fun TabulaApp(
         isDeletingRecycleBin
     ) {
         if (isDeletingRecycleBin) return@LaunchedEffect
-        try {
-            if (!deletePermissionInFlight) {
-                val recovered = reconcileRecycleBinDeletion(
-                    recycleBinManager,
-                    resolveVolume = { resolveMediaVolumeName(context, it) },
-                    verify = fileOperationManager::verifyDeletionState
-                )
-                if (recovered.unknown.isNotEmpty()) {
-                    Toast.makeText(context, "上次删除尚有无法核对的照片，请检查照片访问权限或存储卷后重试", Toast.LENGTH_LONG).show()
-                }
+        loadAndApplyMediaSnapshot(
+            context = context,
+            recycleBinManager = recycleBinManager,
+            albumManager = albumManager,
+            fileOperationManager = fileOperationManager,
+            deletePermissionInFlight = deletePermissionInFlight,
+            onRecycleUnknown = {
+                Toast.makeText(context, "上次删除尚有无法核对的照片，请检查照片访问权限或存储卷后重试", Toast.LENGTH_LONG).show()
+            },
+            onError = {
+                recycleBinLoadError = true
+                Toast.makeText(context, "回收站记录未能读取或核对，原记录已保留，请重试", Toast.LENGTH_LONG).show()
+            },
+            onFinally = { isLoading = false },
+            apply = { projected, deleted ->
+                allImages = projected.allImages
+                imagesForSorting = projected.imagesExcludingTabula
+                systemBuckets = projected.systemBuckets
+                deletedImages = deleted
+                recycleBinLoadError = false
             }
-            val loadedData = withContext(Dispatchers.IO) {
-                val loadResult = LocalImageRepository(context).loadAllData()
-                val deleted = recycleBinManager.loadRecycleBin()
-                // 浏览/推荐由"快照 − 软删除集合"派生，相册计数与封面同步重算。
-                val projected = projectSnapshot(loadResult, deleted)
-                albumManager.initialize(preloadedBuckets = projected.systemBuckets)
-                Pair(projected, deleted)
-            }
-            allImages = loadedData.first.allImages
-            imagesForSorting = loadedData.first.imagesExcludingTabula
-            systemBuckets = loadedData.first.systemBuckets
-            deletedImages = loadedData.second
-            recycleBinLoadError = false
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            recycleBinLoadError = true
-            Log.e("TabulaApp", "Could not load/reconcile recycle bin", e)
-            Toast.makeText(context, "回收站记录未能读取或核对，原记录已保留，请重试", Toast.LENGTH_LONG).show()
-        } finally {
-            isLoading = false
-        }
+        )
     }
 
     if (recycleBinLoadError) {
