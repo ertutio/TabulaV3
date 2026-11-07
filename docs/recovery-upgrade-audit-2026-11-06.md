@@ -66,3 +66,15 @@
 | ② 卡片与查看器显示更新后的像素（前后可明确区分的图片） | 设备：注入两版可区分图片，编辑后回前台，对比卡片/查看器渲染位图（截图 hash 三角验证） | 显示层重新解码，旧像素不残留 | **blocked**——缺设备 UI 自动化像素对比设施（应用无 Compose 测试基建；in-process 探针无法在编辑后持有两版位图对比）；键链路已由单测钉住（PR39 viewer_hd_ 版本键 + 任务 C ImageCard uri 键：内容版本变化必然派生新请求） | PR39/任务 C 单测 + 本登记；执行条件：API 34+ 设备 + am instrument 扩展设备用例（截图对比步骤已写明） |
 | ③ PARTIAL 授权集合变化后可见集合与实际授权一致 | 设备：真机手工操作——设置里撤销/重授部分照片选择，回应用核对可见集合 | 可见集合=实际授权集合（多选/少选都如实） | **blocked（人工验收）**——pm 不可夹具化 PARTIAL 选中集合（OS 无 shell 等价操作）；撤销授权会强停应用进程（in-process instrumentation 随宿主死亡，实证登记） | 逻辑层已覆盖：级别映射单测 + ForegroundRefreshSyncTest 快照竞争；人工验收步骤：真机 revoke→重开应用→逐张核对可见集合→录屏存证 |
 | ④ 恢复 FULL 后清理组、月份列表、断点继续处理，暂不可见成员保留正确状态 | 逻辑层单测（已执行）+ 设备（与③同批手工验收） | 缺席组不标记完成（持有）、月快照重建、断点续接、恢复 FULL 后继续 | **逻辑层已关闭**——任务 A 持有语义 7/7（fullyVanishedGroupIsHeldNotMarkedAndResumesAfterAccessRestore：FULL→PARTIAL→重建引擎→FULL）+ U9 套件（断点编辑恢复/空快照完成通道）；设备端与③同批人工验收 | AlbumCleanupForegroundRefreshTest（CI 绿）+ 本登记 |
+
+
+### 设施盘点与设备验收条件（2026-11-07 第二次盘点）
+
+**现有设施**：CI 双模拟器（API 36/37，KVM，build-volume-confirmation 工作流）可运行 androidTest；`ForegroundPermissionUiTest` 已具备：UiAutomation `shell()`（可执行 pm/am）、MediaStore 种子照片 + IS_PENDING 发布链（外部编辑模拟）、`am start` 回前台驱动。**in-process 探针边界**：撤销授权强停应用进程（instrumentation 随宿主死亡，实证）。
+
+| 场景 | 条件具备度 | 下一步操作（可执行） |
+| --- | --- | --- |
+| ② 像素级刷新 | **条件具备（待立项）** | 最小可执行验证 = 扩展 ForegroundPermissionUiTest：两版纯色可区分图片（红→蓝）经 IS_PENDING 编辑链 → 回前台 → `UiDevice.takeScreenshot` 截卡片/查看器固定区域 → 前后 hash 必须不同且 after 匹配新颜色。风险：模拟器渲染确定性需两次试跑验证；预计 1 个设备用例 + CI 两轮 |
+| ③ PARTIAL 集合变化 | **自动化 blocked** | 选择集合仅能经系统照片选择器 UI 设置（无 shell/程序化入口）；撤销强停杀 instrumentation。下一步 = 真机人工验收（revoke→重开→逐张核对→录屏存证），或立项宿主端 adb 黑盒驱动（新设施，超出当前范围） |
+| ④ FULL 恢复续接 | **部分可自动化（待立项）** | 两阶段方案：阶段 1 instrumentation 建立清理断点 → 结束；宿主 shell `pm revoke`（应用被杀）→ `pm grant` FULL → `am start` 重开；阶段 2 新 instrumentation 读取持久化断点/清理组状态断言续接。条件具备（CI 模拟器 + shell 已可用），预计 1 个两阶段用例 |
+| ① 外部编辑回前台 | 已关闭 | 设备链实跑记录见 U14；repository 层见 PR49 |
