@@ -54,3 +54,15 @@
 ## 六、本轮结论
 
 任务3 的合成可测面在 master `502fce2` 已有完整覆盖，未发现**新的**可立约缺口；本轮产出为（a）上述可追溯盘点表、（b）覆盖安装验证步骤、（c）Windows 环境失败族的干净基线实证。后续代码级工作继续按台账最早 ready 项推进。
+
+
+---
+
+## 附：刷新验收四场景登记（2026-11-07，审计轮 4 后盘点）
+
+| 场景 | 操作 | 预期 | 实际结果 | 证据 |
+| --- | --- | --- | --- | --- |
+| ① 外部编辑照片后回前台：实际刷新入口触发、采用最新元数据和内容版本 | 设备：API 34+ 模拟器/真机，运行 ForegroundPermissionUiTest 外部编辑用例（应用回前台前由测试进程经 IS_PENDING 发布链改写照片） | 回前台触发 mediaAccessRevision 整表重载；行对象携带新 DATE_MODIFIED；派生 cardMemoryCacheKey 变化 | **已关闭**——两层证据齐备：设备链（真实系统实跑，见 U14 登记 run 41706417934 系列）+ repository 层（PR49：ExternalEditMetadataAdoptionTest 采纳新元数据/键变化/排序） | 设备用例 CI 实跑记录 + PR49 合并（master 92fd541） |
+| ② 卡片与查看器显示更新后的像素（前后可明确区分的图片） | 设备：注入两版可区分图片，编辑后回前台，对比卡片/查看器渲染位图（截图 hash 三角验证） | 显示层重新解码，旧像素不残留 | **blocked**——缺设备 UI 自动化像素对比设施（应用无 Compose 测试基建；in-process 探针无法在编辑后持有两版位图对比）；键链路已由单测钉住（PR39 viewer_hd_ 版本键 + 任务 C ImageCard uri 键：内容版本变化必然派生新请求） | PR39/任务 C 单测 + 本登记；执行条件：API 34+ 设备 + am instrument 扩展设备用例（截图对比步骤已写明） |
+| ③ PARTIAL 授权集合变化后可见集合与实际授权一致 | 设备：真机手工操作——设置里撤销/重授部分照片选择，回应用核对可见集合 | 可见集合=实际授权集合（多选/少选都如实） | **blocked（人工验收）**——pm 不可夹具化 PARTIAL 选中集合（OS 无 shell 等价操作）；撤销授权会强停应用进程（in-process instrumentation 随宿主死亡，实证登记） | 逻辑层已覆盖：级别映射单测 + ForegroundRefreshSyncTest 快照竞争；人工验收步骤：真机 revoke→重开应用→逐张核对可见集合→录屏存证 |
+| ④ 恢复 FULL 后清理组、月份列表、断点继续处理，暂不可见成员保留正确状态 | 逻辑层单测（已执行）+ 设备（与③同批手工验收） | 缺席组不标记完成（持有）、月快照重建、断点续接、恢复 FULL 后继续 | **逻辑层已关闭**——任务 A 持有语义 7/7（fullyVanishedGroupIsHeldNotMarkedAndResumesAfterAccessRestore：FULL→PARTIAL→重建引擎→FULL）+ U9 套件（断点编辑恢复/空快照完成通道）；设备端与③同批人工验收 | AlbumCleanupForegroundRefreshTest（CI 绿）+ 本登记 |
