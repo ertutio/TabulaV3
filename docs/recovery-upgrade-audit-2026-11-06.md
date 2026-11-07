@@ -78,3 +78,14 @@
 | ③ PARTIAL 集合变化 | **自动化 blocked** | 选择集合仅能经系统照片选择器 UI 设置（无 shell/程序化入口）；撤销强停杀 instrumentation。下一步 = 真机人工验收（revoke→重开→逐张核对→录屏存证），或立项宿主端 adb 黑盒驱动（新设施，超出当前范围） |
 | ④ FULL 恢复续接 | **部分可自动化（待立项）** | 两阶段方案：阶段 1 instrumentation 建立清理断点 → 结束；宿主 shell `pm revoke`（应用被杀）→ `pm grant` FULL → `am start` 重开；阶段 2 新 instrumentation 读取持久化断点/清理组状态断言续接。条件具备（CI 模拟器 + shell 已可用），预计 1 个两阶段用例 |
 | ① 外部编辑回前台 | 已关闭 | 设备链实跑记录见 U14；repository 层见 PR49 |
+
+
+### 像素刷新缺陷登记（2026-11-07，PR51 两次 CI 迭代实证）
+
+**缺陷**：外部编辑（同一媒体身份，IS_PENDING 发布链改写内容）+ 回前台后，deck 卡片**先短暂显示新内容（blue 实证）随后翻回编辑前的旧位图（255,0,0 纯红实证）**，且点按卡片未呈现查看器（失败截图为 deck 界面）。两次 CI 迭代（42367556385 API36 / 42369922277 双 API）复现；冷却清除（相似组+抽取时间戳两 prefs 文件清空）不能消除——排除冷却假设。
+
+**证据**（CI 工件 Tabula-VolumeFix-API36/37，PixelRefreshUiTest）：失败时刻截图 pixel-refresh-viewer-B.png（deck 界面+红卡）；logcat 颜色采样全序列（card-A 红/viewer-A 红/card-B 蓝/viewer-B 红×21）；请求键修复前后两键（card_<uri>_<版本毫秒>）；媒体版本 1794051040000→1794051046000（变化实证）。测试代码保留失败状态（不弱化断言不跳过），分支 CI 红=缺陷持续实证。
+
+**待定位假设**（下一诊断工作包）：①前台重载后 deck 行对象被引擎缓存陈旧行替换（syncRowsToSnapshot 未覆盖该时序）；②查看器状态被空池同步关闭（U9 空池语义 × 本场景）。区分手段：诊断版测试在失败时刻 dump 辅助树与各阶段截图。
+
+**两阶段 FULL 恢复验证（工作包 2）研究结论**：机械可行性成立——instrumentation 各阶段独立运行至完成（不跨进程死亡），宿主侧在两阶段间执行 `pm revoke`（应用被系统强停，实证行为）→ `pm grant` → `am start`；阶段 1 以引擎 API（真实 prefs + 自建 MediaStore 媒体）建立清理组/断点并把预期状态写入 files/（run-as 可读，跨进程死亡持久）；阶段 2 为新 instrumentation，重建引擎断言组/月/断点续接与暂不可见成员持有。实施载体 = run-cloud-ui-probe.sh 增设两阶段块（阶段间不 pm clear）。预计 2 设备用例 + 工作流接线 + CI 两轮；因本轮预算用于像素缺陷，列为下一就绪工作包。
