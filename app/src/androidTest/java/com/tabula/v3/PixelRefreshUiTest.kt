@@ -271,6 +271,15 @@ class PixelRefreshUiTest {
         updateColor(photo, colorB)
         val versionAfter = dateModifiedOf(photo)
         assertTrue("编辑必须改变内容版本（DATE_MODIFIED 派生）", versionAfter > versionBefore)
+        // 清除首轮推荐写入的冷却记录（相似组 + 抽取时间戳）：首轮显示已把该
+        // 照片的组记入冷却，前台重载后引擎重组为空批（"0 张待整理"），显示层
+        // 回到引擎缓存的陈旧行——这是引擎推荐冷却语义而非显示层缺陷。像素
+        // 验收需要照片留在 deck 批次中（清除后引擎重新分析、批次含 B 行）。
+        // 直接清 SharedPreferences 文件（与 AppPreferences 同名文件）。
+        ctx.getSharedPreferences("tabula_similar_groups", android.content.Context.MODE_PRIVATE)
+            .edit().clear().commit()
+        ctx.getSharedPreferences("tabula_pick_timestamps", android.content.Context.MODE_PRIVATE)
+            .edit().clear().commit()
         // 请求键格式与 cardMemoryCacheKey 一致（card_<uri>_<DATE_MODIFIED 毫秒>）
         Log.i(
             "PixelRefresh",
