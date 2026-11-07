@@ -70,4 +70,39 @@ for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTe
   adb logcat -d -v threadtime > "$dir/logcat.txt" || true
   adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures "$dir/ui-failures" || true
 done
+# ===== FULL 恢复两阶段（+缺席断言）验证（审计轮：工作包 2）=====
+# 阶段一建立真实清理组/断点；宿主 revoke（应用被强停）→ 缺席断言 →
+# grant（恢复 FULL）→ 重开；阶段二断言续接。期间不 pm clear（应用数据保留）。
+echo "=== FULL recovery two-phase verification ==="
+full_status=0
+adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '' | grep -Fx Success || full_status=1
+adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || full_status=1
+mkdir -p device-results/FullRecovery
+if ! adb shell am instrument -w -r -e allowSyntheticMediaProbe true   -e class "com.tabula.v3.FullRecoveryPhase1Test"   com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner   | tee device-results/FullRecovery/phase1.txt; then
+  echo "Phase1 instrumentation failed" >&2; full_status=1
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/FullRecovery/phase1.txt || { echo "Phase1 expected OK(1)" >&2; full_status=1; }
+
+# 宿主侧权限收窄：应用被系统强停（实证行为）
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || full_status=1
+sleep 2
+if ! adb shell am instrument -w -r -e allowSyntheticMediaProbe true   -e class "com.tabula.v3.FullRecoveryAbsenceTest"   com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner   | tee device-results/FullRecovery/absence.txt; then
+  echo "Absence instrumentation failed" >&2; full_status=1
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/FullRecovery/absence.txt || { echo "Absence expected OK(1)" >&2; full_status=1; }
+
+# 恢复 FULL 并重开应用（进程重建、应用数据保留）
+adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || full_status=1
+adb shell am start -n com.tabula.v3.recyclebin.test/com.tabula.v3.MainActivity >/dev/null 2>&1 || true
+sleep 3
+if ! adb shell am instrument -w -r -e allowSyntheticMediaProbe true   -e class "com.tabula.v3.FullRecoveryContinuationTest"   com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner   | tee device-results/FullRecovery/continuation.txt; then
+  echo "Continuation instrumentation failed" >&2; full_status=1
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/FullRecovery/continuation.txt || { echo "Continuation expected OK(1)" >&2; full_status=1; }
+
+if [ "$full_status" != "0" ]; then
+  echo "FULL recovery two-phase verification failed" >&2
+  status=1
+fi
+
 exit "$status"
