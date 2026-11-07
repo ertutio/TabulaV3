@@ -55,6 +55,7 @@ import coil.size.Precision
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.di.CoilSetup
 import com.tabula.v3.ui.util.deckViewerThumbnailRequest
+import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.ui.util.viewerHdRequest
 import com.tabula.v3.ui.util.findActivity
 import com.tabula.v3.ui.util.rememberImageFeatures
@@ -377,7 +378,7 @@ fun ViewerOverlay(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .semantics { contentDescription = "viewer_overlay:${image.displayName}" }
+            .semantics { contentDescription = "viewer_overlay:${image.mediaIdentityKey()}" }
             .background(Color.Black.copy(alpha = backgroundAlpha))
             .pointerInput(Unit) {
                 // 点击背景退出

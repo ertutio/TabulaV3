@@ -395,25 +395,39 @@ class PixelRefreshUiTest {
         val rect = android.graphics.Rect().also { cardNode.getBoundsInScreen(it) }
         val clickMethod = openViewerByClick(cardNode)
         Log.i(TAG, "card-A click via: $clickMethod")
-        // 查看器专属状态：displayName 仍在（查看器 HD 图的描述）且 deck 状态
-        // 文本消失（查看器全屏覆盖 deck）
-        // 每 100ms 轮询同时记录（状态, 颜色）——时间线证据：查看器何时打开、
-        // 显示什么、是否被状态更新关闭
-        var viewerOpenSeen = false
+        // 成功判定（审计轮 6/7 修正）：同一次轮询同时满足（查看器标识在 +
+        // 标识含被测媒体完整身份 + 颜色符合）——禁止跨时刻拼接；不依赖 deck
+        // 状态文本消失（覆盖后节点仍留树中，已实证不可靠）。
+        val overlayDescA = "viewer_overlay:$identityKey"
+        var successA = false
+        var lastObservationA = "no poll executed"
         val endA = SystemClock.uptimeMillis() + 15000
-        var lastA = Triple(-1, -1, -1)
         while (SystemClock.uptimeMillis() < endA) {
             val root = ins.uiAutomation.rootInActiveWindow
-            val open = root != null && find(root, name) != null && find(root, deckStatusMarker) == null
-            if (open) viewerOpenSeen = true
-            lastA = centerPatchAverage()
-            Log.i(TAG, "viewer-A poll open=$open avg=$lastA class=${classify(lastA)}")
-            if (open && classify(lastA) == "red") break
+            val overlayNode = root?.let { find(it, overlayDescA) }
+            val avg = centerPatchAverage()
+            val cls = classify(avg)
+            lastObservationA = "overlay=${overlayNode != null} avg=$avg class=$cls"
+            Log.i(TAG, "viewer-A poll $lastObservationA")
+            if (ViewerPollPolicy.pollSuccess(
+                    viewerOverlayPresent = overlayNode != null,
+                    mediaIdentityMatches = overlayNode != null,
+                    colorClass = cls, expected = "red"
+                )
+            ) {
+                successA = true
+                break
+            }
             SystemClock.sleep(100)
         }
-        assertTrue("查看器专属状态未出现（点击未打开查看器或被立即关闭）", viewerOpenSeen)
-        assertEquals("查看器必须显示编辑前内容 A", "red", classify(lastA))
-        saveScreenshot("viewer-A")
+        if (!successA) {
+            dumpTree("viewer-A-not-confirmed")
+            saveScreenshot("viewer-A-not-confirmed")
+        }
+        assertTrue(
+            "查看器单轮询成功未达成（$lastObservationA）——点击未送达、状态检测错误、查看器被立即关闭或像素不符",
+            successA
+        )
         saveScreenshot("viewer-A")
 
         // ---- 退出查看器：确认回到卡片页面 ----
@@ -455,7 +469,7 @@ class PixelRefreshUiTest {
         Log.i(TAG, "card-B click via: $clickMethodB")
         var successB = false
         var lastObservationB = "no poll executed"
-        val overlayDescB = "viewer_overlay:$name"
+        val overlayDescB = "viewer_overlay:$identityKey"
         val endB = SystemClock.uptimeMillis() + 15000
         while (SystemClock.uptimeMillis() < endB) {
             val root = ins.uiAutomation.rootInActiveWindow
