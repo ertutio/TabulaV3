@@ -20,6 +20,7 @@ import com.tabula.v3.data.preferences.AppPreferences
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -452,21 +453,36 @@ class PixelRefreshUiTest {
         val rectB = android.graphics.Rect().also { cardNodeB.getBoundsInScreen(it) }
         val clickMethodB = openViewerByClick(cardNodeB)
         Log.i(TAG, "card-B click via: $clickMethodB")
-        var viewerOpenSeenB = false
+        var successB = false
+        var lastObservationB = "no poll executed"
         val endB = SystemClock.uptimeMillis() + 15000
-        var lastB = Triple(-1, -1, -1)
         while (SystemClock.uptimeMillis() < endB) {
             val root = ins.uiAutomation.rootInActiveWindow
-            val open = root != null && find(root, name) != null && find(root, deckStatusMarker) == null
-            if (open) viewerOpenSeenB = true
-            lastB = centerPatchAverage()
-            Log.i(TAG, "viewer-B poll open=$open avg=$lastB class=${classify(lastB)}")
-            if (open && classify(lastB) == "blue") break
+            val nameNode = root?.let { find(it, name) }
+            val statusGone = root != null && find(root, deckStatusMarker) == null
+            val avg = centerPatchAverage()
+            val cls = classify(avg)
+            lastObservationB = "open=${nameNode != null && statusGone} nameNode=${nameNode != null} " +
+                "statusGone=$statusGone avg=$avg class=$cls"
+            Log.i(TAG, "viewer-B poll $lastObservationB")
+            if (ViewerPollPolicy.pollSuccess(
+                    viewerStatePresent = nameNode != null, mediaNamePresent = nameNode != null,
+                    deckStatusGone = statusGone, colorClass = cls, expected = "blue"
+                )
+            ) {
+                successB = true
+                break
+            }
             SystemClock.sleep(100)
         }
-        assertTrue("查看器专属状态未出现（点击未打开查看器或被立即关闭）", viewerOpenSeenB)
-        assertEquals("查看器必须显示编辑后内容 B", "blue", classify(lastB))
-        saveScreenshot("viewer-B")
+        if (!successB) {
+            dumpTree("viewer-B-not-confirmed")
+            saveScreenshot("viewer-B-not-confirmed")
+        }
+        assertTrue(
+            "查看器单轮询成功未达成（$lastObservationB）——点击未送达、状态检测错误、查看器被立即关闭或像素不符",
+            successB
+        )
         saveScreenshot("viewer-B")
 
         // ---- 退出并确认回到卡片页面 ----
@@ -480,3 +496,37 @@ class PixelRefreshUiTest {
         const val TAG = "PixelRefresh"
     }
 }
+
+/**
+ * 审计轮 6 针对性回归：ViewerPollPolicy 的跨时刻拼接敏感性。
+ *
+ * 序列 [查看器打开(红) → 查看器关闭、回到卡片(蓝)] 逐步喂入判定——
+ * 每一步都必须返回 false：打开与颜色从不在同一次轮询同时成立，拼接
+ * "曾经打开"与"当前卡片颜色"不能冒充查看器验收通过。
+ */
+    @Test
+    fun openedThenClosedWithMatchingCardColorNeverPasses() {
+        // 第 1 次轮询：查看器在，但颜色不符（红 ≠ 期望蓝）
+        assertFalse(
+            ViewerPollPolicy.pollSuccess(
+                viewerStatePresent = true, mediaNamePresent = true,
+                deckStatusGone = true, colorClass = "red", expected = "blue"
+            )
+        )
+        // 第 2 次轮询：查看器已关闭（状态不在、deck 状态文本回来了），
+        // 颜色恰好符合——拼接不得通过
+        assertFalse(
+            "查看器关闭后的卡片颜色不能冒充查看器验收",
+            ViewerPollPolicy.pollSuccess(
+                viewerStatePresent = false, mediaNamePresent = true,
+                deckStatusGone = false, colorClass = "blue", expected = "blue"
+            )
+        )
+        // 对照：同一次轮询三条件齐备才通过
+        assertTrue(
+            ViewerPollPolicy.pollSuccess(
+                viewerStatePresent = true, mediaNamePresent = true,
+                deckStatusGone = true, colorClass = "blue", expected = "blue"
+            )
+        )
+    }

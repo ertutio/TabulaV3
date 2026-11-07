@@ -1,5 +1,6 @@
 package com.tabula.v3.ui.screens
 
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -785,6 +786,7 @@ fun DeckScreen(
         viewerState?.let { state ->
             val refreshed = refreshedViewerImage(state.image, pool)
             if (refreshed == null) {
+                Log.d("DeckScreen", "viewer dismissed: image missing from latest snapshot uri=${state.image.uri}")
                 viewerState = null
             } else if (refreshed != state.image) {
                 viewerState = state.copy(image = refreshed)
@@ -1086,6 +1088,7 @@ fun DeckScreen(
                             }
                         },
                         onCardClick = { image, sourceRect ->
+                            Log.d("DeckScreen", "onCardClick image=${image.uri} name=${image.displayName} dm=${image.dateModified}")
                             viewerState = ViewerState(image, sourceRect)
                         },
                         onTrashClick = onNavigateToTrash,
@@ -1301,7 +1304,10 @@ fun DeckScreen(
         viewerState?.let { state ->
             ViewerOverlay(
                 viewerState = state,
-                onDismiss = { viewerState = null },
+                onDismiss = {
+                    Log.d("DeckScreen", "viewer dismissed: onDismiss image=${state.image.uri}")
+                    viewerState = null
+                },
                 showHdr = showHdrBadges,
                 showMotionPhoto = showMotionBadges,
                 playMotionSound = playMotionSound,
