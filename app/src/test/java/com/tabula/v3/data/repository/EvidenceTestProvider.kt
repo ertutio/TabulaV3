@@ -66,6 +66,8 @@ internal class EvidenceTestProvider(
     val rows = mutableMapOf<Long, EvidenceMediaRow>(10L to sourceRow, 12L to targetBucketRow)
     val unknownIdentityIds = mutableSetOf<Long>()
     val openReadUris = mutableListOf<Uri>()
+    /** T07/TC56-RESULT 审计轮：记录每次 query 的目标 URI，供测试断言被修复路径实际发生。 */
+    val queryUris = mutableListOf<Uri>()
     val openWriteUris = mutableListOf<Uri>()
     val updateUris = mutableListOf<Uri>()
     val publishUpdateUris = mutableListOf<Uri>()
@@ -76,6 +78,14 @@ internal class EvidenceTestProvider(
     var insertBehavior = EvidenceInsertBehavior.FRESH
     var insertedTargetUri: Uri? = null
         private set
+    /** T07/TC56-RESULT：insert 时注入的异常（如 SecurityException），供授权拒绝分类测试使用。 */
+    var insertException: Exception? = null
+    /** T07/TC56-RESULT：query 时按 URI 注入的异常（如 SecurityException），供身份查询授权拒绝分类测试使用。 */
+    var queryExceptionFor: ((uri: Uri) -> Exception?)? = null
+    /** T07/TC56-RESULT：非 publish RELATIVE_PATH 更新的异常注入器（按行 ID），返回 null 表示正常。 */
+    var nonPublishUpdateExceptionFor: ((id: Long?) -> Exception?)? = null
+    /** T07/TC56-RESULT：非 publish 更新的返回行数（默认 1），供 0 行更新失败分类测试使用。 */
+    var nonPublishUpdateResult: Int = 1
     var failSourceReadOpen = false
     var failSourceReadAfterBytes: Int? = null
     var sourceEofAfterBytes: Int? = null
@@ -154,6 +164,10 @@ internal class EvidenceTestProvider(
         insertedTargetUri = null
         insertCalls = 0
         insertBehavior = EvidenceInsertBehavior.FRESH
+        insertException = null
+        queryExceptionFor = null
+        nonPublishUpdateExceptionFor = null
+        nonPublishUpdateResult = 1
         failSourceReadOpen = false
         failSourceReadAfterBytes = null
         sourceEofAfterBytes = null
@@ -185,6 +199,7 @@ internal class EvidenceTestProvider(
         dateModifiedUpdateUris.clear()
         deleteUris.clear()
         events.clear()
+        queryUris.clear()
     }
 
     fun cleanSyntheticFiles() {
@@ -199,6 +214,8 @@ internal class EvidenceTestProvider(
         selectionArgs: Array<out String>?,
         sortOrder: String?
     ): Cursor? {
+        queryUris += uri
+        queryExceptionFor?.invoke(uri)?.let { throw it }
         val columns = projection ?: arrayOf(MediaStore.Images.Media._ID)
         val cursor = MatrixCursor(columns)
         val itemId = uri.lastPathSegment?.toLongOrNull()
@@ -265,6 +282,7 @@ internal class EvidenceTestProvider(
 
     override fun insert(uri: Uri, values: ContentValues?): Uri? {
         insertCalls++
+        insertException?.let { throw it }
         if (insertBehavior == EvidenceInsertBehavior.NULL) return null
         if (insertBehavior == EvidenceInsertBehavior.SOURCE_URI) {
             insertedTargetUri = sourceUri
@@ -342,7 +360,8 @@ internal class EvidenceTestProvider(
         values?.getAsString(MediaStore.Images.Media.RELATIVE_PATH)?.let { row?.relativePath = if (it.endsWith('/')) it else "$it/" }
         values?.getAsInteger(MediaStore.Images.Media.IS_PENDING)?.let { row?.isPending = it == 1 }
         events += "update:$id"
-        return 1
+        nonPublishUpdateExceptionFor?.invoke(id)?.let { throw it }
+        return nonPublishUpdateResult
     }
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
