@@ -89,3 +89,8 @@
 **待定位假设**（下一诊断工作包）：①前台重载后 deck 行对象被引擎缓存陈旧行替换（syncRowsToSnapshot 未覆盖该时序）；②查看器状态被空池同步关闭（U9 空池语义 × 本场景）。区分手段：诊断版测试在失败时刻 dump 辅助树与各阶段截图。
 
 **两阶段 FULL 恢复验证（工作包 2）研究结论**：机械可行性成立——instrumentation 各阶段独立运行至完成（不跨进程死亡），宿主侧在两阶段间执行 `pm revoke`（应用被系统强停，实证行为）→ `pm grant` → `am start`；阶段 1 以引擎 API（真实 prefs + 自建 MediaStore 媒体）建立清理组/断点并把预期状态写入 files/（run-as 可读，跨进程死亡持久）；阶段 2 为新 instrumentation，重建引擎断言组/月/断点续接与暂不可见成员持有。实施载体 = run-cloud-ui-probe.sh 增设两阶段块（阶段间不 pm clear）。预计 2 设备用例 + 工作流接线 + CI 两轮；因本轮预算用于像素缺陷，列为下一就绪工作包。
+
+
+### 像素缺陷的点击机制排查（2026-11-07 第五轮）
+
+**轮 4 时间线实证**：tap 大卡中心未打开查看器（39 轮询 open=false，双 API）。**轮 5**：改无障碍原生 ACTION_CLICK（节点+可点击祖先链，全部失败回退坐标 tap）——logcat 实证 `coordinate tap fallback`（节点与祖先均不可点击）且查看器仍未打开。**两次针对性机制失败，按两次修正规则暂停**。结论倾向：deck 浏览态卡片的 tap→查看器路径对合成注入事件不可达（需真实触摸特征或存在输入消费层），或 onCardClick 接线在该模式下有额外条件。**下一步**：诊断版测试在 onCardClick 入口加日志（生产最小日志）确认回调是否被调；或测试内经 AppPreferences 切换卡片样式（摸牌/切牌）后重试；或经图库模式（AlbumViewScreen 的 SwipeableViewerOverlay）走查看器路径。已登记为独立诊断工作包。
