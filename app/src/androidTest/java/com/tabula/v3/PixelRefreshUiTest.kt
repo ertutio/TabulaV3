@@ -232,6 +232,33 @@ class PixelRefreshUiTest {
         error("UI element not found: $label")
     }
 
+    /** 收集全部可见匹配节点；displayName 有多个匹配（顶部小卡 + 当前大卡）。 */
+    private fun findAll(node: AccessibilityNodeInfo?, label: String, out: MutableList<AccessibilityNodeInfo>) {
+        if (node == null) return
+        if (node.isVisibleToUser && (node.text?.toString()?.contains(label) == true || node.contentDescription?.toString()?.contains(label) == true)) out += node
+        for (i in 0 until node.childCount) findAll(node.getChild(i), label, out)
+    }
+
+    /** 最大面积匹配 = 当前显示的大卡（小卡是顶部露出的背景卡，不可点击）。 */
+    private fun waitForLargestNode(label: String, timeout: Long = 20000): AccessibilityNodeInfo {
+        val end = SystemClock.uptimeMillis() + timeout
+        while (SystemClock.uptimeMillis() < end) {
+            val matches = mutableListOf<AccessibilityNodeInfo>()
+            findAll(ins.uiAutomation.rootInActiveWindow, label, matches)
+            var best: AccessibilityNodeInfo? = null
+            var bestArea = -1L
+            for (m in matches) {
+                val rect = android.graphics.Rect().also { m.getBoundsInScreen(it) }
+                val area = rect.width().toLong() * rect.height().toLong()
+                if (area > bestArea) { bestArea = area; best = m }
+            }
+            best?.let { return it }
+            SystemClock.sleep(100)
+        }
+        dumpTree("missing-$label")
+        error("UI element not found: $label")
+    }
+
     /** 有截止时间的复合状态等待：条件成立返回，否则失败并留存证据。 */
     private fun waitForState(
         description: String, timeoutMs: Long = 20000,
@@ -263,6 +290,28 @@ class PixelRefreshUiTest {
         var r = 0L; var g = 0L; var b = 0L; var count = 0L
         for (x in (cx - halfW).coerceAtLeast(0) until (cx + halfW).coerceAtMost(bitmap.width) step 6) {
             for (y in (cy - halfH).coerceAtLeast(0) until (cy + halfH).coerceAtMost(bitmap.height) step 6) {
+                val pixel = bitmap.getPixel(x, y)
+                r += (pixel shr 16) and 0xFF
+                g += (pixel shr 8) and 0xFF
+                b += pixel and 0xFF
+                count++
+            }
+        }
+        bitmap.recycle()
+        return Triple((r / count).toInt(), (g / count).toInt(), (b / count).toInt())
+    }
+
+    /** 屏幕中心图块均值（查看器阶段的像素轮询用；查看器全屏覆盖 deck）。 */
+    private fun centerPatchAverage(): Triple<Int, Int, Int> {
+        val png = shellBytes("screencap -p")
+        val bitmap = requireNotNull(BitmapFactory.decodeByteArray(png, 0, png.size)) { "screencap decode failed" }
+        val w = bitmap.width
+        val h = bitmap.height
+        val halfW = w / 10
+        val halfH = h / 12
+        var r = 0L; var g = 0L; var b = 0L; var count = 0L
+        for (x in (w / 2 - halfW) until (w / 2 + halfW) step 6) {
+            for (y in (h / 2 - halfH) until (h / 2 + halfH) step 6) {
                 val pixel = bitmap.getPixel(x, y)
                 r += (pixel shr 16) and 0xFF
                 g += (pixel shr 8) and 0xFF
@@ -315,7 +364,7 @@ class PixelRefreshUiTest {
 
         // ---- 卡片阶段（A）：确认卡片对应被测媒体 → 卡片像素 = 红 ----
         launchToForeground()
-        val cardNode = waitForNode(name)
+        val cardNode = waitForLargestNode(name)
         waitForColorInNode(name, "red", evidenceTag = "card-A")
         saveScreenshot("card-A")
 
@@ -324,11 +373,23 @@ class PixelRefreshUiTest {
         shell("input tap ${rect.centerX()} ${rect.centerY()}")
         // 查看器专属状态：displayName 仍在（查看器 HD 图的描述）且 deck 状态
         // 文本消失（查看器全屏覆盖 deck）
-        waitForState("viewer-open-A", timeoutMs = 15000) { root ->
-            find(root, name) != null && find(root, deckStatusMarker) == null
+        // 每 100ms 轮询同时记录（状态, 颜色）——时间线证据：查看器何时打开、
+        // 显示什么、是否被状态更新关闭
+        var viewerOpenSeen = false
+        val endA = SystemClock.uptimeMillis() + 15000
+        var lastA = Triple(-1, -1, -1)
+        while (SystemClock.uptimeMillis() < endA) {
+            val root = ins.uiAutomation.rootInActiveWindow
+            val open = root != null && find(root, name) != null && find(root, deckStatusMarker) == null
+            if (open) viewerOpenSeen = true
+            lastA = centerPatchAverage()
+            Log.i(TAG, "viewer-A poll open=$open avg=$lastA class=${classify(lastA)}")
+            if (open && classify(lastA) == "red") break
+            SystemClock.sleep(100)
         }
-        val viewerNode = waitForNode(name)
-        waitForColorInNode(name, "red", evidenceTag = "viewer-A")
+        assertTrue("查看器专属状态未出现（点击未打开查看器或被立即关闭）", viewerOpenSeen)
+        assertEquals("查看器必须显示编辑前内容 A", "red", classify(lastA))
+        saveScreenshot("viewer-A")
         saveScreenshot("viewer-A")
 
         // ---- 退出查看器：确认回到卡片页面 ----
@@ -364,13 +425,24 @@ class PixelRefreshUiTest {
         saveScreenshot("card-B")
 
         // ---- 查看器阶段（B）：状态链 + 像素 = 蓝 ----
-        val cardNodeB = waitForNode(name)
+        val cardNodeB = waitForLargestNode(name)
         val rectB = android.graphics.Rect().also { cardNodeB.getBoundsInScreen(it) }
         shell("input tap ${rectB.centerX()} ${rectB.centerY()}")
-        waitForState("viewer-open-B", timeoutMs = 15000) { root ->
-            find(root, name) != null && find(root, deckStatusMarker) == null
+        var viewerOpenSeenB = false
+        val endB = SystemClock.uptimeMillis() + 15000
+        var lastB = Triple(-1, -1, -1)
+        while (SystemClock.uptimeMillis() < endB) {
+            val root = ins.uiAutomation.rootInActiveWindow
+            val open = root != null && find(root, name) != null && find(root, deckStatusMarker) == null
+            if (open) viewerOpenSeenB = true
+            lastB = centerPatchAverage()
+            Log.i(TAG, "viewer-B poll open=$open avg=$lastB class=${classify(lastB)}")
+            if (open && classify(lastB) == "blue") break
+            SystemClock.sleep(100)
         }
-        waitForColorInNode(name, "blue", evidenceTag = "viewer-B")
+        assertTrue("查看器专属状态未出现（点击未打开查看器或被立即关闭）", viewerOpenSeenB)
+        assertEquals("查看器必须显示编辑后内容 B", "blue", classify(lastB))
+        saveScreenshot("viewer-B")
         saveScreenshot("viewer-B")
 
         // ---- 退出并确认回到卡片页面 ----
