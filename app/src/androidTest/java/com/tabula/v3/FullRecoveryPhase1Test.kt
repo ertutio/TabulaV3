@@ -71,6 +71,10 @@ class FullRecoveryPhase1Test {
         assertEquals(1, resumed.second)
         assertEquals(listOf(groupId), resumed.first.groupIds)
 
+        // 持久化补写：apply() 异步写入在宿主随后的强停下可能丢失（阶段一
+        // 进程退出后宿主立即 pm revoke），commit() 同步落盘保证跨强停持久
+        FullRecoveryStateContract.durableRewrite(ctx, groupId, rows, checkpointIndex = 1)
+
         writeExpectedState(ctx, groupId, rows, checkpointIndex = 1)
         assertTrue(FullRecoveryStateContract.stateFile(ctx).length() > 0)
     }

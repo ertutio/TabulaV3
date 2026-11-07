@@ -141,5 +141,31 @@ internal object FullRecoveryStateContract {
             endTime = images.maxOf { it.dateModified }
         ).id
 
+    /**
+     * 持久化补写（审计轮：跨强停的写入可靠性）。
+     *
+     * 生产写入走 apply()（异步落盘）；阶段一 instrumentation 进程退出后宿主
+     * 立即 pm revoke 强停应用——QueuedWork 中未落盘的 apply() 写入会丢失。
+     * 本方法以 commit()（同步落盘）按 AppPreferences 的同键格式重写全部
+     * 阶段一种子状态，保证跨强停持久。键格式与 AppPreferences 对齐
+     * （tabula_album_cleanup 文件：group_images_/total_/groups_/analyzed_/
+     * checkpoint_* 前缀）。
+     */
+    fun durableRewrite(context: Context, groupId: String, rows: List<ImageFile>, checkpointIndex: Int) {
+        val prefs = context.getSharedPreferences("tabula_album_cleanup", Context.MODE_PRIVATE)
+        val editor = prefs.edit()
+        editor.putInt("total_$ALBUM_ID", rows.size)
+        editor.putStringSet("groups_$ALBUM_ID", setOf(groupId))
+        editor.putLong("analyzed_$ALBUM_ID", System.currentTimeMillis())
+        editor.putInt("total_images_$ALBUM_ID", rows.size)
+        editor.putString("group_images_${ALBUM_ID}_$groupId", rows.joinToString(",") { it.mediaIdentityKey() })
+        editor.putInt("group_size_${ALBUM_ID}_$groupId", rows.size)
+        editor.putStringSet("checkpoint_groups_$ALBUM_ID", setOf(groupId))
+        editor.putString("checkpoint_groups_order_$ALBUM_ID", groupId)
+        editor.putInt("checkpoint_index_$ALBUM_ID", checkpointIndex)
+        editor.putLong("checkpoint_time_$ALBUM_ID", System.currentTimeMillis())
+        editor.commit()
+    }
+
     fun cleanupEngine(context: Context): AlbumCleanupEngine = AlbumCleanupEngine(context)
 }
