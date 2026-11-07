@@ -122,7 +122,10 @@ def _validate_message(payload: bytes, type_name: str, path_name: str, depth: int
     - depth 上限 32（防病态嵌套；perfetto 实际嵌套远低于此）。
     任何框架损坏在此抛出 ValueError——valid 依赖解析成功。"""
     if depth > 32:
-        return
+        # 审计轮 5：超限必须显式失败——静默 return 会把未检查的内容当作
+        # 校验成功（嵌套损坏在 depth 33+ 被放行）。错误沿真实报告链传播，
+        # read_session/make_report 失败，报告不得标为有效。
+        raise ValueError(f"Trace nesting depth exceeds supported range (> 32): {path_name}")
     fields = MESSAGES.get(type_name)
     n = len(payload)
     pos = 0

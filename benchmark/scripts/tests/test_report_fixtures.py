@@ -25,9 +25,13 @@
   字段容忍）；解析失败即异常传播 → 报告不得标为有效（无外部运行时工具依赖，
   生成期仅开发机需要 grpcio-tools）。
 
+- 深度超限（审计轮 5）：损坏载荷位于 depth 33（>32 支持上限）普通/gzip 均
+  以 "nesting depth exceeds supported range" 显式拒绝（修复前超限静默跳过、
+  未检查内容被当作校验成功）；边界内（depth 32）损坏拒绝、合法嵌套通过。
+
 只验证测量工具本身：不产出性能数字、不恢复 PR6 的历史测量任务、不构成
-任何冻结基线。测试计数口径（实跑）：本文件 28 项 + 既有 test_report.py 3 项 =
-discover 全量 31 项，零失败零跳过。运行：python -m unittest
+任何冻结基线。测试计数口径（实跑）：本文件 32 项 + 既有 test_report.py 3 项 =
+discover 全量 35 项，零失败零跳过。运行：python -m unittest
 benchmark.scripts.tests.test_report_fixtures（或 discover benchmark/scripts/tests）。
 """
 
@@ -378,6 +382,69 @@ class TraceFixtureTest(unittest.TestCase):
             victim.write_bytes(b"\x0a\x04\x08\xff\xff\xff\xff")
             with self.assertRaisesRegex(ValueError, "Corrupt"):
                 report.read_session(folder)
+
+    @staticmethod
+    def depth_chain_packet(ff_depth: int, innermost: bytes = b"\xff") -> bytes:
+        """构造 TracePacket → TrackEvent(11) → DebugAnnotation(4) →
+        DebugAnnotation[11] 自递归 (ff_depth-2) 层的 trace，给定载荷恰位于
+        递归深度 ff_depth（TracePacket=0、TrackEvent=1、DebugAnnotation=2）。"""
+        def varint(n):
+            out = bytearray()
+            while True:
+                b = n & 0x7F
+                n >>= 7
+                out.append(b | (0x80 if n else 0))
+                if not n:
+                    return bytes(out)
+        def wrap11(body):
+            return b"\x5a" + varint(len(body)) + body
+        def wrap4(body):
+            return b"\x22" + varint(len(body)) + body
+        body = innermost
+        for _ in range(ff_depth - 2):
+            body = wrap11(body)
+        body = wrap4(body)
+        body = wrap11(body)
+        return b"\x0a" + varint(len(body)) + body
+
+    def test_overLimitNestedCorruptionIsRejectedThroughRealEntry(self):
+        # 审计轮 5：损坏载荷位于 depth 33（>32 支持上限）——超限必须显式失败
+        # （"nesting depth exceeds supported range"），不得静默跳过把未检查
+        # 内容当作校验成功（修复前普通/gzip 均 ACCEPTED，留证提交历史）
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "a_coldStartup" in p.name)
+            victim.write_bytes(self.depth_chain_packet(33))
+            with self.assertRaisesRegex(ValueError, "nesting depth exceeds supported range"):
+                report.read_session(folder)
+
+    def test_overLimitNestedCorruptionInsideGzipIsRejectedThroughRealEntry(self):
+        # 同一超限损坏经合法 gzip 包装：解压后仍须以超限失败拒绝
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "b_warmStartup" in p.name)
+            victim.write_bytes(gzip.compress(self.depth_chain_packet(33)))
+            with self.assertRaisesRegex(ValueError, "nesting depth exceeds supported range"):
+                report.read_session(folder)
+
+    def test_withinLimitNestedCorruptionIsRejectedThroughRealEntry(self):
+        # 边界内：损坏载荷位于 depth 32（≤32 上限）——框架走查拒绝
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "c_shuffleCards" in p.name)
+            victim.write_bytes(self.depth_chain_packet(32))
+            with self.assertRaisesRegex(ValueError, "Corrupt DebugAnnotation"):
+                report.read_session(folder)
+
+    def test_withinLimitLegalNestingIsAcceptedThroughRealEntry(self):
+        # 边界内合法正例：depth 32 的合法嵌套（最内层为合法空消息）必须通过
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "d_drawCards" in p.name)
+            victim.write_bytes(self.depth_chain_packet(32, innermost=b""))
+            output = Path(tmp) / "out"
+            report.make_report(root, output)
+            self.assertTrue(json.loads((output / "baseline.json").read_text())["valid"])
 
     def test_corruptNestedMessageIsRejectedThroughRealEntry(self):
         # 审计轮 3：0a 03 5a 01 ff = TracePacket，field 11（TrackEvent，schema
