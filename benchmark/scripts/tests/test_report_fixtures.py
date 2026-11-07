@@ -17,9 +17,17 @@
   schema，登记为能力边界。校验为内嵌 schema 表（无外部解析工具依赖），
   解析失败即异常传播 → 报告不得标为有效。
 
+- 嵌套消息 schema 校验（审计轮 4）：完整 schema 递归——schema 表由 protoc
+  （grpcio-tools 编译固定 commit 40b52992 的 perfetto_trace.proto 为
+  descriptor set）提取，覆盖 918 个消息定义；消息型字段按子消息 schema 逐层
+  实际解析（两层嵌套损坏 0a 05 5a 03 22 01 ff 普通/gzip 均拒）；string/bytes
+  按协议不递归（防误拒测试覆盖）；未知字段号按 wire type 跳过（proto 未知
+  字段容忍）；解析失败即异常传播 → 报告不得标为有效（无外部运行时工具依赖，
+  生成期仅开发机需要 grpcio-tools）。
+
 只验证测量工具本身：不产出性能数字、不恢复 PR6 的历史测量任务、不构成
-任何冻结基线。测试计数口径（实跑）：本文件 26 项 + 既有 test_report.py 3 项 =
-discover 全量 29 项，零失败零跳过。运行：python -m unittest
+任何冻结基线。测试计数口径（实跑）：本文件 28 项 + 既有 test_report.py 3 项 =
+discover 全量 31 项，零失败零跳过。运行：python -m unittest
 benchmark.scripts.tests.test_report_fixtures（或 discover benchmark/scripts/tests）。
 """
 
@@ -349,7 +357,7 @@ class TraceFixtureTest(unittest.TestCase):
             root, folder = self.round(tmp)
             victim = next(p for p in folder.rglob("*.perfetto-trace") if "a_coldStartup" in p.name)
             victim.write_bytes(corrupt)
-            with self.assertRaisesRegex(ValueError, "Corrupt trace packet"):
+            with self.assertRaisesRegex(ValueError, "Corrupt"):
                 report.read_session(folder)
 
     def test_corruptPacketContentInsideGzipIsRejectedThroughRealEntry(self):
@@ -358,7 +366,7 @@ class TraceFixtureTest(unittest.TestCase):
             root, folder = self.round(tmp)
             victim = next(p for p in folder.rglob("*.perfetto-trace") if "b_warmStartup" in p.name)
             victim.write_bytes(gzip.compress(b"\x0a\x01\xff"))
-            with self.assertRaisesRegex(ValueError, "Corrupt trace packet"):
+            with self.assertRaisesRegex(ValueError, "Corrupt"):
                 report.read_session(folder)
 
     def test_corruptVarintValueInsidePacketIsRejected(self):
@@ -368,7 +376,7 @@ class TraceFixtureTest(unittest.TestCase):
             victim = next(p for p in folder.rglob("*.perfetto-trace") if "c_shuffleCards" in p.name)
             # field 1 (timestamp, varint) 声明继续但载荷耗尽
             victim.write_bytes(b"\x0a\x04\x08\xff\xff\xff\xff")
-            with self.assertRaisesRegex(ValueError, "Corrupt trace packet"):
+            with self.assertRaisesRegex(ValueError, "Corrupt"):
                 report.read_session(folder)
 
     def test_corruptNestedMessageIsRejectedThroughRealEntry(self):
@@ -378,7 +386,7 @@ class TraceFixtureTest(unittest.TestCase):
             root, folder = self.round(tmp)
             victim = next(p for p in folder.rglob("*.perfetto-trace") if "a_coldStartup" in p.name)
             victim.write_bytes(b"\x0a\x03\x5a\x01\xff")
-            with self.assertRaisesRegex(ValueError, "Corrupt trace packet"):
+            with self.assertRaisesRegex(ValueError, "Corrupt"):
                 report.read_session(folder)
 
     def test_corruptNestedMessageInsideGzipIsRejectedThroughRealEntry(self):
@@ -387,7 +395,26 @@ class TraceFixtureTest(unittest.TestCase):
             root, folder = self.round(tmp)
             victim = next(p for p in folder.rglob("*.perfetto-trace") if "b_warmStartup" in p.name)
             victim.write_bytes(gzip.compress(b"\x0a\x03\x5a\x01\xff"))
-            with self.assertRaisesRegex(ValueError, "Corrupt trace packet"):
+            with self.assertRaisesRegex(ValueError, "Corrupt"):
+                report.read_session(folder)
+
+    def test_corruptTwoLevelNestedMessageIsRejectedThroughRealEntry(self):
+        # 审计轮 4：0a 05 5a 03 22 01 ff = TracePacket → TrackEvent(11) →
+        # DebugAnnotation(4) 最内层载荷 ff——完整 schema 递归必须识别
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "a_coldStartup" in p.name)
+            victim.write_bytes(b"\x0a\x05\x5a\x03\x22\x01\xff")
+            with self.assertRaisesRegex(ValueError, "Corrupt DebugAnnotation"):
+                report.read_session(folder)
+
+    def test_corruptTwoLevelNestedMessageInsideGzipIsRejectedThroughRealEntry(self):
+        # 同一两层嵌套损坏经合法 gzip 包装：解压后仍须拒绝
+        with tempfile.TemporaryDirectory() as tmp:
+            root, folder = self.round(tmp)
+            victim = next(p for p in folder.rglob("*.perfetto-trace") if "b_warmStartup" in p.name)
+            victim.write_bytes(gzip.compress(b"\x0a\x05\x5a\x03\x22\x01\xff"))
+            with self.assertRaisesRegex(ValueError, "Corrupt DebugAnnotation"):
                 report.read_session(folder)
 
     def test_stringFieldPayloadIsNotRecursedAsMessage(self):

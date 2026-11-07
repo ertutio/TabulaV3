@@ -8,19 +8,19 @@ import re
 import statistics
 import zlib
 
-# Perfetto TracePacket 消息型字段表（审计轮 3）：自动生成自 perfetto_trace.proto
-# （perfetto 主分支，googlesource 抓取于 2026-11-07；解析 message TracePacket 块
-# 中 `TYPE name = N;` 声明并排除标量关键字，共 82 个 message 型字段号，含
-# field 11=TrackEvent、60=TrackDescriptor）。string/bytes 与标量字段不在表内——
-# 按协议不递归（无 schema 不可区分嵌套消息与任意字符串字节，盲递归会误拒含
-# 任意文本的合法 trace）。校验语义见 _validate_packet_framing。
-TRACE_PACKET_MESSAGE_FIELDS = frozenset([
-    1, 2, 4, 5, 6, 7, 9, 11, 12, 33, 34, 35, 37, 38, 39, 40, 43, 44, 45, 46,
-    47, 48, 49, 51, 52, 53, 54, 56, 57, 59, 60, 61, 62, 63, 64, 65, 66, 67,
-    68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 80, 81, 82, 83, 84, 86, 88,
-    89, 90, 91, 92, 93, 94, 95, 96, 97, 99, 100, 101, 102, 103, 104, 105,
-    107, 109, 110, 111, 112, 113, 114, 115, 116, 900,
-])
+# Perfetto TracePacket 完整 schema 表（审计轮 4）：自动生成自固定版本的
+# perfetto_trace.proto（perfetto 主分支 commit 40b529923598b739b2892a536a7692
+# eedbed5685，2026-11-07；protoc/grpcio-tools 编译为 descriptor set 后提取，
+# 生成步骤见 generate_perfetto_trace_schema.py）。覆盖 918 个消息定义——
+# 消息型字段按子消息 schema 递归实际解析（嵌套损坏可识别）；标量/string/
+# bytes/map(MapEntry) 按 wire type 消费；未知字段号按 wire type 跳过
+# （proto 未知字段容忍）。运行时零第三方依赖；生成仅开发期需要 grpcio-tools。
+import sys as _sys
+from pathlib import Path as _Path
+_SCRIPT_DIR = str(_Path(__file__).resolve().parent)
+if _SCRIPT_DIR not in _sys.path:
+    _sys.path.insert(0, _SCRIPT_DIR)
+from perfetto_trace_schema import MESSAGES
 
 EXPECTED = {"a_coldStartup": 10, "b_warmStartup": 10, "c_shuffleCards": 5,
             "d_drawCards": 5, "e_viewer": 5}
@@ -111,17 +111,19 @@ def read_session(folder):
     return {"build": json.loads((folder / "build.json").read_text()), "metrics": metrics}
 
 
-def _validate_packet_framing(payload: bytes, path_name: str, message_fields: frozenset = frozenset(), depth: int = 0):
-    """校验一个 protobuf 消息载荷的顶层框架。
+def _validate_message(payload: bytes, type_name: str, path_name: str, depth: int):
+    """按 schema 递归校验一个消息载荷（审计轮 4：完整 schema 嵌套解析）。
 
-    逐字段走查：tag varint → field number ≥1、wire type ∈ {0,1,2,5}（proto3
-    不产生 groups，6/7 非法），长度定界字段不得越界、消息必须在载荷末尾恰好
-    结束。递归规则（schema 驱动，不盲递归）：wire type=2 且 field number 命中
-    [TRACE_PACKET_MESSAGE_FIELDS] 的字段，其载荷按本函数递归一层——这些是
-    schema 声明的消息型字段；string/bytes 与标量载荷不递归（无 schema 不可
-    区分嵌套消息与任意字符串字节，盲递归会误拒含任意文本的合法 trace）。
-    depth ≥1 后不再递归——已知嵌套消息（如 TrackEvent）的更深层字段需要
-    各消息自己的 schema 表，登记为能力边界（schema 级工具范围）。"""
+    - type_name 在 schema 表中：逐字段走查——tag varint、field number ≥1、
+      wire type ∈ {0,1,2,5}（proto3 不产生 groups，6/7 非法）；wire type=2 且
+      schema 声明为消息的字段按子消息 schema 递归实际解析；标量/string/bytes
+      及未知字段号按 wire type 消费（proto 未知字段容忍，不盲递归）；
+    - type_name 不在表中（未知消息）：仅框架走查，不递归；
+    - depth 上限 32（防病态嵌套；perfetto 实际嵌套远低于此）。
+    任何框架损坏在此抛出 ValueError——valid 依赖解析成功。"""
+    if depth > 32:
+        return
+    fields = MESSAGES.get(type_name)
     n = len(payload)
     pos = 0
     while pos < n:
@@ -129,7 +131,7 @@ def _validate_packet_framing(payload: bytes, path_name: str, message_fields: fro
         shift = 0
         while True:
             if pos >= n:
-                raise ValueError(f"Corrupt trace packet (field tag truncated): {path_name}")
+                raise ValueError(f"Corrupt {type_name} (field tag truncated): {path_name}")
             byte = payload[pos]
             pos += 1
             tag |= (byte & 0x7F) << shift
@@ -137,17 +139,17 @@ def _validate_packet_framing(payload: bytes, path_name: str, message_fields: fro
                 break
             shift += 7
             if shift > 63:
-                raise ValueError(f"Corrupt trace packet (field tag varint overrun): {path_name}")
+                raise ValueError(f"Corrupt {type_name} (field tag varint overrun): {path_name}")
         field_number = tag >> 3
         wire_type = tag & 0x07
         if field_number == 0:
-            raise ValueError(f"Corrupt trace packet (invalid field number 0): {path_name}")
+            raise ValueError(f"Corrupt {type_name} (invalid field number 0): {path_name}")
         if wire_type == 0:
             value = 0
             shift = 0
             while True:
                 if pos >= n:
-                    raise ValueError(f"Corrupt trace packet (varint value truncated): {path_name}")
+                    raise ValueError(f"Corrupt {type_name} (varint value truncated): {path_name}")
                 byte = payload[pos]
                 pos += 1
                 value |= (byte & 0x7F) << shift
@@ -155,17 +157,17 @@ def _validate_packet_framing(payload: bytes, path_name: str, message_fields: fro
                     break
                 shift += 7
                 if shift > 63:
-                    raise ValueError(f"Corrupt trace packet (varint value overrun): {path_name}")
+                    raise ValueError(f"Corrupt {type_name} (varint value overrun): {path_name}")
         elif wire_type == 1:
             if pos + 8 > n:
-                raise ValueError(f"Corrupt trace packet (fixed64 payload past end): {path_name}")
+                raise ValueError(f"Corrupt {type_name} (fixed64 payload past end): {path_name}")
             pos += 8
         elif wire_type == 2:
             length = 0
             shift = 0
             while True:
                 if pos >= n:
-                    raise ValueError(f"Corrupt trace packet (field length truncated): {path_name}")
+                    raise ValueError(f"Corrupt {type_name} (field length truncated): {path_name}")
                 byte = payload[pos]
                 pos += 1
                 length |= (byte & 0x7F) << shift
@@ -173,19 +175,21 @@ def _validate_packet_framing(payload: bytes, path_name: str, message_fields: fro
                     break
                 shift += 7
                 if shift > 63:
-                    raise ValueError(f"Corrupt trace packet (field length varint overrun): {path_name}")
+                    raise ValueError(f"Corrupt {type_name} (field length varint overrun): {path_name}")
             if pos + length > n:
-                raise ValueError(f"Corrupt trace packet (field payload past end): {path_name}")
-            if depth == 0 and field_number in message_fields:
-                # schema 声明的消息型字段：载荷按消息框架实际解析一层（审计轮 3）
-                _validate_packet_framing(payload[pos:pos + length], path_name, depth=depth + 1)
+                raise ValueError(f"Corrupt {type_name} (field payload past end): {path_name}")
+            if fields is not None:
+                sub_type = fields.get(field_number)
+                if sub_type is not None:
+                    # schema 声明的消息型字段：载荷按子消息 schema 实际解析
+                    _validate_message(payload[pos:pos + length], sub_type, path_name, depth + 1)
             pos += length
         elif wire_type == 5:
             if pos + 4 > n:
-                raise ValueError(f"Corrupt trace packet (fixed32 payload past end): {path_name}")
+                raise ValueError(f"Corrupt {type_name} (fixed32 payload past end): {path_name}")
             pos += 4
         else:
-            raise ValueError(f"Corrupt trace packet (unsupported wire type {wire_type}): {path_name}")
+            raise ValueError(f"Corrupt {type_name} (unsupported wire type {wire_type}): {path_name}")
 
 
 def validate_trace_file(path):
@@ -193,15 +197,17 @@ def validate_trace_file(path):
 
     接受两种形态，均做实际解析（valid 依赖解析成功）：
     - gzip 容器：先完整解压（gzip.decompress 校验 CRC 与长度，损坏/截断在此
-      拒绝），再对解压载荷做 trace 框架走查；
-    - 未压缩 protobuf Trace（`repeated TracePacket packet = 1`，见 perfetto
-      TracePacket 参考文档）：逐记录走查顶层 field-1 记录——tag 0x0A + varint
-      长度 + 载荷直到 EOF，**且每个包载荷经 [_validate_packet_framing] 实际
-      解析其顶层 protobuf 框架**（审计轮：外层框架合法但包内损坏的字节如
-      `0a 01 ff` 不再被接受）。
-    更深层的包内嵌套内容校验需要 schema（trace_processor 级），本工具不递归、
-    不声称覆盖——登记为能力边界。zstd 等本工具无法实际解压验证的压缩格式
-    明确拒绝（不凭魔数放行）。空文件、零包文件一律拒绝。"""
+      拒绝），再对解压载荷做完整 schema 走查；
+    - 未压缩 protobuf Trace（`repeated TracePacket packet = 1`）：逐记录走查
+      顶层 field-1 记录，**且每个包载荷按 MESSAGES 完整 schema 递归实际解析**
+      （审计轮 4：918 个消息定义，来源固定 commit 40b529923598b739b2892a536
+      a7692eedbed5685，生成步骤见 generate_perfetto_trace_schema.py）——外层
+      合法但任意已知嵌套消息内损坏（如 `0a 01 ff`、`0a 03 5a 01 ff`、
+      `0a 05 5a 03 22 01 ff`）不再被接受。
+    未知字段号按 wire type 跳过（proto 未知字段容忍）；未知消息类型仅框架
+    走查；zstd 等本工具无法实际解压验证的压缩格式明确拒绝（不凭魔数放行）；
+    空文件、零包文件一律拒绝。运行时零第三方依赖（schema 表为内嵌生成数据；
+    生成仅开发期需要 grpcio-tools，步骤见生成器模块文档）。"""
     data = path.read_bytes()
     if not data:
         raise ValueError(f"Empty trace file: {path.name}")
@@ -236,7 +242,7 @@ def validate_trace_file(path):
                 raise ValueError(f"Corrupt trace (packet length varint overrun): {path.name}")
         if pos + length > n:
             raise ValueError(f"Corrupt trace (packet extends past end of file): {path.name}")
-        _validate_packet_framing(data[pos:pos + length], path.name, message_fields=TRACE_PACKET_MESSAGE_FIELDS)
+        _validate_message(data[pos:pos + length], "TracePacket", path.name, depth=0)
         pos += length
         packets += 1
     if packets == 0:
