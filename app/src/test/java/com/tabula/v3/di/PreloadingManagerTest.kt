@@ -367,6 +367,28 @@ class PreloadingManagerTest {
         runner.testScheduler.advanceUntilIdle()
         assertEquals(0, fakeLoader.enqueued.size)
     }
+
+    @Test
+    fun resetDuringDebounceWaitDiscardsPendingWorkAndKeepsManagerUsable() {
+        // 审计轮：与 pause/dispose 的窗口内测试同型——先显式推进到防抖等待
+        // 中段（advanceTimeBy(50) 证明 delay 在飞），再 reset。旧任务不入队；
+        // 中段 reset 后新请求照常入队（reset 不破坏可复用性）。
+        val (deterministic, runner) = managerWithTestScope()
+        deterministic.preloadAround(images(3), 1, cardSize)
+        runner.testScheduler.advanceTimeBy(50)         // 窗口中段：body 停在 delay
+        runner.testScheduler.runCurrent()
+        assertEquals(0, fakeLoader.enqueued.size)
+
+        deterministic.reset()            // 等待期内 reset
+        runner.testScheduler.advanceTimeBy(200)
+        runner.testScheduler.runCurrent()
+        assertEquals("reset during the debounce wait must not enqueue the old task", 0, fakeLoader.enqueued.size)
+
+        deterministic.preloadAround(images(3), 1, cardSize)
+        runner.testScheduler.advanceUntilIdle()
+        assertEquals("requests after a mid-wait reset must enqueue normally", 3, fakeLoader.enqueued.size)
+        deterministic.dispose()
+    }
 }
 
 private class FakeDisposable : Disposable {
