@@ -163,13 +163,22 @@ class MoveCopyItemResultTest {
     fun sourceIdentityQueryPermissionDenialClassifiesNeedsPermissionWithoutSideEffects() = runBlocking {
         // 源元数据查询被拒：原因保留并传播为 NEEDS_PERMISSION；未发起插入、
         // 源不删除、无任何清理副作用。
-        provider.queryExceptionFor = { SecurityException("synthetic source query denial") }
+        // 审计轮修正：显式传 displayName（否则异常先发生在 getFileNameFromUri，
+        // 不进入被修复的 readSourceCopyMetadata）；注入精确到源 URI；记录查询
+        // 断言被修复路径实际发生。
+        provider.queryExceptionFor = { uri ->
+            if (uri == sourceUri) SecurityException("synthetic source query denial") else null
+        }
 
-        val result = syncManager.addImageToSystemAlbumOutcome(sourceUri, "Target")
+        val result = syncManager.addImageToSystemAlbumOutcome(sourceUri, "Target", "externally-named.jpg")
 
+        assertTrue(
+            "被修复的源元数据查询必须实际发生",
+            provider.queryUris.contains(sourceUri)
+        )
         assertEquals(SystemAlbumSyncManager.MediaTransferOutcome.NEEDS_PERMISSION, result.outcome)
         assertNull(result.uri)
-        assertEquals(0, provider.insertCalls)
+        assertEquals("元数据查询失败即停，不得发起插入", 0, provider.insertCalls)
         assertTrue(provider.deleteUris.isEmpty())
         assertSourceUnchanged()
     }
@@ -198,10 +207,18 @@ class MoveCopyItemResultTest {
     @Test
     fun sourceIdentityQueryNonSecurityFailureKeepsFailedClassification() = runBlocking {
         // 对照：非授权类查询失败维持既有 FAILED 语义（不误判为权限拒绝）。
-        provider.queryExceptionFor = { java.io.IOException("synthetic query failure") }
+        // 审计轮修正：与权限测试同口径——显式传 displayName、按源 URI 精确
+        // 注入、断言被修复路径实际发生。
+        provider.queryExceptionFor = { uri ->
+            if (uri == sourceUri) java.io.IOException("synthetic query failure") else null
+        }
 
-        val result = syncManager.addImageToSystemAlbumOutcome(sourceUri, "Target")
+        val result = syncManager.addImageToSystemAlbumOutcome(sourceUri, "Target", "externally-named.jpg")
 
+        assertTrue(
+            "被修复的源元数据查询必须实际发生",
+            provider.queryUris.contains(sourceUri)
+        )
         assertEquals(SystemAlbumSyncManager.MediaTransferOutcome.FAILED, result.outcome)
         assertEquals(0, provider.insertCalls)
         assertTrue(provider.deleteUris.isEmpty())

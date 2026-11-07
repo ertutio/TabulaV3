@@ -66,6 +66,8 @@ internal class EvidenceTestProvider(
     val rows = mutableMapOf<Long, EvidenceMediaRow>(10L to sourceRow, 12L to targetBucketRow)
     val unknownIdentityIds = mutableSetOf<Long>()
     val openReadUris = mutableListOf<Uri>()
+    /** T07/TC56-RESULT 审计轮：记录每次 query 的目标 URI，供测试断言被修复路径实际发生。 */
+    val queryUris = mutableListOf<Uri>()
     val openWriteUris = mutableListOf<Uri>()
     val updateUris = mutableListOf<Uri>()
     val publishUpdateUris = mutableListOf<Uri>()
@@ -197,6 +199,7 @@ internal class EvidenceTestProvider(
         dateModifiedUpdateUris.clear()
         deleteUris.clear()
         events.clear()
+        queryUris.clear()
     }
 
     fun cleanSyntheticFiles() {
@@ -211,6 +214,7 @@ internal class EvidenceTestProvider(
         selectionArgs: Array<out String>?,
         sortOrder: String?
     ): Cursor? {
+        queryUris += uri
         queryExceptionFor?.invoke(uri)?.let { throw it }
         val columns = projection ?: arrayOf(MediaStore.Images.Media._ID)
         val cursor = MatrixCursor(columns)
