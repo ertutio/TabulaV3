@@ -25,7 +25,6 @@ import java.util.UUID
  * 读取预期状态并断言续接。
  */
 internal object FullRecoveryStateContract {
-    const val ALBUM_ID = "fullrec-device"
     const val STATE_FILE = "full-recovery-expected-state.json"
     const val SEED_PREFIX = "fullrec-"
 
@@ -101,14 +100,15 @@ internal object FullRecoveryStateContract {
     }
 
     /** 以单元测试同款写入口种子持久化清理组（新格式身份键成员）。 */
-    fun seedCleanupGroup(context: Context, rows: List<ImageFile>, groupId: String = groupIdOf(rows)): String {
+    fun seedCleanupGroup(context: Context, rows: List<ImageFile>): String {
         val preferences = AppPreferences.getInstance(context)
         val groupId = groupIdOf(rows)
-        preferences.saveAlbumAnalysisResult(ALBUM_ID, 1, listOf(groupId))
-        preferences.saveGroupImageCounts(ALBUM_ID, mapOf(groupId to rows.size))
-        preferences.saveAlbumTotalImages(ALBUM_ID, rows.size)
+        val albumId = com.tabula.v3.ui.components.buildMonthInfos(rows).single().cleanupAlbumId
+        preferences.saveAlbumAnalysisResult(albumId, 1, listOf(groupId))
+        preferences.saveGroupImageCounts(albumId, mapOf(groupId to rows.size))
+        preferences.saveAlbumTotalImages(albumId, rows.size)
         preferences.saveGroupsImageIds(
-            ALBUM_ID,
+            albumId,
             mapOf(groupId to rows.map { it.mediaIdentityKey() })
         )
         return groupId
@@ -131,9 +131,10 @@ internal object FullRecoveryStateContract {
             })
         }
         val json = JSONObject().apply {
-            put("albumId", ALBUM_ID)
+            put("albumId", com.tabula.v3.ui.components.buildMonthInfos(rows).single().cleanupAlbumId)
             put("groupId", groupId)
             put("checkpointIndex", checkpointIndex)
+            put("phase1Pid", android.os.Process.myPid())
             put("members", org.json.JSONArray(rows.map { it.mediaIdentityKey() }))
             put("displayNames", org.json.JSONArray(rows.map { it.displayName }))
             put("monthAttribution", monthEntries)

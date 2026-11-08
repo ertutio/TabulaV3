@@ -22,7 +22,7 @@ import org.junit.runner.RunWith
 /**
  * FULL 恢复两阶段验证——阶段一（审计轮：工作包 2）。
  *
- * 建立：真实 MediaStore 媒体 2 张 → 持久化清理组（单元测试同款写入口）→
+ * 建立：真实 MediaStore 媒体 3 张 → 持久化月份清理组 →
  * 引擎取批 → saveCheckpoint(index=1) → 进程内往返核对 → 预期状态写入
  * files/（跨进程死亡与权限变化持久）。结束即结束——宿主随后执行
  * pm revoke（应用被系统强停）→ 缺席断言 → pm grant（恢复 FULL）→ 重开 →
@@ -43,6 +43,7 @@ class FullRecoveryPhase1Test {
         AppPreferences(ctx).apply {
             hasCompletedOnboarding = true
             hasAcknowledgedDisclaimer = true
+            swipeStyle = com.tabula.v3.data.preferences.SwipeStyle.SHUFFLE
         }
         AppPreferences.getInstance(ctx).clearAllAlbumCleanupState()
         Unit
@@ -50,23 +51,22 @@ class FullRecoveryPhase1Test {
 
     @Test
     fun buildCleanupGroupMonthAndCheckpointState() = runBlocking {
-        val photo1 = seedPhoto(ctx, 1)
-        val photo2 = seedPhoto(ctx, 2)
-        val rows = listOf(photo1, photo2).map { FullRecoveryStateContract.rebuildRow(ctx, displayNameOf(it)) }
-        val groupId = FullRecoveryStateContract.groupIdOf(rows)
-        seedCleanupGroup(ctx, rows, groupId)
+        val rows = (1..3).map { seedPhoto(ctx, it) }
+            .map { FullRecoveryStateContract.rebuildRow(ctx, displayNameOf(it)) }
+        val albumId = com.tabula.v3.ui.components.buildMonthInfos(rows).single().cleanupAlbumId
+        val groupId = seedCleanupGroup(ctx, rows)
 
         val engine = FullRecoveryStateContract.cleanupEngine(ctx)
-        val batch = requireNotNull(engine.getNextBatch(FullRecoveryStateContract.ALBUM_ID, rows)) {
+        val batch = requireNotNull(engine.getNextBatch(albumId, rows)) {
             "cleanup engine returned no batch for the seeded group"
         }
         assertEquals(listOf(groupId), batch.groupIds)
         assertEquals(rows, batch.images)
 
-        // 断点：位置 1（一张已入处理意图）
+        // 位置 1 只表示浏览位置，尚未确认任何成员。UI 应从第二张继续。
         engine.saveCheckpoint(listOf(groupId), 1)
         val resumed = requireNotNull(
-            AlbumCleanupEngine(ctx).getCheckpointBatch(FullRecoveryStateContract.ALBUM_ID, rows)
+            AlbumCleanupEngine(ctx).getCheckpointBatch(albumId, rows)
         ) { "checkpoint did not survive an in-process engine recreation" }
         assertEquals(1, resumed.second)
         assertEquals(listOf(groupId), resumed.first.groupIds)
@@ -80,6 +80,11 @@ class FullRecoveryPhase1Test {
         )
 
         writeExpectedState(ctx, groupId, rows, checkpointIndex = 1)
+        val expected = FullRecoveryStateContract.readExpectedState(ctx)
+        val members = rows.map { it.mediaIdentityKey() }.toSet()
+        val raw = com.tabula.v3.data.repository.LocalImageRepository(ctx).loadAllData()
+        expected.put("outsideMembers", org.json.JSONArray(raw.allImages.map { it.mediaIdentityKey() }.filter { it !in members }))
+        FullRecoveryStateContract.stateFile(ctx).writeText(expected.toString())
         assertTrue(FullRecoveryStateContract.stateFile(ctx).length() > 0)
     }
 

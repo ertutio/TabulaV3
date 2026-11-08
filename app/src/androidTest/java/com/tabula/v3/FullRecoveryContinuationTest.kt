@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.tabula.v3.FullRecoveryStateContract.cleanupEngine
 import com.tabula.v3.FullRecoveryStateContract.readExpectedState
 import com.tabula.v3.FullRecoveryStateContract.rebuildRow
 import com.tabula.v3.data.preferences.AppPreferences
@@ -13,7 +12,8 @@ import com.tabula.v3.ui.components.buildMonthInfos
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
+import com.tabula.v3.data.repository.RecycleBinManager
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -28,10 +28,9 @@ import org.junit.runner.RunWith
  * 3. 月列表通过生产逻辑 buildMonthInfos 重建并核对月份/成员/数量；
  *    逐成员月份归属核对即为"月份错误但总数正确"的回归——生产分组错误
  *    导致成员落入错误 MonthInfo 时此断言失败
- * 4. 实际续接：getNextBatch 恢复断点 → 处理推进 → saveCheckpoint 持久化
- * 5. 真实处理操作（recordUserRemovedImage）→ 全新引擎实例重建读取
- *    核对已处理成员确认/剩余成员可续接/组非永久完成
- * 6. 暂不可见成员保持未处理状态
+ * 4. 从真实月份 UI 续接，向上滑动第二张并等待撤销窗口结束。
+ * 5. 宿主随后 force-stop。FullRecoveryReadbackTest 在另一个进程先读取
+ *    持久状态，再通过真实媒体快照、生产投影和 UI 验证剩余成员续接。
  */
 @RunWith(AndroidJUnit4::class)
 class FullRecoveryContinuationTest {
@@ -49,6 +48,8 @@ class FullRecoveryContinuationTest {
     @Test
     fun checkpointAndGroupSurviveAndContinueAfterFullRestore() = runBlocking {
         val expected = readExpectedState(ctx)
+        assertNotEquals(expected.getInt("phase1Pid"), android.os.Process.myPid())
+        assertNotEquals(expected.getInt("absencePid"), android.os.Process.myPid())
         val albumId = expected.getString("albumId")
         val groupId = expected.getString("groupId")
         val checkpointIndex = expected.getInt("checkpointIndex")
@@ -74,12 +75,10 @@ class FullRecoveryContinuationTest {
         assertEquals(members, rows.map { it.mediaIdentityKey() })
 
         // 3. 断点跨进程死亡与权限循环存活：组 + 位置 1
-        val engine = cleanupEngine(ctx)
-        val resumed = requireNotNull(
-            engine.getCheckpointBatch(albumId, rows)
-        ) { "checkpoint lost across process death / permission cycle" }
-        assertEquals(checkpointIndex, resumed.second)
-        assertEquals(listOf(groupId), resumed.first.groupIds)
+        assertEquals(
+            listOf(groupId) to checkpointIndex,
+            preferences.getAlbumCleanupCheckpoint(albumId)
+        )
 
         // 4. 月列表通过生产逻辑 buildMonthInfos 重建并核对（审计轮：替换替代断言）
         val monthInfos = buildMonthInfos(rows)
@@ -111,34 +110,31 @@ class FullRecoveryContinuationTest {
         assertEquals("月列表成员不得重复", monthMemberKeys.size, monthMemberKeys.toSet().size)
         assertEquals("月列表成员不得遗漏", members.toSet(), monthMemberKeys.toSet())
 
-        // 5. 实际续接（用户路径）：getNextBatch 从断点恢复批次 → 处理推进 →
-        //    saveCheckpoint 持久化（currentAlbumId 由 getNextBatch 设置）
-        val next = requireNotNull(
-            engine.getNextBatch(albumId, rows, latestSnapshot = rows)
-        ) { "getNextBatch returned no batch for the restored group" }
-        assertEquals(listOf(groupId), next.groupIds)
-        engine.saveCheckpoint(listOf(groupId), checkpointIndex + 1)
-        val checkpoint = requireNotNull(engine.getCheckpoint(albumId)) { "checkpoint lost after advancing" }
-        assertEquals(checkpointIndex + 1, checkpoint.second)
-
-        // 6. 真实处理操作（生产入口 recordUserRemovedImage）→ 全新引擎实例重建读取
-        val processedRow = rows.first()
-        engine.recordUserRemovedImage(processedRow)
-
-        // 全新引擎实例模拟进程重建：生产流程已更新持久状态（acknowledge +
-        // 成员移除），新实例 getNextBatch 使用剩余行（不含已处理成员）
-        val freshEngine = cleanupEngine(ctx)
-        val latestAfterProcessing = rows.filter { it.mediaIdentityKey() != processedRow.mediaIdentityKey() }
-        val nextAfterProcessing = freshEngine.getNextBatch(albumId, latestAfterProcessing, latestSnapshot = latestAfterProcessing)
-        assertNotNull("剩余成员必须仍可续接", nextAfterProcessing)
-        assertTrue(
-            "已处理成员必须被确认",
-            preferences.getAlbumAcknowledgedCleanupMembers(albumId)
-                .contains(processedRow.mediaIdentityKey())
-        )
+        // The test performs a gesture; only production paths may update state.
+        val processedRow = rows[checkpointIndex]
+        val trash = RecycleBinManager.getInstance(ctx)
+        assertTrue(trash.loadRecycleBin().isEmpty())
+        FullRecoveryUi.launch()
+        FullRecoveryUi.startMonth(monthInfos.single())
+        FullRecoveryUi.removeCard(processedRow.displayName)
+        FullRecoveryUi.await("UI removal committed after undo timeout") {
+            runBlocking { trash.loadRecycleBin().map { it.mediaIdentityKey() } } == listOf(processedRow.mediaIdentityKey()) &&
+                preferences.getAlbumAcknowledgedCleanupMembers(albumId) == setOf(processedRow.mediaIdentityKey())
+        }
+        assertEquals(members, names.map { rebuildRow(ctx, it).mediaIdentityKey() })
         assertTrue(
             "有剩余成员的组不得被标记永久完成",
             preferences.getAlbumPermanentlyProcessedGroups(albumId).isEmpty()
         )
+        // The initial fixture alone uses the flush sentinel. Here production apply()
+        // must finish on its own before the host kills this process.
+        val home = android.content.Intent(android.content.Intent.ACTION_MAIN).apply {
+            addCategory(android.content.Intent.CATEGORY_HOME)
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        ctx.startActivity(home)
+        android.os.SystemClock.sleep(1000)
+        expected.put("processingPid", android.os.Process.myPid())
+        FullRecoveryStateContract.stateFile(ctx).writeText(expected.toString())
     }
 }
