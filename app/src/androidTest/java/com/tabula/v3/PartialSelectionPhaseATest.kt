@@ -90,7 +90,7 @@ class PartialSelectionPhaseATest {
     }
 
     @Test
-    fun partialSelectionAEstablishedViaSystemDialogAndPicker() = runBlocking {
+    fun partialSelectionAEstablishedViaSystemDialogAndPicker() = runBlocking<Unit> {
         // ---- 种子（无授权；DATE_TAKEN 单调，发布顺序同向 → 网格确定性）----
         // 夹具卫生：相邻种子间隔 >1s，使 DATE_ADDED 秒级派生也单调——选择器
         // 无论按 DATE_TAKEN 还是 DATE_ADDED 排序，网格顺序都确定

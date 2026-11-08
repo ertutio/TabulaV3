@@ -102,7 +102,7 @@ class PartialSelectionPhaseBTest {
     }
 
     @Test
-    fun selectionChangeAToBViaPhotoPickerReselectAndAppFollows() = runBlocking {
+    fun selectionChangeAToBViaPhotoPickerReselectAndAppFollows() = runBlocking<Unit> {
         val expected = readExpectedState(ctx)
         assertNotEquals(
             "阶段B必须运行在阶段A之后的新进程（宿主 force-stop）",
