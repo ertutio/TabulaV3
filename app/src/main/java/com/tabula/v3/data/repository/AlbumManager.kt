@@ -1316,6 +1316,12 @@ class AlbumManager(private val context: Context) {
             }
             val cancelled = pendingArchiveQueue.removeAt(pendingArchiveQueue.lastIndex)
             Log.d(TAG, "Cancelled pending archive: imageId=${cancelled.imageId} -> album='${cancelled.albumName}'")
+            // T10 收尾（2026-11-09）：队尾撤销清空队列同样完成批次对账——
+            // 撤销入口不经过 commitPendingArchive，既有脏标记（同批次先前的
+            // 成功提交）会滞留。入口非挂起，对账经 manager scope 异步执行。
+            if (pendingArchiveQueue.isEmpty()) {
+                scope.launch { reconcileAlbumsIfDirty() }
+            }
             return cancelled
         }
     }
@@ -1352,6 +1358,11 @@ class AlbumManager(private val context: Context) {
 
         if (evidence == null) {
             Log.e(TAG, "Failed to copy image to ${action.albumName}; source retained")
+            // T10 收尾（2026-11-09）：队尾复制失败同样完成批次对账——此前仅
+            // COMMITTED 路径在队列清空时触发 reconcile，同批次内已有成功提交
+            // 置下的脏标记会滞留，图集计数保持增量值直到下一次无关刷新。
+            val batchDrainedOnFailure = synchronized(pendingArchiveQueue) { pendingArchiveQueue.isEmpty() }
+            if (batchDrainedOnFailure) reconcileAlbumsIfDirty()
             return@withContext ArchiveCommitOutcome.COPY_FAILED
         }
 
