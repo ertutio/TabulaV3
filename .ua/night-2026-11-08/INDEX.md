@@ -8,6 +8,7 @@
 | 包 | 单元 | head SHA | 分支/PR | 行为变化 | 验证 | 独立审计 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | C1 | TC57 撤销×并发提交交错不变量 | `fe37616` | fix/photo-safety-faults-2026-11-08 / PR#54 | 仅测试+3（闩锁交错/双action/真并发10轮互斥），无 baseline FAIL（生产 monitor 已正确） | 本地全量 396/0；独立复跑 10/10 | 协调者会话（非实现者）：可合并 0 必须修复，2 登记 | **可验收**（待人工合并） |
+| B1 | PARTIAL 选择集 A→B 宿主驱动设备验收 | `8df089e`（R16 证据 head `50c9d88`） | test/partial-selection-ab-2026-11-08 / PR#57 | 仅测试+probe（8 提交，app/src/main 零改动）：PhaseA（NONE→对话框→选择器→PARTIAL(A) 建立→地面真值+哨兵+组/断点持久化+deck/查看器/月份全链）+ PhaseB（跨进程读回→**系统设置页重选**→像素驱动→确认回读→地面真值恰={B1,B2}→一致性+retention+哨兵） | **R16 run 42500080220 三 job 全绿**（双 API）；final head run 42501864524 build/API37 绿+API36 瞬态抖动（登记口径） | 审计派出（精简四核验面） | **等待审计** |
 | C2 | 他人媒体真实授权 + U18 间歇诊断 | `956776d` | test/other-app-media-auth-2026-11-08 / PR#65 | 仅测试+探针 3 行：OtherAppMediaAuthDeviceTest 4 用例（读可见/拒绝+源保留/生产组合 intentSender+UNKNOWN 不扩大/真实对话框授权+哨兵存活）；photo() 有界重试（U18 根因=pm clear 后首插归属解析竞态，环境层非生产）；事实更正=夹具实为应用进程内创建，真实他人媒体需 shell 绑 owner_package_name（AOSP isCallingPackageShell，双 API 实证） | CI 42477604680 三 job 全绿、双 API 6 套件零失败零 skip | ✅ 审计：可合并 7/7（夹具身份矩阵 CI 工件独立实证、U18 根因核到旧 run logcat、安全边界逐条核对；合并动作项=与 PR57 后合者机械解 probe 脚本锚点） | **可验收**（待人工合并） |
 | D1 | DRAW 状态机生命周期断言 + PR35 CONCERN-4 闭环 | `c9b7cf0` | fix/card-mode-lifecycle-2026-11-08 / PR#58 | 仅测试+10（DrawCardStateLifecycleTest 8+PreloadingManagerTest 2）；N1/N2 活性缺陷登记 | 独立全量复跑 403/0 | 审计子代理：可合并 0 必须修复，2 文档级小瑕疵 | **可验收**（待人工合并） |
 | F2 | AGP 8.9.0→8.9.1（API36 官方最低） | `4a0f2ce` | fix/agp-8.9.1-api36-min-2026-11-08 / PR#53 | gradle/libs.versions.toml 单行；无行为变化 | 本地 393/0；CI 42467710400 三 job 全绿（首跑 42466195571 API36 模拟器基建失败已单列重派） | ✅ 审计通过（官方表复核+run 实查+首败与 AGP 无关证据充分） | **可验收**（待人工合并） |
@@ -35,7 +36,7 @@
 | 42469008646 | 7f783df (T10/PR59) | running | 协调者 |
 | 42469011483 | 7612f0a (T11b/PR60) | running | 协调者 |
 | 42469258780 | af7f406 (N1N2/PR61) | running | 协调者 |
-| — | — | — | 裁决完成 22:18（选项A修订版：(b)/(c) 诊断轮→分支处置→04:15 硬检查点）；B1 恢复执行中 |
+| 42500080220 | 50c9d88 (B1 R16) | **三 job 全绿（PhaseA+PhaseB 双 API）** | B1 交付完成 00:55；审计派出 |
 
 ## 额度记录（定期更新；平台无数据标未知）
 | 时间(北京) | 已用 | 剩余 | 备注 |
