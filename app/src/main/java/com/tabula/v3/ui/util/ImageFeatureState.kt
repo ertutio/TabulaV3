@@ -39,8 +39,9 @@ fun rememberImageFeatures(
             return@LaunchedEffect
         }
 
-        // T11b single-flight：同键并发只跑一次检测，等待者共享结果；
-        // 不可信阴性（快速模式/信号量繁忙/失败）只用于本次显示，留待重试。
+        // T11b single-flight：同键并发只跑一次检测，等待者直接共享该轮结果
+        // （含不可信阴性，PR60 修复一）；不可信阴性（快速模式/信号量繁忙/失败）
+        // 不入可靠缓存，留待重试。
         features = ImageFeatureCacheStore.getOrDetect(cacheKey) {
             ImageFeatureDetector.detect(
                 context = context,
@@ -66,7 +67,7 @@ suspend fun preloadImageFeatures(
     if (!enableHdr && !enableMotion) return
 
     val cacheKey = ImageFeatureCacheKey(image.id, image.dateModified, enableHdr, enableMotion)
-    // T11b single-flight：已缓存/在途则共享，不再重复检测
+    // T11b single-flight：已缓存/在途则共享（等待者直接拿到该轮结果），不再重复检测
     ImageFeatureCacheStore.getOrDetect(cacheKey) {
         ImageFeatureDetector.detect(
             context = context,

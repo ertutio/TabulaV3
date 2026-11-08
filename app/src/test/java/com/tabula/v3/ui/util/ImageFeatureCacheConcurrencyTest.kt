@@ -34,21 +34,26 @@ import java.util.concurrent.TimeUnit
 import java.util.function.Supplier
 
 /**
- * T11b 测量入口（TC48–TC51 前置，无生产改动）：量化 ImageFeatureCacheStore
- * 当前"无 single-flight、无界保留"的两个基线事实，供 T11b 实施前后对比：
+ * T11b 行为规格测试（源自 PR56 基线测量，TC48–TC51 已按 single-flight/有界
+ * 语义改写；PR60 收尾补充两修复的确定性回归）：
  *
- * 1. 同键并发重复检测：N 个并发 preloadImageFeatures 同 (imageId, 版本, 开关)
- *    ——屏障夹具要求 N 个调用方全部到达检测流才放行；当前实现无 single-flight，
- *    N 个调用方各自运行 detect（arrivals>=N 可确定性判定）。若未来引入
- *    single-flight，本测试将按新行为改写（先跑单飞计数再对比）——本文件是
- *    基线测量，不是终态规格。
- * 2. 无界保留：N 个不同键 putIfReliable 后全部可取（无淘汰）——有界缓存的
- *    必要性证据。
- * 3. 不可信阴性重试：HDR 重型检测在 Robolectric 下失败 → definitive=false
- *    不入缓存 → 第二次调用再次运行 detect（流打开计数增长）。
+ * 1. single-flight：同键并发 preloadImageFeatures 只运行一次检测——所有调用方
+ *    共享同一次流打开，结果照常入缓存。
+ * 2. 有界缓存：写入 MAX_ENTRIES+100 个可靠条目后，最早写入者被淘汰、最新保留。
+ * 3. 不可信阴性重试（单人路径）：HDR 重型检测在 Robolectric 下失败 →
+ *    definitive=false 不入缓存 → 第二次调用再次运行 detect（流打开计数增长）。
+ * 4. PR60 修复一：等待者共享在途轮次结果（含不可信阴性）——同键 3 并发只有
+ *    一轮检测的流打开；缓存仍拒绝该不可信阴性；随后新一轮调用重跑检测。
+ * 5. PR60 修复二：所有权后复查缓存——B 的初始 get 发生在 A 入库前、B 领取
+ *    所有权发生在 A 完成入库后 → B 经复查直接命中缓存，不再重跑检测
+ *    （preOwnershipGateForTest 可控注入把 B 拦在初始 get 与 putIfAbsent 之间）。
+ * 6. 失败/取消语义保持：发起者取消（不产结果）→ 等待者按失败重试语义重跑；
+ *    等待者自身取消向上传播。
  *
  * 流打开次数 = 检测工作的可观察代理（readXmp 对 checkHdr||checkMotion 无条件
- * 打开一次流；后续读取按需追加）。
+ * 打开一次流；后续读取按需追加）。fastMode+checkHdr 路径每轮检测固定开 2 次
+ * 流（readXmp + EXIF 提示读取），测试用"先标定单人轮次再断言并发轮次"的方式
+ * 保持对每轮打开数的鲁棒性。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], manifest = Config.NONE)
@@ -84,6 +89,7 @@ class ImageFeatureCacheConcurrencyTest {
     @After
     fun tearDown() {
         ImageFeatureCacheStore.clear()
+        ImageFeatureCacheStore.preOwnershipGateForTest = null
         ImageFeatureDetector.setFastMode(false)
         scopes.forEach { it.cancel() }
     }
@@ -214,5 +220,126 @@ class ImageFeatureCacheConcurrencyTest {
             "second call must re-run detection (opens $opensAfterFirst -> $opensAfterSecond)",
             opensAfterSecond > opensAfterFirst
         )
+    }
+
+    @Test
+    fun waitersShareUntrustedNegativeFromSameFlight() = runBlocking {
+        // PR60 修复一：同键 3 并发时等待者直接共享在途轮次结果（含不可信阴性），
+        // 不再各自重跑；不可信阴性照旧不入可靠缓存；随后新一轮调用重跑检测。
+        // 不可信阴性用 fastMode 路径（checkHdr=true + setFastMode(true) →
+        // definitive=false），对 Robolectric 完全确定。
+        ImageFeatureDetector.setFastMode(true)
+        val hdrKey = ImageFeatureCacheKey(10L, 1000L, enableHdr = true, enableMotion = false)
+        val detectBlock: suspend () -> com.tabula.v3.data.model.ImageFeatures = {
+            ImageFeatureDetector.detect(context, uri, checkHdr = true, checkMotion = false)
+        }
+        // 标定单人一轮检测的流打开数 K（readXmp + EXIF 提示读取）
+        registerCountingStreams()
+        val solo = ImageFeatureCacheStore.getOrDetect(hdrKey, detectBlock)
+        val perFlightOpens = openCounter.get()
+        assertTrue(
+            "solo fast-mode detect must yield an untrusted negative",
+            !solo.definitive && !solo.isHdr
+        )
+        assertNull(
+            "untrusted negative must not enter the reliable cache",
+            ImageFeatureCacheStore.get(hdrKey)
+        )
+
+        // 阻断共享轮次的首个流打开：发起者阻塞在 detect 中间，等待者全部进入
+        // 在途等待后才放行 → 三方共享同一轮（时序确定性，沿用既有屏障原语）。
+        val flightArrived = CountDownLatch(1)
+        val releaseFlight = CountDownLatch(1)
+        registerCountingStreams(
+            barrierLimit = perFlightOpens + 1,
+            barrier = flightArrived,
+            blocked = releaseFlight
+        )
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob()).also { scopes += it }
+        val callers = (1..3).map {
+            scope.async { ImageFeatureCacheStore.getOrDetect(hdrKey, detectBlock) }
+        }
+        assertTrue(flightArrived.await(10, TimeUnit.SECONDS))
+        // 给两个等待者时间进入在途等待（沿用既有测试时序原语）
+        Thread.sleep(500)
+        releaseFlight.countDown()
+        val shared = callers.map {
+            runBlocking { kotlinx.coroutines.withTimeout(20_000) { it.await() } }
+        }
+        assertEquals(
+            "3 concurrent callers must share exactly one detection flight " +
+                "(one flight's worth of stream opens)",
+            perFlightOpens * 2, openCounter.get()
+        )
+        assertTrue(
+            "all callers must receive the untrusted negative",
+            shared.all { !it.definitive && !it.isHdr }
+        )
+        assertEquals(
+            "all three callers must share one identical result",
+            1, shared.toSet().size
+        )
+        assertNull(
+            "putIfReliable must still reject the shared untrusted negative",
+            ImageFeatureCacheStore.get(hdrKey)
+        )
+        // 后续新一轮调用：不可信阴性不在可靠缓存 → 从头重跑检测
+        ImageFeatureCacheStore.getOrDetect(hdrKey, detectBlock)
+        assertTrue(
+            "a fresh round after the shared flight must rerun detection",
+            openCounter.get() > perFlightOpens * 2
+        )
+        println("T11B-SHARED-UNTRUSTED-NEGATIVE perFlightOpens=$perFlightOpens totalOpens=${openCounter.get()}")
+    }
+
+    @Test
+    fun postOwnershipRecheckAvoidsDuplicateDetectionAfterCacheFill() = runBlocking {
+        // PR60 修复二：B 的初始 get 发生在 A 入库前（未命中），B 领取所有权发生
+        // 在 A 完成入库之后 → B 经所有权后复查直接命中缓存，不再重跑检测。
+        // 可控注入 preOwnershipGateForTest 把 B 拦在初始 get 与 putIfAbsent 之间，
+        // 精确复现"初始 get 检查"与"领取所有权"之间的入库竞态窗口。
+        val aArrived = CountDownLatch(1)
+        val releaseA = CountDownLatch(1)
+        registerCountingStreams(barrierLimit = 1, barrier = aArrived, blocked = releaseA)
+        val hookCalls = AtomicInteger(0)
+        val bParked = CountDownLatch(1)
+        ImageFeatureCacheStore.preOwnershipGateForTest = {
+            // A（第 1 次调用）直接放行；B（第 2 次调用）停在所有权领取之前
+            if (hookCalls.incrementAndGet() == 2) bParked.await(15, TimeUnit.SECONDS)
+        }
+        val detectBlock: suspend () -> com.tabula.v3.data.model.ImageFeatures = {
+            ImageFeatureDetector.detect(context, uri, checkHdr = false, checkMotion = true)
+        }
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob()).also { scopes += it }
+        val a = scope.async { ImageFeatureCacheStore.getOrDetect(cacheKey, detectBlock) }
+        assertTrue(aArrived.await(10, TimeUnit.SECONDS))
+        val b = scope.async { ImageFeatureCacheStore.getOrDetect(cacheKey, detectBlock) }
+        // 等 B 抵达所有权闩锁（其初始 get 已在 A 入库前完成且未命中）
+        val bDeadline = System.currentTimeMillis() + 10_000
+        while (hookCalls.get() < 2 && System.currentTimeMillis() < bDeadline) Thread.sleep(20)
+        assertEquals(
+            "B must be parked between its initial get and ownership acquisition",
+            2, hookCalls.get()
+        )
+        assertNull(
+            "cache must still be empty while B is parked (B's initial get missed)",
+            ImageFeatureCacheStore.get(cacheKey)
+        )
+        // A 完成：可靠阴性入库 + 在途条目移除
+        releaseA.countDown()
+        val aResult = runBlocking { kotlinx.coroutines.withTimeout(20_000) { a.await() } }
+        assertNotNull("A's reliable negative must be cached", ImageFeatureCacheStore.get(cacheKey))
+        // 释放 B：此时它才领取所有权 → 复查命中缓存，不再重跑
+        bParked.countDown()
+        val bResult = runBlocking { kotlinx.coroutines.withTimeout(20_000) { b.await() } }
+        assertEquals(
+            "B must share A's cached result via the post-ownership re-check",
+            aResult, bResult
+        )
+        assertEquals(
+            "B must not rerun detection (no stream opens beyond A's flight)",
+            1, openCounter.get()
+        )
+        println("T11B-POST-OWNERSHIP-RECHECK opens=${openCounter.get()}")
     }
 }
