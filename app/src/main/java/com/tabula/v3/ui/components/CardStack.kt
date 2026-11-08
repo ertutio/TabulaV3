@@ -1506,6 +1506,10 @@ bitmap = ownedScaledCopyOrNull(cachedBitmap, 250)
                                 onDragCancel = {
                                     isDragging = false
                                     hasDragged = false
+                                    // N1（活性，2026-11-08 登记）：手势取消与拖动结束同口径——
+                                    // 恢复预加载并退出快速检测模式，避免取消后预载停摆至下次滑动
+                                    preloadingManager.resume()
+                                    com.tabula.v3.data.repository.ImageFeatureDetector.setFastMode(false)
                                     debugCardStackLog(
                                         "dragCancel shuffle idx=$currentIndex locked=$lockedDirection " +
                                             "dx=${dragOffsetX.value} dy=${dragOffsetY.value} trans=$isTransitioning"
@@ -3203,6 +3207,10 @@ bitmap = ownedScaledCopyOrNull(cachedBitmap, 250)
                                 onDragCancel = {
                                     isDragging = false
                                     hasDragged = false
+                                    // N1（活性，2026-11-08 登记）：手势取消与拖动结束同口径——
+                                    // 恢复预加载并退出快速检测模式，避免取消后预载停摆至下次滑动
+                                    preloadingManager.resume()
+                                    com.tabula.v3.data.repository.ImageFeatureDetector.setFastMode(false)
                                     debugCardStackLog(
                                         "dragCancel draw idx=${drawState.currentIndex} locked=$lockedDirection " +
                                             "dx=${centerDragOffsetX.value} dy=${centerDragOffsetY.value} " +
