@@ -91,13 +91,65 @@ adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '\r' | grep -Fx Success
 for fixture_dir in "Pictures/PartialSelectionFixtures/" "Pictures/FullRecoveryFixtures/" "Pictures/PixelRefreshFixtures/" "Pictures/ForegroundPermFixtures/" "Pictures/CloudSafetySentinels/" "Pictures/TabulaVolumeProbe/"; do
   adb shell "content delete --uri content://media/external/images/media --where \"relative_path='$fixture_dir'\"" >/dev/null 2>&1 || true
 done
-adb shell "rm -rf /storage/emulated/0/Pictures/PartialSelectionFixtures" >/dev/null 2>&1 || true
+adb shell "rm -rf /sdcard/Pictures/PartialSelectionFixtures" >/dev/null 2>&1 || true
 gallery_rows=$(adb shell "content query --uri content://media/external/images/media --projection _id" | grep -c "^Row:") || gallery_rows=0
 if [ "$gallery_rows" != "0" ]; then
   echo "Gallery not clean before PARTIAL selection suite: $gallery_rows rows" >&2
   partial_status=1
 fi
 mkdir -p device-results/PartialSelection
+# ---- 宿主夹具编排：纯 python 生成 5 张 96x96 纯色 PNG → adb push →
+# scan_file 入库（行所有权=shell，非应用自有：scoped storage 下应用可见
+# 集合=严格选中集，选择集 A→B 语义可观测）。推送顺序 S→A1→A2→B1→B2，
+# 相邻 >1.1s（mtime 派生拍摄时间秒级互异 → 选择器按时间倒序确定）。
+# CI 实证（run 42476083194/42477634711）：经 UiAutomation shell 传字节
+# 会被截断/吞没——字节传输只走宿主 adb。
+python3 - <<'PY'
+import os, struct, zlib
+
+def write_png(path, rgb, size=96):
+    def chunk(tag, data):
+        c = struct.pack(">I", len(data)) + tag + data
+        return c + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+    raw = b"".join(b"\x00" + bytes(rgb) * size for _ in range(size))
+    ihdr = struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0)
+    with open(path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+                + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+out = "device-results/PartialSelection/fixtures"
+os.makedirs(out, exist_ok=True)
+plan = [("partial-sentinel.png", (136, 136, 136)),
+        ("partial-a1.png", (255, 0, 0)),
+        ("partial-a2.png", (0, 255, 0)),
+        ("partial-b1.png", (255, 255, 0)),
+        ("partial-b2.png", (0, 255, 255))]
+for name, rgb in plan:
+    write_png(os.path.join(out, name), rgb)
+print("fixtures generated:", [n for n, _ in plan])
+PY
+fixture_ok=1
+adb shell "mkdir -p /sdcard/Pictures/PartialSelectionFixtures" >/dev/null 2>&1 || true
+for f in partial-sentinel.png partial-a1.png partial-a2.png partial-b1.png partial-b2.png; do
+  adb push "device-results/PartialSelection/fixtures/$f" "/sdcard/Pictures/PartialSelectionFixtures/$f" >/dev/null || fixture_ok=0
+  sleep 1.1
+  adb shell "content call --uri content://media/ --method scan_file --arg /sdcard/Pictures/PartialSelectionFixtures/$f" >/dev/null 2>&1 || true
+  row=$(adb shell "content query --uri content://media/external/images/media --projection _id --where \"_display_name='$f'\"" | grep -c "^Row:") || row=0
+  if [ "$row" != "1" ]; then
+    # 兜底扫描路径：MEDIA_SCANNER_SCAN 广播后再核对一次
+    adb shell "am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/PartialSelectionFixtures/$f" >/dev/null 2>&1 || true
+    sleep 1
+    row=$(adb shell "content query --uri content://media/external/images/media --projection _id --where \"_display_name='$f'\"" | grep -c "^Row:") || row=0
+  fi
+  if [ "$row" != "1" ]; then
+    echo "Host fixture scan failed: $f (rows=$row)" >&2
+    fixture_ok=0
+  fi
+done
+if [ "$fixture_ok" != "1" ]; then
+  echo "Host fixture orchestration failed" >&2
+  status=1
+fi
 if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
   -e class com.tabula.v3.PartialSelectionPhaseATest \
   com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \

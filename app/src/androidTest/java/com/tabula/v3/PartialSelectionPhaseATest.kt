@@ -13,13 +13,6 @@ import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.FullRecoveryStateContract.flushCleanupPrefs
 import com.tabula.v3.FullRecoveryStateContract.rebuildRow
 import com.tabula.v3.FullRecoveryStateContract.seedCleanupGroup
-import com.tabula.v3.PartialSelectionStateContract.COLOR_A1
-import com.tabula.v3.PartialSelectionStateContract.COLOR_A2
-import com.tabula.v3.PartialSelectionStateContract.COLOR_B1
-import com.tabula.v3.PartialSelectionStateContract.COLOR_B2
-import com.tabula.v3.PartialSelectionStateContract.COLOR_SENTINEL
-import com.tabula.v3.PartialSelectionStateContract.dateTakenNowMinus
-import com.tabula.v3.PartialSelectionStateContract.seedShellPhoto
 import com.tabula.v3.PartialSelectionStateContract.visibleDisplayNames
 import com.tabula.v3.PartialSelectionStateContract.writeExpectedState
 import com.tabula.v3.permission.MediaPermissionPolicy
@@ -61,13 +54,11 @@ class PartialSelectionPhaseATest {
     private val ui get() = PartialSelectionUi
     private val ctx get() = ui.ctx
 
-    private data class Seed(val name: String)
-
-    private lateinit var sentinel: Seed
-    private lateinit var a1: Seed
-    private lateinit var a2: Seed
-    private lateinit var b1: Seed
-    private lateinit var b2: Seed
+    private val sentinelName = PartialSelectionStateContract.SENTINEL_NAME
+    private val a1Name = PartialSelectionStateContract.A1_NAME
+    private val a2Name = PartialSelectionStateContract.A2_NAME
+    private val b1Name = PartialSelectionStateContract.B1_NAME
+    private val b2Name = PartialSelectionStateContract.B2_NAME
 
     @Before fun setup() = runBlocking {
         check(InstrumentationRegistry.getArguments().getString("allowSyntheticMediaProbe") == "true")
@@ -93,20 +84,18 @@ class PartialSelectionPhaseATest {
 
     @Test
     fun partialSelectionAEstablishedViaSystemDialogAndPicker() = runBlocking<Unit> {
-        // ---- 种子（shell 身份写入+扫描：非应用自有媒体 → 选择集语义可观测；
-        //      EXIF 拍摄时间互异分钟 + 写入顺序同向 → 网格确定性 [B2,B1,A2,A1,S]）----
-        val shell: (String) -> String = { command -> PartialSelectionUi.shell(command) }
-        sentinel = Seed(seedShellPhoto(ctx, "sentinel", COLOR_SENTINEL, dateTakenNowMinus(2000), shell))
-        SystemClock.sleep(1100)
-        a1 = Seed(seedShellPhoto(ctx, "a1", COLOR_A1, dateTakenNowMinus(1500), shell))
-        SystemClock.sleep(1100)
-        a2 = Seed(seedShellPhoto(ctx, "a2", COLOR_A2, dateTakenNowMinus(1000), shell))
-        SystemClock.sleep(1100)
-        b1 = Seed(seedShellPhoto(ctx, "b1", COLOR_B1, dateTakenNowMinus(500), shell))
-        SystemClock.sleep(1100)
-        b2 = Seed(seedShellPhoto(ctx, "b2", COLOR_B2, dateTakenNowMinus(100), shell))
-        Log.i(TAG, "seeded sentinel=${sentinel.name} a1=${a1.name} a2=${a2.name} " +
-            "b1=${b1.name} b2=${b2.name}")
+        // ---- 夹具前置：宿主（probe 脚本）已按 S→A1→A2→B1→B2 顺序 push+扫描
+        //      非应用自有媒体（>1s 间隔保证 mtime 派生拍摄时间秒级互异 →
+        //      网格确定性 [B2,B1,A2,A1,S]）；此处先核对 5 行全部在场 ----
+        val allNames = listOf(sentinelName, a1Name, a2Name, b1Name, b2Name)
+        for (name in allNames) {
+            val row = ui.shell(
+                "content query --uri content://media/external/images/media " +
+                    "--projection _id --where \"_display_name='$name'\" 2>&1"
+            )
+            check("Row: 0" in row) { "host fixture missing before phase A: $name ($row)" }
+        }
+        Log.i(TAG, "host fixtures verified: $allNames")
 
         // ---- 无授权级别断言（策略三态）+ 集合外可见性断言 ----
         assertEquals(
@@ -150,7 +139,7 @@ class PartialSelectionPhaseATest {
         )
 
         // ---- 地面真值：应用可见集合恰为 {A1, A2}（哨兵/B 集合外）----
-        val expectedA = setOf(a1.name, a2.name)
+        val expectedA = setOf(a1Name, a2Name)
         val truth = awaitDeadline("ground-truth-A") { visibleDisplayNames(ctx) == expectedA }
         assertTrue(
             "应用可见集合必须恰为选择集 A（实际=${visibleDisplayNames(ctx)} 预期=$expectedA）",
@@ -158,7 +147,7 @@ class PartialSelectionPhaseATest {
         )
 
         // ---- 持久清理组 + 断点（A 成员；复用 FULL 恢复设施写入口）----
-        val rows = listOf(a1, a2).map { rebuildRow(ctx, it.name) }
+        val rows = listOf(a1Name, a2Name).map { rebuildRow(ctx, it) }
         assertEquals(expectedA, rows.map { it.displayName }.toSet())
         val albumId = com.tabula.v3.ui.components.buildMonthInfos(rows).single().cleanupAlbumId
         val groupId = seedCleanupGroup(ctx, rows)
@@ -180,13 +169,13 @@ class PartialSelectionPhaseATest {
         // ---- 真实 UI 一致性：deck 当前卡 ∈ A；查看器 overlay 身份匹配 ----
         ui.launch()
         ui.waitFor(ui.DECK_MARKER)
-        val cardName = ui.openViewerFromLargest(listOf(a1.name, a2.name))
+        val cardName = ui.openViewerFromLargest(listOf(a1Name, a2Name))
         val cardRow = rebuildRow(ctx, cardName)
         ui.awaitViewerOverlay(cardRow.mediaIdentityKey())
         ui.backToDeck()
         // 集合外媒体不得出现在 deck（哨兵 + 未选中的 B）
-        ui.awaitGone(sentinel.name, timeoutMs = 5000)
-        ui.awaitGone(b1.name, timeoutMs = 5000)
+        ui.awaitGone(sentinelName, timeoutMs = 5000)
+        ui.awaitGone(b1Name, timeoutMs = 5000)
 
         // ---- 月份专清（真实 sheet）：月份成员 = A ----
         // （月份清理视图无 BACK 出口——经"切换回全局整理"；本流程到此结束，
@@ -197,19 +186,19 @@ class PartialSelectionPhaseATest {
         ui.waitFor(monthName)
         ui.tap(monthName)
         ui.tap("开始整理")
-        ui.waitFor(a1.name)
-        ui.waitFor(a2.name)
-        ui.awaitGone(sentinel.name, timeoutMs = 5000)
+        ui.waitFor(a1Name)
+        ui.waitFor(a2Name)
+        ui.awaitGone(sentinelName, timeoutMs = 5000)
 
         // ---- 预期状态持久化（阶段B 新进程读回）----
         writeExpectedState(
             ctx,
             albumId = albumId,
             groupId = groupId,
-            aDisplayNames = listOf(a1.name, a2.name),
+            aDisplayNames = listOf(a1Name, a2Name),
             aMembers = rows.map { it.mediaIdentityKey() },
-            bDisplayNames = listOf(b1.name, b2.name),
-            sentinelName = sentinel.name,
+            bDisplayNames = listOf(b1Name, b2Name),
+            sentinelName = sentinelName,
             checkpointIndex = 1
         )
         Log.i(TAG, "phase A complete: PARTIAL(A) established, group=$groupId checkpoint=1")
