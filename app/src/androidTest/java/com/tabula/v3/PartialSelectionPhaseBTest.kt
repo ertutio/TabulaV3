@@ -1,0 +1,242 @@
+package com.tabula.v3
+
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.SystemClock
+import android.util.Log
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.tabula.v3.data.preferences.AppPreferences
+import com.tabula.v3.data.repository.mediaIdentityKey
+import com.tabula.v3.FullRecoveryStateContract.rebuildRow
+import com.tabula.v3.PartialSelectionStateContract.readExpectedState
+import com.tabula.v3.PartialSelectionStateContract.visibleDisplayNames
+import com.tabula.v3.permission.MediaPermissionPolicy
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+
+/**
+ * PARTIAL 选择集 A→B 两阶段验证——阶段B（宿主已 force-stop 阶段A进程，
+ * 应用数据与 PARTIAL(A) 授权保留，不 pm clear）。
+ *
+ * 断言链（包B：B1）：
+ * 1. 保留（切换前）：新进程（pid 不同）读回预期 JSON；清理组成员键=A 原样、
+ *    断点 (组,1) 原样、未永久完成、无 acknowledged、onboarding 标记保留。
+ * 2. 真实系统机制改选：ACTION_PICK_IMAGES（调用方=被测应用）重选——取消 A
+ *    勾选（若选择器预勾选当前集）、勾选 B 两格（网格 0、1 = 最新两张）、
+ *    确认；地面真值 = 应用内查询恰为 {B1, B2}。
+ * 3. 级别仍 PARTIAL（FULL 未授）。
+ * 4. 真实 UI 一致性：deck 当前卡 ∈ B、查看器 overlay 身份匹配、A 与哨兵
+ *    不可见；月份专清经真实 sheet 重建（生产 buildMonthInfos 口径），
+ *    成员 = B。
+ * 5. 保留（切换后）：清理组成员键仍为 A（不损坏）、断点原样、未永久完成、
+ *    无 acknowledged；哨兵行经 shell 查询确认仍存在（集合外媒体不受影响），
+ *    应用内查询不含哨兵。
+ * 6. phaseBPid 写回状态文件。
+ *
+ * 已知边界（如实登记）：ACTION_PICK_IMAGES 确认对持久 user-selected 集合的
+ * 更新语义以地面真值断言裁决——若该机制不符，红灯留存证据（截图+辅助树
+ * dump+逐格勾选态日志），回退路径（系统设置页驱动）登记于 coord 笔记。
+ */
+@RunWith(AndroidJUnit4::class)
+class PartialSelectionPhaseBTest {
+    private val TAG = "PartialSelectionB"
+    private val ui get() = PartialSelectionUi
+    private val ctx get() = ui.ctx
+
+    @Before fun setup() {
+        check(InstrumentationRegistry.getArguments().getString("allowSyntheticMediaProbe") == "true")
+        check(Build.HARDWARE == "ranchu" || Build.HARDWARE == "goldfish")
+        check(Build.VERSION.SDK_INT >= 34) { "PARTIAL selection semantics require API 34+" }
+        assertEquals(
+            "阶段B前置：PARTIAL 必须仍授权（宿主不得 pm clear）",
+            PackageManager.PERMISSION_GRANTED,
+            ctx.checkSelfPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+        )
+        assertEquals(
+            "阶段B前置：FULL 必须未授权（PARTIAL 语义）",
+            PackageManager.PERMISSION_DENIED,
+            ctx.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES)
+        )
+    }
+
+    /** 阶段B 是本套件最后阶段：按名+路径精确删除全部 5 个合成夹具并核对消失。 */
+    @After fun cleanup() {
+        val stateFile = PartialSelectionStateContract.stateFile(ctx)
+        if (!stateFile.exists()) return
+        runCatching { readExpectedState(ctx) }.onSuccess { expected ->
+            val names = mutableListOf<String>()
+            names += expected.getJSONArray("displayNames").let { a ->
+                (0 until a.length()).map { a.getString(it) }
+            }
+            names += expected.getJSONArray("bDisplayNames").let { b ->
+                (0 until b.length()).map { b.getString(it) }
+            }
+            names += expected.getString("sentinelName")
+            val path = PartialSelectionStateContract.FIXTURE_DIR.trimEnd('/')
+            for (name in names) {
+                val query = ui.shell(
+                    "content query --uri content://media/external/images/media " +
+                        "--projection _id --where \"_display_name='$name'\""
+                )
+                if (!query.contains("Row: 0")) continue
+                val deleted = ui.shell(
+                    "content delete --uri content://media/external/images/media " +
+                        "--where \"_display_name='$name' AND relative_path='$path/'\""
+                )
+                val after = ui.shell(
+                    "content query --uri content://media/external/images/media " +
+                        "--projection _id --where \"_display_name='$name'\""
+                )
+                Log.i(TAG, "cleanup $name delete=$deleted gone=${!after.contains("Row: 0")}")
+                assertTrue("夹具删除后必须消失：$name", !after.contains("Row: 0"))
+            }
+        }.onFailure { Log.w(TAG, "cleanup skipped: state file unreadable", it) }
+    }
+
+    @Test
+    fun selectionChangeAToBViaPhotoPickerReselectAndAppFollows() = runBlocking {
+        val expected = readExpectedState(ctx)
+        assertNotEquals(
+            "阶段B必须运行在阶段A之后的新进程（宿主 force-stop）",
+            expected.getInt("phaseAPid"), android.os.Process.myPid()
+        )
+        val albumId = expected.getString("albumId")
+        val groupId = expected.getString("groupId")
+        val checkpointIndex = expected.getInt("checkpointIndex")
+        val aMembers = expected.getJSONArray("members").let { array ->
+            (0 until array.length()).map { array.getString(it) }
+        }
+        val aNames = expected.getJSONArray("displayNames").let { array ->
+            (0 until array.length()).map { array.getString(it) }
+        }
+        val bNames = expected.getJSONArray("bDisplayNames").let { array ->
+            (0 until array.length()).map { array.getString(it) }
+        }
+        val sentinelName = expected.getString("sentinelName")
+        val preferences = AppPreferences.getInstance(ctx)
+
+        fun assertRetention(stage: String) {
+            assertEquals("[$stage] 清理组成员键必须保留", aMembers, preferences.getGroupImageIds(albumId, groupId))
+            assertEquals(
+                "[$stage] 断点必须保留（组+位置）",
+                listOf(groupId) to checkpointIndex,
+                preferences.getAlbumCleanupCheckpoint(albumId)
+            )
+            assertTrue(
+                "[$stage] 组不得被标记永久完成",
+                preferences.getAlbumPermanentlyProcessedGroups(albumId).isEmpty()
+            )
+            assertTrue(
+                "[$stage] 不得出现 acknowledged 成员（无真实处理操作）",
+                preferences.getAlbumAcknowledgedCleanupMembers(albumId).isEmpty()
+            )
+            assertTrue(
+                "[$stage] 月份专清不得被标记完成",
+                albumId !in preferences.getCompletedCleanupAlbumIds()
+            )
+        }
+
+        // ---- 1. 保留（切换前；跨进程死亡持久）----
+        assertRetention("pre-switch")
+        val appPrefs = AppPreferences(ctx)
+        assertTrue("onboarding 标记必须保留", appPrefs.hasCompletedOnboarding)
+        assertTrue("免责声明标记必须保留", appPrefs.hasAcknowledgedDisclaimer)
+        assertEquals(aNames.toSet(), visibleDisplayNames(ctx))
+
+        // ---- 2. 真实系统机制改选 A→B（ACTION_PICK_IMAGES 重选）----
+        ui.launchPickerForReselection()
+        // 网格顺序 = [B2, B1, A2, A1, S]；B = 索引 0、1（最新两张）
+        ui.driveCheckedCells(expected = setOf(0, 1))
+        val confirmLabel = ui.confirmSelection()
+        Log.i(TAG, "reselect confirmed via $confirmLabel; awaiting ground truth B")
+
+        val expectedB = bNames.toSet()
+        val truth = awaitDeadline("ground-truth-B") { visibleDisplayNames(ctx) == expectedB }
+        assertTrue(
+            "重选确认后应用可见集合必须恰为 B（实际=${visibleDisplayNames(ctx)} 预期=$expectedB）",
+            truth
+        )
+        assertEquals(
+            MediaPermissionPolicy.MediaAccessLevel.PARTIAL,
+            MediaPermissionPolicy.mediaAccessLevel(Build.VERSION.SDK_INT) { permission ->
+                ctx.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+            }
+        )
+
+        // ---- 4. 真实 UI 一致性：deck ∈ B、查看器身份、A/哨兵不可见 ----
+        val rowsB = bNames.map { rebuildRow(ctx, it) }
+        assertEquals(expectedB, rowsB.map { it.displayName }.toSet())
+        ui.launch()
+        ui.waitFor(ui.DECK_MARKER)
+        val cardName = ui.openViewerFromLargest(bNames)
+        val cardRow = rebuildRow(ctx, cardName)
+        ui.awaitViewerOverlay(cardRow.mediaIdentityKey())
+        ui.backToDeck()
+        aNames.forEach { ui.awaitGone(it, timeoutMs = 5000) }
+        ui.awaitGone(sentinelName, timeoutMs = 5000)
+
+        // ---- 月份专清经真实 sheet：生产 buildMonthInfos 口径的月份成员 = B ----
+        // （月份清理视图无 BACK 出口——本流程到此结束，不再返回 deck）
+        val monthInfos = com.tabula.v3.ui.components.buildMonthInfos(rowsB)
+        val monthName = monthInfos.single().displayName
+        assertEquals(
+            "月列表成员必须与 B 快照逐成员一致（不重复不遗漏）",
+            rowsB.map { it.mediaIdentityKey() }.toSet(),
+            monthInfos.single().images.map { it.mediaIdentityKey() }.toSet()
+        )
+        ui.tap("选择图集")
+        ui.tap("月份")
+        ui.waitFor(monthName)
+        ui.tap(monthName)
+        ui.tap("开始整理")
+        bNames.forEach { ui.waitFor(it) }
+        aNames.forEach { ui.awaitGone(it, timeoutMs = 5000) }
+
+        // ---- 5. 保留（切换后）+ 哨兵不受影响 ----
+        assertRetention("post-switch")
+        assertTrue(
+            "哨兵必须仍在应用可见集合之外",
+            sentinelName !in visibleDisplayNames(ctx)
+        )
+        assertSentinelRowExists(sentinelName)
+
+        // ---- 6. 记录阶段B进程 ----
+        expected.put("phaseBPid", android.os.Process.myPid())
+        PartialSelectionStateContract.stateFile(ctx).writeText(expected.toString())
+        Log.i(TAG, "phase B complete: selection changed A->B, app follows, retention verified")
+    }
+
+    /** shell 身份查询哨兵行存在且元数据未变（集合外媒体不被应用触碰）。 */
+    private fun assertSentinelRowExists(sentinelName: String) {
+        val output = ui.shell(
+            "content query --uri content://media/external/images/media " +
+                "--projection _display_name:relative_path " +
+                "--where \"_display_name='$sentinelName'\""
+        )
+        Log.i(TAG, "sentinel shell query: $output")
+        assertTrue(
+            "哨兵行必须经 shell 查询存在（name=$sentinelName）：$output",
+            output.contains("Row: 0") && output.contains("_display_name=$sentinelName") &&
+                output.contains("relative_path=${PartialSelectionStateContract.FIXTURE_DIR.trimEnd('/')}")
+        )
+    }
+
+    private fun awaitDeadline(label: String, condition: () -> Boolean): Boolean {
+        val deadline = SystemClock.uptimeMillis() + 20000
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (condition()) return true
+            SystemClock.sleep(150)
+        }
+        ui.dumpTree("deadline-$label")
+        ui.saveScreenshot("deadline-$label")
+        return false
+    }
+}
