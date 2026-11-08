@@ -538,8 +538,18 @@ internal object PartialSelectionUi {
         candidates: List<String>, goneMarkers: List<String>, tag: String, attempts: Int = 3
     ) {
         repeat(attempts) { attempt ->
-            val node = findAny(ins.uiAutomation.rootInActiveWindow, candidates)
-                ?: error("$tag: candidate vanished before click")
+            // 候选等待（页面渲染需要时间；R14 实证 AppInfo 页 ~2-5s 才出节点）
+            val waitDeadline = SystemClock.uptimeMillis() + 30000
+            var node: AccessibilityNodeInfo? = null
+            while (SystemClock.uptimeMillis() < waitDeadline && node == null) {
+                node = findAny(ins.uiAutomation.rootInActiveWindow, candidates)
+                if (node == null) SystemClock.sleep(150)
+            }
+            if (node == null) {
+                dumpTree("missing-$tag")
+                saveScreenshot("missing-$tag")
+                error("$tag: candidate not visible after 30s wait — evidence saved")
+            }
             if (attempt % 2 == 0) {
                 clickNode(node, "$tag-attempt$attempt")
             } else {
