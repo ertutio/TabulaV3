@@ -120,12 +120,23 @@ internal object FullRecoveryStateContract {
         rows: List<ImageFile>,
         checkpointIndex: Int
     ) {
+        val calendar = java.util.Calendar.getInstance()
+        val monthEntries = org.json.JSONArray()
+        for (row in rows) {
+            calendar.timeInMillis = row.dateModified
+            monthEntries.put(org.json.JSONObject().apply {
+                put("identityKey", row.mediaIdentityKey())
+                put("year", calendar.get(java.util.Calendar.YEAR))
+                put("month", calendar.get(java.util.Calendar.MONTH) + 1)
+            })
+        }
         val json = JSONObject().apply {
             put("albumId", ALBUM_ID)
             put("groupId", groupId)
             put("checkpointIndex", checkpointIndex)
             put("members", org.json.JSONArray(rows.map { it.mediaIdentityKey() }))
             put("displayNames", org.json.JSONArray(rows.map { it.displayName }))
+            put("monthAttribution", monthEntries)
         }
         stateFile(context).writeText(json.toString())
     }
