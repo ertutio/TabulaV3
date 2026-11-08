@@ -146,3 +146,8 @@ PartialSelectionPhaseATest=1、PartialSelectionPhaseBTest=1；probe 脚本每阶
 - R14（f540152 / 42498101516）：候选等待后红——API37 timed out waiting for partial-b1.png（月份清理成员视图）：**地面真值 {B1,B2} 已通过**（重选生效）、deck/查看器过、仅成员视图无卡——引擎对成员缺席的持久组持有（任务 A 语义），B 未分析无批次（生产语义）。
 - 修正（R16 待跑）：月份断言收拢为 sheet 月行（生产 buildMonthInfos 口径）+ 持有语义登记。
 - 额度纪律生效：每轮最小证据（一行/一截图区），notes 压缩。
+
+### 6.10 裁决执行完成（R16 全绿）
+- R16（50c9d88 / run 42500080220）：**三 job 全绿**（build + API36 + API37，各 ~10min）——Settings 回退链（AppInfo 深链→Permissions 导航核验→Photos and videos→gear→像素驱动 {0,1}→确认回读）+ 地面真值 {B1,B2} + PhaseB 全部保留断言（retention pre/post-switch、哨兵 shell 行存在、查看器、月行）双 API 通过；PhaseA 重绿补强（裁决第 1 问的补强条件达成）。
+- 交付边界：A→B 重选机制=系统设置页（(c) 实证：PICK_IMAGES 确认不更新授权集）；月份清理成员视图为引擎持有语义（不断言，段内登记）。
+- 分支 docs/night-2026-11-08-B1-notes.md = 本 notes 快照（资产保全）。
