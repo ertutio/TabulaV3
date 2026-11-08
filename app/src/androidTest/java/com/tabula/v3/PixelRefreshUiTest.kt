@@ -56,6 +56,7 @@ import java.util.UUID
  */
 @RunWith(AndroidJUnit4::class)
 class PixelRefreshUiTest {
+    private val TAG = "PixelRefresh"
     private val ins get() = InstrumentationRegistry.getInstrumentation()
     private val ctx get() = ins.targetContext
     private var activity: android.app.Activity? = null
@@ -506,18 +507,13 @@ class PixelRefreshUiTest {
         }
     }
 
-    private companion object {
-        const val TAG = "PixelRefresh"
-    }
-}
-
-/**
- * 审计轮 6 针对性回归：ViewerPollPolicy 的跨时刻拼接敏感性。
- *
- * 序列 [查看器打开(红) → 查看器关闭、回到卡片(蓝)] 逐步喂入判定——
- * 每一步都必须返回 false：打开与颜色从不在同一次轮询同时成立，拼接
- * "曾经打开"与"当前卡片颜色"不能冒充查看器验收通过。
- */
+    /**
+     * 审计轮 6 针对性回归：ViewerPollPolicy 的跨时刻拼接敏感性。
+     *
+     * 序列 [查看器打开(红) → 查看器关闭、回到卡片(蓝)] 逐步喂入判定——
+     * 每一步都必须返回 false：打开与颜色从不在同一次轮询同时成立，拼接
+     * "曾经打开"与"当前卡片颜色"不能冒充查看器验收通过。
+     */
     @Test
     fun openedThenClosedWithMatchingCardColorNeverPasses() {
         // 第 1 次轮询：查看器标识在，但颜色不符（红 ≠ 期望蓝）
@@ -543,3 +539,4 @@ class PixelRefreshUiTest {
             )
         )
     }
+}
