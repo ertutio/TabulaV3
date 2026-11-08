@@ -248,23 +248,52 @@ internal object PartialSelectionUi {
 
     private fun checkedChild(node: AccessibilityNodeInfo): Boolean {
         val badge = Regex("^\\d{1,2}$")
+        // API36 google_apis 选择器实证（CI run 42469308043 树 dump）：选中格的
+        // 角标为子节点 content-desc="Selected"（左上角小徽标）；数字角标与
+        // checkable 形态为其他版本容忍。
+        val selectedDesc = Regex("^(Selected|已选|已选中)$")
         fun walk(n: AccessibilityNodeInfo?, depth: Int): Boolean {
             if (n == null || depth > 5) return false
             if ((n.isCheckable && n.isChecked) || n.isSelected) return true
             val text = n.text?.toString() ?: ""
-            if (badge.matches(text)) return true
+            val desc = n.contentDescription?.toString() ?: ""
+            if (badge.matches(text) || selectedDesc.matches(desc)) return true
             for (i in 0 until n.childCount) if (walk(n.getChild(i), depth + 1)) return true
             return false
         }
         return walk(node, 0)
     }
 
-    fun tapCell(index: Int, cells: List<AccessibilityNodeInfo>, purpose: String) {
+    /**
+     * 点选网格格：优先节点原生 ACTION_CLICK（节点定向，无坐标换算——CI 实证
+     * 选择器底部 sheet 的坐标 tap 与 a11y 边界存在系统级错位，run
+     * 42469308043 双 API 一致复现），失败回退节点中心坐标 tap。
+     */
+    fun tapCell(index: Int, cells: List<AccessibilityNodeInfo>, purpose: String): String {
         val node = cells[index]
+        if (node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+            Log.i(TAG, "tapped cell[$index] for $purpose via ACTION_CLICK")
+            return "ACTION_CLICK"
+        }
         val bounds = Rect().also { node.getBoundsInScreen(it) }
         check(!bounds.isEmpty) { "cell $index has empty bounds" }
         shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
-        Log.i(TAG, "tapped cell[$index] for $purpose bounds=${bounds.toShortString()}")
+        Log.i(TAG, "tapped cell[$index] for $purpose via coordinate fallback bounds=${bounds.toShortString()}")
+        return "coordinate"
+    }
+
+    /** 选择器底栏已选计数（"N photos or videos selected"）；不可见返回 null。 */
+    fun pickerSelectedCount(): Int? {
+        val regex = Regex("^(\\d+)")
+        fun walk(node: AccessibilityNodeInfo?): Int? {
+            if (node == null) return null
+            val desc = node.contentDescription?.toString() ?: ""
+            val match = Regex("^(\\d+) photos? or videos? selected.*$").matchEntire(desc)
+            if (match != null) return match.groupValues[1].toInt()
+            for (i in 0 until node.childCount) walk(node.getChild(i))?.let { return it }
+            return null
+        }
+        return walk(ins.uiAutomation.rootInActiveWindow)
     }
 
     /** 确认选择（"Add N"/"添加"/"完成"），返回按钮文本供日志。 */
@@ -364,25 +393,33 @@ internal object PartialSelectionUi {
     }
 
     /**
-     * 驱动勾选集合到预期：取消一切预期外勾选、补齐预期格。每轮重收集网格
-     * （节点可回收重绑）并全量记录勾选态到 logcat（失败裁决证据）。无预勾选
-     * 与"当前选择预勾选"两种选择器形态均收敛（地面真值断言兜底）。
+     * 驱动勾选集合到预期：取消一切预期外勾选、补齐预期格，逐轮以"节点勾选态
+     * + 底栏计数"双口径核验后收敛（CI run 42469308043 实证：选择器存在系统
+     * 级预选与坐标错位，盲 tap 振荡不可接受——每轮差集矫正、至多 3 轮、
+     * 每轮证据入 logcat，不收敛即失败留证）。无预勾选与"当前选择预勾选"
+     * 两种形态均收敛（地面真值断言兜底）。
      */
     fun driveCheckedCells(expected: Set<Int>, minCells: Int = 5, timeoutMs: Long = 30000) {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
+        var rounds = 0
         while (true) {
             val cells = collectGridCells(minCount = minCells)
-            val checked = cells.indices.filter { isCellChecked(cells[it]) }
-            Log.i(TAG, "driveChecked: checked=$checked expected=$expected")
-            if (checked.toSet() == expected) return
-            if (SystemClock.uptimeMillis() > deadline) {
+            val checked = cells.indices.filter { isCellChecked(cells[it]) }.toSet()
+            val count = pickerSelectedCount()
+            Log.i(TAG, "driveChecked round=$rounds checked=$checked count=$count expected=$expected")
+            if (checked == expected && (count == null || count == expected.size)) return
+            if (SystemClock.uptimeMillis() > deadline || rounds >= 3) {
                 dumpTree("drive-checked-mismatch")
                 saveScreenshot("drive-checked-mismatch")
-                error("checked cells not reached: checked=$checked expected=$expected")
+                error("checked cells not converged: checked=$checked count=$count expected=$expected " +
+                    "after $rounds corrective rounds — evidence saved")
             }
-            val taps = (checked.toSet() - expected).sorted() + (expected - checked.toSet()).sorted()
+            rounds++
+            val taps = (checked - expected).sorted() + (expected - checked).sorted()
             taps.forEach { tapCell(it, cells, purpose = "drive-selection") }
-            SystemClock.sleep(500)
+            // 等待本轮点选在树中生效（角标渲染 + 底栏计数更新），无固定断言 sleep：
+            // 收敛判定交给下一轮双口径核验。
+            SystemClock.sleep(600)
         }
     }
 
