@@ -54,10 +54,18 @@ internal object PartialSelectionUi {
         ctx.getExternalFilesDir(null) ?: ctx.filesDir, "cloud-ui-failures"
     ).apply { mkdirs() }
 
+    /**
+     * 证据文件名 sanitize：identityKey 等含 `|`（如 external_primary|108），
+     * upload-artifact v4 对非法字符**整体拒绝上传**（R9-API37/R10 双 API 工件
+     * 缺失的根因，裁决 F1）——非法字符统一替换为 `_`。
+     */
+    private fun safeFileName(tag: String): String =
+        tag.replace(Regex("[|\":*?<>\\r\\n\\\\]"), "_")
+
     fun saveScreenshot(tag: String) {
         try {
             val png = shellBytes("screencap -p")
-            File(evidenceDir(), "partial-selection-$tag.png").writeBytes(png)
+            File(evidenceDir(), "partial-selection-${safeFileName(tag)}.png").writeBytes(png)
             Log.i(TAG, "screenshot saved: $tag")
         } catch (e: Exception) {
             Log.w(TAG, "screenshot save failed: $tag", e)
@@ -82,7 +90,7 @@ internal object PartialSelectionUi {
                 for (i in 0 until node.childCount) walk(node.getChild(i), depth + 1)
             }
             walk(ins.uiAutomation.rootInActiveWindow, 0)
-            File(evidenceDir(), "partial-selection-$tag-tree.txt").writeText(sb.toString())
+            File(evidenceDir(), "partial-selection-${safeFileName(tag)}-tree.txt").writeText(sb.toString())
             Log.i(TAG, "tree dump saved: $tag (${sb.length} chars)")
         } catch (e: Exception) {
             Log.w(TAG, "tree dump failed: $tag", e)
@@ -324,11 +332,11 @@ internal object PartialSelectionUi {
     }
 
     /**
-     * 确认选择：先辅助树命中（命中后按**坐标**点击实际位置上的活体按钮，
-     * 规避树滞后导致的禁用渲染节点），8s 未命中走像素兜底：底栏深蓝药丸
-     * （Done）检测后点其中心。
+     * 定位确认按钮并坐标点击：辅助树 8s 轮询（命中后按**坐标**点击实际位置
+     * 上的活体按钮），未命中走像素兜底（底栏深蓝药丸 Done 检测）。定位失败
+     * 抛出（选择器大概率已关——树滞后/窗口已切，不盲点）。
      */
-    fun confirmSelection(timeoutMs: Long = 20000): String {
+    private fun locateAndTapConfirm(): String {
         val regex = Regex("^(Add|添加|完成|Done|Confirm|确认)([ ]?[（(]?\\d+[)）]?)?$")
         val a11yDeadline = SystemClock.uptimeMillis() + 8000
         while (SystemClock.uptimeMillis() < a11yDeadline) {
@@ -394,6 +402,44 @@ internal object PartialSelectionUi {
         } finally {
             bitmap.recycle()
         }
+    }
+
+    /**
+     * 确认选择 + 提交回读（裁决 F2）：点击后轮询 ≤8s
+     * rootInActiveWindow.packageName 离开 media.module/photopicker（选择器
+     * 关闭）→ confirmCommitted=true；未关 → 坐标重试确认 ≤2 次（每次留证）；
+     * 每步 logcat 行 confirmCommitted=true/false（S6 宿主 grep 采集）。重试
+     * 仍未提交**不中止**——继续执行，由授权轮询/地面真值裁决（S3 判据）。
+     * 定位失败（重试时选择器已关、树滞后）视为已提交的不确定态，返回
+     * unknown(closed) 并继续。
+     */
+    fun confirmSelection(timeoutMs: Long = 20000): String {
+        var label = "?"
+        repeat(3) { attempt ->
+            label = try {
+                locateAndTapConfirm()
+            } catch (e: IllegalStateException) {
+                Log.i(TAG, "confirmCommitted=unknown attempt=$attempt (locate failed: ${e.message}) — picker likely closed")
+                return "unknown(closed)"
+            }
+            var committed = false
+            var rootPkg = ""
+            val deadline = SystemClock.uptimeMillis() + 8000
+            while (SystemClock.uptimeMillis() < deadline) {
+                rootPkg = ins.uiAutomation.rootInActiveWindow?.packageName?.toString() ?: ""
+                if (!rootPkg.contains("media.module") && !rootPkg.contains("photopicker")) {
+                    committed = true
+                    break
+                }
+                SystemClock.sleep(200)
+            }
+            Log.i(TAG, "confirmCommitted=$committed attempt=$attempt label=$label rootPkg=$rootPkg")
+            if (committed) return label
+            saveScreenshot("confirm-not-committed-$attempt")
+            Log.w(TAG, "confirm attempt $attempt not committed; retrying")
+        }
+        Log.i(TAG, "confirmCommitted=false after 3 attempts — proceeding; grant poll / ground truth will arbitrate")
+        return label
     }
 
     /**

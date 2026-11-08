@@ -175,6 +175,9 @@ for phase in phaseA phaseB; do
   fi
 done
 adb logcat -d -v threadtime > device-results/PartialSelection/logcat.txt || true
+# 裁决 S6：宿主 grep 摘要（MediaProvider user-selected/PhotoPicker 授权路径 + 测试 verdict/confirm 行），cat 进 job log
+grep -iE "user.?select|PhotoPicker|GrantUri|accessible|confirmCommitted|verdict=" device-results/PartialSelection/logcat.txt | tail -40 > device-results/PartialSelection/mediaprovider-grep.txt || true
+cat device-results/PartialSelection/mediaprovider-grep.txt || true
 adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/partial-selection-expected-state.json device-results/PartialSelection/ || true
 adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/PartialSelection/ui-failures || true
 

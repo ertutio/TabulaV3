@@ -3,6 +3,9 @@ package com.tabula.v3
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
+import android.os.ext.SdkExtensions
+import android.provider.MediaStore
 import android.os.SystemClock
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -151,10 +154,25 @@ class PartialSelectionPhaseBTest {
 
         val expectedB = bNames.toSet()
         val truth = awaitDeadline("ground-truth-B") { visibleDisplayNames(ctx) == expectedB }
-        assertTrue(
-            "重选确认后应用可见集合必须恰为 B（实际=${visibleDisplayNames(ctx)} 预期=$expectedB）",
-            truth
-        )
+        if (!truth) {
+            // 裁决 S3 主判据行（assert 消息随 INSTRUMENTATION stack 进入 job log）：
+            // picker 仍开 ⇒ (b) Done 未提交；picker 已关 ⇒ (c) PICK_IMAGES 提交但授权集未变。
+            val rootPkg = ui.ins.uiAutomation.rootInActiveWindow?.packageName?.toString() ?: "unknown"
+            val pickerOpen = rootPkg.contains("media.module") || rootPkg.contains("photopicker")
+            val verdictLine = if (pickerOpen) {
+                "verdict=(b) Done tap not committed (picker still open: $rootPkg)"
+            } else {
+                "verdict=(c) PICK_IMAGES committed but user-selected set unchanged (picker closed: $rootPkg)"
+            }
+            Log.i(TAG, verdictLine)
+            // 裁决 S4 佐证（best-effort）：最近一次选择查询 vs 普通查询
+            val latest = runCatching { latestSelectionQuery() }.getOrNull()
+            Log.i(TAG, "S4 latestSelectionOnly=$latest normal=${visibleDisplayNames(ctx).sorted()}")
+            assertTrue(
+                "重选确认后应用可见集合必须恰为 B（实际=${visibleDisplayNames(ctx)} 预期=$expectedB）$verdictLine S4=$latest",
+                truth
+            )
+        }
         assertEquals(
             MediaPermissionPolicy.MediaAccessLevel.PARTIAL,
             MediaPermissionPolicy.mediaAccessLevel(Build.VERSION.SDK_INT) { permission ->
@@ -229,5 +247,25 @@ class PartialSelectionPhaseBTest {
         ui.dumpTree("deadline-$label")
         ui.saveScreenshot("deadline-$label")
         return false
+    }
+
+    /** 裁决 S4（best-effort）：QUERY_ARG_LATEST_SELECTION_ONLY 查询最近一次用户选择（扩展版本守卫）。 */
+    private fun latestSelectionQuery(): String? {
+        val ext = try {
+            SdkExtensions.getExtensionVersion(android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+        } catch (e: Throwable) {
+            0
+        }
+        if (ext < 12) return "extension<12"
+        val bundle = Bundle().apply { putBoolean(MediaStore.QUERY_ARG_LATEST_SELECTION_ONLY, true) }
+        val names = mutableListOf<String>()
+        ctx.contentResolver.query(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            arrayOf(MediaStore.MediaColumns.DISPLAY_NAME),
+            bundle, null
+        )!!.use { c ->
+            while (c.moveToNext()) names += c.getString(0)
+        }
+        return names.sorted().toString()
     }
 }
