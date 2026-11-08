@@ -122,7 +122,7 @@ class PartialSelectionPhaseATest {
         ui.waitFor("授权访问照片")
         ui.tap("授权访问照片")
         ui.awaitAny(ui.DIALOG_CANDIDATES, tag = "permission-dialog", timeoutMs = 20000)
-        ui.tapAny(ui.SELECT_PHOTOS_CANDIDATES, tag = "select-photos")
+        ui.tapDialogActionAndAwaitPicker(ui.SELECT_PHOTOS_CANDIDATES, tag = "select-photos")
 
         ui.collectGridCells(minCount = 5)
         // 网格顺序 = [B2, B1, A2, A1, S]（DATE_TAKEN 倒序）；A = 索引 2、3

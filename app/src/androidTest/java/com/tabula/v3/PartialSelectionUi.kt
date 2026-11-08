@@ -147,11 +147,39 @@ internal object PartialSelectionUi {
         }
     }
 
-    fun tap(label: String) {
-        val bounds = Rect()
-        waitFor(label).getBoundsInScreen(bounds)
-        check(!bounds.isEmpty)
+    /**
+     * 节点定向点击：优先 ACTION_CLICK（无坐标换算——CI 实证 input tap 与
+     * 部分窗口渲染坐标存在系统级错位/吞没，run 42469308043/42471835967），
+     * 失败回退节点中心坐标 tap。返回实际点击方式。
+     */
+    fun clickNode(node: AccessibilityNodeInfo, tag: String): String {
+        if (node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+            Log.i(TAG, "$tag clicked via ACTION_CLICK")
+            return "ACTION_CLICK"
+        }
+        var parent = node.parent
+        var hops = 0
+        while (parent != null && hops < 4) {
+            if (parent.isClickable && parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                Log.i(TAG, "$tag clicked via ancestor ACTION_CLICK (hops=$hops)")
+                return "ancestor ACTION_CLICK"
+            }
+            parent = parent.parent
+            hops++
+        }
+        val bounds = Rect().also { node.getBoundsInScreen(it) }
         shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
+        Log.i(TAG, "$tag clicked via coordinate fallback bounds=${bounds.toShortString()}")
+        return "coordinate"
+    }
+
+    fun tap(label: String) {
+        val node = waitFor(label)
+        val bounds = Rect().also { node.getBoundsInScreen(it) }
+        check(!bounds.isEmpty)
+        if (!node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+            shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
+        }
     }
 
     fun tapAny(candidates: List<String>, tag: String) {
@@ -161,8 +189,7 @@ internal object PartialSelectionUi {
             if (node != null) {
                 val bounds = Rect().also { node.getBoundsInScreen(it) }
                 if (!bounds.isEmpty) {
-                    shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
-                    Log.i(TAG, "$tag tapped via candidate bounds ${bounds.toShortString()}")
+                    clickNode(node, tag)
                     return
                 }
             }
@@ -171,6 +198,31 @@ internal object PartialSelectionUi {
         dumpTree("missing-$tag")
         saveScreenshot("missing-$tag")
         error("no candidate visible for $tag: $candidates")
+    }
+
+    /**
+     * 系统权限对话框动作点击 + 推进核验（CI 实证单次 tap 可能被吞没）：
+     * 点击后等待对话框候选文案消失（已推进到照片选择器），未消失则重试，
+     * 至多 4 次；全部失败留证报错。
+     */
+    fun tapDialogActionAndAwaitPicker(candidates: List<String>, tag: String) {
+        repeat(4) { attempt ->
+            val node = findAny(ins.uiAutomation.rootInActiveWindow, candidates)
+                ?: error("$tag: dialog action candidate vanished before click")
+            clickNode(node, "$tag-attempt$attempt")
+            val deadline = SystemClock.uptimeMillis() + 8000
+            while (SystemClock.uptimeMillis() < deadline) {
+                if (findAny(ins.uiAutomation.rootInActiveWindow, candidates) == null) {
+                    Log.i(TAG, "$tag advanced after attempt $attempt")
+                    return
+                }
+                SystemClock.sleep(200)
+            }
+            Log.w(TAG, "$tag attempt $attempt did not advance dialog; retrying")
+        }
+        dumpTree("dialog-not-advanced-$tag")
+        saveScreenshot("dialog-not-advanced-$tag")
+        error("$tag: dialog did not advance after 4 click attempts — evidence saved")
     }
 
     fun backToDeck() {
@@ -325,13 +377,9 @@ internal object PartialSelectionUi {
                     false
                 }
             if (clickable != null) {
-                val bounds = Rect().also { clickable.getBoundsInScreen(it) }
-                if (!bounds.isEmpty) {
-                    val label = clickable.text?.toString() ?: clickable.contentDescription?.toString() ?: "?"
-                    shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
-                    Log.i(TAG, "confirm tapped: $label bounds=${bounds.toShortString()}")
-                    return label
-                }
+                val label = clickable.text?.toString() ?: clickable.contentDescription?.toString() ?: "?"
+                clickNode(clickable, "confirm($label)")
+                return label
             }
             SystemClock.sleep(150)
         }
