@@ -13,6 +13,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.FullRecoveryStateContract.rebuildRow
+import com.tabula.v3.FullRecoveryStateContract.seedCleanupGroup
 import com.tabula.v3.PartialSelectionStateContract.readExpectedState
 import com.tabula.v3.PartialSelectionStateContract.visibleDisplayNames
 import com.tabula.v3.permission.MediaPermissionPolicy
@@ -153,16 +154,20 @@ class PartialSelectionPhaseBTest {
         // 管理路径（官方文档背书）：App 权限页 → Photos and videos →
         // Select photos → 选择器（当前选中集预勾选）→ 像素驱动改选 → 确认。
         ui.launchSettingsPhotosPage()
-        // R13 API37 实证：AppInfo 行点击可能被吞没——带导航核验（Force stop
-        // 仅存在于 AppInfo 页，消失=已离开）+ 方式轮换重试
+        // R13/R-final 实证：AppInfo 行点击可能被吞没、条目可能在折叠区下方
+        // （R-final API36 dump：页面滚动后条目不可见）——导航核验 + 滚动重试
         ui.tapWithNavigationVerify(
             listOf("Permissions", "权限"),
             goneMarkers = listOf("Force stop", "Storage & cache"),
             tag = "app-permissions-entry"
         )
-        ui.tapAny(ui.SETTINGS_PHOTOS_ENTRY_CANDIDATES, tag = "photos-permission-entry")
+        val reached = ui.tapAnyScrollableToMarker(
+            ui.SETTINGS_PHOTOS_ENTRY_CANDIDATES,
+            verifyMarker = "Allow limited access",
+            tag = "photos-permission-entry"
+        )
+        check(reached) { "photos access page not reached (photos-permission-entry)" }
         // 行点击仅切模式不改选择集（R11 树 dump 实证）——改选经行内 gear 入口
-        ui.waitFor("Allow limited access")
         ui.tapSettingsSelectionGear()
         // 网格顺序 = [B2, B1, A2, A1, S]；B = 索引 0、1（最新两张）
         ui.driveCheckedCells(expected = setOf(0, 1), tileColors = PartialSelectionStateContract.GRID_TILE_COLORS)
@@ -218,14 +223,19 @@ class PartialSelectionPhaseBTest {
             rowsB.map { it.mediaIdentityKey() }.toSet(),
             monthInfos.single().images.map { it.mediaIdentityKey() }.toSet()
         )
+        // 跨月份夹具：为 B 成员种子清理组（同 PhaseA 写入口；B 组成员在
+        // B 快照内 → 11 月成员视图可交付可断言）
+        FullRecoveryStateContract.seedCleanupGroup(ctx, rowsB)
         ui.tap("选择图集")
         ui.tap("月份")
         ui.waitFor(monthName)
-        // R15 实证（API37）：月份清理成员视图不断言——切换后引擎对"成员缺席
-        // 的持久组"持有（不交付、不标完成，任务 A 语义），B 成员未经相似
-        // 分析不产生清理批次，成员视图无卡可断言（生产语义，如实登记）。
-        // 月份列表一致性由月行（sheet，生产 buildMonthInfos 口径）承载。
-        ui.backToDeck()
+        // 跨月份夹具：A 月（10月）必须随选择集不可见而消失（月份列表跟随选择集）
+        ui.awaitGone("10月", timeoutMs = 5000)
+        ui.tap(monthName)
+        ui.tap("开始整理")
+        bNames.forEach { ui.waitFor(it) }
+        aNames.forEach { ui.awaitGone(it, timeoutMs = 5000) }
+        ui.awaitGone(sentinelName, timeoutMs = 5000)
 
         // ---- 5. 保留（切换后）+ 哨兵不受影响 ----
         assertRetention("post-switch")

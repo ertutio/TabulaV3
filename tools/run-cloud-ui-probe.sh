@@ -130,8 +130,20 @@ print("fixtures generated:", [n for n, _ in plan])
 PY
 fixture_ok=1
 adb shell "mkdir -p /sdcard/Pictures/PartialSelectionFixtures" >/dev/null 2>&1 || true
+# 跨月份夹具（收尾单元）：touch -t 设 mtime → scan 派生 date_modified/date_taken
+# → A 集合（a1/a2）落在 10 月、B 集合（b1/b2）落在 11 月 → 月份列表承载
+# "旧 A 月 vs 新 B 月"可断言差异；排序 DESC 仍 = [B2,B1,A2,A1,S]（B2 11-07 >
+# B1 11-05 > A2 10-20 > A1 10-15 > S 10-10）。
 for f in partial-sentinel.png partial-a1.png partial-a2.png partial-b1.png partial-b2.png; do
+  case "$f" in
+    partial-sentinel.png) touch_time=202610100900 ;;
+    partial-a1.png) touch_time=202610151000 ;;
+    partial-a2.png) touch_time=202610201100 ;;
+    partial-b1.png) touch_time=202611051200 ;;
+    partial-b2.png) touch_time=202611072000 ;;
+  esac
   adb push "device-results/PartialSelection/fixtures/$f" "/sdcard/Pictures/PartialSelectionFixtures/$f" >/dev/null || fixture_ok=0
+  adb shell "touch -t $touch_time /sdcard/Pictures/PartialSelectionFixtures/$f" >/dev/null 2>&1 || true
   sleep 1.1
   adb shell "content call --uri content://media/ --method scan_file --arg /sdcard/Pictures/PartialSelectionFixtures/$f" >/dev/null 2>&1 || true
   row=$(adb shell "content query --uri content://media/external/images/media --projection _id --where \"_display_name='$f'\"" | grep -c "^Row:") || row=0

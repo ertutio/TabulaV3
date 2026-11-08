@@ -572,6 +572,44 @@ internal object PartialSelectionUi {
         error("$tag: no navigation after $attempts attempts — evidence saved")
     }
 
+    /**
+     * 带滚动的候选点击 + 目标页核验（R-final API36 实证：权限页/设置页条目
+     * 可能位于折叠区下方，find 不可见即找不到——滚动后重试；点击后等待
+     * verifyMarker 出现确认已到达目标页）。返回是否成功到达。
+     */
+    fun tapAnyScrollableToMarker(
+        candidates: List<String>, verifyMarker: String, tag: String,
+        maxScrolls: Int = 4, timeoutMs: Long = 40000
+    ): Boolean {
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        var scrolls = 0
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (find(ins.uiAutomation.rootInActiveWindow, verifyMarker) != null) return true
+            val node = findAny(ins.uiAutomation.rootInActiveWindow, candidates)
+            if (node != null) {
+                val bounds = Rect().also { node.getBoundsInScreen(it) }
+                if (!bounds.isEmpty) {
+                    clickNode(node, tag)
+                    val markerDeadline = SystemClock.uptimeMillis() + 8000
+                    while (SystemClock.uptimeMillis() < markerDeadline) {
+                        if (find(ins.uiAutomation.rootInActiveWindow, verifyMarker) != null) {
+                            Log.i(TAG, "$tag reached target page (marker=$verifyMarker)")
+                            return true
+                        }
+                        SystemClock.sleep(200)
+                    }
+                    Log.w(TAG, "$tag clicked but marker not shown; continuing polling")
+                }
+            } else if (scrolls < maxScrolls) {
+                shell("input swipe 540 1900 540 700 300")
+                scrolls++
+                Log.i(TAG, "$tag scrolled ($scrolls/$maxScrolls)")
+            }
+            SystemClock.sleep(200)
+        }
+        return false
+    }
+
     /** 打开 "Allow limited access" 行的选择管理入口（gear），进入选择器。 */
     fun tapSettingsSelectionGear(timeoutMs: Long = 15000) {
         val deadline = SystemClock.uptimeMillis() + timeoutMs

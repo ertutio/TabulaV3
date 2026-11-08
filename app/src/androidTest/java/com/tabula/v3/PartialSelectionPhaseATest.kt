@@ -184,6 +184,8 @@ class PartialSelectionPhaseATest {
         ui.tap("选择图集")
         ui.tap("月份")
         ui.waitFor(monthName)
+        // 跨月份夹具：B 月（11月）必须随选择集不可见而缺席（月份列表跟随选择集）
+        ui.awaitGone("11月", timeoutMs = 5000)
         ui.tap(monthName)
         ui.tap("开始整理")
         ui.waitFor(a1Name)

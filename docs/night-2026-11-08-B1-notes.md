@@ -156,3 +156,10 @@ PartialSelectionPhaseATest=1、PartialSelectionPhaseBTest=1；probe 脚本每阶
 - 最终验收 run 42501864524（head 35e5683=docs-only 提交）：build 绿、API37 绿（PhaseA+PhaseB 全链）、**API36 一次性瞬态抖动**——Settings 权限页 'Photos and videos' 条目 30s 未现（该步骤 R16 同 API 通过；R10/R16 API36 多次通过；非代码回归——35e5683 与 50c9d88 的 diff 仅 1 个 notes md 文件，可 git diff 核对）。
 - **证据绑定口径**：代码证据 = R16 run 42500080220（head 50c9d88，三 job 全绿，PhaseA+PhaseB 全链双 API）；其后唯一提交 35e5683 为 docs-only。按验收约定「分支随后变化则判断证据是否仍适用」：适用。
 - 额度纪律生效：不再为 final-head 绑定重派。
+
+### 6.12 收尾单元（2026-11-09 01:35-01:50，未派 CI——协调者统一派发）
+1. **跨月份夹具**（probe touch -t）：S/A1/A2 mtime=10月（10-10/10-15/10-20）、B1/B2 mtime=11月（11-05/11-07）→ date_modified/date_taken 派生月份分属 10/11 月；排序 DESC 仍 [B2,B1,A2,A1,S] 不变。
+   - PhaseA 月份断言升级：sheet waitFor("10月") + awaitGone("11月")（B 月随选择集不可见而缺席）+ 成员视图 A 卡（原有）。
+   - PhaseB 月份断言升级：**B 组种子**（seedCleanupGroup(rowsB)，同 PhaseA 写入口）→ sheet waitFor("11月") + awaitGone("10月")（A 月随切换消失）+ **成员视图恢复**：开始整理后 b1/b2 卡可见、a1/a2/哨兵不可见（R15 的持有语义在同月场景仍成立；跨月+ B 组种子使成员视图可交付可断言）。
+2. **API36 入口失败排查**（final-run 工件 dump 直查）：失败时页面=AppInfo 滚动态（通知区在视口内、条目在折叠区下方）——条目不可见而非标签缺失。修复：（候选滚动重试 ≤4 次 + 点击后目标页核验标记 "Allow limited access" + 8s 等待）接入 PhaseB 设置导航。
+- 验证：compileDebugAndroidTestKotlin 过；**CI 未派**（协调者统一派发）——本单元为 compile 级增益，派发后按既有判据验收。
