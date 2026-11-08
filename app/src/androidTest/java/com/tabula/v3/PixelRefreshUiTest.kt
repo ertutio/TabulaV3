@@ -442,14 +442,10 @@ class PixelRefreshUiTest {
         updateColor(photo, colorB)
         val versionAfterSec = dateModifiedOf(photo)
         assertTrue("编辑必须改变内容版本（DATE_MODIFIED 派生）", versionAfterSec > versionBeforeSec)
-        // 清除首轮推荐写入的冷却记录（相似组 + 抽取时间戳）：保留理由 = 首轮
-        // 显示已把该照片的组记入推荐冷却，前台重载后引擎重组空批会使显示层
-        // 回到引擎缓存的陈旧行——掩盖被验收的显示路径；影响范围仅测试准备
-        // （清除后引擎重新分析、批次含 B 行），不改变任何显示层行为。
-        ctx.getSharedPreferences("tabula_similar_groups", Context.MODE_PRIVATE)
-            .edit().clear().commit()
-        ctx.getSharedPreferences("tabula_pick_timestamps", Context.MODE_PRIVATE)
-            .edit().clear().commit()
+        // 冷却记录保留（不清除）：最终验收覆盖保留冷却状态的真实用户路径。
+        // 引擎对少量照片自清冷却（allImages.size <= batchSize 时
+        // clearAllPickRecords），单张照片场景冷却自然消退，不影响批次重建。
+        // 人工清冷却的诊断场景单独登记（见台账 U19）。
         Log.i(
             TAG,
             "media=$photo identity=$identityKey versionBeforeSec=$versionBeforeSec versionAfterSec=$versionAfterSec " +
