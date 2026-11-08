@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -105,28 +106,85 @@ class ImageFeatureCacheConcurrencyTest {
     }
 
     @Test
-    fun concurrentSameKeyPreloadsEachRunDetectionWithoutSingleFlight() = runBlocking {
+    fun concurrentSameKeyPreloadsShareSingleDetectionFlight() = runBlocking {
+        // T11b single-flight（PR56 基线的演化点）：N 个并发同键 preload 只运行
+        // 一次检测——所有调用方共享同一次流打开；结果照常入缓存。
         val callers = 8
-        val arrivals = CountDownLatch(callers)
-        val release = CountDownLatch(1)
-        // 到达计数用独立计数器与屏障联动：openCounter 由 registerCountingStreams 维护，
-        //屏障条件=已打开流数达到 callers（每次 detect 的 readXmp 至少打开一次）。
-        registerCountingStreams(barrierLimit = callers, barrier = arrivals, blocked = release)
+        registerCountingStreams()
         val scope = CoroutineScope(Dispatchers.IO + SupervisorJob()).also { scopes += it }
         val jobs = (1..callers).map {
             scope.async { preloadImageFeatures(context, image, enableHdr = false, enableMotion = true) }
         }
-        // 当前基线：无 single-flight → 全部 callers 独立运行 detect 并到达流。
-        // 若引入 single-flight，只有 1 个检测在途，arrivals 永远到不了 callers → 超时失败
-        //（基线测试的预期行为变化点）。
-        assertTrue(
-            "expected $callers concurrent detectors to reach the stream (no single-flight baseline)",
-            arrivals.await(15, TimeUnit.SECONDS)
-        )
-        release.countDown()
         jobs.forEach { runBlocking { kotlinx.coroutines.withTimeout(20_000) { it.await() } } }
-        assertTrue("detection work must be observable via stream opens, got opens=${openCounter.get()} callers=$callers", openCounter.get() >= callers)
-        println("T11B-CONCURRENT-SAME-KEY callers=$callers totalStreamOpens=${openCounter.get()}")
+        assertTrue(
+            "single-flight must collapse concurrent same-key detections to one stream open, got ${openCounter.get()}",
+            openCounter.get() == 1
+        )
+        assertNotNull("result must be cached after the shared flight", ImageFeatureCacheStore.get(cacheKey))
+        println("T11B-SINGLE-FLIGHT callers=$callers totalStreamOpens=${openCounter.get()}")
+    }
+
+    @Test
+    fun waiterRerunsDetectionWhenInitiatorIsCancelled() = runBlocking {
+        // 发起者被取消（T11a：取消不落缓存）→ 在途条目移除 → 等待者按失败
+        // 重试语义自行重跑：总流打开次数 >= 2，等待者的结果入缓存。
+        // 注意：流 IOException 会被吞成 definitive 阴性（T11a 语义，非失败），
+        // 所以发起侧用取消而非 IO 异常构造"检测未完成"。
+        val initiatorArrived = CountDownLatch(1)
+        val releaseStream = CountDownLatch(1)
+        shadowOf(context.contentResolver).registerInputStreamSupplier(uri, Supplier<InputStream?> {
+            openCounter.incrementAndGet()
+            if (openCounter.get() == 1) {
+                initiatorArrived.countDown()
+                releaseStream.await(15, TimeUnit.SECONDS)
+                throw java.io.IOException("stream aborted after cancel")
+            }
+            FileInputStream(jpegFile)
+        })
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob()).also { scopes += it }
+        val initiator = scope.launch {
+            preloadImageFeatures(context, image, enableHdr = false, enableMotion = true)
+        }
+        assertTrue(initiatorArrived.await(10, TimeUnit.SECONDS))
+        val waiter = scope.async {
+            preloadImageFeatures(context, image, enableHdr = false, enableMotion = true)
+        }
+        // 给等待者时间进入在途等待（避免它晚于发起者落定才启动而直接自跑）
+        Thread.sleep(500)
+        initiator.cancel()
+        releaseStream.countDown()
+        runBlocking { kotlinx.coroutines.withTimeout(20_000) { waiter.await() } }
+        kotlinx.coroutines.delay(200)
+        assertTrue(
+            "cancelled initiator must let the waiter rerun detection, opens=${openCounter.get()}",
+            openCounter.get() >= 2
+        )
+        assertNotNull("waiter's own detection must cache the result", ImageFeatureCacheStore.get(cacheKey))
+        println("T11B-WAITER-RETRY opens=${openCounter.get()}")
+    }
+
+    @Test
+    fun cacheEvictsLeastRecentlyUsedBeyondBound() {
+        // 有界缓存：写入 MAX_ENTRIES+100 个可靠条目后，最早写入者被淘汰、
+        // 最新保留——2000+ 键无界保留（PR56 基线）不再成立。
+        val overflow = 100
+        repeat(ImageFeatureCacheStore.MAX_ENTRIES + overflow) { i ->
+            ImageFeatureCacheStore.putIfReliable(
+                ImageFeatureCacheKey(i.toLong(), 1000L + i, enableHdr = true, enableMotion = false),
+                com.tabula.v3.data.model.ImageFeatures(isHdr = false, motionPhotoInfo = null, definitive = true)
+            )
+        }
+        val eldest = ImageFeatureCacheStore.get(ImageFeatureCacheKey(0L, 1000L, true, false))
+        val newest = ImageFeatureCacheStore.get(
+            ImageFeatureCacheKey(
+                (ImageFeatureCacheStore.MAX_ENTRIES + overflow - 1).toLong(),
+                1000L + (ImageFeatureCacheStore.MAX_ENTRIES + overflow - 1),
+                true, false
+            )
+        )
+        assertNull("eldest entry must be evicted beyond the bound", eldest)
+        assertNotNull("newest entry must be retained", newest)
+        println("T11B-BOUNDED bound=${ImageFeatureCacheStore.MAX_ENTRIES} evictedEldest=${eldest == null}")
     }
 
     @Test
@@ -138,25 +196,6 @@ class ImageFeatureCacheConcurrencyTest {
         assertTrue("single detect must open its XMP stream", opens >= 1)
         assertNotNull(ImageFeatureCacheStore.get(cacheKey))
         println("T11B-SINGLE-PRELOAD streamOpens=$opens")
-    }
-
-    @Test
-    fun cacheRetainsEveryDistinctKeyWithoutEviction() {
-        val count = 2_000
-        repeat(count) { i ->
-            ImageFeatureCacheStore.putIfReliable(
-                ImageFeatureCacheKey(i.toLong(), 1000L + i, enableHdr = true, enableMotion = false),
-                com.tabula.v3.data.model.ImageFeatures(isHdr = false, motionPhotoInfo = null, definitive = true)
-            )
-        }
-        // 无界保留基线：全部键仍可取（无淘汰/无上限）——T11b 有界缓存的必要性证据
-        repeat(count) { i ->
-            assertNotNull(
-                "key $i must still be retained (unbounded cache baseline)",
-                ImageFeatureCacheStore.get(ImageFeatureCacheKey(i.toLong(), 1000L + i, true, false))
-            )
-        }
-        println("T11B-UNBOUNDED-RETENTION keys=$count allRetained=true")
     }
 
     @Test

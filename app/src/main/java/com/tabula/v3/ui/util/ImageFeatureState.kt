@@ -38,24 +38,17 @@ fun rememberImageFeatures(
             features = null
             return@LaunchedEffect
         }
-        
-        // 如果已有缓存，直接使用
-        val cached = ImageFeatureCacheStore.get(cacheKey)
-        if (cached != null) {
-            features = cached
-            return@LaunchedEffect
-        }
 
-        val detected = ImageFeatureDetector.detect(
-            context = context,
-            uri = image.uri,
-            checkHdr = enableHdr,
-            checkMotion = enableMotion
-        )
-        
+        // T11b single-flight：同键并发只跑一次检测，等待者共享结果；
         // 不可信阴性（快速模式/信号量繁忙/失败）只用于本次显示，留待重试。
-        ImageFeatureCacheStore.putIfReliable(cacheKey, detected)
-        features = detected
+        features = ImageFeatureCacheStore.getOrDetect(cacheKey) {
+            ImageFeatureDetector.detect(
+                context = context,
+                uri = image.uri,
+                checkHdr = enableHdr,
+                checkMotion = enableMotion
+            )
+        }
     }
 
     return features
@@ -71,17 +64,15 @@ suspend fun preloadImageFeatures(
     enableMotion: Boolean
 ) {
     if (!enableHdr && !enableMotion) return
-    
-    // 已缓存则跳过
+
     val cacheKey = ImageFeatureCacheKey(image.id, image.dateModified, enableHdr, enableMotion)
-    if (ImageFeatureCacheStore.get(cacheKey) != null) return
-    
-    val detected = ImageFeatureDetector.detect(
-        context = context,
-        uri = image.uri,
-        checkHdr = enableHdr,
-        checkMotion = enableMotion
-    )
-    
-    ImageFeatureCacheStore.putIfReliable(cacheKey, detected)
+    // T11b single-flight：已缓存/在途则共享，不再重复检测
+    ImageFeatureCacheStore.getOrDetect(cacheKey) {
+        ImageFeatureDetector.detect(
+            context = context,
+            uri = image.uri,
+            checkHdr = enableHdr,
+            checkMotion = enableMotion
+        )
+    }
 }
