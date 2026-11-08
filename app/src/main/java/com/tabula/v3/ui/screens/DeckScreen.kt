@@ -152,7 +152,7 @@ import androidx.compose.runtime.DisposableEffect
 
 /** 审计轮：currentBatch 各赋值来源诊断（uri:dateModified 列表；Log.d 级别）。 */
 private fun logBatchRows(site: String, images: List<ImageFile>) {
-    android.util.Log.d("DeckScreen", "currentBatch<-[$site]: " +
+    android.util.Log.v("DeckScreen", "currentBatch<-[$site]: " +
         images.joinToString(",") { "${it.uri}:${it.dateModified}" })
 }
 
