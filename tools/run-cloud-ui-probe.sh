@@ -76,9 +76,11 @@ for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTe
   adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures "$dir/ui-failures" || true
 done
 # ===== PARTIAL 选择集 A→B 两阶段（真实系统 UI 驱动）验证（包B）=====
-# 阶段A：无授权种子（自有媒体贡献无需权限）→ onboarding 门控 → 系统权限对话框
-# Select photos → 照片选择器点选 A 两格 → 确认 → PARTIAL(A) 授权 + 地面真值
-# （应用内查询恰=A）+ 清理组/断点持久化 + deck/查看器/月份 UI 一致性。
+# 阶段A：shell 身份写入+扫描 5 张非应用自有合成媒体（scoped storage 下应用
+# 可见集合=严格选中集，选择集语义可观测）→ onboarding 门控 → 系统权限对话框
+# Select photos / Allow limited access → 照片选择器点选 A 两格 → 确认 →
+# PARTIAL(A) 授权 + 地面真值（授权前查询为空、授权后恰=A）+ 清理组/断点持久化
+# + deck/查看器/月份 UI 一致性。
 # 宿主 force-stop（不 pm clear，保留应用数据与授权）。
 # 阶段B：ACTION_PICK_IMAGES 重选（取消 A 勾选、勾选 B 两格）→ 地面真值恰=B
 # + deck/查看器/月份跟随 + 组/断点保留 + 哨兵 shell 存在性 + 夹具精确清理。
@@ -89,6 +91,7 @@ adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '\r' | grep -Fx Success
 for fixture_dir in "Pictures/PartialSelectionFixtures/" "Pictures/FullRecoveryFixtures/" "Pictures/PixelRefreshFixtures/" "Pictures/ForegroundPermFixtures/" "Pictures/CloudSafetySentinels/" "Pictures/TabulaVolumeProbe/"; do
   adb shell "content delete --uri content://media/external/images/media --where \"relative_path='$fixture_dir'\"" >/dev/null 2>&1 || true
 done
+adb shell "rm -rf /storage/emulated/0/Pictures/PartialSelectionFixtures" >/dev/null 2>&1 || true
 gallery_rows=$(adb shell "content query --uri content://media/external/images/media --projection _id" | grep -c "^Row:") || gallery_rows=0
 if [ "$gallery_rows" != "0" ]; then
   echo "Gallery not clean before PARTIAL selection suite: $gallery_rows rows" >&2

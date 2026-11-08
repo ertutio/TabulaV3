@@ -80,24 +80,15 @@ class PartialSelectionPhaseBTest {
                 (0 until b.length()).map { b.getString(it) }
             }
             names += expected.getString("sentinelName")
-            val path = PartialSelectionStateContract.FIXTURE_DIR.trimEnd('/')
             for (name in names) {
-                val query = ui.shell(
-                    "content query --uri content://media/external/images/media " +
-                        "--projection _id --where \"_display_name='$name'\""
-                )
-                if (!query.contains("Row: 0")) continue
-                val deleted = ui.shell(
-                    "content delete --uri content://media/external/images/media " +
-                        "--where \"_display_name='$name' AND relative_path='$path/'\""
-                )
-                val after = ui.shell(
-                    "content query --uri content://media/external/images/media " +
-                        "--projection _id --where \"_display_name='$name'\""
-                )
-                Log.i(TAG, "cleanup $name delete=$deleted gone=${!after.contains("Row: 0")}")
-                assertTrue("夹具删除后必须消失：$name", !after.contains("Row: 0"))
+                val gone = PartialSelectionStateContract.shellDeleteFixture(name) { command ->
+                    ui.shell(command)
+                }
+                Log.i(TAG, "cleanup $name gone=$gone")
+                assertTrue("夹具删除后必须消失：$name", gone)
             }
+            // 无行残留文件（扫描失败情形）兜底清理
+            ui.shell("rm -rf ${PartialSelectionStateContract.FIXTURE_ABS_DIR}")
         }.onFailure { Log.w(TAG, "cleanup skipped: state file unreadable", it) }
     }
 

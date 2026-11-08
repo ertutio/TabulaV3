@@ -2,7 +2,6 @@ package com.tabula.v3
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
 import android.util.Log
@@ -19,7 +18,8 @@ import com.tabula.v3.PartialSelectionStateContract.COLOR_A2
 import com.tabula.v3.PartialSelectionStateContract.COLOR_B1
 import com.tabula.v3.PartialSelectionStateContract.COLOR_B2
 import com.tabula.v3.PartialSelectionStateContract.COLOR_SENTINEL
-import com.tabula.v3.PartialSelectionStateContract.seedPhoto
+import com.tabula.v3.PartialSelectionStateContract.dateTakenNowMinus
+import com.tabula.v3.PartialSelectionStateContract.seedShellPhoto
 import com.tabula.v3.PartialSelectionStateContract.visibleDisplayNames
 import com.tabula.v3.PartialSelectionStateContract.writeExpectedState
 import com.tabula.v3.permission.MediaPermissionPolicy
@@ -29,20 +29,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.TimeUnit
 
 /**
  * PARTIAL 选择集 A→B 两阶段验证——阶段A（包B：B1）。
  *
  * 真实系统机制建立 PARTIAL 选择集 A（无 pm 权限夹具、无生产改动）：
- * 1. 无授权状态先种子 5 张合成媒体（API 29+ 自有媒体贡献不需要存储权限，
- *    官方文档载明）：哨兵 S（最旧）、A1/A2、B1/B2（最新）；DATE_TAKEN 显式
- *    单调递增且发布顺序同向，选择器网格按时间倒序 = [B2, B1, A2, A1, S]。
- * 2. 应用 onboarding 门控按钮 → 系统权限对话框 "Select photos" → 照片选择器
- *    点选 A 两格（网格索引 2、3）→ 确认 → READ_MEDIA_VISUAL_USER_SELECTED
- *    真实授权。
+ * 1. 无授权状态先经 **shell 身份** 写入+扫描 5 张合成媒体（关键：夹具非应用
+ *    自有——scoped storage 下应用自有媒体无需权限即可见，会令选择集语义
+ *    不可观测；shell 持有使"应用可见集合 = 严格用户选中集合"）：哨兵 S
+ *    （EXIF 拍摄时间最旧）、A1/A2、B1/B2（最新），拍摄时间互异分钟且写入
+ *    顺序同向 → 选择器网格按时间倒序 = [B2, B1, A2, A1, S]。
+ * 2. 应用 onboarding 门控按钮 → 系统权限对话框（"Select photos"/"Allow
+ *    limited access"，按 API 候选匹配）→ 照片选择器点选 A 两格（网格索引
+ *    2、3）→ 确认 → READ_MEDIA_VISUAL_USER_SELECTED 真实授权。
  * 3. 级别断言：PARTIAL 已授、FULL（READ_MEDIA_IMAGES）未授（策略三态）。
- * 4. 地面真值：应用内 MediaStore 查询恰等于 {A1, A2}（哨兵/B 在集合外）。
+ * 4. 地面真值：授权前应用查询为空集；授权后恰等于 {A1, A2}（哨兵/B 在
+ *    集合外——真正的选择集过滤语义）。
  * 5. 持久化清理组（A 成员）+ 断点 1 + flush（复用 FULL 恢复设施同款写入口）。
  * 6. 真实 UI 一致性：deck 当前卡 ∈ A、查看器 overlay 身份匹配、集合外
  *    （哨兵/B1）不可见；月份专清经真实 sheet 进入，成员 = A。
@@ -59,7 +61,7 @@ class PartialSelectionPhaseATest {
     private val ui get() = PartialSelectionUi
     private val ctx get() = ui.ctx
 
-    private data class Seed(val uri: Uri, val name: String)
+    private data class Seed(val name: String)
 
     private lateinit var sentinel: Seed
     private lateinit var a1: Seed
@@ -91,30 +93,32 @@ class PartialSelectionPhaseATest {
 
     @Test
     fun partialSelectionAEstablishedViaSystemDialogAndPicker() = runBlocking<Unit> {
-        // ---- 种子（无授权；DATE_TAKEN 单调，发布顺序同向 → 网格确定性）----
-        // 夹具卫生：相邻种子间隔 >1s，使 DATE_ADDED 秒级派生也单调——选择器
-        // 无论按 DATE_TAKEN 还是 DATE_ADDED 排序，网格顺序都确定
-        // （= 插入序的倒序 = [B2, B1, A2, A1, S]）。
-        val now = System.currentTimeMillis()
-        fun take(offsetSec: Long) = now - TimeUnit.SECONDS.toMillis(offsetSec)
-        sentinel = seed(seedPhoto(ctx, "sentinel", COLOR_SENTINEL, take(2000)))
+        // ---- 种子（shell 身份写入+扫描：非应用自有媒体 → 选择集语义可观测；
+        //      EXIF 拍摄时间互异分钟 + 写入顺序同向 → 网格确定性 [B2,B1,A2,A1,S]）----
+        val shell: (String) -> String = { command -> PartialSelectionUi.shell(command) }
+        sentinel = Seed(seedShellPhoto(ctx, "sentinel", COLOR_SENTINEL, dateTakenNowMinus(2000), shell))
         SystemClock.sleep(1100)
-        a1 = seed(seedPhoto(ctx, "a1", COLOR_A1, take(1500)))
+        a1 = Seed(seedShellPhoto(ctx, "a1", COLOR_A1, dateTakenNowMinus(1500), shell))
         SystemClock.sleep(1100)
-        a2 = seed(seedPhoto(ctx, "a2", COLOR_A2, take(1000)))
+        a2 = Seed(seedShellPhoto(ctx, "a2", COLOR_A2, dateTakenNowMinus(1000), shell))
         SystemClock.sleep(1100)
-        b1 = seed(seedPhoto(ctx, "b1", COLOR_B1, take(500)))
+        b1 = Seed(seedShellPhoto(ctx, "b1", COLOR_B1, dateTakenNowMinus(500), shell))
         SystemClock.sleep(1100)
-        b2 = seed(seedPhoto(ctx, "b2", COLOR_B2, take(100)))
+        b2 = Seed(seedShellPhoto(ctx, "b2", COLOR_B2, dateTakenNowMinus(100), shell))
         Log.i(TAG, "seeded sentinel=${sentinel.name} a1=${a1.name} a2=${a2.name} " +
             "b1=${b1.name} b2=${b2.name}")
 
-        // ---- 无授权级别断言（策略三态）----
+        // ---- 无授权级别断言（策略三态）+ 集合外可见性断言 ----
         assertEquals(
             MediaPermissionPolicy.MediaAccessLevel.NONE,
             MediaPermissionPolicy.mediaAccessLevel(Build.VERSION.SDK_INT) { permission ->
                 ctx.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
             }
+        )
+        assertEquals(
+            "授权前应用可见集合必须为空（夹具非应用自有且未选中——scoped storage 语义）",
+            emptySet<String>(),
+            visibleDisplayNames(ctx)
         )
 
         // ---- 真实系统机制：门控 → 对话框 Select photos → 选择器选 A ----
@@ -210,8 +214,6 @@ class PartialSelectionPhaseATest {
         )
         Log.i(TAG, "phase A complete: PARTIAL(A) established, group=$groupId checkpoint=1")
     }
-
-    private fun seed(pair: Pair<Uri, String>): Seed = Seed(pair.first, pair.second)
 
     private fun awaitDeadline(label: String, condition: () -> Boolean): Boolean {
         val deadline = SystemClock.uptimeMillis() + 20000

@@ -441,33 +441,52 @@ internal object PartialSelectionUi {
     }
 
     /**
-     * 驱动勾选集合到预期：取消一切预期外勾选、补齐预期格，逐轮以"节点勾选态
-     * + 底栏计数"双口径核验后收敛（CI run 42469308043 实证：选择器存在系统
-     * 级预选与坐标错位，盲 tap 振荡不可接受——每轮差集矫正、至多 3 轮、
-     * 每轮证据入 logcat，不收敛即失败留证）。无预勾选与"当前选择预勾选"
-     * 两种形态均收敛（地面真值断言兜底）。
+     * 驱动勾选集合到预期：取消一切预期外勾选、补齐预期格。
+     *
+     * CI run 42473377747 决定性证据：矫正点击实际生效（失败截图=角标恰在
+     * 预期两格、count=2），但选择器辅助树**滞后真实 UI >600ms**——每轮
+     * 固定 600ms 后的单次读数是陈旧态，矫正差集据此重复点击同一批格造成
+     * 双重切换。修正：未达标时先"树稳定等待"（读数连续两次一致才算稳定，
+     * 稳定期内追平达标即返回），只对稳定后的真实态做差集矫正，至多 3 轮；
+     * 树始终不稳定则留证失败。地面真值断言仍是最终裁决。
      */
-    fun driveCheckedCells(expected: Set<Int>, minCells: Int = 5, timeoutMs: Long = 30000) {
+    fun driveCheckedCells(expected: Set<Int>, minCells: Int = 5, timeoutMs: Long = 60000) {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
         var rounds = 0
         while (true) {
             val cells = collectGridCells(minCount = minCells)
             val checked = cells.indices.filter { isCellChecked(cells[it]) }.toSet()
-            val count = pickerSelectedCount()
+            var count = pickerSelectedCount()
             Log.i(TAG, "driveChecked round=$rounds checked=$checked count=$count expected=$expected")
             if (checked == expected && (count == null || count == expected.size)) return
-            if (SystemClock.uptimeMillis() > deadline || rounds >= 3) {
+
+            // 树稳定等待：连续两次读数一致（含勾选集与计数）才采信
+            var stableState = checked to count
+            var stabilized = false
+            val settleDeadline = SystemClock.uptimeMillis() + 10000
+            while (SystemClock.uptimeMillis() < settleDeadline && SystemClock.uptimeMillis() < deadline) {
+                SystemClock.sleep(300)
+                val freshCells = collectGridCells(minCount = minCells)
+                val freshChecked = freshCells.indices.filter { isCellChecked(freshCells[it]) }.toSet()
+                val freshCount = pickerSelectedCount()
+                if (freshChecked == expected && (freshCount == null || freshCount == expected.size)) return
+                if (freshChecked == stableState.first && freshCount == stableState.second) {
+                    stabilized = true
+                    break
+                }
+                stableState = freshChecked to freshCount
+            }
+            if (!stabilized || SystemClock.uptimeMillis() > deadline || rounds >= 3) {
                 dumpTree("drive-checked-mismatch")
                 saveScreenshot("drive-checked-mismatch")
-                error("checked cells not converged: checked=$checked count=$count expected=$expected " +
-                    "after $rounds corrective rounds — evidence saved")
+                error("checked cells not converged: checked=$stableState expected=$expected " +
+                    "after $rounds corrective rounds (treeStable=$stabilized) — evidence saved")
             }
             rounds++
-            val taps = (checked - expected).sorted() + (expected - checked).sorted()
-            taps.forEach { tapCell(it, cells, purpose = "drive-selection") }
-            // 等待本轮点选在树中生效（角标渲染 + 底栏计数更新），无固定断言 sleep：
-            // 收敛判定交给下一轮双口径核验。
-            SystemClock.sleep(600)
+            val (stableChecked, _) = stableState
+            val freshCells = collectGridCells(minCount = minCells)
+            val taps = (stableChecked - expected).sorted() + (expected - stableChecked).sorted()
+            taps.forEach { tapCell(it, freshCells, purpose = "drive-selection") }
         }
     }
 
