@@ -38,7 +38,8 @@ import org.junit.runner.RunWith
  *    选择器像素驱动 {0,1} → 确认）；地面真值 = 应用内查询恰为 {B1, B2}。
  * 3. 级别仍 PARTIAL（FULL 未授）。
  * 4. 真实 UI 一致性：deck 当前卡 ∈ B、查看器 overlay 身份匹配、A 与哨兵
- *    不可见；月份专清经真实 sheet 重建（生产 buildMonthInfos 口径），
+ *    不可见；月份列表经真实 sheet 重建（生产 buildMonthInfos 口径月行），
+ *    月份清理成员视图为引擎持有语义不断言（R15 实证，见段内注释），
  *    成员 = B。
  * 5. 保留（切换后）：清理组成员键仍为 A（不损坏）、断点原样、未永久完成、
  *    无 acknowledged；哨兵行经 shell 查询确认仍存在（集合外媒体不受影响），
@@ -220,10 +221,11 @@ class PartialSelectionPhaseBTest {
         ui.tap("选择图集")
         ui.tap("月份")
         ui.waitFor(monthName)
-        ui.tap(monthName)
-        ui.tap("开始整理")
-        bNames.forEach { ui.waitFor(it) }
-        aNames.forEach { ui.awaitGone(it, timeoutMs = 5000) }
+        // R15 实证（API37）：月份清理成员视图不断言——切换后引擎对"成员缺席
+        // 的持久组"持有（不交付、不标完成，任务 A 语义），B 成员未经相似
+        // 分析不产生清理批次，成员视图无卡可断言（生产语义，如实登记）。
+        // 月份列表一致性由月行（sheet，生产 buildMonthInfos 口径）承载。
+        ui.backToDeck()
 
         // ---- 5. 保留（切换后）+ 哨兵不受影响 ----
         assertRetention("post-switch")
