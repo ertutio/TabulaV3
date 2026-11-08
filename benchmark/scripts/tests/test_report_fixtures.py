@@ -29,9 +29,14 @@
   以 "nesting depth exceeds supported range" 显式拒绝（修复前超限静默跳过、
   未检查内容被当作校验成功）；边界内（depth 32）损坏拒绝、合法嵌套通过。
 
+- 未夹具化门补钉（审计轮 6，链审查 E1 清单 F1–F3）：viewerOpenClose 少计、
+  rightSwipe 超量（精确计数非下限）、decodedFixtureSmoke 缺失、memory 行数
+  不足、memory 阶段内迭代重复、benchmark case 重复——六个此前无夹具钉住的
+  read_session 拒绝门各补一负例，防止门被放宽或移除而无回归信号。
+
 只验证测量工具本身：不产出性能数字、不恢复 PR6 的历史测量任务、不构成
-任何冻结基线。测试计数口径（实跑）：本文件 32 项 + 既有 test_report.py 3 项 =
-discover 全量 35 项，零失败零跳过。运行：python -m unittest
+任何冻结基线。测试计数口径（实跑）：本文件 38 项 + 既有 test_report.py 3 项 =
+discover 全量 41 项，零失败零跳过。运行：python -m unittest
 benchmark.scripts.tests.test_report_fixtures（或 discover benchmark/scripts/tests）。
 """
 
@@ -228,6 +233,79 @@ class NegativeFixtureTest(unittest.TestCase):
             events = [{"action": "rightSwipe", "n": n} for n in range(10)]  # 应为 180
             (folder / "operations.jsonl").write_text("\n".join(json.dumps(e) for e in events))
             with self.assertRaisesRegex(ValueError, "180 card advances"):
+                report.read_session(folder)
+
+    # —— 事件门精确计数负例（审计轮 6）：现有夹具只钉"部分滑动"，以下钉住
+    #    另外三个未夹具化的 read_session 门，防止门被放宽为 >= 或被移除 ——
+    def test_undercountViewerCyclesIsRejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = write_valid_input(Path(tmp))
+            folder = root / "session-a" / "baseline"
+            events = ([{"action": "rightSwipe", "n": n} for n in range(180)]
+                      + [{"action": "viewerOpenClose", "n": n} for n in range(30)]  # 应为 31
+                      + [{"action": "decodedFixtureSmoke"}])
+            (folder / "operations.jsonl").write_text("\n".join(json.dumps(e) for e in events))
+            with self.assertRaisesRegex(ValueError, "viewer cycles"):
+                report.read_session(folder)
+
+    def test_overcountSwipesIsRejected(self):
+        # 超量事件同样拒绝：门是精确计数，不是下限（防 179/181 都被放行）
+        with tempfile.TemporaryDirectory() as tmp:
+            root = write_valid_input(Path(tmp))
+            folder = root / "session-a" / "baseline"
+            events = ([{"action": "rightSwipe", "n": n} for n in range(181)]  # 应为 180
+                      + [{"action": "viewerOpenClose", "n": n} for n in range(31)]
+                      + [{"action": "decodedFixtureSmoke"}])
+            (folder / "operations.jsonl").write_text("\n".join(json.dumps(e) for e in events))
+            with self.assertRaisesRegex(ValueError, "180 card advances"):
+                report.read_session(folder)
+
+    def test_missingDecodedFixtureSmokeIsRejected(self):
+        # 解码冒烟预检缺失：没有真实解码像素证据的轮次不能产出 valid 报告
+        with tempfile.TemporaryDirectory() as tmp:
+            root = write_valid_input(Path(tmp))
+            folder = root / "session-a" / "baseline"
+            events = ([{"action": "rightSwipe", "n": n} for n in range(180)]
+                      + [{"action": "viewerOpenClose", "n": n} for n in range(31)])
+            (folder / "operations.jsonl").write_text("\n".join(json.dumps(e) for e in events))
+            with self.assertRaisesRegex(ValueError, "preflight"):
+                report.read_session(folder)
+
+    # —— memory 行门负例（审计轮 6）：rows 总数与阶段内迭代唯一性 ——
+    def test_shortMemoryRowsAreRejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = write_valid_input(Path(tmp))
+            folder = root / "session-a" / "baseline"
+            payload = json.loads((folder / "memory.json").read_text())
+            payload["rows"] = payload["rows"][:19]  # 应为 20（5 迭代 x 4 阶段）
+            (folder / "memory.json").write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "5 repetitions x 4 stages"):
+                report.read_session(folder)
+
+    def test_duplicateMemoryIterationIsRejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = write_valid_input(Path(tmp))
+            folder = root / "session-a" / "baseline"
+            payload = json.loads((folder / "memory.json").read_text())
+            # 仅改写迭代号：startup 阶段出现两个 0、缺失 1——总数仍为 20，
+            # 先行的 rows==20 门通过，命中阶段内迭代唯一性门
+            for row in payload["rows"]:
+                if row["stage"] == "startup" and row["iteration"] == 1:
+                    row["iteration"] = 0
+            (folder / "memory.json").write_text(json.dumps(payload))
+            (folder / "memory.json").write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "Missing or duplicated memory iterations"):
+                report.read_session(folder)
+
+    # —— 重复 benchmark case 门负例（审计轮 6）——
+    def test_duplicateBenchmarkCaseIsRejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = write_valid_input(Path(tmp))
+            folder = root / "session-a" / "baseline"
+            payload = json.loads((folder / "benchmarkData.json").read_text())
+            payload["benchmarks"].append(json.loads(json.dumps(payload["benchmarks"][0])))
+            (folder / "benchmarkData.json").write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "Duplicate benchmark"):
                 report.read_session(folder)
 
 
