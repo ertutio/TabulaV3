@@ -22,7 +22,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class FullRecoveryReadbackTest {
     @Test
-    fun persistedUserRemovalReopensAtFirstUnprocessedMember() = runBlocking {
+    fun persistedUserRemovalReopensAtFirstUnprocessedMember() = runBlocking<Unit> {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         assertEquals(PackageManager.PERMISSION_GRANTED, ctx.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES))
         val expected = FullRecoveryStateContract.readExpectedState(ctx)
