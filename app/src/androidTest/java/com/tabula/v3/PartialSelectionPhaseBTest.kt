@@ -152,9 +152,16 @@ class PartialSelectionPhaseBTest {
         // 管理路径（官方文档背书）：App 权限页 → Photos and videos →
         // Select photos → 选择器（当前选中集预勾选）→ 像素驱动改选 → 确认。
         ui.launchSettingsPhotosPage()
-        ui.tapAny(listOf("Permissions", "权限"), tag = "app-permissions-entry")
+        // R13 API37 实证：AppInfo 行点击可能被吞没——带导航核验（Force stop
+        // 仅存在于 AppInfo 页，消失=已离开）+ 方式轮换重试
+        ui.tapWithNavigationVerify(
+            listOf("Permissions", "权限"),
+            goneMarkers = listOf("Force stop", "Storage & cache"),
+            tag = "app-permissions-entry"
+        )
         ui.tapAny(ui.SETTINGS_PHOTOS_ENTRY_CANDIDATES, tag = "photos-permission-entry")
         // 行点击仅切模式不改选择集（R11 树 dump 实证）——改选经行内 gear 入口
+        ui.waitFor("Allow limited access")
         ui.tapSettingsSelectionGear()
         // 网格顺序 = [B2, B1, A2, A1, S]；B = 索引 0、1（最新两张）
         ui.driveCheckedCells(expected = setOf(0, 1), tileColors = PartialSelectionStateContract.GRID_TILE_COLORS)

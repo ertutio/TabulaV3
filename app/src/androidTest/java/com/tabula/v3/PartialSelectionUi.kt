@@ -529,6 +529,39 @@ internal object PartialSelectionUi {
         ctx.startActivity(intent)
     }
 
+    /**
+     * 带导航核验的点击（轮3/R13 实证：Settings 页行点击可能被吞没且无导航）：
+     * 点击后等待 goneMarkers 全部消失（已离开当前页），未导航重试并轮换
+     * ACTION_CLICK/坐标两种方式，至多 3 次；全部失败留证报错。
+     */
+    fun tapWithNavigationVerify(
+        candidates: List<String>, goneMarkers: List<String>, tag: String, attempts: Int = 3
+    ) {
+        repeat(attempts) { attempt ->
+            val node = findAny(ins.uiAutomation.rootInActiveWindow, candidates)
+                ?: error("$tag: candidate vanished before click")
+            if (attempt % 2 == 0) {
+                clickNode(node, "$tag-attempt$attempt")
+            } else {
+                val bounds = Rect().also { node.getBoundsInScreen(it) }
+                shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
+                Log.i(TAG, "$tag-attempt$attempt clicked via coordinate")
+            }
+            val deadline = SystemClock.uptimeMillis() + 8000
+            while (SystemClock.uptimeMillis() < deadline) {
+                if (goneMarkers.all { marker -> find(ins.uiAutomation.rootInActiveWindow, marker) == null }) {
+                    Log.i(TAG, "$tag navigated after attempt $attempt")
+                    return
+                }
+                SystemClock.sleep(200)
+            }
+            Log.w(TAG, "$tag attempt $attempt did not navigate; retrying")
+        }
+        dumpTree("no-navigation-$tag")
+        saveScreenshot("no-navigation-$tag")
+        error("$tag: no navigation after $attempts attempts — evidence saved")
+    }
+
     /** 打开 "Allow limited access" 行的选择管理入口（gear），进入选择器。 */
     fun tapSettingsSelectionGear(timeoutMs: Long = 15000) {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
