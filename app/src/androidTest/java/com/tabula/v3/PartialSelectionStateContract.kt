@@ -55,8 +55,12 @@ internal object PartialSelectionStateContract {
 
     /**
      * shell 身份种子：JPEG 字节（应用进程生成，EXIF 拍摄时间显式写入）经
-     * base64 shell 脚本落到公共存储后 scan_file 入库——行所有权 = shell，
+     * base64 分块 shell 脚本落到公共存储后 scan_file 入库——行所有权 = shell，
      * 应用无授权且未选中时不可见（scoped storage 语义）。
+     *
+     * CI run 42476083194 实证：单命令携带 ~5KB base64 时 shell 输出为空
+     * （命令截断/吞没）——改为 1.2KB 分块追加到 /data/local/tmp 暂存后一次
+     * 解码拷贝；每步带标记与错误回显。96x96 JPEG 足够网格/查看器渲染。
      *
      * 返回 display name（生成时已知；行未选中前应用内查询不可读回）。
      * 相邻种子 shell 写入间隔 >1.1s 仅保证 mtime 派生也单调（夹具卫生，
@@ -72,19 +76,42 @@ internal object PartialSelectionStateContract {
         val name = "$NAME_PREFIX$tag-${UUID.randomUUID()}.jpg"
         val bytes = jpegBytesWithExifDateTimeOriginal(context, color, dateTakenMs)
         val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-        val output = shell(
-            "mkdir -p $FIXTURE_ABS_DIR && printf %s $base64 | base64 -d > " +
-                "$FIXTURE_ABS_DIR/$name && echo __WRITE_OK"
+        val staging = "/data/local/tmp/partial-seed-${System.nanoTime()}.b64"
+        // 分块追加（1.2KB/命令），规避单命令长度截断
+        val chunkSize = 1200
+        var offset = 0
+        var chunk = 0
+        while (offset < base64.length) {
+            val end = minOf(offset + chunkSize, base64.length)
+            val part = base64.substring(offset, end)
+            val op = if (chunk == 0) ">" else ">>"
+            val out = shell(
+                "printf %s $part $op $staging; echo __CHUNK_$chunk=\$?"
+            )
+            check("__CHUNK_${chunk}=0" in out) {
+                "shell chunk $chunk write failed (len=${part.length}): $out"
+            }
+            offset = end
+            chunk++
+        }
+        val decode = shell(
+            "base64 -d $staging > /data/local/tmp/partial-seed.jpg && " +
+                "mkdir -p $FIXTURE_ABS_DIR && " +
+                "cp /data/local/tmp/partial-seed.jpg $FIXTURE_ABS_DIR/$name && " +
+                "rm -f $staging /data/local/tmp/partial-seed.jpg 2>/dev/null; " +
+                "ls -l $FIXTURE_ABS_DIR/$name 2>&1; echo __COPY=\$?"
         )
-        check("__WRITE_OK" in output) { "shell fixture write failed: $output" }
+        check("__COPY=0" in decode && "__COPY" in decode) {
+            "shell copy/decode failed: $decode"
+        }
         val scan = shell(
             "content call --uri content://media/ --method scan_file " +
-                "--arg $FIXTURE_ABS_DIR/$name; echo __SCAN_DONE"
+                "--arg $FIXTURE_ABS_DIR/$name 2>&1; echo __SCAN_DONE"
         )
         check("__SCAN_DONE" in scan) { "scan_file failed: $scan" }
         val row = shell(
             "content query --uri content://media/external/images/media " +
-                "--projection _id --where \"_display_name='$name'\""
+                "--projection _id --where \"_display_name='$name'\" 2>&1"
         )
         check("Row: 0" in row) { "scanned fixture row missing: $name ($row)" }
         return name
@@ -95,11 +122,11 @@ internal object PartialSelectionStateContract {
         color: Int,
         dateTakenMs: Long
     ): ByteArray {
-        val bitmap = Bitmap.createBitmap(128, 128, Bitmap.Config.ARGB_8888)
+        val bitmap = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888)
         val plain = ByteArrayOutputStream()
         try {
             bitmap.eraseColor(color)
-            check(bitmap.compress(Bitmap.CompressFormat.JPEG, 95, plain))
+            check(bitmap.compress(Bitmap.CompressFormat.JPEG, 85, plain))
         } finally {
             bitmap.recycle()
         }
