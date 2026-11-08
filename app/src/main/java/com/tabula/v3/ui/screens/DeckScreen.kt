@@ -1,5 +1,6 @@
 package com.tabula.v3.ui.screens
 
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -148,6 +149,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.DisposableEffect
+
+/** 审计轮：currentBatch 各赋值来源诊断（uri:dateModified 列表；Log.d 级别）。 */
+private fun logBatchRows(site: String, images: List<ImageFile>) {
+    android.util.Log.v("DeckScreen", "currentBatch<-[$site]: " +
+        images.joinToString(",") { "${it.uri}:${it.dateModified}" })
+}
 
 /**
  * Deck 屏幕状态
@@ -489,7 +496,7 @@ fun DeckScreen(
             if (checkpointResult != null) {
                 val (batch, savedIndex) = checkpointResult
                 currentCleanupBatch = batch
-                currentBatch = batch.images
+                currentBatch = batch.images.also { logBatchRows("batch-site-1", it) }
                 currentIndex = savedIndex
                 lastSavedIndex = savedIndex
                 markedCount = 0
@@ -507,7 +514,7 @@ fun DeckScreen(
                 val batch = albumCleanupEngine.getNextBatch(cleanupId, cleanupImages, latestSnapshot = allImagesForCleanup)
                 if (batch != null) {
                     currentCleanupBatch = batch
-                    currentBatch = batch.images
+                    currentBatch = batch.images.also { logBatchRows("batch-site-2", it) }
                     currentIndex = 0
                     lastSavedIndex = -1
                     markedCount = 0
@@ -541,7 +548,7 @@ fun DeckScreen(
                 needsInitialBatch = false
                 
                 if (newBatch.isNotEmpty()) {
-                    currentBatch = newBatch
+                    currentBatch = newBatch.also { logBatchRows("batch-site-3", it) }
                     currentIndex = 0
                     markedCount = 0
                     deckState = DeckState.BROWSING
@@ -601,7 +608,7 @@ fun DeckScreen(
             // 获取新的批次
             val newBatch = getRecommendedBatch(allImages, batchSize)
             if (newBatch.isNotEmpty()) {
-                currentBatch = newBatch
+                currentBatch = newBatch.also { logBatchRows("batch-site-4", it) }
                 currentIndex = 0
                 markedCount = 0
                 deckState = DeckState.BROWSING
@@ -631,7 +638,7 @@ fun DeckScreen(
             try {
                 val newBatch = getRecommendedBatch(allImages, batchSize)
                 if (newBatch.isNotEmpty()) {
-                    currentBatch = newBatch
+                    currentBatch = newBatch.also { logBatchRows("batch-site-5", it) }
                     currentIndex = 0
                     markedCount = 0
                     deckState = DeckState.BROWSING
@@ -693,7 +700,7 @@ fun DeckScreen(
             
             if (nextBatch != null) {
                 currentCleanupBatch = nextBatch
-                currentBatch = nextBatch.images
+                currentBatch = nextBatch.images.also { logBatchRows("batch-site-6", it) }
                 currentIndex = 0
                 markedCount = 0
             } else {
@@ -771,13 +778,13 @@ fun DeckScreen(
                         deckState = DeckState.BROWSING
                     } else {
                         currentIndex = 0
-                        currentBatch = syncedDeck
+                        currentBatch = syncedDeck.also { logBatchRows("batch-site-7", it) }
                         needsInitialBatch = true
                     }
                 } else {
                     currentIndex = relocatedIndexAfterSync(currentBatch, syncedDeck, currentIndex)
                         .coerceIn(0, syncedDeck.lastIndex)
-                    currentBatch = syncedDeck
+                    currentBatch = syncedDeck.also { logBatchRows("batch-site-8", it) }
                 }
             }
         }
@@ -785,6 +792,7 @@ fun DeckScreen(
         viewerState?.let { state ->
             val refreshed = refreshedViewerImage(state.image, pool)
             if (refreshed == null) {
+                Log.d("DeckScreen", "viewer dismissed: image missing from latest snapshot uri=${state.image.uri}")
                 viewerState = null
             } else if (refreshed != state.image) {
                 viewerState = state.copy(image = refreshed)
@@ -830,7 +838,7 @@ fun DeckScreen(
                     val nextBatch = albumCleanupEngine.getNextBatch(cleanupId, cleanupImages, latestSnapshot = allImagesForCleanup)
                     if (nextBatch != null) {
                         currentCleanupBatch = nextBatch
-                        currentBatch = nextBatch.images
+                        currentBatch = nextBatch.images.also { logBatchRows("batch-site-9", it) }
                         currentIndex = 0
                         markedCount = 0
                         deckState = DeckState.BROWSING
@@ -892,7 +900,7 @@ fun DeckScreen(
                 val nextBatch = albumCleanupEngine.getNextBatch(nextAlbum.id, albumImages, latestSnapshot = allImagesForCleanup)
                 if (nextBatch != null) {
                     currentCleanupBatch = nextBatch
-                    currentBatch = nextBatch.images
+                    currentBatch = nextBatch.images.also { logBatchRows("batch-site-10", it) }
                     currentIndex = 0
                     markedCount = 0
                     deckState = DeckState.BROWSING
@@ -1069,7 +1077,7 @@ fun DeckScreen(
                             markedCount++
                             // 删除后如果没有剩余
                             val newBatch = currentBatch.toMutableList().apply { remove(image) }
-                            currentBatch = newBatch
+                            currentBatch = newBatch.also { logBatchRows("batch-site-11", it) }
                             if (currentIndex >= newBatch.size && newBatch.isNotEmpty()) {
                                 currentIndex = newBatch.lastIndex
                             } else if (newBatch.isEmpty()) {
@@ -1086,6 +1094,7 @@ fun DeckScreen(
                             }
                         },
                         onCardClick = { image, sourceRect ->
+                            Log.d("DeckScreen", "onCardClick image=${image.uri} name=${image.displayName} dm=${image.dateModified}")
                             viewerState = ViewerState(image, sourceRect)
                         },
                         onTrashClick = onNavigateToTrash,
@@ -1150,7 +1159,7 @@ fun DeckScreen(
                             // 从当前批次中移除已归类的图片
                             // 因为 Genie 动画已经播放了图片"飞走"的效果，用户预期图片已被处理
                             val newBatch = currentBatch.toMutableList().apply { remove(image) }
-                            currentBatch = newBatch
+                            currentBatch = newBatch.also { logBatchRows("batch-site-12", it) }
                             
                             if (newBatch.isEmpty()) {
                                 // 如果没有剩余图片
@@ -1301,7 +1310,10 @@ fun DeckScreen(
         viewerState?.let { state ->
             ViewerOverlay(
                 viewerState = state,
-                onDismiss = { viewerState = null },
+                onDismiss = {
+                    Log.d("DeckScreen", "viewer dismissed: onDismiss image=${state.image.uri}")
+                    viewerState = null
+                },
                 showHdr = showHdrBadges,
                 showMotionPhoto = showMotionBadges,
                 playMotionSound = playMotionSound,
@@ -1331,7 +1343,7 @@ fun DeckScreen(
                                 currentIndex.coerceIn(0, newBatch.size)
                             }
                             newBatch.add(insertIndex, image)
-                            currentBatch = newBatch
+                            currentBatch = newBatch.also { logBatchRows("batch-site-13", it) }
                             currentIndex = insertIndex
                             // 减少删除计数（因为撤销了）
                             markedCount = (markedCount - 1).coerceAtLeast(0)
@@ -1367,7 +1379,7 @@ fun DeckScreen(
                                 currentIndex.coerceIn(0, newBatch.size)
                             }
                             newBatch.add(insertIndex, image)
-                            currentBatch = newBatch
+                            currentBatch = newBatch.also { logBatchRows("batch-site-14", it) }
                             currentIndex = insertIndex
                             // 如果之前进入了完成状态，恢复浏览状态
                             if (deckState == DeckState.COMPLETED) {
@@ -1446,7 +1458,7 @@ fun DeckScreen(
                     
                     // 从当前批次中移除已归类的图片
                     val newBatch = currentBatch.toMutableList().apply { remove(image) }
-                    currentBatch = newBatch
+                    currentBatch = newBatch.also { logBatchRows("batch-site-15", it) }
                     
                     if (newBatch.isEmpty()) {
                         if (enableSwipeHaptics) {
@@ -1502,7 +1514,7 @@ fun DeckScreen(
                     lastClassifyWasSwipe = true
                     
                     if (imageIndex >= 0) {
-                        currentBatch = currentBatch.toMutableList().also { it.removeAt(imageIndex) }
+                        currentBatch = currentBatch.toMutableList().also { it.removeAt(imageIndex) }.also { logBatchRows("batch-site-16", it) }
                         if (currentIndex >= currentBatch.size && currentIndex > 0) {
                             currentIndex = currentBatch.size - 1
                         }
@@ -1574,7 +1586,7 @@ fun DeckScreen(
                 val (batch, savedIndex) = checkpointResult
                 onAlbumCleanupModeChange(true)
                 currentCleanupBatch = batch
-                currentBatch = batch.images
+                currentBatch = batch.images.also { logBatchRows("batch-site-17", it) }
                 currentIndex = savedIndex
                 lastSavedIndex = savedIndex
                 markedCount = 0
@@ -1592,7 +1604,7 @@ fun DeckScreen(
                 if (batch != null) {
                     onAlbumCleanupModeChange(true)
                     currentCleanupBatch = batch
-                    currentBatch = batch.images
+                    currentBatch = batch.images.also { logBatchRows("batch-site-18", it) }
                     currentIndex = 0
                     lastSavedIndex = -1
                     markedCount = 0
@@ -1671,7 +1683,7 @@ fun DeckScreen(
                 onAlbumCleanupModeChange(true)
                 isMonthCleanupMode = true
                 currentCleanupBatch = batch
-                currentBatch = batch.images
+                currentBatch = batch.images.also { logBatchRows("batch-site-19", it) }
                 currentIndex = savedIndex
                 lastSavedIndex = savedIndex
                 markedCount = 0
@@ -1690,7 +1702,7 @@ fun DeckScreen(
                     onAlbumCleanupModeChange(true)
                     isMonthCleanupMode = true
                     currentCleanupBatch = batch
-                    currentBatch = batch.images
+                    currentBatch = batch.images.also { logBatchRows("batch-site-20", it) }
                     currentIndex = 0
                     lastSavedIndex = -1
                     markedCount = 0

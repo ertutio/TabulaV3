@@ -370,6 +370,11 @@ fun SwipeableCardStack(
 
     // 获取三张卡的数据（不使用取模，避免首尾卡片重复显示）
     val currentImage = images.getOrNull(currentIndex)
+    // C4/T07 审计：pointerInput(currentIndex) 的 tap 闭包捕获的 currentImage
+    // 在 images 更新（前台重载同身份新版本行）但 currentIndex 不变时为陈旧
+    // 引用——查看器以旧行键命中编辑前位图。rememberUpdatedState 保证 tap
+    // 回调始终使用最新行对象。
+    val currentImageState = rememberUpdatedState(currentImage)
     val nextImage = images.getOrNull(currentIndex + 1)
     val prevImage = images.getOrNull(currentIndex - 1)
 
@@ -1122,7 +1127,9 @@ bitmap = ownedScaledCopyOrNull(cachedBitmap, 250)
                                             height = topCardBounds.height,
                                             cornerRadius = 16f
                                         )
-                                        onCardClick(currentImage, sourceRect)
+                                        currentImageState.value?.let { img ->
+                                            onCardClick(img, sourceRect)
+                                        }
                                     }
                                 }
                             )
