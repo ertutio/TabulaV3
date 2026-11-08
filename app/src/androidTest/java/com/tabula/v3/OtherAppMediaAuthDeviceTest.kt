@@ -80,6 +80,15 @@ import org.junit.runner.RunWith
  *    MediaProvider applyBatch 完成删除 → 行消失（app/shell/文件三面一致）、记录
  *    消费、journal 干净、集合外哨兵不受影响。
  *
+ * 启动方式（run 42473731064 API36 工件实证）：intentSender 必须从 **Activity 上下文**
+ * 发起——API36 的 Mainline MediaProvider 在 PermissionActivity.onCreate 以
+ * `getCallingPackage()` 解析发起方，非 Activity 上下文（Context.startIntentSender）
+ * 时为 null → `NameNotFoundException: Missing calling package` → catch→finish→
+ * 对话框不出现；API37 模块版本不触发该路径。生产流程（MainActivity 经
+ * startIntentSenderForResult）即 Activity 上下文，故本套件对齐：startActivitySync
+ * 持有 MainActivity 后以 activity.startIntentSender 发起（冷启动无既有任务回前台
+ * 的空闲等待问题，CloudCleanupUiTest 同款在双 API 通过）。
+ *
  * 纪律：中心稳定断言（行/清单/文件精确核对）、截止时间轮询、无固定等待（仅
  * 轮询节奏 100ms 与身份竞态重试退避）；不授予生产应用 MANAGE_MEDIA、不改 app-op；
  * 集合外哨兵全程存活。
@@ -89,6 +98,7 @@ class OtherAppMediaAuthDeviceTest {
     private val ins get() = InstrumentationRegistry.getInstrumentation()
     private val ctx get() = ins.targetContext
     private val foreignOwnerPackage: String get() = ins.context.packageName
+    private var activity: android.app.Activity? = null
     private val createdNames = mutableListOf<String>()
     private val createdPrimaryUris = mutableListOf<Uri>()
     private val managerDirs = mutableListOf<String>()
@@ -362,7 +372,9 @@ class OtherAppMediaAuthDeviceTest {
     // ---------- 真实系统授权对话框 ----------
 
     private fun bringAppToForeground() {
-        shell("am start -n ${ctx.packageName}/com.tabula.v3.MainActivity")
+        activity = ins.startActivitySync(
+            Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
         val end = SystemClock.uptimeMillis() + 15000
         while (SystemClock.uptimeMillis() < end) {
             if (ins.uiAutomation.rootInActiveWindow?.packageName == ctx.packageName) return
@@ -400,10 +412,13 @@ class OtherAppMediaAuthDeviceTest {
     private fun grantThroughRealSystemDialog(result: FileOperationManager.DeleteResult, row: Row): Boolean {
         val needsPermission = result as FileOperationManager.DeleteResult.NeedsPermission
         assertNotNull("createDeleteRequest must produce a real intentSender", needsPermission.intentSender)
+        val currentActivity = requireNotNull(activity) { "MainActivity must be foreground before consent" }
         val launchError = AtomicReference<Throwable?>()
+        // 从 Activity 上下文发起（API36 模块按 getCallingPackage 解析发起方，
+        // 非 Activity 上下文 → "Missing calling package" → 对话框直接 finish）。
         ins.runOnMainSync {
             try {
-                ctx.startIntentSender(needsPermission.intentSender, null, 0, 0, Intent.FLAG_ACTIVITY_NEW_TASK)
+                currentActivity.startIntentSender(needsPermission.intentSender, null, 0, 0, 0, null)
             } catch (e: Throwable) { launchError.set(e) }
         }
         launchError.get()?.let { Log.e(TAG, "intentSender launch failed", it); return false }
@@ -606,6 +621,15 @@ class OtherAppMediaAuthDeviceTest {
     @After fun cleanupOnlyOwnedFixtures() = runBlocking {
         val errors = mutableListOf<Throwable>()
         fun attempt(block: () -> Unit) { try { block() } catch (e: Throwable) { errors += e } }
+        activity?.let { current ->
+            attempt {
+                ins.runOnMainSync { current.finish() }
+                ins.waitForIdleSync()
+                val end = SystemClock.uptimeMillis() + 10000
+                while (SystemClock.uptimeMillis() < end && !current.isDestroyed) SystemClock.sleep(100)
+                check(current.isDestroyed) { "MainActivity not destroyed in @After" }
+            }
+        }
         // shell 可删除任意归属的行（WRITE_MEDIA_STORAGE）：按唯一名集合级删除，
         // 逐行双面验证（shell 查询 + app 查询）。
         for (name in createdNames) {
