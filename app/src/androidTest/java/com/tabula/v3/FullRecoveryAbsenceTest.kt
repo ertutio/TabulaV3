@@ -23,7 +23,7 @@ class FullRecoveryAbsenceTest {
     private val ctx get() = ins.targetContext
 
     @Test
-    fun permissionAbsenceGatesMediaAccess() {
+    fun permissionAbsenceGatesMediaAccessAndPreservesCleanupState() {
         // 宿主已 revoke——此处不得自行恢复权限
         assertEquals(
             "缺席阶段前置：READ_MEDIA_IMAGES 必须处于被撤销状态",
@@ -39,6 +39,18 @@ class FullRecoveryAbsenceTest {
             !MediaPermissionPolicy.hasMediaReadPermission(Build.VERSION.SDK_INT) { permission ->
                 ctx.checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
             }
+        )
+        // 清理组/断点在权限缺席期间不被错误清除（应用数据保留）
+        val prefs = ctx.getSharedPreferences("tabula_album_cleanup", android.content.Context.MODE_PRIVATE)
+        val expected = com.tabula.v3.FullRecoveryStateContract.readExpectedState(ctx)
+        val groupId = expected.getString("groupId")
+        assertTrue(
+            "清理组成员键必须在权限缺席期间保留",
+            prefs.getString("group_images_${expected.getString("albumId")}_$groupId", null) != null
+        )
+        assertTrue(
+            "断点索引必须在权限缺席期间保留",
+            prefs.getInt("checkpoint_index_${expected.getString("albumId")}", -1) >= 0
         )
     }
 }

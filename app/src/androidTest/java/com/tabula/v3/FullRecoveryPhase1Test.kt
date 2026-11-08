@@ -71,9 +71,10 @@ class FullRecoveryPhase1Test {
         assertEquals(1, resumed.second)
         assertEquals(listOf(groupId), resumed.first.groupIds)
 
-        // 持久化补写：apply() 异步写入在宿主随后的强停下可能丢失（阶段一
-        // 进程退出后宿主立即 pm revoke），commit() 同步落盘保证跨强停持久
-        FullRecoveryStateContract.durableRewrite(ctx, groupId, rows, checkpointIndex = 1)
+        // 明确完成信号：commit() 同步落盘 tabula_album_cleanup 的所有
+        // pending apply() 写入（含组/成员/断点全部生产键）。耐久性边界：
+        // 仅本文件；其他存储由各自机制的写入保证覆盖。
+        FullRecoveryStateContract.flushCleanupPrefs(ctx)
 
         writeExpectedState(ctx, groupId, rows, checkpointIndex = 1)
         assertTrue(FullRecoveryStateContract.stateFile(ctx).length() > 0)

@@ -72,6 +72,12 @@ class FullRecoveryContinuationTest {
         assertEquals(checkpointIndex, resumed.second)
         assertEquals(listOf(groupId), resumed.first.groupIds)
 
+        // 月份列表重建基础：行 dm 与阶段一一致（月列表由行 dm 派生，dm 不变即可重建）
+        assertEquals(
+            "行 dm 必须与阶段一一致（月列表重建基础）",
+            names.map { rebuildRow(ctx, it).dateModified }, rows.map { it.dateModified }
+        )
+
         // 实际续接（用户路径）：getNextBatch 从断点恢复批次 → 处理推进 →
         // saveCheckpoint 持久化（注意：saveCheckpoint 仅在引擎已进入该图集
         // 后生效——currentAlbumId 由 getNextBatch 设置；全新引擎实例上直接
@@ -83,5 +89,24 @@ class FullRecoveryContinuationTest {
         engine.saveCheckpoint(listOf(groupId), checkpointIndex + 1)
         val checkpoint = requireNotNull(engine.getCheckpoint(albumId)) { "checkpoint lost after advancing" }
         assertEquals(checkpointIndex + 1, checkpoint.second)
+
+        // 真实处理操作：recordUserRemovedImage（生产入口，确认成员已处理）
+        val processedRow = rows.first()
+        engine.recordUserRemovedImage(processedRow)
+        // 重建读取：处理过的成员不再出现在批次中（剩余成员仍可续接）
+        val remaining = rows.filter { it != processedRow }
+        val nextAfterProcessing = engine.getNextBatch(albumId, remaining, latestSnapshot = remaining)
+        org.junit.Assert.assertNotNull("剩余成员必须仍可续接", nextAfterProcessing)
+        // 已处理成员被确认（不在待整理池）
+        assertTrue(
+            "已处理成员必须被确认",
+            preferences.getAlbumAcknowledgedCleanupMembers(albumId)
+                .contains(processedRow.mediaIdentityKey())
+        )
+        // 组不被标记永久完成（还有剩余成员）
+        assertTrue(
+            "有剩余成员的组不得被标记永久完成",
+            preferences.getAlbumPermanentlyProcessedGroups(albumId).isEmpty()
+        )
     }
 }
