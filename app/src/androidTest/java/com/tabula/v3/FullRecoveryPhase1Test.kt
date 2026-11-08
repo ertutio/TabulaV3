@@ -74,7 +74,10 @@ class FullRecoveryPhase1Test {
         // 明确完成信号：commit() 同步落盘 tabula_album_cleanup 的所有
         // pending apply() 写入（含组/成员/断点全部生产键）。耐久性边界：
         // 仅本文件；其他存储由各自机制的写入保证覆盖。
-        FullRecoveryStateContract.flushCleanupPrefs(ctx)
+        assertTrue(
+            "flush sentinel commit() 必须成功（同步落盘完成信号）",
+            FullRecoveryStateContract.flushCleanupPrefs(ctx)
+        )
 
         writeExpectedState(ctx, groupId, rows, checkpointIndex = 1)
         assertTrue(FullRecoveryStateContract.stateFile(ctx).length() > 0)

@@ -9,7 +9,6 @@ import com.tabula.v3.FullRecoveryStateContract.readExpectedState
 import com.tabula.v3.FullRecoveryStateContract.rebuildRow
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.repository.mediaIdentityKey
-import com.tabula.v3.ui.components.MonthInfo
 import com.tabula.v3.ui.components.buildMonthInfos
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -26,7 +25,8 @@ import org.junit.runner.RunWith
  * 断言：
  * 1. 清理组身份键原样（未被标记永久完成）
  * 2. 断点跨进程死亡与权限循环存活（组 + 位置 1）
- * 3. 月列表通过生产逻辑 buildMonthInfos 重建，月份/成员/数量与阶段一预期一致
+ * 3. 月列表通过生产逻辑 buildMonthInfos 重建并核对月份/成员/数量；
+ *    含"月份错误但总数正确"负例回归
  * 4. 实际续接：getNextBatch 恢复断点 → 处理推进 → saveCheckpoint 持久化
  * 5. 真实处理操作（recordUserRemovedImage）→ 重建读取核对已处理/剩余/组状态
  * 6. 暂不可见成员保持未处理状态
@@ -79,28 +79,35 @@ class FullRecoveryContinuationTest {
         assertEquals(checkpointIndex, resumed.second)
         assertEquals(listOf(groupId), resumed.first.groupIds)
 
-        // 4. 月列表通过生产逻辑 buildMonthInfos 重建并核对
+        // 4. 月列表通过生产逻辑 buildMonthInfos 重建并核对（审计轮：替换替代断言）
         val monthInfos = buildMonthInfos(rows)
         assertTrue("月列表不得为空", monthInfos.isNotEmpty())
+        // 总数核对
+        assertEquals(rows.size, monthInfos.sumOf { it.imageCount })
+        // 逐成员月份归属核对（阶段一月归属 JSON vs buildMonthInfos 实际输出）
         val monthAttribution = expected.getJSONArray("monthAttribution")
         for (i in 0 until monthAttribution.length()) {
             val entry = monthAttribution.getJSONObject(i)
             val identityKey = entry.getString("identityKey")
             val expectedYear = entry.getInt("year")
             val expectedMonth = entry.getInt("month")
-            val row = rows.first { it.mediaIdentityKey() == identityKey }
-            val calendar = java.util.Calendar.getInstance().apply { timeInMillis = row.dateModified }
+            val containingMonth = monthInfos.firstOrNull { mi ->
+                mi.images.any { it.mediaIdentityKey() == identityKey }
+            }
+            assertNotNull("成员 $identityKey 必须出现在月列表中", containingMonth)
             assertEquals(
-                "成员 $identityKey 月份归属必须与阶段一预期一致",
-                expectedMonth, calendar.get(java.util.Calendar.MONTH) + 1
+                "成员 $identityKey 月份归属必须一致",
+                expectedMonth, containingMonth!!.month
             )
             assertEquals(
-                "成员 $identityKey 年份必须与阶段一预期一致",
-                expectedYear, calendar.get(java.util.Calendar.YEAR)
+                "成员 $identityKey 年份必须一致",
+                expectedYear, containingMonth.year
             )
         }
-        // 月列表成员总数 = rows 总数（不遗漏不重复）
-        assertEquals(rows.size, monthInfos.sumOf { it.imageCount })
+        // 月列表成员不重复不遗漏
+        val monthMemberKeys = monthInfos.flatMap { it.images }.map { it.mediaIdentityKey() }
+        assertEquals("月列表成员不得重复", monthMemberKeys.size, monthMemberKeys.toSet().size)
+        assertEquals("月列表成员不得遗漏", members.toSet(), monthMemberKeys.toSet())
 
         // 5. 实际续接（用户路径）：getNextBatch 从断点恢复批次 → 处理推进 →
         //    saveCheckpoint 持久化（currentAlbumId 由 getNextBatch 设置）
@@ -115,8 +122,12 @@ class FullRecoveryContinuationTest {
         // 6. 真实处理操作：recordUserRemovedImage（生产入口）→ 重建读取
         val processedRow = rows.first()
         engine.recordUserRemovedImage(processedRow)
+
+        // 重建读取（新引擎实例模拟进程重建）：已处理成员确认 / 剩余成员可续接 /
+        // 组非永久完成
+        val freshEngine = cleanupEngine(ctx)
         val remaining = rows.filter { it != processedRow }
-        val nextAfterProcessing = engine.getNextBatch(albumId, remaining, latestSnapshot = remaining)
+        val nextAfterProcessing = freshEngine.getNextBatch(albumId, remaining, latestSnapshot = remaining)
         assertNotNull("剩余成员必须仍可续接", nextAfterProcessing)
         assertTrue(
             "已处理成员必须被确认",

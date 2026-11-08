@@ -160,8 +160,9 @@ internal object FullRecoveryStateContract {
      * 耐久性边界：仅保证本文件的写入落盘（覆盖组/成员/断点的全部生产键）；
      * 其他 prefs 文件与 files/ 目录的写入不在此信号范围。
      */
-    fun flushCleanupPrefs(context: Context) {
-        context.getSharedPreferences("tabula_album_cleanup", Context.MODE_PRIVATE)
+    fun flushCleanupPrefs(context: Context): Boolean {
+        // commit() 返回值必须为 true（同步落盘成功）；false 表示落盘失败
+        return context.getSharedPreferences("tabula_album_cleanup", Context.MODE_PRIVATE)
             .edit().putLong("_test_flush_signal", System.currentTimeMillis()).commit()
     }
 
