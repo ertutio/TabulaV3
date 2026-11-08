@@ -26,9 +26,11 @@ import org.junit.runner.RunWith
  * 1. 清理组身份键原样（未被标记永久完成）
  * 2. 断点跨进程死亡与权限循环存活（组 + 位置 1）
  * 3. 月列表通过生产逻辑 buildMonthInfos 重建并核对月份/成员/数量；
- *    含"月份错误但总数正确"负例回归
+ *    逐成员月份归属核对即为"月份错误但总数正确"的回归——生产分组错误
+ *    导致成员落入错误 MonthInfo 时此断言失败
  * 4. 实际续接：getNextBatch 恢复断点 → 处理推进 → saveCheckpoint 持久化
- * 5. 真实处理操作（recordUserRemovedImage）→ 重建读取核对已处理/剩余/组状态
+ * 5. 真实处理操作（recordUserRemovedImage）→ 全新引擎实例重建读取
+ *    核对已处理成员确认/剩余成员可续接/组非永久完成
  * 6. 暂不可见成员保持未处理状态
  */
 @RunWith(AndroidJUnit4::class)
@@ -82,9 +84,9 @@ class FullRecoveryContinuationTest {
         // 4. 月列表通过生产逻辑 buildMonthInfos 重建并核对（审计轮：替换替代断言）
         val monthInfos = buildMonthInfos(rows)
         assertTrue("月列表不得为空", monthInfos.isNotEmpty())
-        // 总数核对
         assertEquals(rows.size, monthInfos.sumOf { it.imageCount })
-        // 逐成员月份归属核对（阶段一月归属 JSON vs buildMonthInfos 实际输出）
+        // 逐成员月份归属核对（阶段一月归属 JSON vs buildMonthInfos 实际输出）——
+        // 生产分组错误时（成员落入错误 MonthInfo），此断言失败
         val monthAttribution = expected.getJSONArray("monthAttribution")
         for (i in 0 until monthAttribution.length()) {
             val entry = monthAttribution.getJSONObject(i)
@@ -119,15 +121,15 @@ class FullRecoveryContinuationTest {
         val checkpoint = requireNotNull(engine.getCheckpoint(albumId)) { "checkpoint lost after advancing" }
         assertEquals(checkpointIndex + 1, checkpoint.second)
 
-        // 6. 真实处理操作：recordUserRemovedImage（生产入口）→ 重建读取
+        // 6. 真实处理操作（生产入口 recordUserRemovedImage）→ 全新引擎实例重建读取
         val processedRow = rows.first()
         engine.recordUserRemovedImage(processedRow)
 
-        // 重建读取（新引擎实例模拟进程重建）：已处理成员确认 / 剩余成员可续接 /
-        // 组非永久完成
+        // 全新引擎实例模拟进程重建：生产流程已更新持久状态（acknowledge +
+        // 成员移除），新实例 getNextBatch 使用剩余行（不含已处理成员）
         val freshEngine = cleanupEngine(ctx)
-        val remaining = rows.filter { it != processedRow }
-        val nextAfterProcessing = freshEngine.getNextBatch(albumId, remaining, latestSnapshot = remaining)
+        val latestAfterProcessing = rows.filter { it.mediaIdentityKey() != processedRow.mediaIdentityKey() }
+        val nextAfterProcessing = freshEngine.getNextBatch(albumId, latestAfterProcessing, latestSnapshot = latestAfterProcessing)
         assertNotNull("剩余成员必须仍可续接", nextAfterProcessing)
         assertTrue(
             "已处理成员必须被确认",
