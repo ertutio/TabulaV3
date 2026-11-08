@@ -89,7 +89,7 @@ class PartialSelectionPhaseATest {
         //      网格确定性 [B2,B1,A2,A1,S]）；此处先核对 5 行全部在场 ----
         val allNames = listOf(sentinelName, a1Name, a2Name, b1Name, b2Name)
         for (name in allNames) {
-            val row = ui.shell(
+            val row = ui.shellScript(
                 "content query --uri content://media/external/images/media " +
                     "--projection _id --where \"_display_name='$name'\" 2>&1"
             )

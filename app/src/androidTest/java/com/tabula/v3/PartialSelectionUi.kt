@@ -82,6 +82,20 @@ internal object PartialSelectionUi {
             FileInputStream(descriptor.fileDescriptor).use { it.readBytes().toString(Charsets.UTF_8) }
         }
 
+    /**
+     * 复合 shell 语法（管道/重定向/引号）经 UiAutomation 是 **直接 exec、按
+     * 空白朴素分词**（CI run 42477634711 实证：`printf %s <chunk> > f; echo`
+     * 的输出=printf 对每个后续参数逐个 %s 拼接——无 shell 解释）。本函数
+     * 复用 CloudFixtureCleanup 的既有通道：脚本 base64 编码为单一 word，
+     * 内层 /system/bin/sh -c 展开 ${IFS} 还原空格后真实解释执行。
+     * 仅本函数可承载复合语法；[shell] 仅限无语法短命令。
+     */
+    fun shellScript(script: String): String {
+        val encoded = android.util.Base64.encodeToString(script.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
+        val command = "/system/bin/sh -c printf\${IFS}%s\${IFS}$encoded|base64\${IFS}-d|/system/bin/sh"
+        return shell(command)
+    }
+
     fun shellBytes(command: String): ByteArray =
         ins.uiAutomation.executeShellCommand(command).use { p ->
             FileInputStream(p.fileDescriptor).use { stream ->

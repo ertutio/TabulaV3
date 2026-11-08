@@ -82,13 +82,13 @@ class PartialSelectionPhaseBTest {
             names += expected.getString("sentinelName")
             for (name in names) {
                 val gone = PartialSelectionStateContract.shellDeleteFixture(name) { command ->
-                    ui.shell(command)
+                    ui.shellScript(command)
                 }
                 Log.i(TAG, "cleanup $name gone=$gone")
                 assertTrue("夹具删除后必须消失：$name", gone)
             }
             // 无行残留文件（扫描失败情形）兜底清理
-            ui.shell("rm -rf ${PartialSelectionStateContract.FIXTURE_ABS_DIR}")
+            ui.shellScript("rm -rf ${PartialSelectionStateContract.FIXTURE_ABS_DIR}")
         }.onFailure { Log.w(TAG, "cleanup skipped: state file unreadable", it) }
     }
 
@@ -207,7 +207,7 @@ class PartialSelectionPhaseBTest {
 
     /** shell 身份查询哨兵行存在且元数据未变（集合外媒体不被应用触碰）。 */
     private fun assertSentinelRowExists(sentinelName: String) {
-        val output = ui.shell(
+        val output = ui.shellScript(
             "content query --uri content://media/external/images/media " +
                 "--projection _display_name:relative_path " +
                 "--where \"_display_name='$sentinelName'\""
