@@ -505,14 +505,25 @@ internal object PartialSelectionUi {
         throw lastError ?: IllegalStateException("viewer overlay not confirmed")
     }
 
+    /** 系统设置的应用权限页（直接深链到权限列表）。 */
+    val SETTINGS_PHOTOS_ENTRY_CANDIDATES = listOf("Photos and videos", "照片和视频")
+
+    /** 设置页"选择照片"入口候选文案（API/皮肤差异容忍）。 */
+    val SETTINGS_SELECT_PHOTOS_CANDIDATES = listOf(
+        "Select photos", "Select photos and videos", "Select more photos",
+        "Allow limited access", "选择照片", "选择照片和视频", "照片和视频选择"
+    )
+
     /**
-     * 经 ACTION_PICK_IMAGES 打开照片选择器（调用方 = 被测应用包名）。
-     * 多选上限 extra：API 36 起为 EXTRA_PICK_IMAGES_MAX（旧
-     * EXTRA_PICK_IMAGES_MAX_LIMIT 在 android-36 平台已移除）。
+     * 改选路径（裁决 (c)：ACTION_PICK_IMAGES 确认不更新持久 user-selected 集，
+     * 双 API verdict 实证 + S4 佐证）——经系统设置页：App 权限页 →
+     * "Photos and videos" → "Select photos" → 照片选择器（设置侧 grant 模式，
+     * 当前选中集预勾选）→ 既有原语驱动/确认。官方文档背书的管理路径，
+     * 无生产改动。
      */
-    fun launchPickerForReselection() {
-        val intent = Intent(MediaStore.ACTION_PICK_IMAGES)
-            .putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, PartialSelectionStateContract.PICKER_MAX_LIMIT)
+    fun launchSettingsPhotosPage() {
+        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            .setData(android.net.Uri.parse("package:${ctx.packageName}"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         ctx.startActivity(intent)
     }

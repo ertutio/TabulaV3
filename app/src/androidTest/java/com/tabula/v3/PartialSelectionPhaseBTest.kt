@@ -32,9 +32,10 @@ import org.junit.runner.RunWith
  * 断言链（包B：B1）：
  * 1. 保留（切换前）：新进程（pid 不同）读回预期 JSON；清理组成员键=A 原样、
  *    断点 (组,1) 原样、未永久完成、无 acknowledged、onboarding 标记保留。
- * 2. 真实系统机制改选：ACTION_PICK_IMAGES（调用方=被测应用）重选——取消 A
- *    勾选（若选择器预勾选当前集）、勾选 B 两格（网格 0、1 = 最新两张）、
- *    确认；地面真值 = 应用内查询恰为 {B1, B2}。
+ * 2. 真实系统机制改选：诊断轮裁决 (c)——ACTION_PICK_IMAGES 确认不更新
+ *    持久 user-selected 集（双 API verdict + S4 latest-selection 佐证）——
+ *    改经系统设置页重选（App 权限页 → Photos and videos → Select photos →
+ *    选择器像素驱动 {0,1} → 确认）；地面真值 = 应用内查询恰为 {B1, B2}。
  * 3. 级别仍 PARTIAL（FULL 未授）。
  * 4. 真实 UI 一致性：deck 当前卡 ∈ B、查看器 overlay 身份匹配、A 与哨兵
  *    不可见；月份专清经真实 sheet 重建（生产 buildMonthInfos 口径），
@@ -145,8 +146,15 @@ class PartialSelectionPhaseBTest {
         assertTrue("免责声明标记必须保留", appPrefs.hasAcknowledgedDisclaimer)
         assertEquals(aNames.toSet(), visibleDisplayNames(ctx))
 
-        // ---- 2. 真实系统机制改选 A→B（ACTION_PICK_IMAGES 重选）----
-        ui.launchPickerForReselection()
+        // ---- 2. 真实系统机制改选 A→B（系统设置页重选）----
+        // 诊断轮裁决（双 API verdict=(c) + S4 佐证）：ACTION_PICK_IMAGES 确认
+        // 不更新持久 user-selected 集（该机制语义不成立）——改走系统设置
+        // 管理路径（官方文档背书）：App 权限页 → Photos and videos →
+        // Select photos → 选择器（当前选中集预勾选）→ 像素驱动改选 → 确认。
+        ui.launchSettingsPhotosPage()
+        ui.tapAny(listOf("Permissions", "权限"), tag = "app-permissions-entry")
+        ui.tapAny(ui.SETTINGS_PHOTOS_ENTRY_CANDIDATES, tag = "photos-permission-entry")
+        ui.tapAny(ui.SETTINGS_SELECT_PHOTOS_CANDIDATES, tag = "settings-select-photos")
         // 网格顺序 = [B2, B1, A2, A1, S]；B = 索引 0、1（最新两张）
         ui.driveCheckedCells(expected = setOf(0, 1), tileColors = PartialSelectionStateContract.GRID_TILE_COLORS)
         val confirmLabel = ui.confirmSelection()
