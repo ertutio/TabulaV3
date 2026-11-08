@@ -1407,15 +1407,21 @@ class AlbumManager(private val context: Context) {
      * 批次末尾的最终对账：全库刷新一次并清脏标记。并发路径经互斥串行，
      * 脏标记保证每轮至多一次全库查询；批次进行中不触发（增量计数已保证
      * 目标图集计数即时新鲜，封面/排序细节随批次末对账收敛）。
+     *
+     * G3G4 审计 P2 修复（2026-11-08）：清脏提前到刷新之前 + 循环重查——
+     * 原实现"刷新后 finally 清脏"存在丢失唤醒窄窗（对账进行中的并发提交
+     * 置脏后阻塞于互斥，醒来双检见 false 直接返回，该次提交的对账被吞，
+     * 计数少 1 直至下一次任意刷新）。先清脏使对账期间新置的脏在循环下一
+     * 轮被再次对账，直至无脏收敛。refreshAlbumsFromSystem 内部自吞异常
+     * （仅记日志）属登记边界：吞异常轮次的脏已清，计数陈旧由下一次任意
+     * 刷新兜底，不扩大本修复。
      */
     private suspend fun reconcileAlbumsIfDirty() {
-        if (!albumsReconciliationDirty) return
-        albumsReconcileMutex.withLock {
-            if (!albumsReconciliationDirty) return@withLock
-            try {
-                refreshAlbumsFromSystem()
-            } finally {
+        while (true) {
+            albumsReconcileMutex.withLock {
+                if (!albumsReconciliationDirty) return
                 albumsReconciliationDirty = false
+                refreshAlbumsFromSystem()
             }
         }
     }
