@@ -151,3 +151,8 @@ PartialSelectionPhaseATest=1、PartialSelectionPhaseBTest=1；probe 脚本每阶
 - R16（50c9d88 / run 42500080220）：**三 job 全绿**（build + API36 + API37，各 ~10min）——Settings 回退链（AppInfo 深链→Permissions 导航核验→Photos and videos→gear→像素驱动 {0,1}→确认回读）+ 地面真值 {B1,B2} + PhaseB 全部保留断言（retention pre/post-switch、哨兵 shell 行存在、查看器、月行）双 API 通过；PhaseA 重绿补强（裁决第 1 问的补强条件达成）。
 - 交付边界：A→B 重选机制=系统设置页（(c) 实证：PICK_IMAGES 确认不更新授权集）；月份清理成员视图为引擎持有语义（不断言，段内登记）。
 - 分支 docs/night-2026-11-08-B1-notes.md = 本 notes 快照（资产保全）。
+
+### 6.11 最终验收 run 与证据绑定
+- 最终验收 run 42501864524（head 35e5683=docs-only 提交）：build 绿、API37 绿（PhaseA+PhaseB 全链）、**API36 一次性瞬态抖动**——Settings 权限页 'Photos and videos' 条目 30s 未现（该步骤 R16 同 API 通过；R10/R16 API36 多次通过；非代码回归——35e5683 与 50c9d88 的 diff 仅 1 个 notes md 文件，可 git diff 核对）。
+- **证据绑定口径**：代码证据 = R16 run 42500080220（head 50c9d88，三 job 全绿，PhaseA+PhaseB 全链双 API）；其后唯一提交 35e5683 为 docs-only。按验收约定「分支随后变化则判断证据是否仍适用」：适用。
+- 额度纪律生效：不再为 final-head 绑定重派。
