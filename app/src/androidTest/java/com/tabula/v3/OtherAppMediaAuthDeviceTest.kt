@@ -80,14 +80,18 @@ import org.junit.runner.RunWith
  *    MediaProvider applyBatch 完成删除 → 行消失（app/shell/文件三面一致）、记录
  *    消费、journal 干净、集合外哨兵不受影响。
  *
- * 启动方式（run 42473731064 API36 工件实证）：intentSender 必须从 **Activity 上下文**
- * 发起——API36 的 Mainline MediaProvider 在 PermissionActivity.onCreate 以
- * `getCallingPackage()` 解析发起方，非 Activity 上下文（Context.startIntentSender）
- * 时为 null → `NameNotFoundException: Missing calling package` → catch→finish→
- * 对话框不出现；API37 模块版本不触发该路径。生产流程（MainActivity 经
- * startIntentSenderForResult）即 Activity 上下文，故本套件对齐：startActivitySync
- * 持有 MainActivity 后以 activity.startIntentSender 发起（冷启动无既有任务回前台
- * 的空闲等待问题，CloudCleanupUiTest 同款在双 API 通过）。
+ * 启动方式（run 42473731064/42475900934 API36 工件实证）：intentSender 必须以
+ * **startIntentSenderForResult（带结果记录）** 发起——API36 的 Mainline MediaProvider
+ * 在 PermissionActivity.onCreate 以 `Activity.getCallingPackage()` 解析发起方，而
+ * 该值仅在带结果预期的启动（startActivityForResult/startIntentSenderForResult）
+ * 时由系统记录：Context.startIntentSender（轮 1，独立任务）与 Activity.startIntentSender
+ * （轮 2，进入应用任务）均为 null → `NameNotFoundException: Missing calling package`
+ * → catch→finish → 对话框不出现（`from uid X (sr=…)` 无结果记录，对照生产
+ * `from uid X (rr=…)`）。API37 模块版本不依赖该路径（同代码通过）。生产流程
+ * （MainActivity 的 androidx launcher → startIntentSenderForResult）即带结果启动，
+ * 故本套件对齐：startActivitySync 持有 MainActivity 后以
+ * activity.startIntentSenderForResult 发起；结果码投递至 MainActivity 无消费者
+ * （androidx registry 对未映射 requestCode 不分发），行消失仍为本套件同步点。
  *
  * 纪律：中心稳定断言（行/清单/文件精确核对）、截止时间轮询、无固定等待（仅
  * 轮询节奏 100ms 与身份竞态重试退避）；不授予生产应用 MANAGE_MEDIA、不改 app-op；
@@ -414,11 +418,14 @@ class OtherAppMediaAuthDeviceTest {
         assertNotNull("createDeleteRequest must produce a real intentSender", needsPermission.intentSender)
         val currentActivity = requireNotNull(activity) { "MainActivity must be foreground before consent" }
         val launchError = AtomicReference<Throwable?>()
-        // 从 Activity 上下文发起（API36 模块按 getCallingPackage 解析发起方，
-        // 非 Activity 上下文 → "Missing calling package" → 对话框直接 finish）。
+        // 带结果记录的启动（getCallingPackage 仅在此路径被系统记录）：
+        // 结果码投递至 MainActivity 无消费者（androidx registry 不分发未映射码），
+        // 授权完成的同步点=行消失轮询。
         ins.runOnMainSync {
             try {
-                currentActivity.startIntentSender(needsPermission.intentSender, null, 0, 0, 0, null)
+                currentActivity.startIntentSenderForResult(
+                    needsPermission.intentSender, CONSENT_REQUEST_CODE, null, 0, 0, 0
+                )
             } catch (e: Throwable) { launchError.set(e) }
         }
         launchError.get()?.let { Log.e(TAG, "intentSender launch failed", it); return false }
@@ -668,6 +675,9 @@ class OtherAppMediaAuthDeviceTest {
         private const val TAG = "OtherMediaAuth"
         private const val FOREIGN_DIR = "Pictures/TabulaForeignAuth"
         private const val SELF_DIR = "Pictures/TabulaSelfAuth"
+
+        /** 与生产 REQUEST_DELETE_PERMISSION(1001) 区分的测试专用结果码。 */
+        private const val CONSENT_REQUEST_CODE = 40501
         private val NULLISH = setOf("NULL", "null", "")
     }
 }
