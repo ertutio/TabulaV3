@@ -46,6 +46,16 @@ internal object PartialSelectionStateContract {
     const val B1_NAME = "partial-b1.png"
     const val B2_NAME = "partial-b2.png"
 
+    /** 夹具瓷片颜色（与宿主 PNG 生成一一对应；查看器/截屏诊断依据）。 */
+    const val COLOR_SENTINEL = 0xFF888888.toInt()
+    const val COLOR_A1 = 0xFFFF0000.toInt()
+    const val COLOR_A2 = 0xFF00FF00.toInt()
+    const val COLOR_B1 = 0xFFFFFF00.toInt()
+    const val COLOR_B2 = 0xFF00FFFF.toInt()
+
+    /** 网格位置 → 瓷片颜色（顺序 [B2,B1,A2,A1,S] = 宿主推送时间序的倒序）。 */
+    val GRID_TILE_COLORS = listOf(COLOR_B2, COLOR_B1, COLOR_A2, COLOR_A1, COLOR_SENTINEL)
+
     fun stateFile(context: Context): File = File(
         context.getExternalFilesDir(null) ?: context.filesDir, STATE_FILE
     )

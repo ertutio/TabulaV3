@@ -145,7 +145,7 @@ class PartialSelectionPhaseBTest {
         // ---- 2. 真实系统机制改选 A→B（ACTION_PICK_IMAGES 重选）----
         ui.launchPickerForReselection()
         // 网格顺序 = [B2, B1, A2, A1, S]；B = 索引 0、1（最新两张）
-        ui.driveCheckedCells(expected = setOf(0, 1))
+        ui.driveCheckedCells(expected = setOf(0, 1), tileColors = PartialSelectionStateContract.GRID_TILE_COLORS)
         val confirmLabel = ui.confirmSelection()
         Log.i(TAG, "reselect confirmed via $confirmLabel; awaiting ground truth B")
 

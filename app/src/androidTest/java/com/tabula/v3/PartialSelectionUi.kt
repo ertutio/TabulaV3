@@ -2,6 +2,7 @@ package com.tabula.v3
 
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Rect
 import android.os.SystemClock
 import android.provider.MediaStore
@@ -18,6 +19,17 @@ import java.io.FileInputStream
  * 全部经 UiAutomation 操作真实系统界面（无生产改动、无替换回调）；等待均为
  * 有截止时间的轮询；失败时截图与辅助树 dump 写入 cloud-ui-failures/
  * （CI artifact 拉取）。
+ *
+ * 本夜 CI 实证的传感/通道事实（实现全部据此设计）：
+ * - executeShellCommand = 直接 exec + 按空白朴素分词，无 shell 解释（管道/
+ *   重定向/引号失效）——复合语法必须走 [shellScript] 的 IFS 通道
+ *   （CloudFixtureCleanup 同款，run 42477604680 双 API 全绿实证）。
+ * - 选择器辅助树**不反映勾选变化**（run 42481561828 abort 截图：角标恰在
+ *   预期两格、count=2，树读数恒为初始空态）——勾选态判定用
+ *   [readCheckedStateByPixel]（截屏像素比对，实时无滞后）；格位置仍取
+ *   辅助树边界（跨轮实证稳定准确）。
+ * - 点击实际生效（轮4 去选/轮8 选择振荡均由截图证实）——格点选以
+ *   ACTION_CLICK 为主、坐标回退。
  */
 internal object PartialSelectionUi {
     private const val TAG = "PartialSelection"
@@ -77,18 +89,16 @@ internal object PartialSelectionUi {
         }
     }
 
+    /** 无 shell 语法的短命令直通（am/input/screencap 等朴素参数命令）。 */
     fun shell(command: String): String =
         ins.uiAutomation.executeShellCommand(command).use { descriptor ->
             FileInputStream(descriptor.fileDescriptor).use { it.readBytes().toString(Charsets.UTF_8) }
         }
 
     /**
-     * 复合 shell 语法（管道/重定向/引号）经 UiAutomation 是 **直接 exec、按
-     * 空白朴素分词**（CI run 42477634711 实证：`printf %s <chunk> > f; echo`
-     * 的输出=printf 对每个后续参数逐个 %s 拼接——无 shell 解释）。本函数
-     * 复用 CloudFixtureCleanup 的既有通道：脚本 base64 编码为单一 word，
-     * 内层 /system/bin/sh -c 展开 ${IFS} 还原空格后真实解释执行。
-     * 仅本函数可承载复合语法；[shell] 仅限无语法短命令。
+     * 复合 shell 语法（管道/重定向/引号）专用通道：脚本 base64 编码为单一
+     * word，`/system/bin/sh -c` 直接 exec 下整串成为 -c 脚本，内层展开
+     * ${IFS} 还原空格后真实解释执行（CloudFixtureCleanup 同款模式）。
      */
     fun shellScript(script: String): String {
         val encoded = android.util.Base64.encodeToString(script.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
@@ -161,11 +171,7 @@ internal object PartialSelectionUi {
         }
     }
 
-    /**
-     * 节点定向点击：优先 ACTION_CLICK（无坐标换算——CI 实证 input tap 与
-     * 部分窗口渲染坐标存在系统级错位/吞没，run 42469308043/42471835967），
-     * 失败回退节点中心坐标 tap。返回实际点击方式。
-     */
+    /** 节点定向点击：ACTION_CLICK 优先，失败上溯可点击祖先，最后坐标回退。 */
     fun clickNode(node: AccessibilityNodeInfo, tag: String): String {
         if (node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
             Log.i(TAG, "$tag clicked via ACTION_CLICK")
@@ -247,7 +253,7 @@ internal object PartialSelectionUi {
     /**
      * 收集照片选择器网格单元（可见、可点击、尺寸≥250x250 的节点；排除
      * 相机入口等特殊格），按 (top,left) 排序 = 最新在前。逐格记录
-     * desc/selected/勾选子节点到 logcat（失败裁决证据）。
+     * desc 到 logcat（失败裁决证据）。
      */
     fun collectGridCells(minCount: Int, timeoutMs: Long = 30000): List<AccessibilityNodeInfo> {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
@@ -274,8 +280,8 @@ internal object PartialSelectionUi {
                 .map { it.first }
             if (grid.size >= minCount) {
                 grid.forEachIndexed { index, node ->
-                    Log.i(TAG, "gridCell[$index] desc=${node.contentDescription} selected=${node.isSelected} " +
-                        "checkedChild=${checkedChild(node)} bounds=${Rect().also { node.getBoundsInScreen(it) }}")
+                    Log.i(TAG, "gridCell[$index] desc=${node.contentDescription} " +
+                        "bounds=${Rect().also { node.getBoundsInScreen(it) }}")
                 }
                 return grid
             }
@@ -301,39 +307,8 @@ internal object PartialSelectionUi {
     }
 
     /**
-     * 勾选态检测：节点 selected / 勾选子节点 / AOSP 选择器数字角标（选中格
-     * 显示 1..N 编号徽标）/ desc 或文本含选中语义。
-     */
-    fun isCellChecked(node: AccessibilityNodeInfo): Boolean {
-        if (node.isSelected) return true
-        val desc = (node.contentDescription?.toString() ?: "") + " " + (node.text?.toString() ?: "")
-        if (Regex("(?i)(selected|已选|勾选|checked|已选中)").containsMatchIn(desc) &&
-            !Regex("仅可访问所选|selected photos").containsMatchIn(desc)) return true
-        return checkedChild(node)
-    }
-
-    private fun checkedChild(node: AccessibilityNodeInfo): Boolean {
-        val badge = Regex("^\\d{1,2}$")
-        // API36 google_apis 选择器实证（CI run 42469308043 树 dump）：选中格的
-        // 角标为子节点 content-desc="Selected"（左上角小徽标）；数字角标与
-        // checkable 形态为其他版本容忍。
-        val selectedDesc = Regex("^(Selected|已选|已选中)$")
-        fun walk(n: AccessibilityNodeInfo?, depth: Int): Boolean {
-            if (n == null || depth > 5) return false
-            if ((n.isCheckable && n.isChecked) || n.isSelected) return true
-            val text = n.text?.toString() ?: ""
-            val desc = n.contentDescription?.toString() ?: ""
-            if (badge.matches(text) || selectedDesc.matches(desc)) return true
-            for (i in 0 until n.childCount) if (walk(n.getChild(i), depth + 1)) return true
-            return false
-        }
-        return walk(node, 0)
-    }
-
-    /**
-     * 点选网格格：优先节点原生 ACTION_CLICK（节点定向，无坐标换算——CI 实证
-     * 选择器底部 sheet 的坐标 tap 与 a11y 边界存在系统级错位，run
-     * 42469308043 双 API 一致复现），失败回退节点中心坐标 tap。
+     * 点选网格格：优先节点原生 ACTION_CLICK（轮4 去选/轮8 选择振荡截图均
+     * 证实点击真实生效），失败回退节点中心坐标 tap。
      */
     fun tapCell(index: Int, cells: List<AccessibilityNodeInfo>, purpose: String): String {
         val node = cells[index]
@@ -348,25 +323,15 @@ internal object PartialSelectionUi {
         return "coordinate"
     }
 
-    /** 选择器底栏已选计数（"N photos or videos selected"）；不可见返回 null。 */
-    fun pickerSelectedCount(): Int? {
-        val regex = Regex("^(\\d+)")
-        fun walk(node: AccessibilityNodeInfo?): Int? {
-            if (node == null) return null
-            val desc = node.contentDescription?.toString() ?: ""
-            val match = Regex("^(\\d+) photos? or videos? selected.*$").matchEntire(desc)
-            if (match != null) return match.groupValues[1].toInt()
-            for (i in 0 until node.childCount) walk(node.getChild(i))?.let { return it }
-            return null
-        }
-        return walk(ins.uiAutomation.rootInActiveWindow)
-    }
-
-    /** 确认选择（"Add N"/"添加"/"完成"），返回按钮文本供日志。 */
+    /**
+     * 确认选择：先辅助树命中（命中后按**坐标**点击实际位置上的活体按钮，
+     * 规避树滞后导致的禁用渲染节点），8s 未命中走像素兜底：底栏深蓝药丸
+     * （Done）检测后点其中心。
+     */
     fun confirmSelection(timeoutMs: Long = 20000): String {
         val regex = Regex("^(Add|添加|完成|Done|Confirm|确认)([ ]?[（(]?\\d+[)）]?)?$")
-        val deadline = SystemClock.uptimeMillis() + timeoutMs
-        while (SystemClock.uptimeMillis() < deadline) {
+        val a11yDeadline = SystemClock.uptimeMillis() + 8000
+        while (SystemClock.uptimeMillis() < a11yDeadline) {
             val matches = mutableListOf<AccessibilityNodeInfo>()
             fun walk(node: AccessibilityNodeInfo?) {
                 if (node == null) return
@@ -378,28 +343,57 @@ internal object PartialSelectionUi {
                 for (i in 0 until node.childCount) walk(node.getChild(i))
             }
             walk(ins.uiAutomation.rootInActiveWindow)
-            // 优先可点击命中；否则上溯最近可点击祖先（≤3 跳）
-            val clickable = matches.firstOrNull { it.isClickable }
-                ?: matches.firstOrNull { node ->
-                    var parent = node.parent
-                    var hops = 0
-                    while (parent != null && hops < 3) {
-                        if (parent.isClickable) return@firstOrNull true
-                        parent = parent.parent
-                        hops++
-                    }
-                    false
+            val target = matches.firstOrNull()
+            if (target != null) {
+                val bounds = Rect().also { target.getBoundsInScreen(it) }
+                if (!bounds.isEmpty) {
+                    val label = target.text?.toString() ?: target.contentDescription?.toString() ?: "?"
+                    shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
+                    Log.i(TAG, "confirm tapped via a11y bounds: $label bounds=${bounds.toShortString()}")
+                    return label
                 }
-            if (clickable != null) {
-                val label = clickable.text?.toString() ?: clickable.contentDescription?.toString() ?: "?"
-                clickNode(clickable, "confirm($label)")
-                return label
             }
             SystemClock.sleep(150)
         }
-        dumpTree("confirm-missing")
-        saveScreenshot("confirm-missing")
-        error("picker confirm button not found")
+        // 像素兜底：底栏深蓝药丸（Done）检测
+        val png = shellBytes("screencap -p")
+        val bitmap = requireNotNull(BitmapFactory.decodeByteArray(png, 0, png.size)) { "screencap decode failed" }
+        try {
+            val top = (bitmap.height * 0.80).toInt()
+            val cols = IntArray(bitmap.width)
+            var maxCount = 0
+            for (y in top until bitmap.height step 3) {
+                for (x in 0 until bitmap.width step 2) {
+                    val p = bitmap.getPixel(x, y)
+                    val r = (p shr 16) and 0xFF; val g = (p shr 8) and 0xFF; val b = p and 0xFF
+                    if (b > 130 && b - r > 50 && b - g > 40) { cols[x]++; if (cols[x] > maxCount) maxCount = cols[x] }
+                }
+            }
+            check(maxCount >= 12) { "confirm pill not detected in bottom strip (maxCol=$maxCount)" }
+            var right = bitmap.width - 1
+            while (right > 0 && cols[right] < 12) right--
+            var left = right
+            while (left > 0 && cols[left] >= 12) left--
+            check(right > left) { "confirm pill extent degenerate (left=$left right=$right)" }
+            var pillTop = -1; var pillBottom = -1
+            for (y in top until bitmap.height) {
+                var hasBlue = false
+                for (x in left..right step 2) {
+                    val p = bitmap.getPixel(x, y)
+                    val r = (p shr 16) and 0xFF; val g = (p shr 8) and 0xFF; val b = p and 0xFF
+                    if (b > 130 && b - r > 50 && b - g > 40) { hasBlue = true; break }
+                }
+                if (hasBlue) { if (pillTop < 0) pillTop = y; pillBottom = y }
+            }
+            check(pillTop >= 0) { "confirm pill rows not found" }
+            val cx = (left + right) / 2
+            val cy = (pillTop + pillBottom) / 2
+            shell("input tap $cx $cy")
+            Log.i(TAG, "confirm tapped via pixel pill: ($cx,$cy) x[$left,$right] y[$pillTop,$pillBottom]")
+            return "Done(pixel)"
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     /**
@@ -455,52 +449,83 @@ internal object PartialSelectionUi {
     }
 
     /**
-     * 驱动勾选集合到预期：取消一切预期外勾选、补齐预期格。
-     *
-     * CI run 42473377747 决定性证据：矫正点击实际生效（失败截图=角标恰在
-     * 预期两格、count=2），但选择器辅助树**滞后真实 UI >600ms**——每轮
-     * 固定 600ms 后的单次读数是陈旧态，矫正差集据此重复点击同一批格造成
-     * 双重切换。修正：未达标时先"树稳定等待"（读数连续两次一致才算稳定，
-     * 稳定期内追平达标即返回），只对稳定后的真实态做差集矫正，至多 3 轮；
-     * 树始终不稳定则留证失败。地面真值断言仍是最终裁决。
+     * 像素级勾选态读数（CI run 42481561828 决定性证据：选择器辅助树**不反映
+     * 勾选变化**——abort 截图角标恰在预期两格、count=2，树读数恒为初始空态；
+     * 点击实际生效，传感器失真）。截屏后采样各格左上角标区域（角标=蓝圈+
+     * 白勾，未勾选=瓷片原色直达格边）与该位置瓷片颜色比对：接近瓷片色=
+     * 未勾选，否则=勾选。格位置取自辅助树边界（跨轮实证位置稳定准确），
+     * 勾选态取自像素（实时无滞后）。瓷片颜色由种子固定（网格顺序确定）。
      */
-    fun driveCheckedCells(expected: Set<Int>, minCells: Int = 5, timeoutMs: Long = 60000) {
+    fun readCheckedStateByPixel(
+        cells: List<AccessibilityNodeInfo>,
+        tileColors: List<Int>
+    ): Set<Int> {
+        val png = shellBytes("screencap -p")
+        val bitmap = requireNotNull(BitmapFactory.decodeByteArray(png, 0, png.size)) {
+            "screencap decode failed"
+        }
+        try {
+            val checked = mutableSetOf<Int>()
+            for (index in cells.indices) {
+                val rect = Rect().also { cells[index].getBoundsInScreen(it) }
+                val tileColor = tileColors[index]
+                val inset = (minOf(rect.width(), rect.height()) * 0.12f).toInt().coerceAtLeast(20)
+                val cx = (rect.left + inset).coerceIn(0, bitmap.width - 1)
+                val cy = (rect.top + inset).coerceIn(0, bitmap.height - 1)
+                var r = 0L; var g = 0L; var b = 0L; var n = 0L
+                for (x in (cx - 4).coerceAtLeast(0)..(cx + 4).coerceAtMost(bitmap.width - 1)) {
+                    for (y in (cy - 4).coerceAtLeast(0)..(cy + 4).coerceAtMost(bitmap.height - 1)) {
+                        val p = bitmap.getPixel(x, y)
+                        r += (p shr 16) and 0xFF; g += (p shr 8) and 0xFF; b += p and 0xFF; n++
+                    }
+                }
+                val avgR = (r / n).toInt(); val avgG = (g / n).toInt(); val avgB = (b / n).toInt()
+                val tr = (tileColor shr 16) and 0xFF; val tg = (tileColor shr 8) and 0xFF; val tb = tileColor and 0xFF
+                val distance = Math.sqrt(
+                    ((avgR - tr) * (avgR - tr) + (avgG - tg) * (avgG - tg) +
+                        (avgB - tb) * (avgB - tb)).toDouble()
+                )
+                Log.i(TAG, "pixelCell[$index] avg=($avgR,$avgG,$avgB) tile=($tr,$tg,$tb) d=${distance.toInt()}")
+                if (distance > 70.0) checked += index
+            }
+            return checked.toSet()
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /**
+     * 驱动勾选集合到预期：像素读数为准（辅助树不反映勾选变化），差集矫正
+     * 至多 3 轮，每轮矫正后像素轮询（实时）直至达标。不收敛留证失败；
+     * 地面真值断言（授权后应用内查询）仍是最终裁决。
+     */
+    fun driveCheckedCells(expected: Set<Int>, tileColors: List<Int>, timeoutMs: Long = 90000) {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
         var rounds = 0
         while (true) {
-            val cells = collectGridCells(minCount = minCells)
-            val checked = cells.indices.filter { isCellChecked(cells[it]) }.toSet()
-            var count = pickerSelectedCount()
-            Log.i(TAG, "driveChecked round=$rounds checked=$checked count=$count expected=$expected")
-            if (checked == expected && (count == null || count == expected.size)) return
-
-            // 树稳定等待：连续两次读数一致（含勾选集与计数）才采信
-            var stableState = checked to count
-            var stabilized = false
-            val settleDeadline = SystemClock.uptimeMillis() + 10000
-            while (SystemClock.uptimeMillis() < settleDeadline && SystemClock.uptimeMillis() < deadline) {
-                SystemClock.sleep(300)
-                val freshCells = collectGridCells(minCount = minCells)
-                val freshChecked = freshCells.indices.filter { isCellChecked(freshCells[it]) }.toSet()
-                val freshCount = pickerSelectedCount()
-                if (freshChecked == expected && (freshCount == null || freshCount == expected.size)) return
-                if (freshChecked == stableState.first && freshCount == stableState.second) {
-                    stabilized = true
-                    break
-                }
-                stableState = freshChecked to freshCount
+            val cells = collectGridCells(minCount = tileColors.size)
+            check(cells.size == tileColors.size) {
+                "grid cell count ${cells.size} != fixture count ${tileColors.size} — mapping undefined"
             }
-            if (!stabilized || SystemClock.uptimeMillis() > deadline || rounds >= 3) {
+            val checked = readCheckedStateByPixel(cells, tileColors)
+            Log.i(TAG, "driveChecked round=$rounds pixelChecked=$checked expected=$expected")
+            if (checked == expected) return
+            if (SystemClock.uptimeMillis() > deadline || rounds >= 3) {
                 dumpTree("drive-checked-mismatch")
                 saveScreenshot("drive-checked-mismatch")
-                error("checked cells not converged: checked=$stableState expected=$expected " +
-                    "after $rounds corrective rounds (treeStable=$stabilized) — evidence saved")
+                error("checked cells not converged: pixelChecked=$checked expected=$expected " +
+                    "after $rounds corrective rounds — evidence saved")
             }
             rounds++
-            val (stableChecked, _) = stableState
-            val freshCells = collectGridCells(minCount = minCells)
-            val taps = (stableChecked - expected).sorted() + (expected - stableChecked).sorted()
-            taps.forEach { tapCell(it, freshCells, purpose = "drive-selection") }
+            val taps = (checked - expected).sorted() + (expected - checked).sorted()
+            taps.forEach { tapCell(it, cells, purpose = "drive-selection") }
+            // 点击后像素轮询（截屏为实时画面，无辅助树滞后问题）
+            val pollDeadline = SystemClock.uptimeMillis() + 15000
+            while (SystemClock.uptimeMillis() < pollDeadline && SystemClock.uptimeMillis() < deadline) {
+                SystemClock.sleep(400)
+                val freshCells = collectGridCells(minCount = tileColors.size)
+                if (readCheckedStateByPixel(freshCells, tileColors) == expected) return
+            }
         }
     }
 

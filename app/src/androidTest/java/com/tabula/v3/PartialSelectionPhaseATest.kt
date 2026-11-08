@@ -119,7 +119,7 @@ class PartialSelectionPhaseATest {
 
         ui.collectGridCells(minCount = 5)
         // 网格顺序 = [B2, B1, A2, A1, S]（DATE_TAKEN 倒序）；A = 索引 2、3
-        ui.driveCheckedCells(expected = setOf(2, 3))
+        ui.driveCheckedCells(expected = setOf(2, 3), tileColors = PartialSelectionStateContract.GRID_TILE_COLORS)
         val confirmLabel = ui.confirmSelection()
         Log.i(TAG, "picker confirmed via $confirmLabel; awaiting grant + ground truth")
 
