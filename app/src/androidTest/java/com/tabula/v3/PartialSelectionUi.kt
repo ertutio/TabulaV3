@@ -508,11 +508,12 @@ internal object PartialSelectionUi {
     /** 系统设置的应用权限页（直接深链到权限列表）。 */
     val SETTINGS_PHOTOS_ENTRY_CANDIDATES = listOf("Photos and videos", "照片和视频")
 
-    /** 设置页"选择照片"入口候选文案（API/皮肤差异容忍）。 */
-    val SETTINGS_SELECT_PHOTOS_CANDIDATES = listOf(
-        "Select photos", "Select photos and videos", "Select more photos",
-        "Allow limited access", "选择照片", "选择照片和视频", "照片和视频选择"
-    )
+    /**
+     * 设置页 "Allow limited access" 行内的管理入口（gear 图标，desc=
+     * "Settings"，run 42492426169 树 dump 实证：点行仅切模式不开选择器，
+     * 改选须经此入口）。应用已处 PARTIAL 时该入口即活。
+     */
+    val SETTINGS_SELECTION_GEAR_DESC = "Settings"
 
     /**
      * 改选路径（裁决 (c)：ACTION_PICK_IMAGES 确认不更新持久 user-selected 集，
@@ -526,6 +527,25 @@ internal object PartialSelectionUi {
             .setData(android.net.Uri.parse("package:${ctx.packageName}"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         ctx.startActivity(intent)
+    }
+
+    /** 打开 "Allow limited access" 行的选择管理入口（gear），进入选择器。 */
+    fun tapSettingsSelectionGear(timeoutMs: Long = 15000) {
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        while (SystemClock.uptimeMillis() < deadline) {
+            val gear = find(ins.uiAutomation.rootInActiveWindow, SETTINGS_SELECTION_GEAR_DESC)
+            if (gear != null) {
+                val bounds = Rect().also { gear.getBoundsInScreen(it) }
+                if (!bounds.isEmpty) {
+                    clickNode(gear, "settings-selection-gear")
+                    return
+                }
+            }
+            SystemClock.sleep(150)
+        }
+        dumpTree("missing-settings-gear")
+        saveScreenshot("missing-settings-gear")
+        error("settings selection gear (desc=) not found")
     }
 
     /**

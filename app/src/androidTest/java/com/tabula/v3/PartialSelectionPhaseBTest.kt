@@ -154,7 +154,8 @@ class PartialSelectionPhaseBTest {
         ui.launchSettingsPhotosPage()
         ui.tapAny(listOf("Permissions", "权限"), tag = "app-permissions-entry")
         ui.tapAny(ui.SETTINGS_PHOTOS_ENTRY_CANDIDATES, tag = "photos-permission-entry")
-        ui.tapAny(ui.SETTINGS_SELECT_PHOTOS_CANDIDATES, tag = "settings-select-photos")
+        // 行点击仅切模式不改选择集（R11 树 dump 实证）——改选经行内 gear 入口
+        ui.tapSettingsSelectionGear()
         // 网格顺序 = [B2, B1, A2, A1, S]；B = 索引 0、1（最新两张）
         ui.driveCheckedCells(expected = setOf(0, 1), tileColors = PartialSelectionStateContract.GRID_TILE_COLORS)
         val confirmLabel = ui.confirmSelection()
