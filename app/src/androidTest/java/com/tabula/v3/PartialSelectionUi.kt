@@ -437,6 +437,29 @@ internal object PartialSelectionUi {
     }
 
     /**
+     * 开查看器并确认 overlay 身份（单次点击可能被 deck 发牌动画吞没——
+     * run 42484538892 API37 viewer-overlay 超时；未确认即 BACK 回 deck 重试
+     * 一轮，最后一轮失败如实抛出并留证）。
+     */
+    fun openViewerWithRetry(names: List<String>, overlayKeyFor: (String) -> String) {
+        var lastError: IllegalStateException? = null
+        repeat(2) { attempt ->
+            val cardName = openViewerFromLargest(names)
+            try {
+                awaitViewerOverlay(overlayKeyFor(cardName))
+                Log.i(TAG, "viewer confirmed for $cardName (attempt $attempt)")
+                return
+            } catch (e: IllegalStateException) {
+                lastError = e
+                Log.w(TAG, "viewer overlay not confirmed (attempt $attempt): ${e.message}")
+                shell("input keyevent KEYCODE_BACK")
+                SystemClock.sleep(800)
+            }
+        }
+        throw lastError ?: IllegalStateException("viewer overlay not confirmed")
+    }
+
+    /**
      * 经 ACTION_PICK_IMAGES 打开照片选择器（调用方 = 被测应用包名）。
      * 多选上限 extra：API 36 起为 EXTRA_PICK_IMAGES_MAX（旧
      * EXTRA_PICK_IMAGES_MAX_LIMIT 在 android-36 平台已移除）。
@@ -451,14 +474,16 @@ internal object PartialSelectionUi {
     /**
      * 像素级勾选态读数（CI run 42481561828 决定性证据：选择器辅助树**不反映
      * 勾选变化**——abort 截图角标恰在预期两格、count=2，树读数恒为初始空态；
-     * 点击实际生效，传感器失真）。截屏后采样各格左上角标区域（角标=蓝圈+
-     * 白勾，未勾选=瓷片原色直达格边）与该位置瓷片颜色比对：接近瓷片色=
-     * 未勾选，否则=勾选。格位置取自辅助树边界（跨轮实证位置稳定准确），
-     * 勾选态取自像素（实时无滞后）。瓷片颜色由种子固定（网格顺序确定）。
+     * 点击实际生效，传感器失真）。截屏后采样各格左上角标区域，以**白色勾选
+     * 笔画**为勾选判据（run 42484538892 修正：轮9 的瓷片色比对模型在 API36
+     * 失效——未勾选格的渲染为内嵌圆角+背景填充，角部像素=网格背景而非瓷片
+     * 色，且背景色恰好接近灰色哨兵；唯一跨 API 稳定的勾选标志=角标中的白色
+     * 笔画，五种瓷片色/网格背景均无白色像素）。格位置取自辅助树边界（跨轮
+     * 实证位置稳定准确），勾选态取自像素（实时无滞后）。
      */
     fun readCheckedStateByPixel(
         cells: List<AccessibilityNodeInfo>,
-        tileColors: List<Int>
+        @Suppress("UNUSED_PARAMETER") tileColors: List<Int>
     ): Set<Int> {
         val png = shellBytes("screencap -p")
         val bitmap = requireNotNull(BitmapFactory.decodeByteArray(png, 0, png.size)) {
@@ -468,25 +493,19 @@ internal object PartialSelectionUi {
             val checked = mutableSetOf<Int>()
             for (index in cells.indices) {
                 val rect = Rect().also { cells[index].getBoundsInScreen(it) }
-                val tileColor = tileColors[index]
                 val inset = (minOf(rect.width(), rect.height()) * 0.12f).toInt().coerceAtLeast(20)
                 val cx = (rect.left + inset).coerceIn(0, bitmap.width - 1)
                 val cy = (rect.top + inset).coerceIn(0, bitmap.height - 1)
-                var r = 0L; var g = 0L; var b = 0L; var n = 0L
-                for (x in (cx - 4).coerceAtLeast(0)..(cx + 4).coerceAtMost(bitmap.width - 1)) {
-                    for (y in (cy - 4).coerceAtLeast(0)..(cy + 4).coerceAtMost(bitmap.height - 1)) {
+                var white = 0
+                for (x in (cx - 15).coerceAtLeast(0)..(cx + 15).coerceAtMost(bitmap.width - 1)) {
+                    for (y in (cy - 15).coerceAtLeast(0)..(cy + 15).coerceAtMost(bitmap.height - 1)) {
                         val p = bitmap.getPixel(x, y)
-                        r += (p shr 16) and 0xFF; g += (p shr 8) and 0xFF; b += p and 0xFF; n++
+                        val r = (p shr 16) and 0xFF; val g = (p shr 8) and 0xFF; val b = p and 0xFF
+                        if (r > 210 && g > 210 && b > 210) white++
                     }
                 }
-                val avgR = (r / n).toInt(); val avgG = (g / n).toInt(); val avgB = (b / n).toInt()
-                val tr = (tileColor shr 16) and 0xFF; val tg = (tileColor shr 8) and 0xFF; val tb = tileColor and 0xFF
-                val distance = Math.sqrt(
-                    ((avgR - tr) * (avgR - tr) + (avgG - tg) * (avgG - tg) +
-                        (avgB - tb) * (avgB - tb)).toDouble()
-                )
-                Log.i(TAG, "pixelCell[$index] avg=($avgR,$avgG,$avgB) tile=($tr,$tg,$tb) d=${distance.toInt()}")
-                if (distance > 70.0) checked += index
+                Log.i(TAG, "pixelCell[$index] whiteIn31x31=$white at=($cx,$cy)")
+                if (white >= 15) checked += index
             }
             return checked.toSet()
         } finally {

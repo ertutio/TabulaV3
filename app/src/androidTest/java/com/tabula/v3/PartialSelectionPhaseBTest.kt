@@ -167,9 +167,9 @@ class PartialSelectionPhaseBTest {
         assertEquals(expectedB, rowsB.map { it.displayName }.toSet())
         ui.launch()
         ui.waitFor(ui.DECK_MARKER)
-        val cardName = ui.openViewerFromLargest(bNames)
-        val cardRow = rebuildRow(ctx, cardName)
-        ui.awaitViewerOverlay(cardRow.mediaIdentityKey())
+        val cardName = ui.openViewerWithRetry(bNames) { name ->
+            rebuildRow(ctx, name).mediaIdentityKey()
+        }
         ui.backToDeck()
         aNames.forEach { ui.awaitGone(it, timeoutMs = 5000) }
         ui.awaitGone(sentinelName, timeoutMs = 5000)

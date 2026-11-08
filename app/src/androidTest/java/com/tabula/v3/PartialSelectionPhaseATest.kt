@@ -169,9 +169,9 @@ class PartialSelectionPhaseATest {
         // ---- 真实 UI 一致性：deck 当前卡 ∈ A；查看器 overlay 身份匹配 ----
         ui.launch()
         ui.waitFor(ui.DECK_MARKER)
-        val cardName = ui.openViewerFromLargest(listOf(a1Name, a2Name))
-        val cardRow = rebuildRow(ctx, cardName)
-        ui.awaitViewerOverlay(cardRow.mediaIdentityKey())
+        val cardName = ui.openViewerWithRetry(listOf(a1Name, a2Name)) { name ->
+            rebuildRow(ctx, name).mediaIdentityKey()
+        }
         ui.backToDeck()
         // 集合外媒体不得出现在 deck（哨兵 + 未选中的 B）
         ui.awaitGone(sentinelName, timeoutMs = 5000)
