@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -1373,9 +1375,49 @@ class AlbumManager(private val context: Context) {
         // 记录使用频率（用于智能排序）
         usageTracker.recordUsage(action.albumId)
 
-        // 刷新图集列表以更新图片数量
-        refreshAlbumsFromSystem()
+        // T10：目标图集增量计数即时新鲜；批次末尾（队列清空）做一次全库对账
+        applyIncrementalAlbumsCountAfterArchive(action.albumName)
+        val batchDrained = synchronized(pendingArchiveQueue) { pendingArchiveQueue.isEmpty() }
+        if (batchDrained) reconcileAlbumsIfDirty()
         return@withContext ArchiveCommitOutcome.COMMITTED
+    }
+
+    // ========== T10：连续归档增量计数 + 批次末统计对账（TC45–TC47） ==========
+    // 旧行为（PR55 测量基线）：每次 commitPendingArchive 都全库重扫一次
+    // （refreshAlbumsFromSystem→getAllBucketsWithInfo），连续归档 N 张 = N 次
+    // 全库集合查询。合并后：每次提交只对目标图集做内存增量计数（零
+    // MediaStore 查询，图集数即时新鲜）；pendingArchiveQueue 清空（批次末尾）
+    // 时执行一次全库刷新作为最终 MediaStore 对账。异常/重启无持久化损失：
+    // albums 由 initialize/后续刷新从 MediaStore+元数据重建。
+
+    private val albumsReconcileMutex = Mutex()
+
+    @Volatile
+    private var albumsReconciliationDirty = false
+
+    /** 归档提交后的统计更新：目标图集内存增量计数 + 标记待对账。 */
+    private suspend fun applyIncrementalAlbumsCountAfterArchive(albumName: String) {
+        _albums.update { list ->
+            list.map { album -> if (album.name == albumName) album.copy(imageCount = album.imageCount + 1) else album }
+        }
+        albumsReconciliationDirty = true
+    }
+
+    /**
+     * 批次末尾的最终对账：全库刷新一次并清脏标记。并发路径经互斥串行，
+     * 脏标记保证每轮至多一次全库查询；批次进行中不触发（增量计数已保证
+     * 目标图集计数即时新鲜，封面/排序细节随批次末对账收敛）。
+     */
+    private suspend fun reconcileAlbumsIfDirty() {
+        if (!albumsReconciliationDirty) return
+        albumsReconcileMutex.withLock {
+            if (!albumsReconciliationDirty) return@withLock
+            try {
+                refreshAlbumsFromSystem()
+            } finally {
+                albumsReconciliationDirty = false
+            }
+        }
     }
 
     /** 在队列锁内一次性完成查找与移除，保证同一 action 只被领取一次。 */

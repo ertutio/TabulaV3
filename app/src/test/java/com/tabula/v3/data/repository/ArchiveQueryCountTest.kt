@@ -97,20 +97,35 @@ class ArchiveQueryCountTest {
     }
 
     @Test
-    fun fiveConsecutiveCommitsRescanCollectionsLinearly() = runBlocking {
-        val cumulative = mutableListOf<Int>()
-        repeat(5) {
-            val action = albumManager.queueImageToAlbum(1L, sourceUri.toString(), "Target", "Target")
+    fun fiveQueuedThenCommittedUseIncrementalCountsAndSingleFinalReconciliation() = runBlocking {
+        // 先排满 5 个待归档（真实连续归档形态），再依次提交：前 4 次提交时
+        // 队列仍有待执行 action（批次进行中，只做增量计数），第 5 次提交
+        // 清空队列触发唯一一次全库对账。
+        val singleBaselineAction = albumManager.queueImageToAlbum(1L, sourceUri.toString(), "Target", "Target")
+        assertEquals(ArchiveCommitOutcome.COMMITTED, albumManager.commitPendingArchive(singleBaselineAction.id))
+        val singleCommitCollections = collectionQueryCount()
+        provider.resetCopyState()
+
+        val actions = (1..5).map {
+            albumManager.queueImageToAlbum(1L, sourceUri.toString(), "Target", "Target")
+        }
+        val perCommitCollections = mutableListOf<Int>()
+        for (action in actions) {
             val outcome = albumManager.commitPendingArchive(action.id)
             assertEquals(ArchiveCommitOutcome.COMMITTED, outcome)
-            cumulative += collectionQueryCount()
+            perCommitCollections += collectionQueryCount()
+            provider.resetCopyState()
         }
-        // T10 基线事实②：每个提交都新增集合查询（累计计数严格递增，无合并窗口）；
-        // 每提交增量 >= 1（实测基线：每提交 4 次集合查询，数字登记不冻结为正确值）
-        assertTrue(cumulative.zipWithNext().all { (prev, next) -> next > prev })
-        val deltas = cumulative.zipWithNext().map { (prev, next) -> next - prev } + cumulative.first()
-        assertTrue("each commit must add at least one collection query, deltas=$deltas", deltas.all { it >= 1 })
-        println("T10-CONSECUTIVE-COMMITS cumulative=$cumulative deltas=$deltas")
+        assertTrue(
+            "queued-then-committed batch must not rescan per commit: perCommit=$perCommitCollections singleBaseline=$singleCommitCollections",
+            perCommitCollections.sum() < 5 * singleCommitCollections
+        )
+        assertTrue(
+            "final commit (queue drained) must reconcile with a collection query, got ${perCommitCollections.last()}",
+            perCommitCollections.last() >= 1
+        )
+        assertTrue(albumManager.albums.value.any { it.name == "Target" })
+        println("T10-MERGED perCommitCollections=$perCommitCollections singleBaseline=$singleCommitCollections")
     }
 
     @Test
