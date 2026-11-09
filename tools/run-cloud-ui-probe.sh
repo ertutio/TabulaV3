@@ -26,6 +26,9 @@ status=0
 # CreateAlbumDiagnosticDeviceTest 2 例（O2 诊断：createBucket 分阶段 + createAlbum 真实入口）。
 # ForegroundPermissionUiTest 2 例（C4/T07：外部删除/外部编辑回前台刷新；撤销路径强停应用进程含 instrumentation，探针不可执行，见套件 KDoc）。
 # PixelRefreshUiTest 2 例（C4/T07 审计轮：外部编辑后卡片与查看器像素级刷新 + ViewerPollPolicy 跨时刻拼接回归，见套件 KDoc）。
+# PartialSelectionPhaseATest 1 例 + PartialSelectionPhaseBTest 1 例（包B：PARTIAL 选择集 A→B
+# 真实系统机制两阶段——阶段A 系统权限对话框 Select photos → 照片选择器建立 PARTIAL(A)；
+# 宿主 force-stop；阶段B ACTION_PICK_IMAGES 重选 B + 地面真值 + UI/保留/哨兵断言）。
 for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest; do
   case "$class" in
     CloudCleanupUiTest) expected_tests=8 ;;
@@ -72,6 +75,128 @@ for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTe
   adb logcat -d -v threadtime > "$dir/logcat.txt" || true
   adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures "$dir/ui-failures" || true
 done
+# ===== PARTIAL 选择集 A→B 两阶段（真实系统 UI 驱动）验证（包B）=====
+# 阶段A：shell 身份写入+扫描 5 张非应用自有合成媒体（scoped storage 下应用
+# 可见集合=严格选中集，选择集语义可观测）→ onboarding 门控 → 系统权限对话框
+# Select photos / Allow limited access → 照片选择器点选 A 两格 → 确认 →
+# PARTIAL(A) 授权 + 地面真值（授权前查询为空、授权后恰=A）+ 清理组/断点持久化
+# + deck/查看器/月份 UI 一致性。
+# 宿主 force-stop（不 pm clear，保留应用数据与授权）。
+# 阶段B：ACTION_PICK_IMAGES 重选（取消 A 勾选、勾选 B 两格）→ 地面真值恰=B
+# + deck/查看器/月份跟随 + 组/断点保留 + 哨兵 shell 存在性 + 夹具精确清理。
+# 阶段A前按已知合成夹具目录 shell 预清理并核对图库为空（CI 专用模拟器）。
+echo "=== PARTIAL selection A->B two-stage verification ==="
+partial_status=0
+adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '\r' | grep -Fx Success || partial_status=1
+for fixture_dir in "Pictures/PartialSelectionFixtures/" "Pictures/FullRecoveryFixtures/" "Pictures/PixelRefreshFixtures/" "Pictures/ForegroundPermFixtures/" "Pictures/CloudSafetySentinels/" "Pictures/TabulaVolumeProbe/"; do
+  adb shell "content delete --uri content://media/external/images/media --where \"relative_path='$fixture_dir'\"" >/dev/null 2>&1 || true
+done
+adb shell "rm -rf /sdcard/Pictures/PartialSelectionFixtures" >/dev/null 2>&1 || true
+gallery_rows=$(adb shell "content query --uri content://media/external/images/media --projection _id" | grep -c "^Row:") || gallery_rows=0
+if [ "$gallery_rows" != "0" ]; then
+  echo "Gallery not clean before PARTIAL selection suite: $gallery_rows rows" >&2
+  partial_status=1
+fi
+mkdir -p device-results/PartialSelection
+# ---- 宿主夹具编排：纯 python 生成 5 张 96x96 纯色 PNG → adb push →
+# scan_file 入库（行所有权=shell，非应用自有：scoped storage 下应用可见
+# 集合=严格选中集，选择集 A→B 语义可观测）。推送顺序 S→A1→A2→B1→B2，
+# 相邻 >1.1s（mtime 派生拍摄时间秒级互异 → 选择器按时间倒序确定）。
+# CI 实证（run 42476083194/42477634711）：经 UiAutomation shell 传字节
+# 会被截断/吞没——字节传输只走宿主 adb。
+python3 - <<'PY'
+import os, struct, zlib
+
+def write_png(path, rgb, size=96):
+    def chunk(tag, data):
+        c = struct.pack(">I", len(data)) + tag + data
+        return c + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+    raw = b"".join(b"\x00" + bytes(rgb) * size for _ in range(size))
+    ihdr = struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0)
+    with open(path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+                + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+out = "device-results/PartialSelection/fixtures"
+os.makedirs(out, exist_ok=True)
+plan = [("partial-sentinel.png", (136, 136, 136)),
+        ("partial-a1.png", (255, 0, 0)),
+        ("partial-a2.png", (0, 255, 0)),
+        ("partial-b1.png", (255, 255, 0)),
+        ("partial-b2.png", (0, 255, 255))]
+for name, rgb in plan:
+    write_png(os.path.join(out, name), rgb)
+print("fixtures generated:", [n for n, _ in plan])
+PY
+fixture_ok=1
+adb shell "mkdir -p /sdcard/Pictures/PartialSelectionFixtures" >/dev/null 2>&1 || true
+# 跨月份夹具（收尾单元）：touch -t 设 mtime → scan 派生 date_modified/date_taken
+# → A 集合（a1/a2）落在 10 月、B 集合（b1/b2）落在 11 月 → 月份列表承载
+# "旧 A 月 vs 新 B 月"可断言差异；排序 DESC 仍 = [B2,B1,A2,A1,S]（B2 11-07 >
+# B1 11-05 > A2 10-20 > A1 10-15 > S 10-10）。
+for f in partial-sentinel.png partial-a1.png partial-a2.png partial-b1.png partial-b2.png; do
+  case "$f" in
+    partial-sentinel.png) touch_time=202610100900 ;;
+    partial-a1.png) touch_time=202610151000 ;;
+    partial-a2.png) touch_time=202610201100 ;;
+    partial-b1.png) touch_time=202611051200 ;;
+    partial-b2.png) touch_time=202611072000 ;;
+  esac
+  adb push "device-results/PartialSelection/fixtures/$f" "/sdcard/Pictures/PartialSelectionFixtures/$f" >/dev/null || fixture_ok=0
+  adb shell "touch -t $touch_time /sdcard/Pictures/PartialSelectionFixtures/$f" >/dev/null 2>&1 || true
+  sleep 1.1
+  adb shell "content call --uri content://media/ --method scan_file --arg /sdcard/Pictures/PartialSelectionFixtures/$f" >/dev/null 2>&1 || true
+  row=$(adb shell "content query --uri content://media/external/images/media --projection _id --where \"_display_name='$f'\"" | grep -c "^Row:") || row=0
+  if [ "$row" != "1" ]; then
+    # 兜底扫描路径：MEDIA_SCANNER_SCAN 广播后再核对一次
+    adb shell "am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/PartialSelectionFixtures/$f" >/dev/null 2>&1 || true
+    sleep 1
+    row=$(adb shell "content query --uri content://media/external/images/media --projection _id --where \"_display_name='$f'\"" | grep -c "^Row:") || row=0
+  fi
+  if [ "$row" != "1" ]; then
+    echo "Host fixture scan failed: $f (rows=$row)" >&2
+    fixture_ok=0
+  fi
+done
+if [ "$fixture_ok" != "1" ]; then
+  echo "Host fixture orchestration failed" >&2
+  status=1
+fi
+if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+  -e class com.tabula.v3.PartialSelectionPhaseATest \
+  com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee device-results/PartialSelection/phaseA.txt; then
+  echo "PhaseA instrumentation failed" >&2; partial_status=1
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/PartialSelection/phaseA.txt || { echo "PhaseA expected OK(1)" >&2; partial_status=1; }
+
+# 宿主侧：强停阶段A进程（保留应用数据与 PARTIAL(A) 授权，阶段B 新进程续接）
+adb shell am force-stop com.tabula.v3.recyclebin.test || partial_status=1
+
+if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+  -e class com.tabula.v3.PartialSelectionPhaseBTest \
+  com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee device-results/PartialSelection/phaseB.txt; then
+  echo "PhaseB instrumentation failed" >&2; partial_status=1
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/PartialSelection/phaseB.txt || { echo "PhaseB expected OK(1)" >&2; partial_status=1; }
+for phase in phaseA phaseB; do
+  if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' "device-results/PartialSelection/$phase.txt"; then
+    echo "Failure or skip observed in PARTIAL $phase" >&2
+    partial_status=1
+  fi
+done
+adb logcat -d -v threadtime > device-results/PartialSelection/logcat.txt || true
+# 裁决 S6：宿主 grep 摘要（MediaProvider user-selected/PhotoPicker 授权路径 + 测试 verdict/confirm 行），cat 进 job log
+grep -iE "user.?select|PhotoPicker|GrantUri|accessible|confirmCommitted|verdict=" device-results/PartialSelection/logcat.txt | tail -40 > device-results/PartialSelection/mediaprovider-grep.txt || true
+cat device-results/PartialSelection/mediaprovider-grep.txt || true
+adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/partial-selection-expected-state.json device-results/PartialSelection/ || true
+adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/PartialSelection/ui-failures || true
+
+if [ "$partial_status" != "0" ]; then
+  echo "PARTIAL selection A->B two-stage verification failed" >&2
+  status=1
+fi
 # ===== FULL 恢复两阶段（+缺席断言）验证（审计轮：工作包 2）=====
 # 阶段一建立真实清理组/断点；宿主 revoke（应用被强停）→ 缺席断言 →
 # grant（恢复 FULL）→ UI 软删除 → 强停 → 新进程读回。阶段间保留应用数据。
