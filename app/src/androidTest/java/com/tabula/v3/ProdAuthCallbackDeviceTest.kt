@@ -36,6 +36,33 @@ import org.junit.runner.RunWith
 /**
  * 生产授权回调入口测试（包C2 收尾，覆盖 PR#65 审计登记缺口）。
  *
+ * ## 阻塞登记（2026-11-09，已从 tools/run-cloud-ui-probe.sh 探针类列表摘除；文件保留）
+ *
+ * 两轮 CI 双 API 均红，按收尾纪律（一轮诊断+一次定向修正，不做第三轮）转阻塞：
+ *
+ * - **轮 1（run [42646353367](https://github.com/ertutio/TabulaV3/actions/runs/42646353367)，
+ *   head 366d2e1，双 API 双用例同因）**：`IllegalStateException: UI flow did not reach
+ *   expected effect for: deck trash button` at tapDescUntilEffect(:408)，调用栈 :705/:696
+ *   （用例入口第一步）。工件实证（api36/ProdAuthCallbackDeviceTest/logcat.txt :107984）：
+ *   deck 界面节点树含 desc=回收站（父可点击）但**全程零次 tap 日志**——所有查找走
+ *   `uiAutomation.windows`，而本环境（API36/37 模拟器）该列表**恒为空**（同 run 各套件
+ *   留证 dump 的 window 行全零）。修复（head 2951ed2）：全部查找统一改走
+ *   `rootInActiveWindow`（绿套件 CloudRestoreUiTest/CloudCleanupUiTest/PR65 同款）。
+ * - **轮 2（run [42653961146](https://github.com/ertutio/TabulaV3/actions/runs/42653961146)，
+ *   head 2951ed2）**：修复生效——入口链路全通（deck 回收站 tap→「1 项待处理」回收站屏→
+ *   条目→查看器彻底删除→应用确认对话框→in-flight→系统对话框出现），红点移至取消分支：
+ *   取消用例 `IllegalStateException: System consent dialog could not be cancelled` at
+ *   cancelSystemConsent(:543)（栈 :727）。工件实证（api36 logcat :112403 dump）：系统
+ *   对话框（providers.media 窗口）按钮实际文本为 **Deny / Allow**（`text=Deny
+ *   clickable=true`），而本套件 CANCEL_TEXTS={Cancel, 取消, Don't allow, 不允许} 缺
+ *   "Deny" → 8s 找不到取消键 → BACK 兜底不可靠（对话框在 8s 判定窗后 ~0.1s 才关闭，
+ *   logcat :112402 后 Transition CLOSE @16:36:00.989）→ 用例失败且遗留系统对话框/
+ *   悬挂删除流，污染次例：确认用例在 bringAppToForeground(:338) 报
+ *   `RuntimeException: Could not launch intent … within 45000 milliseconds`（栈 :660）。
+ * - **解锁路径（登记为待验证假设，未经 CI 验证）**：CANCEL_TEXTS 补 "Deny"（轮 2
+ *   dump 直接证据）；可另加有界重试点按（tapDescUntilEffect 同款防吞）；随后以
+ *   `tools/run-cloud-ui-probe.sh` 独立重跑本类验证后重新登记进探针列表。
+ *
  * ## 缺口
  *
  * PR#65 的 OtherAppMediaAuthDeviceTest 用**测试包身份**经
@@ -90,7 +117,8 @@ import org.junit.runner.RunWith
  *
  * 启动方式：allowSyntheticMediaProbe=true 且 ranchu/goldfish 模拟器门禁
  * （真机不可误跑）。本机无模拟器（ANDROID_HOME 无 emulator/system-images），
- * 设备执行依赖 CI probe（tools/run-cloud-ui-probe.sh 已登记本类）。
+ * 设备执行原依赖 CI probe——**现已从探针类列表摘除（阻塞登记，见上节），
+ * 解锁验证前 CI 不会执行本类**。
  */
 @RunWith(AndroidJUnit4::class)
 class ProdAuthCallbackDeviceTest {
