@@ -28,7 +28,9 @@ status=0
 # PixelRefreshUiTest 2 例（C4/T07 审计轮：外部编辑后卡片与查看器像素级刷新 + ViewerPollPolicy 跨时刻拼接回归，见套件 KDoc）。
 # OtherAppMediaAuthDeviceTest 4 例（包C2：他人媒体真实系统授权流程——直接删除归属边界 /
 # 未授权按项保留 / 真实系统授权对话框删除 / 清理入口组合未授权保留，见套件 KDoc）。
-for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest; do
+# ProdAuthCallbackDeviceTest 2 例（包C2 收尾：生产授权回调消费路径——系统对话框
+# 确认/取消结果经应用真实入口（生产 launcher）消费 + in-flight 释放，见套件 KDoc）。
+for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest ProdAuthCallbackDeviceTest; do
   case "$class" in
     CloudCleanupUiTest) expected_tests=8 ;;
     CloudRestoreUiTest) expected_tests=3 ;;
@@ -36,6 +38,7 @@ for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTe
     ForegroundPermissionUiTest) expected_tests=2 ;;
     PixelRefreshUiTest) expected_tests=2 ;;
     OtherAppMediaAuthDeviceTest) expected_tests=4 ;;
+    ProdAuthCallbackDeviceTest) expected_tests=2 ;;
     *) expected_tests=2 ;;
   esac
   dir="device-results/$class"
