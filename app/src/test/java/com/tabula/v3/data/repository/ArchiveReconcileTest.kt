@@ -82,6 +82,20 @@ class ArchiveReconcileTest {
         return false
     }
 
+    /**
+     * 收尾时序修正（2026-11-09）：查询计数在 reconcile 发起查询时即增长，
+     * 而 albums 状态在该查询完成后才落定——先等最终计数（与封面）就绪，
+     * 再检查查询次数，消除"计数读到增量旧值"的竞态。
+     */
+    private fun awaitTargetCount(expected: Int, timeoutMs: Long = 10_000): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (targetAlbumCount() == expected) return true
+            Thread.sleep(50)
+        }
+        return false
+    }
+
     @Test
     fun copyFailureAtQueueTailStillReconcilesPendingBatch() = runBlocking {
         // 先排 2 个（批次进行中），提交 A 成功（脏标记置下、队列未清空故不触发对账），
@@ -99,6 +113,11 @@ class ArchiveReconcileTest {
         provider.failSourceReadOpen = false
 
         assertEquals(ArchiveCommitOutcome.COPY_FAILED, outcome)
+        // 先等最终计数落定（reconcile 完成 albums 更新），再检查查询次数
+        assertTrue(
+            "tail copy-failure must reconcile pending batch to provider truth",
+            awaitTargetCount(2)
+        )
         assertTrue(
             "tail copy-failure must reconcile the pending batch (collection queries grew)",
             awaitCollectionGrowth(beforeFailure)
@@ -119,6 +138,11 @@ class ArchiveReconcileTest {
         val cancelled = albumManager.cancelLastPendingArchive()
 
         assertEquals(actions[1].id, cancelled?.id)
+        // 先等最终计数落定（异步对账完成 albums 更新），再检查查询次数
+        assertTrue(
+            "tail cancel must reconcile pending batch to provider truth",
+            awaitTargetCount(2)
+        )
         assertTrue(
             "tail cancel must reconcile the pending batch (async on manager scope)",
             awaitCollectionGrowth(beforeCancel)
@@ -135,6 +159,8 @@ class ArchiveReconcileTest {
         val beforeCancel = collectionQueryCount()
 
         albumManager.cancelLastPendingArchive()
+        // 先等第一次对账的最终计数与封面落定，再检查查询次数
+        assertTrue(awaitTargetCount(2))
         assertTrue(awaitCollectionGrowth(beforeCancel))
         // 第一次对账后：计数对照真值；封面对照 provider 真值（复制保留源时间戳
         // 1_700_000_000 < 预置行 1_700_000_001 → 真值封面=预置行 12，动态推导）
@@ -148,6 +174,8 @@ class ArchiveReconcileTest {
         val action3 = albumManager.queueImageToAlbum(1L, sourceUri.toString(), "Target", "Target")
         val beforeThird = collectionQueryCount()
         assertEquals(ArchiveCommitOutcome.COMMITTED, albumManager.commitPendingArchive(action3.id))
+        // 先等第二次对账的最终计数落定，再检查查询次数与排序/封面
+        assertTrue(awaitTargetCount(3))
         assertTrue(awaitCollectionGrowth(beforeThird))
         assertEquals(3, targetAlbumCount())
         assertEquals("album ordering must be stable across reconciles",
