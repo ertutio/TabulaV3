@@ -357,16 +357,23 @@ class ProdAuthCallbackDeviceTest {
         return null
     }
 
+    /**
+     * 环境事实（run 42646353367 双 API 红诊断）：本环境 `uiAutomation.windows` 恒为
+     * 空列表（同 run 各套件留证 dump 的 window 行全零），遍历 windows 的查找是死路。
+     * 绿色套件（CloudRestoreUiTest/CloudCleanupUiTest/OtherAppMediaAuthDeviceTest）
+     * 均以 rootInActiveWindow 递归查找驱动——应用屏、应用对话框（Compose AlertDialog
+     * 独立窗口）、系统授权对话框（providers.media 窗口成为 active window）皆可达。
+     * 本套件据此统一走 rootInActiveWindow。
+     */
+    private fun activeRoot(): AccessibilityNodeInfo? = ins.uiAutomation.rootInActiveWindow
+
     private fun findNodeInAnyWindow(pred: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? =
-        ins.uiAutomation.windows.mapNotNull { it.root }.firstNotNullOfOrNull { root ->
-            findNodeIn(root, pred)
-        }
+        findNodeIn(activeRoot(), pred)
 
     private fun findNodeInAppWindows(pred: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? =
-        ins.uiAutomation.windows
-            .filter { it.root?.packageName?.toString() == ctx.packageName }
-            .mapNotNull { it.root }
-            .firstNotNullOfOrNull { root -> findNodeIn(root, pred) }
+        activeRoot()
+            ?.takeIf { it.packageName?.toString() == ctx.packageName }
+            ?.let { root -> findNodeIn(root, pred) }
 
     private fun clickableSelfOrAncestor(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
         var current: AccessibilityNodeInfo? = node
@@ -420,7 +427,9 @@ class ProdAuthCallbackDeviceTest {
         while (SystemClock.uptimeMillis() < deadline) {
             if (inFlightDialogVisible()) return
             if (taps < 4 && SystemClock.uptimeMillis() - lastTapAt > 4000) {
-                val dialogRoot = ins.uiAutomation.windows.mapNotNull { it.root }.firstOrNull { root ->
+                // 应用确认对话框（Compose 独立窗口）显示时即成为 active window
+                // （CloudCleanupUiTest 应用对话框同款路径）；正文存在才在其内点「删除」。
+                val dialogRoot = activeRoot()?.takeIf { root ->
                     findNodeIn(root) { it.text?.toString()?.contains("要允许 Tabula 删除这张照片吗") == true } != null
                 }
                 if (dialogRoot != null) {
@@ -482,12 +491,12 @@ class ProdAuthCallbackDeviceTest {
         error("In-flight dialog did not release — system dialog result was not consumed by the production callback")
     }
 
+    /** 系统授权对话框以 active window 身份出现（PR65/CloudCleanupUiTest 已证路径）。 */
     private fun systemDialogRoot(): AccessibilityNodeInfo? =
-        ins.uiAutomation.windows
-            .firstOrNull { window ->
-                val owner = window.root?.packageName?.toString().orEmpty()
-                owner.contains("providers.media") || owner.contains("permissioncontroller")
-            }?.root
+        activeRoot()?.takeIf { root ->
+            val owner = root.packageName?.toString().orEmpty()
+            owner.contains("providers.media") || owner.contains("permissioncontroller")
+        }
 
     private fun waitForSystemDialogWindow(label: String) {
         val deadline = SystemClock.uptimeMillis() + 20000
