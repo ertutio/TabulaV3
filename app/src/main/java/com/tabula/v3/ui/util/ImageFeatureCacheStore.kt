@@ -58,6 +58,14 @@ internal object ImageFeatureCacheStore {
     @Volatile
     internal var preOwnershipGateForTest: (() -> Unit)? = null
 
+    /**
+     * 仅供测试注入（PR60 确定性测试）：等待者路径就绪信号——确认在途条目
+     * （putIfAbsent 返回 existing）之后、[CompletableDeferred.await] 之前回调，
+     * 用于把"等待者已进入在途等待"从定时等待改为明确就绪信号。生产路径恒为 null。
+     */
+    @Volatile
+    internal var onWaiterRegisteredForTest: (() -> Unit)? = null
+
     fun get(key: ImageFeatureCacheKey): ImageFeatures? = synchronized(lock) { cache[key] }
 
     fun putIfReliable(key: ImageFeatureCacheKey, features: ImageFeatures) {
@@ -95,6 +103,7 @@ internal object ImageFeatureCacheStore {
             val existing = inFlight.putIfAbsent(key, mine)
             if (existing != null) {
                 // 等待者：直接共享在途轮次的结果（成功/失败都不继承发起者的取消）。
+                onWaiterRegisteredForTest?.invoke()
                 try {
                     return existing.await()
                 } catch (error: CancellationException) {

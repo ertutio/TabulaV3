@@ -90,6 +90,7 @@ class ImageFeatureCacheConcurrencyTest {
     fun tearDown() {
         ImageFeatureCacheStore.clear()
         ImageFeatureCacheStore.preOwnershipGateForTest = null
+        ImageFeatureCacheStore.onWaiterRegisteredForTest = null
         ImageFeatureDetector.setFastMode(false)
         scopes.forEach { it.cancel() }
     }
@@ -137,6 +138,7 @@ class ImageFeatureCacheConcurrencyTest {
         // 注意：流 IOException 会被吞成 definitive 阴性（T11a 语义，非失败），
         // 所以发起侧用取消而非 IO 异常构造"检测未完成"。
         val initiatorArrived = CountDownLatch(1)
+        val waiterRegistered = CountDownLatch(1)
         val releaseStream = CountDownLatch(1)
         shadowOf(context.contentResolver).registerInputStreamSupplier(uri, Supplier<InputStream?> {
             openCounter.incrementAndGet()
@@ -152,11 +154,16 @@ class ImageFeatureCacheConcurrencyTest {
             preloadImageFeatures(context, image, enableHdr = false, enableMotion = true)
         }
         assertTrue(initiatorArrived.await(10, TimeUnit.SECONDS))
+        // 等待者启动前挂上就绪钩子：它确认在途条目、即将 await 时放行闩锁——
+        // 用明确就绪信号替代定时等待，保证取消发起者时等待者确已进入在途等待。
+        ImageFeatureCacheStore.onWaiterRegisteredForTest = { waiterRegistered.countDown() }
         val waiter = scope.async {
             preloadImageFeatures(context, image, enableHdr = false, enableMotion = true)
         }
-        // 给等待者时间进入在途等待（避免它晚于发起者落定才启动而直接自跑）
-        Thread.sleep(500)
+        assertTrue(
+            "waiter must register for the in-flight wait before the initiator is cancelled",
+            waiterRegistered.await(5, TimeUnit.SECONDS)
+        )
         initiator.cancel()
         releaseStream.countDown()
         runBlocking { kotlinx.coroutines.withTimeout(20_000) { waiter.await() } }
