@@ -82,7 +82,28 @@ class CloudCleanupUiTest {
         } catch (e: Exception) { "query-error:${e.javaClass.simpleName}:${e.message}" }
         Log.i("CloudMediaIdentity", "stage=$stage package=${ctx.packageName} opPackage=${ctx.opPackageName} uid=${android.os.Process.myUid()} uri=$uri owner=$owner")
     }
+    // U18 诊断（run 42369922277 工件）：pm clear 后本进程首个 MediaStore 插入存在
+    // provider 调用方身份解析竞态——行被创建但归属为空（logcat 证据：SQLiteQueryBuilder
+    // "owner_package_name IN ()"、owner=query-null），创建者写自己的 pending 行即被
+    // RecoverableSecurityException 拒绝（media/26），约 130ms 后身份解析完成，重试
+    // 插入成功（media/28 owner=本应用）。创建者对自己的 pending 行必有写权限，失败即
+    // 归属竞态而非产品缺陷；与 archive() 的 publish 0 行重试同口径做有界重试（保留
+    // 竞态行供 @After shell 清理），仍失败则如实抛出。
     private fun photo(path: String = "CloudSafetyFixtures", register: Boolean = true): Uri {
+        var lastError: Throwable? = null
+        repeat(3) { attempt ->
+            try {
+                return insertPendingJpeg(path, register)
+            } catch (e: Throwable) {
+                lastError = e
+                Log.w("CloudMediaIdentity", "fixture insert attempt=$attempt failed (provider identity race window)", e)
+                if (attempt < 2) SystemClock.sleep(2000)
+            }
+        }
+        throw requireNotNull(lastError)
+    }
+
+    private fun insertPendingJpeg(path: String, register: Boolean): Uri {
         val name = "cloud-" + UUID.randomUUID() + ".jpg"
         val item = requireNotNull(ctx.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
             ContentValues().apply {
