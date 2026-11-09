@@ -36,9 +36,10 @@ import org.junit.runner.RunWith
 /**
  * 生产授权回调入口测试（包C2 收尾，覆盖 PR#65 审计登记缺口）。
  *
- * ## 取消分支轮次记录（2026-11-09；轮 3 定向修正后已重新登记探针类列表）
+ * ## 取消分支轮次记录（2026-11-09；三轮红后转阻塞，已从探针类列表摘除）
  *
- * 两轮 CI 双 API 均红；轮 3 按两轮证据做定向修正并重新登记探针：
+ * 三轮 CI 双 API 均红，按收尾纪律（每轮一次诊断+一次定向修正，不做下一轮）转阻塞；
+ * 轮 3 的 Deny 补齐与判定闭环链代码保留（api36 已部分验证生效），失败点转移如下：
  *
  * - **轮 1（run [42646353367](https://github.com/ertutio/TabulaV3/actions/runs/42646353367)，
  *   head 366d2e1，双 API 双用例同因）**：`IllegalStateException: UI flow did not reach
@@ -59,15 +60,30 @@ import org.junit.runner.RunWith
  *   logcat :112402 后 Transition CLOSE @16:36:00.989）→ 用例失败且遗留系统对话框/
  *   悬挂删除流，污染次例：确认用例在 bringAppToForeground(:338) 报
  *   `RuntimeException: Could not launch intent … within 45000 milliseconds`（栈 :660）。
- * - **轮 3（head 本提交，定向修正后重新登记探针）**：①CANCEL_TEXTS 补 "Deny"/"DENY"
- *   （轮 2 dump 直接证据）；②取消判定重构为完整闭环链——点按 Deny（BACK 兜底后走同一
- *   判定链）依次等待：系统授权窗口**关闭**（providers.media/permissioncontroller 不再
- *   是 active window，连续 3 次稳定）→ 应用**恢复前台**且回收站就绪（「N 项待处理」
- *   计数与保留条目名重新可见）→「正在处理回收站」进度对话框**消失**（in-flight 释放的
- *   UI 面，MainActivity L1128-1141）——杜绝轮 2 的遗留对话框/悬挂删除流污染次例；
- *   ③第二用例追加第二段重入验证：第二个合成条目重复真实删除，in-flight 对话框再次
- *   出现即证重入门（isDeletingRecycleBin || deletePermissionInFlight，MainActivity
- *   L627）已释放可再入。本类重新登记进 tools/run-cloud-ui-probe.sh（expected_tests=2）。
+ * - **轮 3（run [42662894360](https://github.com/ertutio/TabulaV3/actions/runs/42662894360)，
+ *   head 5c035ec，双 API 各现新因）**：①CANCEL_TEXTS 补 "Deny"/"DENY"、②取消判定闭环链
+ *   （窗口关闭→应用前台+回收站就绪→in-flight 释放）、③第二段重入验证。**api36**：Deny
+ *   点按生效（logcat `system consent dialog tapped=Deny` @17:29:33.742）→ 窗口关闭
+ *   （@17:29:34.272）→ 确认用例**转绿**（OK(1 failure) 计 1 失败 1 通过）——轮 2 主因已消；
+ *   取消用例红于第二段：`IllegalStateException: App did not regain foreground with
+ *   recycle bin ready (count=2 项待处理, item=foreign-cda107b4fac2.jpg)` at
+ *   waitAppRecycleBinReady(:622)。dump 实证（logcat :108062 起）：active root 已回应用，
+ *   但 **row1 查看器仍开启**（树内仅 desc=关闭 / text=1 / 2 / desc=恢复 / desc=彻底删除
+ *   / 查看器页 desc=foreign-cda107b4fac2.jpg），全屏查看器覆盖层使回收站计数/列表节点
+ *   **不可达**（「查看器覆盖层不改变节点可达性」假设在 API36 不成立）→ 20s 轮询必超时。
+ *   **api37**：Deny 在对话框成为 active window 后 ~0.25s 即点按
+ *   （in-flight @17:29:25.550 → `tapped=Deny` @17:29:25.795），进入动画期点按被吞且
+ *   重构后仅点按一次无重试 → 对话框滞留：`IllegalStateException: System consent dialog
+ *   window did not close after cancel` at waitSystemDialogClosed(:598)；dump 实证
+ *   （logcat :95541 起，@17:29:45.859）对话框原样在树（text=Deny/Allow clickable=true）
+ *   → 次例污染同轮 2（确认用例 bringAppToForeground(:372) 45s 超时，双用例 2 失败）。
+ * - **解锁路径（登记为待验证假设，未经 CI 验证；唯一动作=一次定向修正+一次 CI）**：
+ *   ①取消判定第一段（窗口关闭）后先**关闭查看器**——点 desc=关闭（RecycleBinScreen
+ *   L798-806 IconButton onClick=onDismiss），效果=彻底删除 desc 消失，再等「N 项待处理」
+ *   计数与条目重现（绕开查看器覆盖层遮蔽）；②Deny/BACK 点按改为**有界重试直至对话框
+ *   关闭**（tapDescUntilEffect 同款防吞先例：api37 进入动画期单次点按被吞），BACK 兜底
+ *   保留；重入验证段（本轮已验证逻辑面）随后按同一链路收尾。验证通过后重新登记
+ *   tools/run-cloud-ui-probe.sh（expected_tests=2）。
  *
  * ## 缺口
  *
@@ -123,8 +139,8 @@ import org.junit.runner.RunWith
  *
  * 启动方式：allowSyntheticMediaProbe=true 且 ranchu/goldfish 模拟器门禁
  * （真机不可误跑）。本机无模拟器（ANDROID_HOME 无 emulator/system-images），
- * 设备执行依赖 CI probe——轮 3 定向修正后已重新登记进探针类列表
- * （tools/run-cloud-ui-probe.sh，expected_tests=2）。
+ * 设备执行原依赖 CI probe——**现已从探针类列表摘除（三轮红阻塞登记，见上节），
+ * 解锁验证前 CI 不会执行本类**。
  */
 @RunWith(AndroidJUnit4::class)
 class ProdAuthCallbackDeviceTest {
