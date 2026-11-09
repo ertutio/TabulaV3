@@ -12,7 +12,7 @@
 | #59收尾 | 队尾失败/撤销补批次对账 | `23b8711`（时序修正 `awaitTargetCount` 先于查询计数） | fix/t10-merge-archive-stats-refresh-2026-11-08 | AlbumManager 两出口补 reconcileAlbumsIfDirty | 402/0；CI 42507084347 全绿 | 交叉复审 PASS 无P1/P2（子代理1，双重复跑） | **可验收** |
 | #60收尾 | 等待者共享不可信结果+所有权后复查缓存 | `96997c1`（就绪信号替换 sleep `96997c1`） | fix/t11b-single-flight-bounded-cache-2026-11-08 | getOrDetect 携结果 deferred+所有权后复查+两个测试钩子 | 定点 68 用例绿；CI 42507087643 全绿 | 主代理复审可合并 | **可验收** |
 | #57收尾 | 跨月夹具月份判别面+API36 折叠区导航保障 | `3492728` | test/partial-selection-ab-2026-11-08 | PhaseA/B 月份断言+tapAnyScrollableToMarker | compile 级；CI 42507090976 全绿 | 主代理复审可合并（audit-B1-closing.md） | **可验收** |
-| #65收尾→PR66 | 生产授权回调消费路径（确认/取消恢复+in-flight 释放） | `366d2e1` | test/prod-auth-callback-2026-11-09 / PR#66（堆叠 #65） | ProdAuthCallbackDeviceTest 2 用例（真实入口） | compile 绿；CI 42646353367 运行中 | 主代理复审可合并（audit-PR66-closing.md） | **可验收（CI 待收敛）** |
+| #65收尾→PR66 | 生产授权回调消费路径 | `fdc03967`（阻塞登记版） | test/prod-auth-callback-2026-11-09 / PR#66（堆叠 #65） | ProdAuthCallbackDeviceTest 2 用例（真实入口）——**两轮 CI 双 API 红后按预算转阻塞**：已从 probe 类列表摘除（测试文件+阻塞 KDoc 保留） | 轮2 run 42653961146：**入口链全通**（回收站→条目→彻底删除→应用对话框→in-flight→系统对话框出现）；卡点=拒绝键文案 Deny 缺失+BACK 兜底 0.1s 迟到 | 复审=范围/状态面核验过（audit-PR66-closing.md）；设备面=阻塞登记 | **阻塞（解锁路径已写 KDoc：补 Deny ± 有界重试+独立复验）** |
 | **#67 汇总** | 13 组件整合分支（集成 SHA e3b005f） | `e3b005f` | integration/night-2026-11-08 / PR#67 | 按依赖序合并 13 组件；probe 冲突并集解 | **集成门禁 42643510385 三 job 全绿**（全量 430/0+Release/R8+API36/37）；本地整合全量 430/0 | 整合差异独立复审：整合有效无需修复（audit-integration.md） | **可验收（待人工合并）** |
 | C2 | 他人媒体真实授权 + U18 间歇诊断 | `956776d` | test/other-app-media-auth-2026-11-08 / PR#65 | 仅测试+探针 3 行：OtherAppMediaAuthDeviceTest 4 用例（读可见/拒绝+源保留/生产组合 intentSender+UNKNOWN 不扩大/真实对话框授权+哨兵存活）；photo() 有界重试（U18 根因=pm clear 后首插归属解析竞态，环境层非生产）；事实更正=夹具实为应用进程内创建，真实他人媒体需 shell 绑 owner_package_name（AOSP isCallingPackageShell，双 API 实证） | CI 42477604680 三 job 全绿、双 API 6 套件零失败零 skip | ✅ 审计：可合并 7/7（合并动作项=与 PR57 后合者机械解 probe 脚本锚点）；**边界保留：生产授权回调消费路径未覆盖（startIntentSenderForResult 的结果接收在 androidx launcher 内，套件断言到系统对话框授权+真实删除为止，登记为 4 条建议级之一）** | **可验收（边界已登记）** |
 | D1 | DRAW 状态机生命周期断言 + PR35 CONCERN-4 闭环 | `c9b7cf0` | fix/card-mode-lifecycle-2026-11-08 / PR#58 | 仅测试+10（DrawCardStateLifecycleTest 8+PreloadingManagerTest 2）；N1/N2 活性缺陷登记 | 独立全量复跑 403/0；**CI 门禁已补齐并全绿（run 42642388259 @c9b7cf0f，2026-11-09）** | 审计子代理：可合并 0 必须修复，2 文档级小瑕疵 | **可验收（CI 已闭合）** |
@@ -35,7 +35,7 @@
 | E: PR6→42→45 链审查 | coord/report-E-perf-chain.md | 进行中（**主代理**执行） |
 | F: 工具链兼容盘点 | coord/report-F-toolchain.md | 排队 |
 
-## 运行中 CI
+## 运行中 CI（收尾时点：无运行中）
 | run | head | 状态 | 归属 |
 | --- | --- | --- | --- |
 | 42469008646 | 7f783df (T10/PR59) | running | 协调者 |
