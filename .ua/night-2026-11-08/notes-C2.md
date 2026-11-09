@@ -54,3 +54,26 @@
 
 - CI 已收敛绿（run 42477604680，head 956776d，三 job 全绿）；PR #65 OPEN/MERGEABLE，等人工评审，按仓库约定不自动合并。
 - 登记候选（不阻塞，供后续）：①API36/API37 模拟器 MediaProvider 为 Mainline 模块，其 `getCallingPackage` 行为差异已在套件 KDoc 固化——未来模块升级不改变断言面（断言的是行/文件/记录状态，非对话框内部）；②photo() 重试本轮竞态未复现（0 次 retry 日志），防御性修复以 run 42369922277 工件为机制证据；③tools/run-cloud-ui-probe.sh 与 agent-B1（PR57）同文件，本轮改动仅 3 行（注释+列表+case），合并顺序无冲突实质。
+
+## 六、收尾微单元：PR#66 ProdAuthCallbackDeviceTest 两轮 CI 红 → 阻塞登记（2026-11-09，后续会话）
+
+单元：PR#66（test/prod-auth-callback-2026-11-09，堆叠 #65）ProdAuthCallbackDeviceTest 2 用例（生产回收站入口→彻底删除→应用确认对话框→生产 launcher 发起/消费系统对话框结果，确认/取消两分支）CI 失败的一轮诊断+一次定向修正；纪律=额度受限，超预算即转阻塞登记，不做第三轮。初始 head 366d2e1（CI run 42646353367 双 API 红）。
+
+**轮 1（run [42646353367](https://github.com/ertutio/TabulaV3/actions/runs/42646353367)，head 366d2e1）诊断**：build 绿；双 API 双用例同因 `IllegalStateException: UI flow did not reach expected effect for: deck trash button`（tapDescUntilEffect :408；:705/:696=用例入口第一步）。工件实证（api36/ProdAuthCallbackDeviceTest/logcat.txt :107984 留证）：失败瞬间 deck 节点树**含** desc=回收站（自身不可点击、父可点击、bounds 非空），但全程**零次** "tap deck trash button (attempt=N)" 日志——所有查找走 `ins.uiAutomation.windows`，而本环境（API36/37 CI 模拟器）该列表**恒为空**（同 run 全部套件留证 dump 的 window 行全零；PR65/CloudCleanupUiTest 的逻辑查找全走 rootInActiveWindow，windows 仅用于留证枚举，故从未暴露）。
+
+**定向修正（head 2951ed2）**：ProdAuthCallbackDeviceTest 全部节点查找（findNodeInAnyWindow / findNodeInAppWindows / systemDialogRoot / 应用确认对话框窗口定位）统一改走 `rootInActiveWindow`——应用屏、应用对话框（Compose AlertDialog 独立窗口）、系统授权对话框（providers.media 窗口成为 active window）皆可达（绿套件已证路径，CloudCleanupUiTest :220/:238、PR65 :395 同款）；留证 dump 的 windows 枚举保留（本环境下为无害空转）。compileDebugAndroidTestKotlin 过。
+
+**轮 2（run [42653961146](https://github.com/ertutio/TabulaV3/actions/runs/42653961146)，head 2951ed2）**：build 绿；双 API 设备红——**修正生效**，入口链路全通（deck 回收站 tap →「1 项待处理」回收站屏 → 条目 → 查看器彻底删除 → 应用确认对话框 → in-flight 进入 → 系统对话框出现），红点移至取消分支：
+1. 取消用例：`IllegalStateException: System consent dialog could not be cancelled`（cancelSystemConsent :543，栈 :727）。工件实证（api36 logcat :112403 dump）：系统对话框按钮实际文本 **Deny / Allow**（`text=Deny clickable=true`），而套件 CANCEL_TEXTS={Cancel, 取消, Don't allow, 不允许} 缺 "Deny" → 8s 找不到取消键 → BACK 兜底不可靠（对话框在 8s 判定窗过期后 ~0.1s 才关闭，logcat :112402 后 Transition CLOSE @16:36:00.989）。
+2. 确认用例：被次例遗留污染——`RuntimeException: Could not launch intent … within 45000 milliseconds`（bringAppToForeground :338，栈 :660；次例遗留系统对话框/悬挂删除流致启动 45s 不空闲）。
+
+**按纪律转阻塞登记（head fdc0396，测试文件保留）**：
+- tools/run-cloud-ui-probe.sh：ProdAuthCallbackDeviceTest 从探针类列表与 expected_tests case 摘除，注释改登记说明（LF 保持、bash -n 过；改动仅注释块+列表+case 三处）。
+- 套件 KDoc 新增「阻塞登记」节：两个 run ID + 复现栈 + 工件路径 + 解锁路径（**登记为待验证假设，未经 CI 验证**：CANCEL_TEXTS 补 "Deny"（轮 2 dump 直接证据）± 有界重试点按（tapDescUntilEffect 同款防吞）；随后以探针独立重跑本类验证，绿后重新登记进类列表）。
+- app/src/main、app/src/test 零改动；OtherAppMediaAuthDeviceTest 未动（非本单元）。
+
+**OtherAppMediaAuthDeviceTest 红（run 42646353367 与 42653961146 的 API37 foreignOwnedMediaDeletionCompletesThroughRealSystemConsentDialog 同签名失败；API36 双轮 4/4 绿）独立定性**：
+- 结论：**独立环境抖动（API37 系统对话框单次点按被吞/未生效），非本套件/本 PR 交互污染**。依据：①探针类顺序 OtherAppMediaAuth 先于 ProdAuthCallback（probe 脚本 for 行），本套件不可能上游污染，且模拟器为每 job 全新；②run 1 中 API36 OtherAppMediaAuth 4/4 绿与本套件双红并存（解耦实证）；③PR65 自身 run 42477604680 双 API 全绿；④两轮失败签名一致：`tapped=Allow` 记录后 30s 行仍在（`expected:<[content://media/external_primary/images/media/117]> but was:<[]>`，两轮 id 恰同=117），留证截图中对话框仍开着——PR65 的 tapSystemConsentButton 单次点按无重试，正是套件 KDoc 已登记的「单次点按偶发被过渡层吞掉」先例类（CloudCleanupUiTest run 40723464281），本轮在 API37 槽位两连发。
+- **重跑建议**：单独重派 probe 复验该类即可（API36 双轮绿、API37 镜像内既有绿先例）；若再红，建议对 tapSystemConsentButton 加有界重试点按（属 PR65 范围，本单元按纪律未动）。
+
+**最终态**：分支 head `fdc0396`（366d2e1 → 2951ed2 定向修正 → fdc0396 阻塞登记）；PR#66 保持 OPEN 等人工处置。ProdAuthCallbackDeviceTest 2 用例代码在库、探针摘除（CI 不再执行），解锁路径与全部证据已固化进套件 KDoc。完全回退=revert 3 提交。
