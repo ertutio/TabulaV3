@@ -29,6 +29,10 @@ status=0
 # PartialSelectionPhaseATest 1 例 + PartialSelectionPhaseBTest 1 例（包B：PARTIAL 选择集 A→B
 # 真实系统机制两阶段——阶段A 系统权限对话框 Select photos → 照片选择器建立 PARTIAL(A)；
 # 宿主 force-stop；阶段B ACTION_PICK_IMAGES 重选 B + 地面真值 + UI/保留/哨兵断言）。
+# FullPartialFullPhase1Test 1 例 + FullPartialFullPhase2Test 1 例 + FullPartialFullPhase3Test 1 例
+# （B2 收尾：T07 FULL→PARTIAL→FULL 三阶段——FULL 建立+处理 g1+断点指向 g2+落盘；
+# pm revoke 系统强停→PARTIAL(B) 像素重选+进度持有读回；pm grant+force-stop→FULL 恢复
+# +已处理保持+g2 续接+旧快照晚到不覆盖竞争门，见套件 KDoc 与 coord/notes-B2.md）。
 for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest; do
   case "$class" in
     CloudCleanupUiTest) expected_tests=8 ;;
@@ -195,6 +199,143 @@ adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failu
 
 if [ "$partial_status" != "0" ]; then
   echo "PARTIAL selection A->B two-stage verification failed" >&2
+  status=1
+fi
+# ===== T07 FULL→PARTIAL→FULL 三阶段验证（B2 收尾单元）=====
+# 成员（全部宿主 shell 绑定所有权，Pictures/FullPartialFullFixtures/）：
+# G 组 g1/g2（生产写入口成组、g1 经真实 UI 上滑部分处理）、非组成员 n1（FULL 下
+# 可见、PARTIAL(B) 下不在 B 集合）、B 集合专有 b1/b2（PARTIAL 阶段才可读）、
+# 哨兵 s1（任何阶段不进任何集合/选择集）。推送顺序 S→N1→G1→G2→B1→B2（mtime
+# 升序、全落 2026-11、相邻 >1.1s）→ 选择器网格时间倒序 [B2,B1,G2,G1,N1,S1]
+# → B = 网格索引 {0,1}（#57 像素驱动原语）。
+# 阶段1（FULL 建立+真实 UI 处理 g1+断点指向 g2+期望状态落盘，FullPartialFullPhase1Test
+# 1 例）→ 宿主 pm revoke（应用被系统强停，#52 实证口径；应用数据保留）→
+# 阶段2（真实系统对话框 Select photos 像素重选 b1/b2 → PARTIAL(B) 地面真值 +
+# 进度持有读回，FullPartialFullPhase2Test 1 例）→ 宿主 pm grant（不杀进程）+
+# am force-stop（#52 显式重启口径）→ 阶段3（FULL 恢复地面真值 + 已处理保持 +
+# g2 续接 + 旧快照晚到不覆盖竞争门，FullPartialFullPhase3Test 1 例）。
+# 阶段间仅权限与进程边界变化，禁止 pm clear（期望状态 files/ 落盘跨阶段读回）。
+echo "=== T07 FULL->PARTIAL->FULL three-stage verification ==="
+fpf_status=0
+adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '\r' | grep -Fx Success || fpf_status=1
+# VISUAL_USER_SELECTED 清理（判据 1：pm clear 天然清理 + 兜底 revoke）
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED >/dev/null 2>&1 || true
+adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || fpf_status=1
+for fixture_dir in "Pictures/FullPartialFullFixtures/" "Pictures/PartialSelectionFixtures/" "Pictures/FullRecoveryFixtures/" "Pictures/PixelRefreshFixtures/" "Pictures/ForegroundPermFixtures/" "Pictures/CloudSafetySentinels/" "Pictures/TabulaVolumeProbe/"; do
+  adb shell "content delete --uri content://media/external/images/media --where \"relative_path='$fixture_dir'\"" >/dev/null 2>&1 || true
+done
+adb shell "rm -rf /sdcard/Pictures/FullPartialFullFixtures" >/dev/null 2>&1 || true
+gallery_rows=$(adb shell "content query --uri content://media/external/images/media --projection _id" | grep -c "^Row:") || gallery_rows=0
+if [ "$gallery_rows" != "0" ]; then
+  adb shell "content query --uri content://media/external/images/media --projection _display_name" | head -20 >&2 || true
+  echo "Gallery not clean before FULL->PARTIAL->FULL suite: $gallery_rows rows" >&2
+  fpf_status=1
+fi
+mkdir -p device-results/FullPartialFull
+# ---- 宿主夹具编排：纯 python 生成 6 张 96x96 纯色 PNG → adb push → scan_file
+#      入库（行所有权=shell，非应用自有：scoped storage 下应用可见集合=严格授权
+#      级别决定的集合；字节传输只走宿主 adb——CI run 42476083194/42477634711 实证）----
+python3 - <<'PY'
+import os, struct, zlib
+
+def write_png(path, rgb, size=96):
+    def chunk(tag, data):
+        c = struct.pack(">I", len(data)) + tag + data
+        return c + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+    raw = b"".join(b"\x00" + bytes(rgb) * size for _ in range(size))
+    ihdr = struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0)
+    with open(path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+                + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+out = "device-results/FullPartialFull/fixtures"
+os.makedirs(out, exist_ok=True)
+plan = [("fpf-s1.png", (136, 136, 136)),
+        ("fpf-n1.png", (0, 0, 255)),
+        ("fpf-g1.png", (255, 0, 0)),
+        ("fpf-g2.png", (255, 0, 255)),
+        ("fpf-b1.png", (255, 255, 0)),
+        ("fpf-b2.png", (0, 255, 255))]
+for name, rgb in plan:
+    write_png(os.path.join(out, name), rgb)
+print("fixtures generated:", [n for n, _ in plan])
+PY
+fixture_ok=1
+adb shell "mkdir -p /sdcard/Pictures/FullPartialFullFixtures" >/dev/null 2>&1 || true
+for f in fpf-s1.png fpf-n1.png fpf-g1.png fpf-g2.png fpf-b1.png fpf-b2.png; do
+  case "$f" in
+    fpf-s1.png) touch_time=202611010900 ;;
+    fpf-n1.png) touch_time=202611031000 ;;
+    fpf-g1.png) touch_time=202611051100 ;;
+    fpf-g2.png) touch_time=202611061200 ;;
+    fpf-b1.png) touch_time=202611071300 ;;
+    fpf-b2.png) touch_time=202611082000 ;;
+  esac
+  adb push "device-results/FullPartialFull/fixtures/$f" "/sdcard/Pictures/FullPartialFullFixtures/$f" >/dev/null || fixture_ok=0
+  adb shell "touch -t $touch_time /sdcard/Pictures/FullPartialFullFixtures/$f" >/dev/null 2>&1 || true
+  sleep 1.1
+  adb shell "content call --uri content://media/ --method scan_file --arg /sdcard/Pictures/FullPartialFullFixtures/$f" >/dev/null 2>&1 || true
+  row=$(adb shell "content query --uri content://media/external/images/media --projection _id --where \"_display_name='$f'\"" | grep -c "^Row:") || row=0
+  if [ "$row" != "1" ]; then
+    # 兜底扫描路径：MEDIA_SCANNER_SCAN 广播后再核对一次
+    adb shell "am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/FullPartialFullFixtures/$f" >/dev/null 2>&1 || true
+    sleep 1
+    row=$(adb shell "content query --uri content://media/external/images/media --projection _id --where \"_display_name='$f'\"" | grep -c "^Row:") || row=0
+  fi
+  if [ "$row" != "1" ]; then
+    echo "Host fixture scan failed: $f (rows=$row)" >&2
+    fixture_ok=0
+  fi
+done
+if [ "$fixture_ok" != "1" ]; then
+  echo "Host fixture orchestration failed" >&2
+  fpf_status=1
+fi
+if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+  -e class com.tabula.v3.FullPartialFullPhase1Test \
+  com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee device-results/FullPartialFull/phase1.txt; then
+  echo "FPF Phase1 instrumentation failed" >&2; fpf_status=1
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/FullPartialFull/phase1.txt || { echo "FPF Phase1 expected OK(1)" >&2; fpf_status=1; }
+
+# 宿主侧权限收窄：应用被系统强停（#52 实证行为）；应用数据保留，阶段2 新进程续接
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || fpf_status=1
+sleep 2
+if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+  -e class com.tabula.v3.FullPartialFullPhase2Test \
+  com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee device-results/FullPartialFull/phase2.txt; then
+  echo "FPF Phase2 instrumentation failed" >&2; fpf_status=1
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/FullPartialFull/phase2.txt || { echo "FPF Phase2 expected OK(1)" >&2; fpf_status=1; }
+
+# 恢复 FULL：grant 不杀进程 → 显式 force-stop 对齐 #52 重启口径（应用数据保留）
+adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || fpf_status=1
+adb shell am force-stop com.tabula.v3.recyclebin.test || fpf_status=1
+if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+  -e class com.tabula.v3.FullPartialFullPhase3Test \
+  com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee device-results/FullPartialFull/phase3.txt; then
+  echo "FPF Phase3 instrumentation failed" >&2; fpf_status=1
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/FullPartialFull/phase3.txt || { echo "FPF Phase3 expected OK(1)" >&2; fpf_status=1; }
+for phase in phase1 phase2 phase3; do
+  if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' "device-results/FullPartialFull/$phase.txt"; then
+    echo "Failure or skip observed in FPF $phase" >&2
+    fpf_status=1
+  fi
+done
+adb logcat -d -v threadtime > device-results/FullPartialFull/logcat.txt || true
+# 裁决 S6 同款：宿主 grep 摘要（MediaProvider user-selected/PhotoPicker 授权路径 +
+# 测试 verdict/evidence 行）cat 进 job log
+grep -iE "user.?select|PhotoPicker|GrantUri|accessible|confirmCommitted|verdict=|FullPartialFull" device-results/FullPartialFull/logcat.txt | tail -40 > device-results/FullPartialFull/mediaprovider-grep.txt || true
+cat device-results/FullPartialFull/mediaprovider-grep.txt || true
+adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/full-partial-full-expected-state.json device-results/FullPartialFull/ || true
+adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/FullPartialFull/ui-failures || true
+
+if [ "$fpf_status" != "0" ]; then
+  echo "T07 FULL->PARTIAL->FULL three-stage verification failed" >&2
   status=1
 fi
 # ===== FULL 恢复两阶段（+缺席断言）验证（审计轮：工作包 2）=====
