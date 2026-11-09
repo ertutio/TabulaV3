@@ -253,22 +253,39 @@ class ImageFeatureCacheConcurrencyTest {
             ImageFeatureCacheStore.get(hdrKey)
         )
 
-        // 阻断共享轮次的首个流打开：发起者阻塞在 detect 中间，等待者全部进入
-        // 在途等待后才放行 → 三方共享同一轮（时序确定性，沿用既有屏障原语）。
+        // 阻断共享轮次的首个流打开：发起者阻塞在 detect 中间；再用等待者就绪
+        // 钩子确证全部等待者已注册到该在途轮次后才放行 → "同轮共享"是确定性
+        // 前置条件而非时序侥幸（若释放早于某等待者注册，迟到者会自成发起者
+        // 重跑，"恰 K 次打开"断言退化为侥幸通过）。
+        //
+        // 预期等待者数推导（getOrDetect 实际语义）：同键并发 3 调用方中——
+        // a) 标定轮已断言该不可信阴性不入可靠缓存，故无调用方能经缓存短路；
+        // b) putIfAbsent 恰有一个赢家成为发起者（flightArrived 即其首个流
+        //    打开）；其余 callers-1 = 2 个必然走等待者路径；
+        // c) onWaiterRegisteredForTest 仅在等待者路径回调（确认在途条目后、
+        //    await 前，发起者路径不触发），且每个等待者恰好经过一次。
+        // 故闩锁计数 = 2 等价于"两个等待者都已捕获同一在途 deferred"——即使
+        // 其 await 稍后才开始，await 也必然取回本轮（而非新轮）的结果实例。
         val flightArrived = CountDownLatch(1)
         val releaseFlight = CountDownLatch(1)
+        val callerCount = 3
+        val waitersRegistered = CountDownLatch(callerCount - 1)
+        ImageFeatureCacheStore.onWaiterRegisteredForTest = { waitersRegistered.countDown() }
         registerCountingStreams(
             barrierLimit = perFlightOpens + 1,
             barrier = flightArrived,
             blocked = releaseFlight
         )
         val scope = CoroutineScope(Dispatchers.IO + SupervisorJob()).also { scopes += it }
-        val callers = (1..3).map {
+        val callers = (1..callerCount).map {
             scope.async { ImageFeatureCacheStore.getOrDetect(hdrKey, detectBlock) }
         }
         assertTrue(flightArrived.await(10, TimeUnit.SECONDS))
-        // 给两个等待者时间进入在途等待（沿用既有测试时序原语）
-        Thread.sleep(500)
+        assertTrue(
+            "all callers-1 waiters must register for the in-flight wait " +
+                "before the blocked detection is released",
+            waitersRegistered.await(10, TimeUnit.SECONDS)
+        )
         releaseFlight.countDown()
         val shared = callers.map {
             runBlocking { kotlinx.coroutines.withTimeout(20_000) { it.await() } }
