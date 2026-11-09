@@ -36,9 +36,9 @@ import org.junit.runner.RunWith
 /**
  * 生产授权回调入口测试（包C2 收尾，覆盖 PR#65 审计登记缺口）。
  *
- * ## 阻塞登记（2026-11-09，已从 tools/run-cloud-ui-probe.sh 探针类列表摘除；文件保留）
+ * ## 取消分支轮次记录（2026-11-09；轮 3 定向修正后已重新登记探针类列表）
  *
- * 两轮 CI 双 API 均红，按收尾纪律（一轮诊断+一次定向修正，不做第三轮）转阻塞：
+ * 两轮 CI 双 API 均红；轮 3 按两轮证据做定向修正并重新登记探针：
  *
  * - **轮 1（run [42646353367](https://github.com/ertutio/TabulaV3/actions/runs/42646353367)，
  *   head 366d2e1，双 API 双用例同因）**：`IllegalStateException: UI flow did not reach
@@ -59,9 +59,15 @@ import org.junit.runner.RunWith
  *   logcat :112402 后 Transition CLOSE @16:36:00.989）→ 用例失败且遗留系统对话框/
  *   悬挂删除流，污染次例：确认用例在 bringAppToForeground(:338) 报
  *   `RuntimeException: Could not launch intent … within 45000 milliseconds`（栈 :660）。
- * - **解锁路径（登记为待验证假设，未经 CI 验证）**：CANCEL_TEXTS 补 "Deny"（轮 2
- *   dump 直接证据）；可另加有界重试点按（tapDescUntilEffect 同款防吞）；随后以
- *   `tools/run-cloud-ui-probe.sh` 独立重跑本类验证后重新登记进探针列表。
+ * - **轮 3（head 本提交，定向修正后重新登记探针）**：①CANCEL_TEXTS 补 "Deny"/"DENY"
+ *   （轮 2 dump 直接证据）；②取消判定重构为完整闭环链——点按 Deny（BACK 兜底后走同一
+ *   判定链）依次等待：系统授权窗口**关闭**（providers.media/permissioncontroller 不再
+ *   是 active window，连续 3 次稳定）→ 应用**恢复前台**且回收站就绪（「N 项待处理」
+ *   计数与保留条目名重新可见）→「正在处理回收站」进度对话框**消失**（in-flight 释放的
+ *   UI 面，MainActivity L1128-1141）——杜绝轮 2 的遗留对话框/悬挂删除流污染次例；
+ *   ③第二用例追加第二段重入验证：第二个合成条目重复真实删除，in-flight 对话框再次
+ *   出现即证重入门（isDeletingRecycleBin || deletePermissionInFlight，MainActivity
+ *   L627）已释放可再入。本类重新登记进 tools/run-cloud-ui-probe.sh（expected_tests=2）。
  *
  * ## 缺口
  *
@@ -102,7 +108,7 @@ import org.junit.runner.RunWith
  * 「彻底删除」→ 应用确认对话框「删除」→ 生产 deleteRecycleBinImages →
  * beginDeletion（journal 登记）→ createDeleteRequest → 系统对话框 →
  * 【确认 Allow】生产 launcher 回调消费 RESULT_OK → 记录消费 + 行/文件三面删除 +
- * in-flight 释放；【取消 Cancel/Back】生产 launcher 回调消费 RESULT_CANCELED →
+ * in-flight 释放；【取消 Deny/Cancel/Back】生产 launcher 回调消费 RESULT_CANCELED →
  * 源保留三面 + 记录保留 + journal 关闭 + in-flight 释放 + UI 条目仍在（如实反馈）。
  *
  * ## 纪律（沿用 PR65）
@@ -117,8 +123,8 @@ import org.junit.runner.RunWith
  *
  * 启动方式：allowSyntheticMediaProbe=true 且 ranchu/goldfish 模拟器门禁
  * （真机不可误跑）。本机无模拟器（ANDROID_HOME 无 emulator/system-images），
- * 设备执行原依赖 CI probe——**现已从探针类列表摘除（阻塞登记，见上节），
- * 解锁验证前 CI 不会执行本类**。
+ * 设备执行依赖 CI probe——轮 3 定向修正后已重新登记进探针类列表
+ * （tools/run-cloud-ui-probe.sh，expected_tests=2）。
  */
 @RunWith(AndroidJUnit4::class)
 class ProdAuthCallbackDeviceTest {
@@ -550,25 +556,70 @@ class ProdAuthCallbackDeviceTest {
         return true
     }
 
-    /** 取消分支：优先点 Cancel/取消按钮；按钮缺失时以 BACK 兜底（PermissionActivity 取消语义）。 */
-    private fun cancelSystemConsent() {
+    /**
+     * 取消分支（轮 3 定向修正，run 42653961146 dump 实证）：系统对话框拒绝键实际文本为
+     * **Deny**（`text=Deny clickable=true`），CANCEL_TEXTS 已补齐（含大写变体）。点按
+     * 成功后的判定链（杜绝轮 2 的遗留状态污染次例）：
+     * 1) 系统授权窗口**关闭**（providers.media/permissioncontroller 不再是 active window，
+     *    连续 3 次稳定）；2) 应用**恢复前台**且回收站就绪（「N 项待处理」计数与保留条目
+     *    名重新可见）；3)「正在处理回收站」进度对话框**消失**（isDeletingRecycleBin ||
+     *    deletePermissionInFlight 释放的 UI 面，MainActivity L1128-1141）。
+     * 按钮缺失时仍以 BACK 兜底（PermissionActivity 取消语义），兜底后走同一判定链。
+     */
+    private fun cancelSystemConsent(expectedPendingText: String, retainedName: String) {
         val deadline = SystemClock.uptimeMillis() + 8000
+        var cancelled = false
         while (SystemClock.uptimeMillis() < deadline) {
-            if (tapSystemButton(CANCEL_TEXTS)) return
+            if (tapSystemButton(CANCEL_TEXTS)) { cancelled = true; break }
             SystemClock.sleep(100)
         }
-        Log.w(TAG, "cancel button not found on system dialog; falling back to BACK key")
-        shell("input keyevent 4")
-        val until = SystemClock.uptimeMillis() + 8000
-        while (SystemClock.uptimeMillis() < until) {
-            if (systemDialogRoot() == null) {
-                Log.i(TAG, "system consent dialog dismissed via BACK (cancel semantics)")
+        if (!cancelled) {
+            Log.w(TAG, "cancel button not found on system dialog; falling back to BACK key")
+            shell("input keyevent 4")
+        }
+        waitSystemDialogClosed()
+        waitAppRecycleBinReady(expectedPendingText, retainedName)
+        waitInFlightReleased()
+    }
+
+    /** 系统授权窗口关闭：active window 不再是 providers.media/permissioncontroller（连续 3 次稳定）。 */
+    private fun waitSystemDialogClosed() {
+        val deadline = SystemClock.uptimeMillis() + 20000
+        var goneStreak = 0
+        while (SystemClock.uptimeMillis() < deadline) {
+            goneStreak = if (systemDialogRoot() == null) goneStreak + 1 else 0
+            if (goneStreak >= 3) {
+                Log.i(TAG, "system consent dialog window closed")
                 return
             }
             SystemClock.sleep(100)
         }
-        captureUiEvidence("system dialog did not dismiss on cancel/back")
-        error("System consent dialog could not be cancelled")
+        captureUiEvidence("system consent dialog still active after cancel tap/back")
+        error("System consent dialog window did not close after cancel")
+    }
+
+    /**
+     * 应用恢复前台 + 回收站就绪：active window 回到应用，且回收站屏「N 项待处理」计数与
+     * 保留条目名重新可见（同一 Compose 窗口内，查看器覆盖层不改变节点可达性）。in-flight
+     * 进度对话框若仍是 active window，计数/条目不可见会自然等待其释放后再通过。
+     */
+    private fun waitAppRecycleBinReady(expectedPendingText: String, retainedName: String) {
+        val deadline = SystemClock.uptimeMillis() + 20000
+        while (SystemClock.uptimeMillis() < deadline) {
+            val ready = findNodeInAppWindows {
+                it.text?.toString() == expectedPendingText
+            } != null && findNodeInAppWindows {
+                it.text?.toString() == retainedName || it.contentDescription?.toString() == retainedName
+            } != null
+            if (ready) {
+                Log.i(TAG, "app foreground regained; recycle bin ready (count + retained item visible)")
+                return
+            }
+            SystemClock.sleep(100)
+        }
+        captureUiEvidence("app not foreground or recycle bin not ready after cancel")
+        error("App did not regain foreground with recycle bin ready " +
+            "(count=$expectedPendingText, item=$retainedName)")
     }
 
     /** 总结 Toast 为瞬时窗口：观察到返回文本（供条件校验），未观察到返回 null（持久断言兜底）。 */
@@ -728,19 +779,25 @@ class ProdAuthCallbackDeviceTest {
         assertTrue("sentinel must survive shell query", shellRowExists(sentinel.name))
     }
 
-    // ---------- 用例 2：取消分支——生产 launcher 消费 RESULT_CANCELED → 源保留 + in-flight 释放 ----------
+    // ---------- 用例 2：取消分支——生产 launcher 消费 RESULT_CANCELED → 源保留 + in-flight 释放 → 重入验证 ----------
 
     @Test fun systemConsentCancelConsumedByProductionLauncherRetainsSource() = runBlocking {
+        // 第二个合成条目（row2）供第二段重入验证：启动前一并登记进回收站，
+        // 应用启动即加载两条（计数文本 beforeCount+2，无需运行中刷新应用状态）。
         val row = foreignOwnedFixture()
+        val row2 = foreignOwnedFixture()
         val sentinel = outOfSelectionSentinel()
         val beforeCount = realManager().loadRecycleBin().size
         val beforeJournal = realManager().pendingDeletionUris().toSet()
         val record = row.record()
-        realManager().addAllToRecycleBin(listOf(record))
+        val record2 = row2.record()
+        realManager().addAllToRecycleBin(listOf(record, record2))
         seededRecords += record
+        seededRecords += record2
+        val pendingText = "${beforeCount + 2} 项待处理"
         bringAppToForeground()
         tapDescUntilEffect("回收站", "deck trash button") {
-            findNodeInAnyWindow { it.text?.toString() == "${beforeCount + 1} 项待处理" } != null
+            findNodeInAnyWindow { it.text?.toString() == pendingText } != null
         }
         tapDescUntilEffect(row.name, "recycle bin item") {
             findNodeInAnyWindow { it.contentDescription?.toString() == "彻底删除" } != null
@@ -751,13 +808,13 @@ class ProdAuthCallbackDeviceTest {
         tapAppDialogConfirmButton()
         waitInFlightEntered()
         waitForSystemDialogWindow("cancel")
-        // 系统对话框取消（Cancel/Back）→ 结果由生产 deletePermissionLauncher 回调消费
-        cancelSystemConsent()
-        // 回调消费 → in-flight 释放（complete(false)）
-        waitInFlightReleased()
+        // 系统对话框取消（Deny/Cancel/Back）→ 结果由生产 deletePermissionLauncher 回调消费；
+        // 判定链：窗口关闭 → 应用恢复前台+回收站就绪 → in-flight 释放（complete(false)）
+        cancelSystemConsent(pendingText, row.name)
         // 瞬时 Toast 反馈（summary.cancelled →「已取消…剩余 1 张」）：自释放点起轮询
-        // （Toast 在 journal 释放后立即显示、寿命约 3.5s）；观察到则校验内容，未观察
-        // 到以记录保留 + 条目仍在等持久断言兜底（KDoc 已登记口径）。
+        // （Toast 在 journal 释放后立即显示、寿命约 3.5s）；本段选择集仅 row1（row2 不在
+        // 其中），剩余口径不变；观察到则校验内容，未观察到以记录保留 + 条目仍在等持久
+        // 断言兜底（KDoc 已登记口径）。
         val toast = observeSummaryToast("已取消", "剩余")
         Log.i(TAG, "cancel summary toast observed=${toast != null} text=$toast")
         if (toast != null) {
@@ -784,6 +841,49 @@ class ProdAuthCallbackDeviceTest {
         // 集合外哨兵不受影响。
         assertTrue("sentinel must survive", present(sentinel.primary))
         assertTrue("sentinel must survive shell query", shellRowExists(sentinel.name))
+
+        // ---------- 第二段：in-flight 释放后的重入验证（轮 3 追加） ----------
+        // 重入门 isDeletingRecycleBin || deletePermissionInFlight（MainActivity L627）
+        // 已随第一次取消释放。对第二个合成条目重复真实删除：若门仍被持有，
+        // deleteRecycleBinImages 直接 return——应用确认对话框不会出现、in-flight 不会
+        // 再次进入，waitInFlightEntered 必然超时失败；再次出现即证可再入。随后对系统
+        // 对话框再次取消，走同一判定链闭环收尾（journal 回基线、源保留）。
+        tapDescUntilEffect("关闭", "viewer close button") {
+            // 查看器关闭的效果：其内「彻底删除」入口节点消失（列表态无该 desc）
+            findNodeInAnyWindow { it.contentDescription?.toString() == "彻底删除" } == null
+        }
+        tapDescUntilEffect(row2.name, "recycle bin item (re-entry)") {
+            findNodeInAnyWindow { it.contentDescription?.toString() == "彻底删除" } != null
+        }
+        tapDescUntilEffect("彻底删除", "viewer delete button (re-entry)") {
+            findNodeInAnyWindow { it.text?.toString()?.contains("要允许 Tabula 删除这张照片吗") == true } != null
+        }
+        tapAppDialogConfirmButton()
+        // 重入断言：in-flight 对话框再次出现（生产 DeletePermissionSession.launch 二次置位）
+        waitInFlightEntered()
+        waitForSystemDialogWindow("re-entry cancel")
+        cancelSystemConsent(pendingText, row2.name)
+        // 拒绝推进（第二段）：journal 再次回到基线 + 第二条目源保留 + 记录保留
+        waitJournalReleased(beforeJournal)
+        assertTrue("re-entry row must be retained (app query)", present(row2.primary))
+        assertTrue("re-entry row must be retained (shell query)", shellRowExists(row2.name))
+        assertTrue("re-entry file bytes must be retained", shellFileExists(row2.dataPath))
+        assertTrue(
+            "re-entry recycle record must be retained on denial",
+            realManager().loadRecycleBin().any { it.id == row2.id }
+        )
+        val reentryVerification = fileOps().verifyDeletionState(listOf(row2.primary))
+        assertEquals(setOf(row2.primary), reentryVerification.existing)
+        assertTrue("re-entry denial must not widen UNKNOWN", reentryVerification.unknown.isEmpty())
+        assertTrue("re-entry denial must not delete", reentryVerification.deleted.isEmpty())
+        // UI 如实反馈：第二条目仍在回收站
+        waitUiNamePresent(row2.name)
+        // 第一条目在第二段全程不受影响。
+        assertTrue("first row must still be retained after re-entry segment", present(row.primary))
+        assertTrue(
+            "first record must still be retained after re-entry segment",
+            realManager().loadRecycleBin().any { it.id == row.id }
+        )
     }
 
     // ---------- 基础设施 ----------
@@ -861,7 +961,9 @@ class ProdAuthCallbackDeviceTest {
         private const val SELF_DIR = "Pictures/TabulaProdAuthSelf"
 
         private val ALLOW_TEXTS = setOf("Allow", "Delete", "允许", "删除")
-        private val CANCEL_TEXTS = setOf("Cancel", "取消", "Don't allow", "不允许")
+        // 轮 3（run 42653961146 dump 实证）：API36/37 Mainline MediaProvider 系统对话框
+        // 拒绝键实际文本为 Deny（text=Deny clickable=true），补齐含大写变体。
+        private val CANCEL_TEXTS = setOf("Cancel", "取消", "Deny", "DENY", "Don't allow", "不允许")
         private val NULLISH = setOf("NULL", "null", "")
     }
 }
