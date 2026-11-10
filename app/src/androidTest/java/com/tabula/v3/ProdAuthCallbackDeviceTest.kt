@@ -583,10 +583,17 @@ class ProdAuthCallbackDeviceTest {
      * 按钮缺失时仍以 BACK 兜底（PermissionActivity 取消语义），兜底后走同一判定链。
      */
     private fun cancelSystemConsent(expectedPendingText: String, retainedName: String) {
+        // 收尾单元三：有界重试以「对话框仍存在且效果未发生」为前提；按钮缺失仍以
+        // BACK 兜底（PermissionActivity 取消语义），兜底后走同一判定链。
         val deadline = SystemClock.uptimeMillis() + 8000
         var cancelled = false
+        var taps = 0
+        var lastTap = 0L
         while (SystemClock.uptimeMillis() < deadline) {
-            if (tapSystemButton(CANCEL_TEXTS)) { cancelled = true; break }
+            if (!systemDialogActive()) { cancelled = true; break }
+            if (taps < 4 && SystemClock.uptimeMillis() - lastTap > 2000) {
+                if (tapSystemButton(CANCEL_TEXTS)) { taps++; lastTap = SystemClock.uptimeMillis() }
+            }
             SystemClock.sleep(100)
         }
         if (!cancelled) {
@@ -594,8 +601,60 @@ class ProdAuthCallbackDeviceTest {
             shell("input keyevent 4")
         }
         waitSystemDialogClosed()
+        // 收尾单元三：明确关闭动作——取消后查看器覆盖层滞留（轮 3 API36 dump 实证），
+        // 先关查看器，使「N 项待处理」与保留条目节点可达，再做就绪判定。
+        closeViewerIfOpen()
         waitAppRecycleBinReady(expectedPendingText, retainedName)
         waitInFlightReleased()
+    }
+
+    private fun systemDialogActive(): Boolean = systemDialogRoot() != null
+
+    /**
+     * 收尾单元三（2026-11-11）：取消后的**明确关闭动作**——轮 3 API36 dump 实证
+     * 取消后查看器覆盖层滞留（「N 项待处理」/保留条目节点不可达，原"同窗可达"
+     * 假设不成立）。若「彻底删除」入口仍在（查看器未关），点按查看器关闭钮
+     * （RecycleBinScreen L803 IconButton onDismiss），效果=入口节点消失。
+     */
+    private fun closeViewerIfOpen() {
+        if (findNodeInAnyWindow { it.contentDescription?.toString() == "彻底删除" } == null) return
+        tapDescUntilEffect("关闭", "viewer close button (cancel path)") {
+            findNodeInAnyWindow { it.contentDescription?.toString() == "彻底删除" } == null
+        }
+    }
+
+    /** 收尾单元三：正向观察——应用前台且回收站计数文本可见（确认分支的可用界面观察）。 */
+    private fun waitAppRecycleBinCount(countText: String) {
+        val deadline = SystemClock.uptimeMillis() + 20000
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (findNodeInAppWindows { it.text?.toString() == countText } != null) {
+                Log.i(TAG, "app foreground regained; recycle bin count visible ($countText)")
+                return
+            }
+            SystemClock.sleep(100)
+        }
+        captureUiEvidence("recycle bin count not visible after confirm")
+        error("Recycle bin count not visible after confirm ($countText)")
+    }
+
+    /**
+     * 收尾单元三：用例末**可靠释放**——若系统对话框滞留（前序失败路径遗留），
+     * 以有界 Deny/BACK 点按将其关闭，减少对后续用例的污染。不改变断言语义。
+     */
+    private fun releaseLingeringSystemDialog() {
+        if (!systemDialogActive()) return
+        Log.w(TAG, "lingering system dialog at case end; releasing (bounded)")
+        var attempts = 0
+        val deadline = SystemClock.uptimeMillis() + 10000
+        while (systemDialogActive() && SystemClock.uptimeMillis() < deadline && attempts < 3) {
+            if (!tapSystemButton(CANCEL_TEXTS)) shell("input keyevent 4")
+            attempts++
+            SystemClock.sleep(600)
+        }
+        if (systemDialogActive()) {
+            captureUiEvidence("lingering system dialog could not be released at case end")
+            Log.e(TAG, "lingering system dialog still active after release attempts")
+        }
     }
 
     /** 系统授权窗口关闭：active window 不再是 providers.media/permissioncontroller（连续 3 次稳定）。 */
@@ -766,14 +825,27 @@ class ProdAuthCallbackDeviceTest {
         tapAppDialogConfirmButton()
         waitInFlightEntered()
         waitForSystemDialogWindow("confirm")
-        // 系统对话框确认 → 结果由生产 deletePermissionLauncher 回调消费
-        val deadline = SystemClock.uptimeMillis() + 20000
+        // 系统对话框确认 → 结果由生产 deletePermissionLauncher 回调消费。
+        // 收尾单元三：有界重试以「对话框仍存在且效果未发生」为前提（对话框关闭
+        // =结果已被消费，重试即停）；关闭后正向观察可用界面，再查释放与消费。
         var granted = false
-        while (SystemClock.uptimeMillis() < deadline) {
-            if (tapSystemButton(ALLOW_TEXTS)) { granted = true; break }
+        val confirmDeadline = SystemClock.uptimeMillis() + 20000
+        var confirmTaps = 0
+        var lastConfirmTap = 0L
+        while (SystemClock.uptimeMillis() < confirmDeadline) {
+            if (!systemDialogActive()) { granted = true; break }
+            if (confirmTaps < 4 && SystemClock.uptimeMillis() - lastConfirmTap > 4000) {
+                if (tapSystemButton(ALLOW_TEXTS)) {
+                    confirmTaps++
+                    lastConfirmTap = SystemClock.uptimeMillis()
+                }
+            }
             SystemClock.sleep(100)
         }
-        if (!granted) { captureUiEvidence("system consent confirm button"); error("Allow button not tapped") }
+        if (!granted) { captureUiEvidence("system consent confirm button"); error("Allow button not tapped / dialog did not close") }
+        waitSystemDialogClosed()
+        // 正向观察：应用前台 + 回收站计数回到删除前基线（条目已消费的可用界面证据）
+        waitAppRecycleBinCount("${beforeCount} 项待处理")
         // 回调消费 → in-flight 释放（complete(true)）
         waitInFlightReleased()
         // 删除推进：行/文件三面消失 + 记录消费 + journal 回到基线（真实单例为共享存储，
@@ -793,6 +865,8 @@ class ProdAuthCallbackDeviceTest {
         // 集合外哨兵不受影响。
         assertTrue("sentinel must survive", present(sentinel.primary))
         assertTrue("sentinel must survive shell query", shellRowExists(sentinel.name))
+        // 收尾单元三：用例末可靠释放（滞留系统窗口/对话框的有界清理，防污染后续用例）
+        releaseLingeringSystemDialog()
     }
 
     // ---------- 用例 2：取消分支——生产 launcher 消费 RESULT_CANCELED → 源保留 + in-flight 释放 → 重入验证 ----------
@@ -900,6 +974,8 @@ class ProdAuthCallbackDeviceTest {
             "first record must still be retained after re-entry segment",
             realManager().loadRecycleBin().any { it.id == row.id }
         )
+        // 收尾单元三：用例末可靠释放（重入段已再次取消，残留窗口有界清理）
+        releaseLingeringSystemDialog()
     }
 
     // ---------- 基础设施 ----------
