@@ -35,10 +35,17 @@
 | E: PR6→42→45 链审查 | coord/report-E-perf-chain.md | 进行中（**主代理**执行） |
 | F: 工具链兼容盘点 | coord/report-F-toolchain.md | 排队 |
 
-## 运行中 CI（滚动）
+## #68 合并记录（本轮授权，2026-11-11）
+- 合并提交 `488bd21`（master 43a8da1 ← PR68 head 6a782901，MERGEABLE/CLEAN，合并差异恰为已审单文件 build.gradle.kts +11）
+- 三重核对：head 精确一致 / 门禁 42661619514 绑定该 head 三 job 全绿 / master 无新增变化
+- **树同一性**：merge_tree == head_tree（1c2d0525…）→ 门禁证据对合并提交直接有效
+- 回退入口：`git revert -m 1 488bd21`
+- 措辞撤回：ColorBuffer 与门禁红的"因果实锤"表述撤回——仅为相关签名；API36 探针末段非零退出原因待查（单元二诊断中，子代理已派）
+
+## 运行中 CI
 | run | head | 状态 | 归属 |
 | --- | --- | --- | --- |
-| 42661619514 | 6a78290 (T09 R8 8.13.19 / 新PR) | in_progress | 主代理 |
+| （T09 42661619514 已随合并收口） | — | — | — |
 
 ## T09 交付（新）
 | # | SHA | 内容 | 验证 | 状态 |
