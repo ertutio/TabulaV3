@@ -1,11 +1,61 @@
 #!/usr/bin/env bash
 set -euo pipefail
 mkdir -p device-results
+# ===== 采集诊断包装（收尾单元 2026-11-10）=====
+# 定位结论：run 42662260995 / 42844759640 API36 两连败的根因不是本脚本的
+# 未保护采集命令（全部带 || true），也不是外层 timeout=720s（两次 UI 探针段
+# 实测 ≈467s / ≈542s，且外层报的是 CalledProcessError 而非 TimeoutExpired），
+# 而是 tools/run-volume-device-probe.py window() 里的套件后证据采集命令
+# `adb logcat -d -v threadtime -T <窗口起点>` 在 API36 模拟器上非零退出
+# （输出截断于行中、无错误文本——adbd/logd 流式读取中断的形态）。
+# 此处为本脚本侧的证据采集（logcat/pull/screencap）提供统一登记：
+# 命令、返回码、耗时、输出摘要、adb devices 连接状态，失败输出留档
+# device-results/；首败即登记不吞；logcat -d 类只读采集加 ≤2 次有界重试。
+# 证据采集失败不阻断门禁（仍保持原 || true 语义）；门禁仍由套件断言与
+# window before/after 设备健康检查（boot_id/SurfaceFlinger PID/DeadSystem
+# 图形断言）把守。python 侧对应实现见 run-volume-device-probe.py 的
+# adb_readonly()（窗口 logcat 采集走同一诊断协议，采集失败仍阻断）。
+diag_log="device-results/collection-diagnostics.log"
+collect() {
+  local label="$1" retries="$2" artifact="$3"; shift 3
+  local max_attempts=$((retries + 1)) attempt rc=1 start end tmp
+  tmp="device-results/.collect-tmp-$$.log"
+  for attempt in $(seq 1 "$max_attempts"); do
+    start=$(date +%s)
+    if "$@" >"$tmp" 2>&1; then
+      rc=0
+    else
+      rc=$?
+    fi
+    end=$(date +%s)
+    {
+      echo "=== bash/$label attempt=$attempt/$max_attempts rc=$rc elapsed=$((end - start))s cmd=$*"
+      adb devices || echo "adb devices failed"
+      echo "--- output head ---"
+      head -n 3 "$tmp"
+      echo "--- output tail ---"
+      tail -n 8 "$tmp"
+    } >>"$diag_log" 2>&1
+    if [ "$rc" -eq 0 ]; then
+      if [ "$artifact" != "-" ]; then mv "$tmp" "$artifact"; fi
+      break
+    fi
+    cp "$tmp" "device-results/collection-failure-bash-$label-attempt$attempt.log"
+    if [ "$attempt" -lt "$max_attempts" ]; then sleep 2; fi
+  done
+  rm -f "$tmp"
+  if [ "$rc" -ne 0 ]; then
+    echo "COLLECTION FAILED (evidence recorded in $diag_log, non-gating): bash/$label rc=$rc" >&2
+  fi
+  return "$rc"
+}
 capture() {
-  adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/ui-failures || true
-  adb logcat -d -v threadtime > device-results/ui-logcat.txt || true
-  adb shell screencap -p /sdcard/cloud-ui-result.png || true
-  adb pull /sdcard/cloud-ui-result.png device-results/ui-screen.png || true
+  collect trap-ui-failures-pull 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/ui-failures || true
+  collect trap-logcat 2 device-results/ui-logcat.txt adb logcat -d -v threadtime || true
+  collect trap-screencap 0 - adb shell screencap -p /sdcard/cloud-ui-result.png || true
+  collect trap-screen-pull 0 - adb pull /sdcard/cloud-ui-result.png device-results/ui-screen.png || true
+  echo "=== collection diagnostics (bash) ==="
+  cat "$diag_log" 2>/dev/null || true
 }
 trap capture EXIT
 adb wait-for-device
@@ -76,8 +126,8 @@ for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTe
     echo "Failure or skip observed in $class" >&2
     status=1
   fi
-  adb logcat -d -v threadtime > "$dir/logcat.txt" || true
-  adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures "$dir/ui-failures" || true
+  collect "$class-logcat" 2 "$dir/logcat.txt" adb logcat -d -v threadtime || true
+  collect "$class-ui-failures" 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures "$dir/ui-failures" || true
 done
 # ===== PARTIAL 选择集 A→B 两阶段（真实系统 UI 驱动）验证（包B）=====
 # 阶段A：shell 身份写入+扫描 5 张非应用自有合成媒体（scoped storage 下应用
@@ -190,12 +240,12 @@ for phase in phaseA phaseB; do
     partial_status=1
   fi
 done
-adb logcat -d -v threadtime > device-results/PartialSelection/logcat.txt || true
+collect partial-logcat 2 device-results/PartialSelection/logcat.txt adb logcat -d -v threadtime || true
 # 裁决 S6：宿主 grep 摘要（MediaProvider user-selected/PhotoPicker 授权路径 + 测试 verdict/confirm 行），cat 进 job log
 grep -iE "user.?select|PhotoPicker|GrantUri|accessible|confirmCommitted|verdict=" device-results/PartialSelection/logcat.txt | tail -40 > device-results/PartialSelection/mediaprovider-grep.txt || true
 cat device-results/PartialSelection/mediaprovider-grep.txt || true
-adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/partial-selection-expected-state.json device-results/PartialSelection/ || true
-adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/PartialSelection/ui-failures || true
+collect partial-expected-state 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/partial-selection-expected-state.json device-results/PartialSelection/ || true
+collect partial-ui-failures 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/PartialSelection/ui-failures || true
 
 if [ "$partial_status" != "0" ]; then
   echo "PARTIAL selection A->B two-stage verification failed" >&2
@@ -246,9 +296,9 @@ for phase in phase1 absence continuation readback; do
     full_status=1
   fi
 done
-adb logcat -d -v threadtime > device-results/FullRecovery/logcat.txt || true
-adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/full-recovery-expected-state.json device-results/FullRecovery/ || true
-adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/FullRecovery/ui-failures || true
+collect full-logcat 2 device-results/FullRecovery/logcat.txt adb logcat -d -v threadtime || true
+collect full-expected-state 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/full-recovery-expected-state.json device-results/FullRecovery/ || true
+collect full-ui-failures 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/FullRecovery/ui-failures || true
 
 if [ "$full_status" != "0" ]; then
   echo "FULL recovery four-stage verification failed" >&2
