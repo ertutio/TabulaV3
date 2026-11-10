@@ -552,8 +552,35 @@ class CloudCleanupUiTest {
         startAndOpenDialog()
         assertEquals(1, ctx.contentResolver.delete(primaryItem(destination), null, null))
         assertFalse("injected copy deletion must take effect", present(destination))
+        // API37（run 42840727007 工件）：确认点按落在 AlertDialog 入场动画窗口内被丢弃——
+        // logcat 证据：对话框 back-callback 注册后 20s 未清空、无点击事件、系统侧全程无
+        // Toast 窗口（VRI-Toast），等待期唯一的 a11y 事件是对话框自身的入场
+        // TYPE_WINDOW_STATE_CHANGED（EventTime 147108≈开窗后 190ms）。即 onConfirm 从未
+        // 执行、生产 Toast 从未入队：操作未完成（点按丢失），非反馈缺失/非观测失效。
+        // 与 startAndOpenDialog 对"清理原图"的有界重点同口径修夹具：监听先于命令生效
+        // （超时报告能捕获入场事件为证），命令内点按后验证对话框确实关闭，仍开着则
+        // 重点按；有界重试耗尽仍开着则如实失败，不改断言语义。
         val completed = ins.uiAutomation.executeAndWaitForEvent(
-            { tap("删除原图") },
+            {
+                var taps = 0
+                var lastTap = 0L
+                val deadline = SystemClock.uptimeMillis() + 10000
+                while (SystemClock.uptimeMillis() < deadline) {
+                    val confirm = find(ins.uiAutomation.rootInActiveWindow, "删除原图")
+                    if (confirm == null && ins.uiAutomation.rootInActiveWindow != null) {
+                        return@executeAndWaitForEvent // 对话框已关闭，Toast 事件由外层监听捕获
+                    }
+                    if (confirm != null && taps < 5 && SystemClock.uptimeMillis() - lastTap > 1500) {
+                        tapNode(confirm, "删除原图")
+                        taps++
+                        lastTap = SystemClock.uptimeMillis()
+                    }
+                    SystemClock.sleep(100)
+                }
+                throw IllegalStateException(
+                    "delete-original dialog never accepted the confirm tap after $taps bounded retaps"
+                )
+            },
             UiAutomation.AccessibilityEventFilter { event ->
                 event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED &&
                     event.text.any { it.toString().contains("副本尚未验证，已保留 1 张原图") }
