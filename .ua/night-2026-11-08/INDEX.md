@@ -52,6 +52,11 @@
 - **组合门禁 42856903671 三 job 全绿**（全量 430 单元 + Release/R8 + API36/37 设备全套；R8 metadata 警告 0——#68 效力在组合中复验）
 - 独立复审已派（audit-combination.md 待产出）；**#66 单元三 CI**：API36 绿（修正+诊断生效），API37 OtherAppMediaAuth 第 3 次红（同签名=tap 被入场动画吞）→ 有界重点修正轮已派（9979967 同款模式）；B2 维持额度阻塞登记
 
+## T12 交付（EXIF 1.4.2，2026-11-11）
+- PR #69（`547c93b`，堆叠 combination/2026-11-10@68ebf15——依赖 #63 回归在树）：exifinterface 1.3.7→1.4.2 单行；官方依据=最新稳定（2025-12-03）/1.5.0 beta 排除/minSdk 无影响；迁移点已核（XMP 分段/HEIC-AVIF/IFD 容错）
+- 回归：ImageFeatureExifHintTest 5/5（#63 转红契约成立）+ Definitive 2/2 + 全量 430/0；CI 42863404468 运行中；回退=revert 单行
+- 状态：待 CI + 独立复审（review_pending）
+
 ## T09 交付（新）
 | # | SHA | 内容 | 验证 | 状态 |
 | --- | --- | --- | --- | --- |
