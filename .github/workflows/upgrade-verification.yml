@@ -2,6 +2,11 @@ name: Verify overlay upgrade recovery (T13)
 
 on:
   workflow_dispatch:
+  # Bootstrap registration on GitHub (new files on non-default branches become
+  # dispatchable only after their first run) and keep iterating on this branch.
+  push:
+    branches:
+      - test/upgrade-overlay-2026-11-11
 
 permissions:
   contents: read
