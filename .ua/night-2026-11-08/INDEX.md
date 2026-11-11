@@ -47,6 +47,12 @@
 | --- | --- | --- | --- |
 | （T09 42661619514 已随合并收口） | — | — | — |
 
+## T13 交付（覆盖安装恢复，2026-11-12）
+- **PR #73**（test/upgrade-overlay-2026-11-11，base=master 488bd21；3 提交）：新 workflow upgrade-verification.yml（双 worktree 构造 OLD 43a8da1/NEW head 各 app+androidTest 四件，digest 守卫+SHA 记录）+ run-upgrade-probe.sh（装 OLD→自带 FullRecoveryPhase1Test 种子→root 注入 metadata→install -r NEW→UpgradeOverlayDeviceTest）+ 验证 instrumentation（判据 5–10）
+- **R2 run 43058202316 三 job 全绿**（判据 5–10 双 API 通过；快照 13 字段零漂移；R1 单点红=content query --where 已修 860bedb）
+- 登记偏差：①插桩面=debug 应用对（AGP testBuildType 事实）；**仓库无 Actions secrets——release 对照物 unsigned，fork 签名覆盖装解锁=配置 4 项 secrets（无代码改动）**；②种子=单组 3 成员（Phase1 真实行为，非判据原设双组）；③冷却种子被 OLD 生产逻辑合法清空（边界发现非缺陷）
+- 状态：**待独立审计**（已派）
+
 ## 单元五：组合候选（2026-11-11）
 - 组合分支 combination/2026-11-10 @ `68ebf15`（master 488bd21 含 #68 + integration a16796e 含 13 组件/收尾修正/门禁诊断 cee003b+9979967；**零冲突**）
 - **组合门禁 42856903671 三 job 全绿**（全量 430 单元 + Release/R8 + API36/37 设备全套；R8 metadata 警告 0——#68 效力在组合中复验）
