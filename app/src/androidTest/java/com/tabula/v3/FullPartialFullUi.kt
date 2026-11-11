@@ -23,11 +23,36 @@ internal object FullPartialFullUi {
     /** 夹具名前缀（removeCard 防呆：只允许滑动本套件夹具卡）。 */
     const val FIXTURE_PREFIX = "fpf-"
 
-    /** 月份专清真实入口：选择图集 → 月份 → 目标月 → 开始整理 → sheet 关闭核验。 */
+    /**
+     * 月份专清真实入口：选择图集 → 月份 → 目标月（月行 a11y 不可达时重开 sheet
+     * 重试）→ 开始整理 → sheet 关闭核验。
+     *
+     * CI run 43049377860（API36 Phase3）实证：sheet 已切月份模式、月行渲染在屏
+     * （留证截屏），但 a11y 树 30s 不含月行文本——dialog 内 LazyColumn 列表项语义
+     * 更新丢失（分段控件静态文本可达，列表项不可达；R1 API36 留证同构）。定向
+     * 恢复 = 重开 sheet（Close sheet = 生产 onDismissRequest 路径）强制重组重发
+     * 语义，至多 3 轮；全程真实 UI 路径，无固定 sleep，逐轮留证。
+     */
     fun startMonth(monthName: String) {
         PartialSelectionUi.tap("选择图集")
         PartialSelectionUi.tap("月份")
-        PartialSelectionUi.tap(monthName)
+        var selected = false
+        for (attempt in 0 until 3) {
+            if (tapMonthIfExposed(monthName, timeoutMs = 10000)) {
+                selected = true
+                break
+            }
+            Log.w(TAG, "startMonth: '$monthName' not reachable via a11y (attempt $attempt)")
+            if (attempt < 2) {
+                Log.i(TAG, "startMonth: reopening cleanup sheet to force fresh semantics")
+                reopenCleanupSheet()
+            }
+        }
+        if (!selected) {
+            PartialSelectionUi.dumpTree("timeout-month-$monthName")
+            PartialSelectionUi.saveScreenshot("timeout-month-$monthName")
+            error("month row never reachable via a11y after sheet reopen retries: $monthName")
+        }
         // 点击+推进核验+重试：sheet 退场动画期内"开始整理"合法可见（过渡语义，
         // 不再首见即杀）；批次加载由调用方 waitFor 具体卡名收口
         tapAndAwaitDismissal("开始整理", "month-sheet-dismissed")
@@ -145,6 +170,37 @@ internal object FullPartialFullUi {
             SystemClock.sleep(100)
         }
         return false
+    }
+
+    /** 月行 a11y 可达即点击（有界轮询，不抛错）；点击经 clickNode 含祖先回退与坐标回退。 */
+    private fun tapMonthIfExposed(monthName: String, timeoutMs: Long): Boolean {
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        while (SystemClock.uptimeMillis() < deadline) {
+            val root = ins.uiAutomation.rootInActiveWindow
+            val node = root?.let { find(it, monthName) }
+            if (node != null) {
+                PartialSelectionUi.clickNode(node, "month-select-$monthName")
+                return true
+            }
+            SystemClock.sleep(150)
+        }
+        return false
+    }
+
+    /**
+     * 关闭并重开清理 sheet（月行 a11y 语义丢失的定向恢复）：scrim "Close sheet"
+     * = 生产 onDismissRequest 路径；关闭核验 = sheet 头部最终消失（有界，失败
+     * 留证报错）；重开后 sheet 回到默认图集模式，重新切月份模式。
+     */
+    private fun reopenCleanupSheet() {
+        PartialSelectionUi.tapAny(listOf("Close sheet"), "cleanup-sheet-reopen-close")
+        if (!pollFinallyGone("选择图集进行整理", timeoutMs = 5000, observeMs = 500)) {
+            PartialSelectionUi.dumpTree("cleanup-sheet-reopen-not-closed")
+            PartialSelectionUi.saveScreenshot("cleanup-sheet-reopen-not-closed")
+            error("cleanup sheet did not close on reopen attempt")
+        }
+        PartialSelectionUi.tap("选择图集")
+        PartialSelectionUi.tap("月份")
     }
 
     /** 精确匹配等待（月份名等短标签避免 contains 误命中）。 */
