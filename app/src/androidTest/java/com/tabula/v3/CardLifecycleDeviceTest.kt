@@ -234,18 +234,32 @@ class CardLifecycleDeviceTest {
     }
 
     /**
-     * 逐级返回直至 deck 状态标记可见（设置/子页层级数不定）。每步返回后有界等待
-     * 重组完成再决定下一步（轮 2 实证：固定短睡导致双击返回退出应用至桌面）；
-     * 若已逸出应用（桌面）则 am start 重入。
+     * deck 是否为**激活屏**（非 overlay 前台）。MainActivity 的 overlay 结构下
+     * （RECYCLE_BIN/SETTINGS 以 deck 为背景层），背景 deck 的状态标记在树中恒可见
+     * ——轮 3 实证：仅凭标记会把回收站前台误判为已回 deck。故需叠加"无 overlay
+     * 特征节点"负向条件（各 overlay 屏的独有文本）。
+     */
+    private val overlayMarkers = listOf(
+        "回收站空空如也", "暂无被删除的照片", "项待处理", // 回收站
+        "主题模式", "切换样式", "每组数量"                // 设置 / 显示设置子页
+    )
+
+    private fun deckActive(root: AccessibilityNodeInfo?): Boolean =
+        root != null && find(root, deckStatusMarker) != null &&
+            overlayMarkers.none { find(root, it) != null }
+
+    /**
+     * 逐级返回直至 deck 为激活屏。每步返回后有界等待重组完成再决定下一步（轮 2
+     * 实证：固定短睡导致双击返回退出应用至桌面）；若已逸出应用（桌面）则 am start 重入。
      */
     private fun backUntilDeck(maxSteps: Int = 5) {
         repeat(maxSteps) { step ->
             val root = ins.uiAutomation.rootInActiveWindow
-            if (root != null && find(root, deckStatusMarker) != null) return
+            if (deckActive(root)) return
             if (root == null || root.packageName != ctx.packageName) {
                 Log.i(TAG, "back step=$step: app not foreground, relaunching")
                 shell("am start -n ${ctx.packageName}/com.tabula.v3.MainActivity")
-                waitForState("relaunch-deck", timeoutMs = 15000) { r -> find(r, deckStatusMarker) != null }
+                waitForState("relaunch-deck", timeoutMs = 15000) { r -> deckActive(r) }
                 return
             }
             val backNode = findExact(root, "返回")
@@ -253,12 +267,11 @@ class CardLifecycleDeviceTest {
             Log.i(TAG, "back step=$step pressed")
             val settleEnd = SystemClock.uptimeMillis() + 3000
             while (SystemClock.uptimeMillis() < settleEnd) {
-                val r = ins.uiAutomation.rootInActiveWindow
-                if (r != null && find(r, deckStatusMarker) != null) return
+                if (deckActive(ins.uiAutomation.rootInActiveWindow)) return
                 SystemClock.sleep(200)
             }
         }
-        waitForState("back-on-deck", timeoutMs = 12000) { root -> find(root, deckStatusMarker) != null }
+        waitForState("back-on-deck", timeoutMs = 12000) { root -> deckActive(root) }
     }
 
     /** deck 状态计数（"N 张待整理"）——deck 移除的真值信号（节点消失断言的替代，见 KDoc）。 */
@@ -499,9 +512,7 @@ class CardLifecycleDeviceTest {
         photos.forEach { assertTrue("取消不得影响媒体行: ${it.displayName}", present(primaryItem(it.uri))) }
         assertEquals("取消不得改变夹具行数", photos.size, fixtureCount())
         assertTrue("取消不得写入回收站记录", fixtureRecords().isEmpty())
-        waitForState("deck-operable-after-cancel", timeoutMs = 8000) { root ->
-            find(root, deckStatusMarker) != null
-        }
+        waitForState("deck-operable-after-cancel", timeoutMs = 8000) { root -> deckActive(root) }
     }
 
     /**
@@ -516,6 +527,7 @@ class CardLifecycleDeviceTest {
      */
     private fun phaseSwipeDelete(modeLogFragment: String): String {
         val countBefore = readDeckPendingCount()
+        var engaged = false
         for (candidate in gestureCandidates()) {
             val mark = epochNow()
             val (cx, cy) = cardCenter(candidate)
@@ -533,10 +545,12 @@ class CardLifecycleDeviceTest {
                 Log.i(TAG, "delete attempt engaged the interactive card (dragEnd at ${dragEnd.ts})")
                 waitForLog("PreloadingManager", "pause", mark)
                 waitForLog("PreloadingManager", "resume", mark)
+                engaged = true
                 break
             }
             Log.i(TAG, "delete attempt did not reach the interactive card, trying next origin")
         }
+        if (!engaged) saveEvidence("dragend-miss-delete-$modeLogFragment")
         // 撤销 Snackbar（3000ms 超时 = 确认删除）提交窗口后，回收站记录出现
         SystemClock.sleep(3600)
         val end = SystemClock.uptimeMillis() + 15000
@@ -670,9 +684,7 @@ class CardLifecycleDeviceTest {
         phaseCancel("shuffle")
         // SHUFFLE：一轮非破坏 swipe（右滑切牌，循环导航，无删除）
         horizontalSwipeUntilDragEnd("shuffle", dx = 420f)
-        waitForState("deck-operable-after-shuffle-swipe", timeoutMs = 8000) { root ->
-            find(root, deckStatusMarker) != null
-        }
+        waitForState("deck-operable-after-shuffle-swipe", timeoutMs = 8000) { root -> deckActive(root) }
 
         // 离页：设置 → 显示设置子页 → 切换样式 → 轻掠模式 → 逐级返回（轮 1 修正：
         // "切换样式"区位于 DisplaySettingsScreen，主列表不含——run 43067990321 实证）
@@ -683,7 +695,7 @@ class CardLifecycleDeviceTest {
         SystemClock.sleep(400)
         backUntilDeck()
         waitForState("back-on-deck-after-switch", timeoutMs = 12000) { root ->
-            find(root, deckStatusMarker) != null && names.any { find(root, it) != null }
+            deckActive(root) && names.any { find(root, it) != null }
         }
 
         // DRAW 模式重复场景 1 循环（dragCancel draw 日志即切换生效信号）
@@ -694,9 +706,7 @@ class CardLifecycleDeviceTest {
         // 返回验证：deck 可操作——非破坏 draw 左滑（收牌；末卡态亦不进入完成页）
         // 产生 dragEnd draw 日志
         horizontalSwipeUntilDragEnd("draw", dx = -420f)
-        waitForState("deck-operable-final", timeoutMs = 8000) { root ->
-            find(root, deckStatusMarker) != null
-        }
+        waitForState("deck-operable-final", timeoutMs = 8000) { root -> deckActive(root) }
     }
 
     @After fun cleanup() {
