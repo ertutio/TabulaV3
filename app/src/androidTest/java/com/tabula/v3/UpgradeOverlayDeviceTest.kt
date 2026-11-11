@@ -16,7 +16,6 @@ import com.tabula.v3.data.repository.mediaIdentityKey
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -68,19 +67,29 @@ class UpgradeOverlayDeviceTest {
 
     // ===== 断言纪律基建 =====
 
-    /** 截止轮询：每 250ms 重试，超时抛出带上下文的断言错误（无裸 sleep 断言）。 */
-    private suspend fun <T> awaitUntil(desc: String, timeoutMs: Long = 30_000L, probe: suspend () -> T): T {
+    /**
+     * 布尔截止轮询：条件为 false 时每 250ms 重试；只有 true 才提前结束，
+     * 持续 false 必须以带上下文的 AssertionError 超时失败（false 恒不通过，
+     * 无裸 sleep 断言）。probe 抛出的异常同样视为未达成并继续重试。
+     */
+    private suspend fun awaitUntil(desc: String, timeoutMs: Long = 30_000L, condition: suspend () -> Boolean) {
         val deadline = System.currentTimeMillis() + timeoutMs
+        var probes = 0
         var lastError: Throwable? = null
         while (System.currentTimeMillis() < deadline) {
+            probes++
             try {
-                return probe()
+                if (condition()) return
             } catch (e: Throwable) {
                 lastError = e
-                android.os.SystemClock.sleep(250)
             }
+            android.os.SystemClock.sleep(250)
         }
-        throw AssertionError("截止轮询超时（${timeoutMs}ms）：$desc", lastError)
+        throw AssertionError(
+            "截止轮询超时（${timeoutMs}ms，probes=$probes，条件持续为 false）：" +
+                if (lastError != null) "$desc（末次异常：$lastError）" else desc,
+            lastError
+        )
     }
 
     /** 失败留证：断言块抛错时把当前状态证据落盘再重抛。 */
@@ -213,10 +222,11 @@ class UpgradeOverlayDeviceTest {
             // 入站 → 记录可读且身份键解析成功 → 恢复 → 计数归零、内容完好。
             val drilled = rows[checkpointIndex.coerceAtMost(rows.size - 1)]
             trash.addToRecycleBin(drilled)
-            val inBin = awaitUntil("回收站记录可见且身份键解析成功") {
+            // 回收站记录必须可读且身份键解析成功：条件本身即断言，
+            // 持续 false 直到超时即失败（不再有 assertFalse 也通过的空等待）。
+            awaitUntil("回收站记录可见且身份键解析成功") {
                 trash.loadRecycleBin().singleOrNull()?.mediaIdentityKey() == drilled.mediaIdentityKey()
             }
-            assertNotNull("回收站记录必须可读", inBin)
             trash.removeFromRecycleBin(drilled)
             awaitUntil("恢复后回收站归零") { trash.loadRecycleBin().isEmpty() }
 
@@ -263,5 +273,60 @@ class UpgradeOverlayDeviceTest {
             val expected = readExpectedState(ctx)
             assertEquals(baseline.getString("groupId"), expected.getString("groupId"))
         }
+    }
+
+    // ===== 断言纪律回归：awaitUntil 布尔等待语义 =====
+    // 定点回归审计缺陷：只有 true 才结束等待；持续 false 必须以超时
+    // AssertionError 失败，false→true 时必须在 true 首次出现即通过。
+    // 两个用例自包含（不依赖种子状态），宿主按名驱动主用例时不受影响。
+
+    @Test
+    fun awaitUntilMustFailOnPersistentFalse() = kotlinx.coroutines.runBlocking {
+        var probes = 0
+        val start = System.currentTimeMillis()
+        val failure = runCatching {
+            awaitUntil("持续 false 条件必须在超时后失败", timeoutMs = 1_000L) {
+                probes++
+                false
+            }
+        }.exceptionOrNull()
+        if (failure !is AssertionError) {
+            throw AssertionError(
+                "持续 false 的等待必须以 AssertionError 超时失败，而非静默通过（实际：$failure）",
+                failure
+            )
+        }
+        val elapsed = System.currentTimeMillis() - start
+        assertTrue(
+            "必须真正轮询满超时窗口而非立即返回（elapsed=${elapsed}ms，probes=$probes）",
+            elapsed >= 1_000L
+        )
+        assertTrue(
+            "超时错误必须携带上下文描述",
+            failure.message?.contains("持续 false") == true
+        )
+        assertTrue(
+            "超时前必须持续重试而非单次即返（probes=$probes）",
+            probes >= 2
+        )
+    }
+
+    @Test
+    fun awaitUntilMustPassAsSoonAsConditionTurnsTrue() = kotlinx.coroutines.runBlocking {
+        var probes = 0
+        val start = System.currentTimeMillis()
+        awaitUntil("false→true 必须在 true 首次出现时立即通过", timeoutMs = 5_000L) {
+            probes++
+            probes >= 3 // 前两查 false，第三查 true
+        }
+        val elapsed = System.currentTimeMillis() - start
+        assertEquals(
+            "必须在条件首次为 true 时立即结束而非空转到超时（probes=$probes）",
+            3, probes
+        )
+        assertTrue(
+            "true 出现时必须立即通过而非耗满超时窗口（elapsed=${elapsed}ms）",
+            elapsed < 5_000L
+        )
     }
 }
