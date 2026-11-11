@@ -268,11 +268,30 @@ adb pull "/sdcard/Android/data/$APP_ID/files/upgrade-overlay-snapshot.json" devi
 adb pull "/sdcard/Android/data/$APP_ID/files/upgrade-overlay-evidence.json" device-results/t13-verify/ || true
 
 # ===== 7. 媒体真值 shell 面（判据 8 双面之一；生产面已在用例 1 内断言） =====
+# 注：MediaProvider 的可见性白名单覆盖 shell uid(2000)，不覆盖 uid 0——adb root
+# 之下 content query 对图像行返回空（R1 实测）。先 root 直查；无命中则 unroot
+# 以 shell 身份重查；两份原始输出均留证。
 names=${displaynames_json//,/ }
-: > device-results/t13-media-truth-shell.txt
+media_query() {
+  adb shell content query --uri content://media/external/images/media \
+    --projection _display_name 2>&1 | tr -d '\r'
+}
+media_rows=$(media_query)
+media_mode="root(uid 0)"
+first_name=${names%% *}
+if [ -z "$first_name" ] || ! grep -qF "$first_name" <<<"$media_rows"; then
+  adb unroot > /dev/null 2>&1 || true
+  adb wait-for-device
+  sleep 3
+  media_rows=$(media_query)
+  media_mode="shell(uid 2000)"
+  adb root > /dev/null 2>&1 || true
+  adb wait-for-device
+fi
+{ echo "query mode: $media_mode"; echo "--- raw rows ---"; echo "$media_rows"; \
+  echo "--- per-name counts ---"; } > device-results/t13-media-truth-shell.txt
 for name in $names; do
-  count=$(adb shell content query --uri content://media/external/images/media \
-            --projection _id --where "display_name='$name'" 2>/dev/null | grep -c "Row:")
+  count=$(grep -cF "_display_name=$name" <<<"$media_rows")
   echo "$name rows=$count" >> device-results/t13-media-truth-shell.txt
   [ "$count" = "1" ] || fail "shell media truth: $name expected exactly 1 row, got $count"
 done
