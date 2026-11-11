@@ -138,3 +138,28 @@ PartialSelectionPhaseATest=1、PartialSelectionPhaseBTest=1；probe 脚本每阶
 - **B. 直接实现 Settings 回退**（跳过诊断，估 1-2 轮，PhaseA 原语复用度高）。
 - **C. 收拢交付**：PhaseA 即验收单元（已双 API 绿），PhaseB 登记；PR 现状可审（PhaseA 断言全保留，PhaseB 用例标记为已知边界或摘除——裁决定）。
 - 时间基线：当前 22:50；冻结 06:30；每轮 CI ≈20min。三条路径均可在截止前完成。
+
+### 6.9 裁决执行记录（R11→R15 压缩）
+- R11（71b575e / 42492426169）：Settings 页实现后红——行点击仅切模式不开选择器（API36 树 dump：Photos and videos permission 页三选项+行内 gear desc=Settings）。
+- R12（58a5e74 / 42494373019）：gear 直点后红——API37 AppInfo 行点击被吞没卡在 AppInfo（R3 同类）。
+- R13（902a4ef / 42496304498）：导航核验重试后红——tapWithNavigationVerify 无候选等待，AppInfo 节点 ~2-5s 渲染延迟。
+- R14（f540152 / 42498101516）：候选等待后红——API37 timed out waiting for partial-b1.png（月份清理成员视图）：**地面真值 {B1,B2} 已通过**（重选生效）、deck/查看器过、仅成员视图无卡——引擎对成员缺席的持久组持有（任务 A 语义），B 未分析无批次（生产语义）。
+- 修正（R16 待跑）：月份断言收拢为 sheet 月行（生产 buildMonthInfos 口径）+ 持有语义登记。
+- 额度纪律生效：每轮最小证据（一行/一截图区），notes 压缩。
+
+### 6.10 裁决执行完成（R16 全绿）
+- R16（50c9d88 / run 42500080220）：**三 job 全绿**（build + API36 + API37，各 ~10min）——Settings 回退链（AppInfo 深链→Permissions 导航核验→Photos and videos→gear→像素驱动 {0,1}→确认回读）+ 地面真值 {B1,B2} + PhaseB 全部保留断言（retention pre/post-switch、哨兵 shell 行存在、查看器、月行）双 API 通过；PhaseA 重绿补强（裁决第 1 问的补强条件达成）。
+- 交付边界：A→B 重选机制=系统设置页（(c) 实证：PICK_IMAGES 确认不更新授权集）；月份清理成员视图为引擎持有语义（不断言，段内登记）。
+- 分支 docs/night-2026-11-08-B1-notes.md = 本 notes 快照（资产保全）。
+
+### 6.11 最终验收 run 与证据绑定
+- 最终验收 run 42501864524（head 35e5683=docs-only 提交）：build 绿、API37 绿（PhaseA+PhaseB 全链）、**API36 一次性瞬态抖动**——Settings 权限页 'Photos and videos' 条目 30s 未现（该步骤 R16 同 API 通过；R10/R16 API36 多次通过；非代码回归——35e5683 与 50c9d88 的 diff 仅 1 个 notes md 文件，可 git diff 核对）。
+- **证据绑定口径**：代码证据 = R16 run 42500080220（head 50c9d88，三 job 全绿，PhaseA+PhaseB 全链双 API）；其后唯一提交 35e5683 为 docs-only。按验收约定「分支随后变化则判断证据是否仍适用」：适用。
+- 额度纪律生效：不再为 final-head 绑定重派。
+
+### 6.12 收尾单元（2026-11-09 01:35-01:50，未派 CI——协调者统一派发）
+1. **跨月份夹具**（probe touch -t）：S/A1/A2 mtime=10月（10-10/10-15/10-20）、B1/B2 mtime=11月（11-05/11-07）→ date_modified/date_taken 派生月份分属 10/11 月；排序 DESC 仍 [B2,B1,A2,A1,S] 不变。
+   - PhaseA 月份断言升级：sheet waitFor("10月") + awaitGone("11月")（B 月随选择集不可见而缺席）+ 成员视图 A 卡（原有）。
+   - PhaseB 月份断言升级：**B 组种子**（seedCleanupGroup(rowsB)，同 PhaseA 写入口）→ sheet waitFor("11月") + awaitGone("10月")（A 月随切换消失）+ **成员视图恢复**：开始整理后 b1/b2 卡可见、a1/a2/哨兵不可见（R15 的持有语义在同月场景仍成立；跨月+ B 组种子使成员视图可交付可断言）。
+2. **API36 入口失败排查**（final-run 工件 dump 直查）：失败时页面=AppInfo 滚动态（通知区在视口内、条目在折叠区下方）——条目不可见而非标签缺失。修复：tapAnyScrollableToMarker（候选滚动重试 ≤4 次 + 点击后目标页核验标记 "Allow limited access" + 8s 等待）接入 PhaseB 设置导航。
+- 验证：compileDebugAndroidTestKotlin 过；**CI 未派**（协调者统一派发）——本单元为 compile 级增益，派发后按既有判据验收。
