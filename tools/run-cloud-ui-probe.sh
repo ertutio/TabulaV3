@@ -82,21 +82,14 @@ status=0
 # 跨月夹具与设置页导航，机制结论见 PR57/notes）。
 # OtherAppMediaAuthDeviceTest 4 例（包C2：他人媒体真实系统授权流程——直接删除归属边界 /
 # 未授权按项保留 / 真实系统授权对话框删除 / 清理入口组合未授权保留，见套件 KDoc）。
-# ProdAuthCallbackDeviceTest 已从探针摘除（阻塞登记 2026-11-09，测试文件保留；累计 3 轮红）：
-# 轮 1 run 42646353367 双 API「deck trash button 未达预期效果」（根因 uiAutomation.windows
-# 恒空，head 2951ed2 已修，入口链路已验证可达）；轮 2 run 42653961146 双 API 取消分支
-# 「System consent dialog could not be cancelled」（系统对话框拒绝键实际文本=Deny，
-# CANCEL_TEXTS 缺项；BACK 兜底延迟不确定且污染次例启动）；轮 3 run 42662894360（head
-# 5c035ec，Deny/DENY 补齐 + 取消判定闭环链 + 第二段重入验证）：api36 Deny 点按生效、
-# 对话框关闭、确认用例转绿——但取消用例红于第二段判定「应用恢复前台+回收站就绪」：
-# 取消后 row1 查看器仍开启，全屏查看器覆盖层使回收站计数/列表节点不可达（dump 实证：
-# 树内仅 关闭/1 / 2/恢复/彻底删除 + 查看器页 desc=条目名，无计数文本）；api37 Deny 点按
-# 在对话框成为 active window 后 ~0.25s 即发出（进入动画期被吞），点按一次后无重试 →
-# 对话框滞留（dump 实证 20s 后 text=Deny/Allow clickable=true 仍在）并污染确认用例
-# （bringAppToForeground 45s 超时）。唯一解锁路径（待验证假设，见套件 KDoc）：取消判定
-# 第一段后先关闭查看器（点 关闭，效果=彻底删除 desc 消失）再等计数/条目重现；Deny/
-# BACK 点按改为有界重试直至对话框关闭。复现栈与 dump 关键行见套件 KDoc。
-for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest; do
+# ProdAuthCallbackDeviceTest 2 例（包C2 收尾：生产授权回调消费路径——系统对话框确认/
+# 取消结果经应用真实入口（生产 launcher）消费 + in-flight 释放，见套件 KDoc）。
+# [历史登记 2026-11-09→11-11] 曾因 3 轮红摘除：轮1 uiAutomation.windows 恒空（2951ed2
+# 修）；轮2 CANCEL_TEXTS 缺 Deny（5c035ec 补）；轮3 取消后查看器覆盖层滞留+api37 点按
+# 入动画窗被吞。收尾单元三已全部修正（513d3df：closeViewerIfOpen/正向观察/前置条件
+# 重试/用例末释放；47f38c9：OtherAppMediaAuth Allow 有界自验证重点，run 42863345514
+# 三 job 全绿 API37 OK(4)）——本行恢复 runner 登记，双 API 复验随本次门禁。
+for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest ProdAuthCallbackDeviceTest; do
   case "$class" in
     CloudCleanupUiTest) expected_tests=8 ;;
     CloudRestoreUiTest) expected_tests=3 ;;
@@ -104,6 +97,7 @@ for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTe
     ForegroundPermissionUiTest) expected_tests=2 ;;
     PixelRefreshUiTest) expected_tests=2 ;;
     OtherAppMediaAuthDeviceTest) expected_tests=4 ;;
+    ProdAuthCallbackDeviceTest) expected_tests=2 ;;
     *) expected_tests=2 ;;
   esac
   dir="device-results/$class"
