@@ -61,6 +61,12 @@
 - **组合门禁 42856903671 三 job 全绿**（全量 430 单元 + Release/R8 + API36/37 设备全套；R8 metadata 警告 0——#68 效力在组合中复验）
 - **独立复审 PASS**（audit-combination.md：单次顶层合并、与 integration 逐字节一致、冲突标记 0、6 类设备门+阶段门齐全且 ProdAuthCallback 摘除态无回潮、生产面恰 7 文件、R8 8.13.19 在位且警告 0、CI XML 430 全绿）；**#66 单元三 CI**：API36 绿（修正+诊断生效），API37 OtherAppMediaAuth 第 3 次红（同签名=tap 被入场动画吞）→ 有界重点修正轮已派（9979967 同款模式）；B2 维持额度阻塞登记
 
+## T06 交付（设备级生命周期验收，2026-11-12）
+- **PR #74**（test/card-lifecycle-2026-11-12，base=combination/2026-11-10；diff 恰 4 文件）：CardLifecycleDeviceTest 3 例（场景 1 SHUFFLE/DRAW 真实 swipe+ACTION_CANCEL 注入→dragCancel/resume 日志时序断言→真实删除真值→恢复入口；场景 2 Settings 驱动会话内切模式→DRAW 全循环）+ PreloadingManager pause/resume 各 1 行 DEBUG 日志（可观测性增补，无行为变化）+ probe 第 7 类登记
+- **门禁 run 43086693791 三 job 全绿**（本套件双 API OK(3)；API36 FULL recovery 间歇 flake 已登记为与 PR 无关——对比基线自身既有红）
+- 迭代 5 轮全以工件定向修正（推荐批序漂移/DRAW 原点落侧缘/空态无计数文本/overlay 结构背景 deck 判定）
+- 状态：**待独立审计**（已派；base 已从 master 改组合分支使复审 delta 恰为 T06 改动）
+
 ## T12 交付（EXIF 1.4.2，2026-11-11）
 - PR #69（`547c93b`，堆叠 combination/2026-11-10@68ebf15——依赖 #63 回归在树）：exifinterface 1.3.7→1.4.2 单行；官方依据=最新稳定（2025-12-03）/1.5.0 beta 排除/minSdk 无影响；迁移点已核（XMP 分段/HEIC-AVIF/IFD 容错）
 - 回归：ImageFeatureExifHintTest 5/5（#63 转红契约成立）+ Definitive 2/2 + 全量 430/0；CI 42863404468 运行中；回退=revert 单行
