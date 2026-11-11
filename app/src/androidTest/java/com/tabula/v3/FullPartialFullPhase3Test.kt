@@ -66,6 +66,9 @@ class FullPartialFullPhase3Test {
     private val ctx get() = ui.ctx
 
     @Before fun setup() {
+        // 依赖门（coord/notes-B2.md §7.3）：Phase2 未成功落盘（含 phase2Pid）则本阶段
+        // 拒绝执行——probe 侧配合依赖跳过，不再把级联失败误判为本阶段独立红
+        FullPartialFullStateContract.requireDependency(ctx, "phase2Pid", "Phase 2")
         check(InstrumentationRegistry.getArguments().getString("allowSyntheticMediaProbe") == "true")
         check(Build.HARDWARE == "ranchu" || Build.HARDWARE == "goldfish")
         assertEquals(

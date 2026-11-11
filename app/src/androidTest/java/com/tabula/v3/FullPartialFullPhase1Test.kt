@@ -138,9 +138,10 @@ class FullPartialFullPhase1Test {
         Log.i(TAG, "deck current card = g1, swiping to process")
         FullPartialFullUi.removeCard(FullPartialFullStateContract.G1_NAME)
 
-        // deck 移除是同步的：下一张（g2）滑入当前位，g1 节点消失
+        // deck 移除是同步的：下一张（g2）滑入当前位，g1 节点消失（上滑动画期内
+        // 合法可见——推进语义 awaitDismissed 允许有界过渡，消失后 1.5s 观察窗）
         FullPartialFullUi.waitForExact(FullPartialFullStateContract.G2_NAME)
-        FullPartialFullUi.awaitGone(
+        FullPartialFullUi.awaitDismissed(
             FullPartialFullStateContract.G1_NAME, tag = "g1-removed-from-deck"
         )
 

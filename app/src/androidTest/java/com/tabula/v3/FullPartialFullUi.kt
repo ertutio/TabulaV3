@@ -2,6 +2,7 @@ package com.tabula.v3
 
 import android.graphics.Rect
 import android.os.SystemClock
+import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.FileInputStream
@@ -15,6 +16,7 @@ import java.io.FileInputStream
  * 等待一律有截止时间；失败经 PartialSelectionUi 留证（截图+树 dump，文件名不含 `|`）。
  */
 internal object FullPartialFullUi {
+    private const val TAG = "FullPartialFullUi"
     private val ins get() = InstrumentationRegistry.getInstrumentation()
     private val ctx get() = ins.targetContext
 
@@ -26,9 +28,9 @@ internal object FullPartialFullUi {
         PartialSelectionUi.tap("选择图集")
         PartialSelectionUi.tap("月份")
         PartialSelectionUi.tap(monthName)
-        PartialSelectionUi.tap("开始整理")
-        // sheet 关闭核验（无固定 sleep；批次加载由调用方 waitFor 具体卡名收口）
-        awaitGone("开始整理", tag = "month-sheet-dismissed")
+        // 点击+推进核验+重试：sheet 退场动画期内"开始整理"合法可见（过渡语义，
+        // 不再首见即杀）；批次加载由调用方 waitFor 具体卡名收口
+        tapAndAwaitDismissal("开始整理", "month-sheet-dismissed")
     }
 
     /**
@@ -51,13 +53,16 @@ internal object FullPartialFullUi {
     /**
      * 经真实 sheet 退出清理模式（月份清理视图无 BACK 出口——#57 实证）：
      * 选择图集 → 分段控件"全局"（onSwitchToGlobal 生产路径：保存断点 + 退出清理）。
-     * 核验 = sheet 头部文本消失（"选择图集进行整理"，surface 唯一渲染文本，
-     * 不与 TopBar"选择图集"混淆）。
+     * 核验链（coord/notes-B2.md §7.3）："全局"点击+推进核验（ModalBottomSheet 退场
+     * 动画 ~300-500ms 内头部"选择图集进行整理"合法可见——awaitGone 首见即杀会把
+     * 成功路径误杀，CI run 42666340050 实证）→ sheet 头部文本最终消失 → DECK_MARKER
+     * 回归（生产退出完成核验）。
      */
     fun exitCleanupViaSheet() {
         PartialSelectionUi.tap("选择图集")
-        PartialSelectionUi.tap("全局")
-        awaitGone("选择图集进行整理", tag = "cleanup-sheet-dismissed")
+        tapAndAwaitDismissal("全局", "cleanup-exit-global")
+        awaitDismissed("选择图集进行整理", "cleanup-sheet-dismissed", timeoutMs = 8000)
+        PartialSelectionUi.waitFor(PartialSelectionUi.DECK_MARKER, timeoutMs = 15000)
     }
 
     /** 集合外/已处理媒体不得出现：截止时间内节点必须始终缺席（出现即失败留证）。 */
@@ -71,6 +76,75 @@ internal object FullPartialFullUi {
             }
             SystemClock.sleep(100)
         }
+    }
+
+    /**
+     * 等待节点**最终消失**（推进语义，与 [awaitGone] 的不变量语义相对）：
+     * ModalBottomSheet 退场动画 / 卡片上滑动画期内节点合法可见（成功路径也如此），
+     * 故允许有界过渡——节点先保持可见，消失后在 [observeMs] 观察窗内不得重现；
+     * 观察窗内重现（退场未完成/被重开）则继续等下一次消失，直至截止。
+     * 截止后仍可见 → 留证报错。
+     */
+    fun awaitDismissed(
+        label: String,
+        tag: String,
+        timeoutMs: Long = 12000,
+        observeMs: Long = 1500
+    ) {
+        if (pollFinallyGone(label, timeoutMs, observeMs)) {
+            Log.i(TAG, "$tag: '$label' finally dismissed (observe=${observeMs}ms)")
+            return
+        }
+        PartialSelectionUi.dumpTree("timeout-dismissed-$tag")
+        PartialSelectionUi.saveScreenshot("timeout-dismissed-$tag")
+        error("node never finally dismissed: $label ($tag)")
+    }
+
+    /**
+     * 点击 + 推进核验 + 重试（CI 实证单次 tap 可能被吞没——
+     * tapDialogActionAndAwaitPicker 同款纪律）：点击后按 [awaitDismissed] 语义
+     * 等待最终消失，未推进则重试（waitFor 重新定位节点），至多 [attempts] 次；
+     * 全部失败留证报错。
+     */
+    fun tapAndAwaitDismissal(
+        label: String,
+        tag: String,
+        attempts: Int = 3,
+        perAttemptMs: Long = 8000
+    ) {
+        repeat(attempts) { attempt ->
+            val node = PartialSelectionUi.waitFor(label)
+            PartialSelectionUi.clickNode(node, "$tag-attempt$attempt")
+            if (pollFinallyGone(label, perAttemptMs, 1500)) {
+                Log.i(TAG, "$tag: '$label' dismissed after attempt $attempt")
+                return
+            }
+            Log.w(TAG, "$tag attempt $attempt did not dismiss '$label'; retrying")
+        }
+        PartialSelectionUi.dumpTree("dismissal-not-advanced-$tag")
+        PartialSelectionUi.saveScreenshot("dismissal-not-advanced-$tag")
+        error("$tag: '$label' did not dismiss after $attempts click attempts — evidence saved")
+    }
+
+    /** 最终消失轮询（不抛错）：先等消失，再观察窗确认不重现；截止前完成=成功。 */
+    private fun pollFinallyGone(label: String, timeoutMs: Long, observeMs: Long): Boolean {
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (find(ins.uiAutomation.rootInActiveWindow, label) == null) {
+                var stable = true
+                val observeEnd = SystemClock.uptimeMillis() + observeMs
+                while (SystemClock.uptimeMillis() < observeEnd) {
+                    if (find(ins.uiAutomation.rootInActiveWindow, label) != null) {
+                        stable = false
+                        break
+                    }
+                    SystemClock.sleep(100)
+                }
+                if (stable) return true
+            }
+            SystemClock.sleep(100)
+        }
+        return false
     }
 
     /** 精确匹配等待（月份名等短标签避免 contains 误命中）。 */

@@ -291,36 +291,67 @@ if [ "$fixture_ok" != "1" ]; then
   echo "Host fixture orchestration failed" >&2
   fpf_status=1
 fi
+# 依赖跳过辅助（coord/notes-B2.md §7.3.6）：上游阶段红 → 下游 instrumentation 跳过
+# （"dependency-unmet" 日志，fpf_status 保持 1，不跑依赖阶段）；跳过时宿主侧按名
+# 兜底清理 6 夹具（依赖阶段未跑 → 其 @After 清理未执行，防残留污染后续 probe 段）。
+fpf_cleanup_fixtures() {
+  for f in fpf-s1.png fpf-n1.png fpf-g1.png fpf-g2.png fpf-b1.png fpf-b2.png; do
+    adb shell "content delete --uri content://media/external/images/media --where \"_display_name='$f' AND relative_path='Pictures/FullPartialFullFixtures/'\"" >/dev/null 2>&1 || true
+    adb shell "rm -f /sdcard/Pictures/FullPartialFullFixtures/$f" >/dev/null 2>&1 || true
+  done
+  adb shell "rm -rf /sdcard/Pictures/FullPartialFullFixtures" >/dev/null 2>&1 || true
+  echo "FPF skip fallback: 6 fixtures removed by name"
+}
+fpf_phase1_ok=1
 if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
   -e class com.tabula.v3.FullPartialFullPhase1Test \
   com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
   | tee device-results/FullPartialFull/phase1.txt; then
-  echo "FPF Phase1 instrumentation failed" >&2; fpf_status=1
+  echo "FPF Phase1 instrumentation failed" >&2; fpf_status=1; fpf_phase1_ok=0
 fi
-grep -Eq "^OK \(1 tests?\)" device-results/FullPartialFull/phase1.txt || { echo "FPF Phase1 expected OK(1)" >&2; fpf_status=1; }
+grep -Eq "^OK \(1 tests?\)" device-results/FullPartialFull/phase1.txt || { echo "FPF Phase1 expected OK(1)" >&2; fpf_status=1; fpf_phase1_ok=0; }
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/FullPartialFull/phase1.txt; then
+  echo "Failure or skip observed in FPF phase1" >&2; fpf_status=1; fpf_phase1_ok=0
+fi
 
-# 宿主侧权限收窄：应用被系统强停（#52 实证行为）；应用数据保留，阶段2 新进程续接
-adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || fpf_status=1
-sleep 2
-if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
-  -e class com.tabula.v3.FullPartialFullPhase2Test \
-  com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
-  | tee device-results/FullPartialFull/phase2.txt; then
-  echo "FPF Phase2 instrumentation failed" >&2; fpf_status=1
+if [ "$fpf_phase1_ok" != "1" ]; then
+  echo "dependency-unmet: FPF Phase2 skipped (Phase1 red) — downstream instrumentation not run" >&2
+  fpf_phase2_ok=0
+  fpf_cleanup_fixtures
+else
+  # 宿主侧权限收窄：应用被系统强停（#52 实证行为）；应用数据保留，阶段2 新进程续接
+  adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || fpf_status=1
+  sleep 2
+  fpf_phase2_ok=1
+  if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+    -e class com.tabula.v3.FullPartialFullPhase2Test \
+    com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+    | tee device-results/FullPartialFull/phase2.txt; then
+    echo "FPF Phase2 instrumentation failed" >&2; fpf_status=1; fpf_phase2_ok=0
+  fi
+  grep -Eq "^OK \(1 tests?\)" device-results/FullPartialFull/phase2.txt || { echo "FPF Phase2 expected OK(1)" >&2; fpf_status=1; fpf_phase2_ok=0; }
+  if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/FullPartialFull/phase2.txt; then
+    echo "Failure or skip observed in FPF phase2" >&2; fpf_status=1; fpf_phase2_ok=0
+  fi
 fi
-grep -Eq "^OK \(1 tests?\)" device-results/FullPartialFull/phase2.txt || { echo "FPF Phase2 expected OK(1)" >&2; fpf_status=1; }
 
-# 恢复 FULL：grant 不杀进程 → 显式 force-stop 对齐 #52 重启口径（应用数据保留）
-adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || fpf_status=1
-adb shell am force-stop com.tabula.v3.recyclebin.test || fpf_status=1
-if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
-  -e class com.tabula.v3.FullPartialFullPhase3Test \
-  com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
-  | tee device-results/FullPartialFull/phase3.txt; then
-  echo "FPF Phase3 instrumentation failed" >&2; fpf_status=1
+if [ "$fpf_phase2_ok" != "1" ]; then
+  echo "dependency-unmet: FPF Phase3 skipped (Phase2 red) — downstream instrumentation not run" >&2
+  fpf_cleanup_fixtures
+else
+  # 恢复 FULL：grant 不杀进程 → 显式 force-stop 对齐 #52 重启口径（应用数据保留）
+  adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || fpf_status=1
+  adb shell am force-stop com.tabula.v3.recyclebin.test || fpf_status=1
+  if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+    -e class com.tabula.v3.FullPartialFullPhase3Test \
+    com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+    | tee device-results/FullPartialFull/phase3.txt; then
+    echo "FPF Phase3 instrumentation failed" >&2; fpf_status=1
+  fi
+  grep -Eq "^OK \(1 tests?\)" device-results/FullPartialFull/phase3.txt || { echo "FPF Phase3 expected OK(1)" >&2; fpf_status=1; }
 fi
-grep -Eq "^OK \(1 tests?\)" device-results/FullPartialFull/phase3.txt || { echo "FPF Phase3 expected OK(1)" >&2; fpf_status=1; }
 for phase in phase1 phase2 phase3; do
+  [ -f "device-results/FullPartialFull/$phase.txt" ] || continue
   if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' "device-results/FullPartialFull/$phase.txt"; then
     echo "Failure or skip observed in FPF $phase" >&2
     fpf_status=1

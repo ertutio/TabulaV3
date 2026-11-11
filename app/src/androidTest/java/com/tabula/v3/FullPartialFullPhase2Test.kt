@@ -52,6 +52,9 @@ class FullPartialFullPhase2Test {
     private val ctx get() = ui.ctx
 
     @Before fun setup() {
+        // 依赖门（coord/notes-B2.md §7.3）：Phase1 未成功落盘（含 phase1Pid）则本阶段
+        // 拒绝执行——probe 侧配合依赖跳过，不再把级联失败误判为本阶段独立红
+        FullPartialFullStateContract.requireDependency(ctx, "phase1Pid", "Phase 1")
         check(InstrumentationRegistry.getArguments().getString("allowSyntheticMediaProbe") == "true")
         check(Build.HARDWARE == "ranchu" || Build.HARDWARE == "goldfish")
         check(Build.VERSION.SDK_INT >= 34) { "PARTIAL selection semantics require API 34+" }
@@ -190,6 +193,8 @@ class FullPartialFullPhase2Test {
             "哨兵必须在应用可见集合之外",
             sentinelName !in visibleDisplayNameList(ctx).toSet()
         )
+        // 严格 2s 观察窗：观察期内哨兵不得在应用可见面出现（不变量语义，coord/notes-B2.md §7.3.4）
+        ui.awaitGone(sentinelName, timeoutMs = 2000)
         assertShellRowExists(sentinelName) { command -> ui.shellScript(command) }
 
         // ---- 记录 Phase2 进程 ----

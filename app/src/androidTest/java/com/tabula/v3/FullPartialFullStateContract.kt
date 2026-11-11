@@ -156,6 +156,25 @@ internal object FullPartialFullStateContract {
     fun readExpectedState(context: Context): JSONObject =
         JSONObject(stateFile(context).readText())
 
+    /**
+     * 显式依赖门（依赖纪律，coord/notes-B2.md §7.3）：上游阶段必须已成功落盘期望
+     * 状态且记录了进程键，否则本阶段拒绝执行——把"依赖级联失败"（上游未落盘导致
+     * 下游首行读文件即炸）与下游独立断言红分离，避免误诊。probe 侧配合依赖跳过
+     * （上游红 → 跳过本阶段 instrumentation，"dependency-unmet" 日志，fpf_status
+     * 保持 1）。
+     */
+    fun requireDependency(context: Context, pidKey: String, upstream: String) {
+        val file = stateFile(context)
+        check(file.exists() && file.length() > 0) {
+            "依赖未满足：$upstream 未完成——期望状态文件不存在（本阶段拒绝执行）"
+        }
+        val pid = runCatching { readExpectedState(context).optInt(pidKey, -1) }
+            .getOrElse { -1 }
+        check(pid > 0) {
+            "依赖未满足：$upstream 未完成——期望状态缺少有效 $pidKey（本阶段拒绝执行）"
+        }
+    }
+
     /** shell 精确删除夹具（按名+本套件路径），返回行是否已消失。 */
     fun shellDeleteFixture(name: String, shell: (String) -> String): Boolean {
         val query = shell(
