@@ -191,7 +191,7 @@ probe 脚本（tools/run-cloud-ui-probe.sh 新段，插在 PARTIAL 段之后、F
 - **真实失败机制 = 等待语义混淆（协调者指令②）**：`awaitGone`（FullPartialFullUi.kt:64）首见即杀——ModalBottomSheet 退场动画 ~300-500ms 内头部合法可见，tap 返回后首次轮询即误杀（成功路径也会红）；且单击无推进核验（CI 实证 tap 可被吞没，同 tapDialogActionAndAwaitPicker 存在的理由）。startMonth 的 awaitGone("开始整理") 同病，首轮靠时序侥幸通过。
 - 次要：Phase1 g1-removed awaitGone 同属过渡期首见即杀语义（上滑动画）。
 
-### 7.3 修正方案（已定稿，未落码——恢复入口）
+### 7.3 修正方案（已定稿——已于本会话全部落码，见 §7.4）
 1. FullPartialFullUi 新增 `awaitDismissed(label, tag, timeoutMs=12000, observeMs=1500)`（等待最终消失：允许有界过渡，消失后 1.5s 观察窗不得重现）与 `tapAndAwaitDismissal(label, tag, attempts=3, perAttemptMs=8000)`（点击+推进核验+重试）。需补 import android.util.Log。
 2. `startMonth`：tap+awaitGone → `tapAndAwaitDismissal("开始整理", "month-sheet-dismissed")`。
 3. `exitCleanupViaSheet`：tap("选择图集") → `tapAndAwaitDismissal("全局", "cleanup-exit-global")` → `awaitDismissed("选择图集进行整理", "cleanup-sheet-dismissed", 8000)` → `PartialSelectionUi.waitFor(DECK_MARKER, 15000)`（生产退出完成核验）。
@@ -199,3 +199,16 @@ probe 脚本（tools/run-cloud-ui-probe.sh 新段，插在 PARTIAL 段之后、F
 5. **依赖纪律（协调者指令③）**：StateContract 新增 `requireDependency(ctx, pidKey, upstream)`（文件存在且含 pid 键，否则 check 报"依赖未满足：Phase X 未完成——本阶段拒绝执行"）；Phase2 @Before 门 phase1Pid、Phase3 门 phase2Pid。
 6. probe：Phase1 红 → 跳过 Phase2 instrumentation；Phase2 红 → 跳过 Phase3（"dependency-unmet" 日志，fpf_status 保持 1，不跑依赖阶段）；跳过时宿主侧按名兜底清理 6 夹具。
 7. 然后：compileDebugAndroidTestKotlin → 提交 → dispatch CI（build-volume-confirmation.yml @ test/full-partial-full-2026-11-09）→ 按轮迭代 → notes 收尾 + PR（base=test/partial-selection-ab-2026-11-08）。
+
+### 7.4 修正落码与 R2/R3 CI（本会话，2026-11-11 晚——B2 收拢）
+
+- **§7.3 全部落码**（commit 67ca439，compileDebugAndroidTestKotlin 通过，LF 纪律保持）：
+  1. FullPartialFullUi 新增 `awaitDismissed`/`tapAndAwaitDismissal`（私有 `pollFinallyGone` 共用轮询核）；`startMonth`、`exitCleanupViaSheet`、Phase1 `g1-removed-from-deck` 改推进语义；Phase3 `g1-not-reentered` 保持严格 awaitGone；Phase2 判据7 补哨兵严格 2s 观察窗。
+  2. StateContract 新增 `requireDependency(ctx, pidKey, upstream)`（文件存在 + JSON 解析成功 + pid 键>0，否则 check"依赖未满足：Phase X 未完成——本阶段拒绝执行"）；Phase2/Phase3 @Before 首行置门。
+  3. probe：`fpf_phase1_ok`/`fpf_phase2_ok` 门——Phase1 红 → 跳过 Phase2；Phase2 红（含 Phase1 红级联）→ 跳过 Phase3；"dependency-unmet" 日志 + fpf_status 保持 1 + 宿主侧 `fpf_cleanup_fixtures` 按名兜底清理 6 夹具（content delete + rm -rf）；失败 grep 门逐段前移、收尾循环加文件存在守卫。
+- **R2 = run 43049377860（67ca439，API36 红 / API37 绿，~19min）**：
+  - Phase1（exitCleanupViaSheet）与 Phase2 双 API 全绿——§7.2 根因（awaitGone 首见即杀）修正确认有效，R1 唯一独立失败消除；依赖门/跳过纪律本轮未触发（Phase1 绿正常续跑）。
+  - API36 Phase3 红：`timed out waiting for 11月`（startMonth 内 tap(monthName)）。留证裁决（ui-failures timeout-11月 截屏+树 dump）：sheet 已在"月份"模式、"11月/5 张照片"行渲染在屏，但 a11y 树 30s 无月行文本——分段控件静态文本可达、dialog 内 LazyColumn 列表项语义更新丢失（R1 API36 的 ALBUM 模式留证同构）；app 无错误日志、无主线程阻塞（Davey 双进程同量级且 Phase1 仍成功）——时序/状态依赖的语义暴露丢失（API37 全绿、Phase1 同路径 R1/R2 均绿）。判据 8/9/10 引擎与记录断言全部先行通过，红仅限 UI 续接导航。
+  - 定向修正（commit 991307e）：startMonth 月行 a11y 不可达时有界重开 sheet 重试——`tapMonthIfExposed`（10s 轮询可达即点击）→ `reopenCleanupSheet`（scrim "Close sheet" = 生产 onDismissRequest 路径，关闭核验 = 头部最终消失）→ 重切月份，至多 3 轮，逐轮留证、无固定 sleep。
+- **R3 = run 43055853277（991307e，双 API 全绿，~25min）**：API36/API37 三阶段各 OK(1)，probe 数量门+失败 grep 门全过；Phase1/Phase3 月行均 attempt 0 命中、无 reopening 触发（重试为未触发的保险路径）。判据 1–10 全断言双 API 绿（映射表 §4 全兑现），通用纪律全程在案。
+- 遗留：无。R3 = 收拢轮（全绿）；PR：base=test/partial-selection-ab-2026-11-08。
