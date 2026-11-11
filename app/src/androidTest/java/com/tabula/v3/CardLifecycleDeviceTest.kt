@@ -233,15 +233,30 @@ class CardLifecycleDeviceTest {
         error("UI element not found after scrolling: $label")
     }
 
-    /** 逐级返回直至 deck 状态标记可见（设置/子页层级数不定，有界兜底 KEYCODE_BACK）。 */
-    private fun backUntilDeck(maxSteps: Int = 4) {
+    /**
+     * 逐级返回直至 deck 状态标记可见（设置/子页层级数不定）。每步返回后有界等待
+     * 重组完成再决定下一步（轮 2 实证：固定短睡导致双击返回退出应用至桌面）；
+     * 若已逸出应用（桌面）则 am start 重入。
+     */
+    private fun backUntilDeck(maxSteps: Int = 5) {
         repeat(maxSteps) { step ->
             val root = ins.uiAutomation.rootInActiveWindow
             if (root != null && find(root, deckStatusMarker) != null) return
-            val backNode = findExact(ins.uiAutomation.rootInActiveWindow, "返回")
+            if (root == null || root.packageName != ctx.packageName) {
+                Log.i(TAG, "back step=$step: app not foreground, relaunching")
+                shell("am start -n ${ctx.packageName}/com.tabula.v3.MainActivity")
+                waitForState("relaunch-deck", timeoutMs = 15000) { r -> find(r, deckStatusMarker) != null }
+                return
+            }
+            val backNode = findExact(root, "返回")
             if (backNode != null) tapNode(backNode) else shell("input keyevent KEYCODE_BACK")
-            SystemClock.sleep(700)
-            Log.i(TAG, "back step=$step")
+            Log.i(TAG, "back step=$step pressed")
+            val settleEnd = SystemClock.uptimeMillis() + 3000
+            while (SystemClock.uptimeMillis() < settleEnd) {
+                val r = ins.uiAutomation.rootInActiveWindow
+                if (r != null && find(r, deckStatusMarker) != null) return
+                SystemClock.sleep(200)
+            }
         }
         waitForState("back-on-deck", timeoutMs = 12000) { root -> find(root, deckStatusMarker) != null }
     }
@@ -387,25 +402,57 @@ class CardLifecycleDeviceTest {
         return rect.exactCenterX() to rect.exactCenterY()
     }
 
-    /** 任一夹具名可见即 deck 就绪；返回最大节点作手势原点（交互卡不预设）。 */
-    private fun waitForDeckGestureOrigin(names: List<String>): AccessibilityNodeInfo {
+    /**
+     * 非破坏水平 swipe（SHUFFLE 循环导航 / DRAW 收牌），信号驱动原点：逐候选尝试
+     * 直至 dragEnd 日志出现。dx<0（左滑）在 DRAW 模式为收牌——任何位置都不进入
+     * 完成页；SHUFFLE 循环切换无完成页风险。
+     */
+    private fun horizontalSwipeUntilDragEnd(modeLogFragment: String, dx: Float) {
+        for (candidate in gestureCandidates()) {
+            val mark = epochNow()
+            val (cx, cy) = cardCenter(candidate)
+            realSwipeHorizontal(cx, cy, dx)
+            val windowEnd = SystemClock.uptimeMillis() + 6000
+            while (SystemClock.uptimeMillis() < windowEnd) {
+                if (dumpLogcat().any { it.ts >= mark && it.tag == "CardStackDebug" && it.msg.contains("dragEnd $modeLogFragment") }) {
+                    Log.i(TAG, "horizontal swipe ($modeLogFragment) engaged the interactive card")
+                    return
+                }
+                SystemClock.sleep(250)
+            }
+            Log.i(TAG, "horizontal swipe ($modeLogFragment) attempt did not engage, trying next origin")
+        }
+        saveEvidence("dragend-miss-horizontal-$modeLogFragment")
+        error("no candidate origin produced a dragEnd $modeLogFragment log")
+    }
+
+    /** 任一夹具名可见即 deck 就绪（交互卡身份不预设，以日志/记录信号反推）。 */
+    private fun waitForDeckReady(names: List<String>) {
         waitForState("deck-ready", timeoutMs = 25000) { root ->
             find(root, deckStatusMarker) != null && names.any { find(root, it) != null }
         }
-        for (name in names) {
+    }
+
+    /**
+     * 手势候选原点：全部可见夹具节点按面积降序（中央/前台卡优先，侧缘窄条殿后）。
+     * 交互卡身份不可由节点几何可靠推断（轮 1/轮 2 实证：推荐序漂移 + 摸牌样式
+     * 侧缘窄条），由调用方以"逐候选尝试直至出现预期日志信号"确定。
+     */
+    private fun gestureCandidates(): List<AccessibilityNodeInfo> {
+        val out = mutableListOf<Pair<AccessibilityNodeInfo, Long>>()
+        for (photo in photos) {
             val matches = mutableListOf<AccessibilityNodeInfo>()
-            findAll(ins.uiAutomation.rootInActiveWindow, name, matches)
-            var best: AccessibilityNodeInfo? = null
-            var bestArea = -1L
+            findAll(ins.uiAutomation.rootInActiveWindow, photo.displayName, matches)
             for (m in matches) {
                 val rect = Rect().also { m.getBoundsInScreen(it) }
-                val area = rect.width().toLong() * rect.height().toLong()
-                if (area > bestArea) { bestArea = area; best = m }
+                out += m to (rect.width().toLong() * rect.height().toLong())
             }
-            if (best != null) return best
         }
-        saveEvidence("no-gesture-origin")
-        error("No fixture card node visible for gesture origin; names=$names")
+        if (out.isEmpty()) {
+            saveEvidence("no-gesture-origin")
+            error("No fixture card node visible for gesture origin")
+        }
+        return out.sortedByDescending { it.second }.map { it.first }
     }
 
     // ==================== 阶段实现（场景 1 循环 + 场景 2 切换） ====================
@@ -415,21 +462,39 @@ class CardLifecycleDeviceTest {
      * （拖动开始）与 resume 日志（#61 onDragCancel 接线），并断言 resume 时间戳不晚于
      * dragCancel（恢复发生在取消处理内）；取消语义不变量：夹具行/行数不变、回收站
      * 无夹具记录、deck 可操作。
+     *
+     * 原点选择为信号驱动（轮 2 修正）：逐候选（面积降序）注入取消序列，以 pause 日志
+     * 出现确认"拖动已启动"，未命中换下一候选——对未启动拖动的候选无副作用。
      */
     private fun phaseCancel(modeLogFragment: String) {
-        val mark = epochNow()
-        val (cx, cy) = cardCenter(waitForDeckGestureOrigin(photos.map { it.displayName }))
-        injectDragThenCancel(cx, cy)
-        val pauseLog = waitForLog("PreloadingManager", "pause", mark)
-        val resumeLog = waitForLog("PreloadingManager", "resume", mark)
-        val cancelLog = waitForLog("CardStackDebug", "dragCancel $modeLogFragment", mark)
+        var pauseLog: LogLine? = null
+        var resumeLog: LogLine? = null
+        var cancelLog: LogLine? = null
+        for (candidate in gestureCandidates()) {
+            val mark = epochNow()
+            val (cx, cy) = cardCenter(candidate)
+            injectDragThenCancel(cx, cy)
+            val pause = dumpLogcat().firstOrNull { it.ts >= mark && it.tag == "PreloadingManager" && it.msg.contains("pause") }
+            if (pause != null) {
+                Log.i(TAG, "cancel attempt engaged the interactive card (pause seen at ${pause.ts})")
+                // 三元组都取自本候选窗口（mark 过滤），跨阶段日志不会误配
+                resumeLog = waitForLog("PreloadingManager", "resume", mark)
+                cancelLog = waitForLog("CardStackDebug", "dragCancel $modeLogFragment", mark)
+                pauseLog = pause
+                break
+            }
+            Log.i(TAG, "cancel attempt did not start a drag, trying next origin")
+        }
+        val pause = requireNotNull(pauseLog) { "no candidate origin started a drag (pause log never observed)" }
+        val resume = requireNotNull(resumeLog)
+        val cancel = requireNotNull(cancelLog)
         assertTrue(
-            "resume(${resumeLog.ts}) 必须不晚于 dragCancel(${cancelLog.ts})" +
+            "resume(${resume.ts}) 必须不晚于 dragCancel(${cancel.ts})" +
                 "——恢复应发生在取消处理内（#61 接线），而非后续 dragEnd",
-            resumeLog.ts <= cancelLog.ts
+            resume.ts <= cancel.ts
         )
-        assertTrue("pause 必须先于 resume（拖动开始 → 取消恢复）", pauseLog.ts <= resumeLog.ts)
-        Log.i(TAG, "cancel phase logs: pause=${pauseLog.ts} resume=${resumeLog.ts} cancel=${cancelLog.ts}")
+        assertTrue("pause 必须先于 resume（拖动开始 → 取消恢复）", pause.ts <= resume.ts)
+        Log.i(TAG, "cancel phase logs: pause=${pause.ts} resume=${resume.ts} cancel=${cancel.ts}")
         // 取消语义不变量：无删除发生
         photos.forEach { assertTrue("取消不得影响媒体行: ${it.displayName}", present(primaryItem(it.uri))) }
         assertEquals("取消不得改变夹具行数", photos.size, fixtureCount())
@@ -444,15 +509,34 @@ class CardLifecycleDeviceTest {
      * 接线）→ 撤销 Snackbar 提交窗口（3000ms）→ **观察回收站记录反推被删卡名**
      * （恰好一条夹具记录；交互卡身份不预设，见 KDoc）→ 状态计数递减 + MediaStore
      * 行数不变（软删除契约）。返回观察到的被删卡名。
+     *
+     * 原点选择为信号驱动（轮 2 修正）：逐候选（面积降序）真实上滑，以 dragEnd 日志
+     * 出现确认"交互卡承接了手势"；600px 位移恒超删除阈值，dragEnd 即必然进入删除
+     * 路径——不会产生"已启动但未删除"的中间态，重试对未命中候选无副作用。
      */
     private fun phaseSwipeDelete(modeLogFragment: String): String {
         val countBefore = readDeckPendingCount()
-        val mark = epochNow()
-        val (cx, cy) = cardCenter(waitForDeckGestureOrigin(photos.map { it.displayName }))
-        realSwipeUp(cx, cy, 600f)
-        waitForLog("PreloadingManager", "pause", mark)
-        waitForLog("CardStackDebug", "dragEnd $modeLogFragment", mark)
-        waitForLog("PreloadingManager", "resume", mark)
+        for (candidate in gestureCandidates()) {
+            val mark = epochNow()
+            val (cx, cy) = cardCenter(candidate)
+            realSwipeUp(cx, cy, 600f)
+            // 有界等待本候选窗口的 dragEnd（交互卡承接手势的信号）；pause 是 dragEnd
+            // 的前提事件，命中后补断言
+            val windowEnd = SystemClock.uptimeMillis() + 6000
+            var dragEnd: LogLine? = null
+            while (SystemClock.uptimeMillis() < windowEnd) {
+                dragEnd = dumpLogcat().firstOrNull { it.ts >= mark && it.tag == "CardStackDebug" && it.msg.contains("dragEnd $modeLogFragment") }
+                if (dragEnd != null) break
+                SystemClock.sleep(250)
+            }
+            if (dragEnd != null) {
+                Log.i(TAG, "delete attempt engaged the interactive card (dragEnd at ${dragEnd.ts})")
+                waitForLog("PreloadingManager", "pause", mark)
+                waitForLog("PreloadingManager", "resume", mark)
+                break
+            }
+            Log.i(TAG, "delete attempt did not reach the interactive card, trying next origin")
+        }
         // 撤销 Snackbar（3000ms 超时 = 确认删除）提交窗口后，回收站记录出现
         SystemClock.sleep(3600)
         val end = SystemClock.uptimeMillis() + 15000
@@ -511,7 +595,11 @@ class CardLifecycleDeviceTest {
             }
             val root = ins.uiAutomation.rootInActiveWindow
             val countZero = root != null && (findExact(root, "0 项待处理") != null || find(root, "0 项待处理") != null)
-            if (recordGone && countZero) { cleared = true; break }
+            // 回收站空态无计数文本（"回收站空空如也"，轮 2 实证）——空态文本或条目
+            // 消失任一成立即可与数据真值合判
+            val emptyState = root != null && find(root, "回收站空空如也") != null
+            val nameGone = root != null && find(root, deletedName) == null
+            if (recordGone && (countZero || emptyState || nameGone)) { cleared = true; break }
             SystemClock.sleep(300)
         }
         if (!cleared) saveEvidence("restore-not-cleared-$deletedName")
@@ -524,8 +612,9 @@ class CardLifecycleDeviceTest {
 
     /** 完整场景 1 循环：cancel → swipe 删除（观察被删名）→ 回收站恢复。 */
     private fun fullLifecycleLoop(modeLogFragment: String) {
-        (1..3).map { photo().displayName }
+        val names = (1..3).map { photo().displayName }
         activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        waitForDeckReady(names)
         phaseCancel(modeLogFragment)
         val deletedName = phaseSwipeDelete(modeLogFragment)
         phaseRestoreViaBin(deletedName)
@@ -580,10 +669,7 @@ class CardLifecycleDeviceTest {
         // SHUFFLE：cancel 循环（同场景 1 前半）
         phaseCancel("shuffle")
         // SHUFFLE：一轮非破坏 swipe（右滑切牌，循环导航，无删除）
-        val shuffleSwipeMark = epochNow()
-        val (cx, cy) = cardCenter(waitForDeckGestureOrigin(names))
-        realSwipeHorizontal(cx, cy, 420f)
-        waitForLog("CardStackDebug", "dragEnd shuffle", shuffleSwipeMark)
+        horizontalSwipeUntilDragEnd("shuffle", dx = 420f)
         waitForState("deck-operable-after-shuffle-swipe", timeoutMs = 8000) { root ->
             find(root, deckStatusMarker) != null
         }
@@ -607,11 +693,7 @@ class CardLifecycleDeviceTest {
 
         // 返回验证：deck 可操作——非破坏 draw 左滑（收牌；末卡态亦不进入完成页）
         // 产生 dragEnd draw 日志
-        val operableMark = epochNow()
-        val remaining = names.filter { it != deletedName }.ifEmpty { names }
-        val (ocx, ocy) = cardCenter(waitForDeckGestureOrigin(remaining))
-        realSwipeHorizontal(ocx, ocy, -420f)
-        waitForLog("CardStackDebug", "dragEnd draw", operableMark)
+        horizontalSwipeUntilDragEnd("draw", dx = -420f)
         waitForState("deck-operable-final", timeoutMs = 8000) { root ->
             find(root, deckStatusMarker) != null
         }
