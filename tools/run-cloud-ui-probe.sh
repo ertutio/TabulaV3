@@ -96,7 +96,10 @@ status=0
 # （bringAppToForeground 45s 超时）。唯一解锁路径（待验证假设，见套件 KDoc）：取消判定
 # 第一段后先关闭查看器（点 关闭，效果=彻底删除 desc 消失）再等计数/条目重现；Deny/
 # BACK 点按改为有界重试直至对话框关闭。复现栈与 dump 关键行见套件 KDoc。
-for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest; do
+# CardLifecycleDeviceTest 3 例（T06 设备级生命周期验收 2026-11-12，基线含 #61/#62：
+# 场景1 SHUFFLE cancel→resume 接线+swipe 删除+回收站恢复 / 场景1 DRAW 同循环（prefs 预置）/
+# 场景2 会话内 Settings 切换 SHUFFLE→DRAW 后重复循环+返回可操作，见套件 KDoc）。
+for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest CardLifecycleDeviceTest; do
   case "$class" in
     CloudCleanupUiTest) expected_tests=8 ;;
     CloudRestoreUiTest) expected_tests=3 ;;
@@ -104,6 +107,7 @@ for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTe
     ForegroundPermissionUiTest) expected_tests=2 ;;
     PixelRefreshUiTest) expected_tests=2 ;;
     OtherAppMediaAuthDeviceTest) expected_tests=4 ;;
+    CardLifecycleDeviceTest) expected_tests=3 ;;
     *) expected_tests=2 ;;
   esac
   dir="device-results/$class"

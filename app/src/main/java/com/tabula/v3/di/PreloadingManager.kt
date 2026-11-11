@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.IntSize
 import coil.request.Disposable
 import coil.request.ImageRequest
 import coil.size.Size
+import com.tabula.v3.BuildConfig
 import com.tabula.v3.data.model.ImageFile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,11 +52,17 @@ class PreloadingManager(
     private val debounceDelay = 100L
 
     fun pause() {
+        if (BuildConfig.DEBUG) Log.d(TAG, "pause: preloading paused")
         isPaused.set(true)
         synchronized(lock) { generation++; debounceJob?.cancel() }
     }
 
-    fun resume() { isPaused.set(false) }
+    // T06（2026-11-12）：DEBUG 门日志（与 CardStack 的 debugCardStackLog 同模式）——
+    // 使设备测试可直接断言"手势取消后恢复预载"（#61 接线）的恢复路径。
+    fun resume() {
+        if (BuildConfig.DEBUG) Log.d(TAG, "resume: preloading resumed")
+        isPaused.set(false)
+    }
 
     fun preloadAround(images: List<ImageFile>, currentIndex: Int, cardSize: IntSize) {
         if (isPaused.get()) return
