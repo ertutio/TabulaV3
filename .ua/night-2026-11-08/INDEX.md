@@ -87,5 +87,8 @@
 
 ## 额度截止快照（2026-11-11 01:25，截止 09:00）
 - **next_action（今晚接续）**：复审者验收 **PR #70**（caafb96，组合门禁 42867763379 三 job 全绿）；B2 恢复执行者与 coroutines 单元在飞（结果若未落盘，按各自分支与 coord/notes-*.md 恢复）
-- 在飞：B2 恢复执行者（wg-B2@44e1c506 续作，notes-B2.md）；coroutines 1.10.x 单元（wg-TB@origin/master 新分支，CI 若在飞登记 run ID）；T13 判据已定稿（t13-overlay-acceptance.md 实施定稿节，待实现者领取）
-- 已保存：本目录全部 31 个证据文件 + 计划分支进度
+- **已保存完毕（08:55 紧急快照后双双停止）**：
+  - B2：`2b21481`（notes 快照 docs/B2-notes-snapshot-2026-11-11.md 已推分支）——根因=Phase1 exitCleanupViaSheet awaitGone 在 sheet 退场动画期（300-500ms）首见误杀（生产 onSwitchToGlobal 路径源码核实正确）；Phase2/3=依赖级联红。**恢复入口=notes-B2.md §7.3**（awaitDismissed/tapAndAwaitDismissal 两种等待语义拆分 + requireDependency 显式依赖门 + probe 依赖跳过）→ compile → dispatch CI → 迭代 → PR
+  - coroutines：**绿** 1.10.2（`a14d097` 已推 fix/coroutines-1.10-t12-2026-11-11；定点+全量绿；CI 42934016082 在飞结果待登记；1.11.0 已发布登记为后续候选）；回退=revert 单提交
+  - T13：判据+实施定稿已存（t13-overlay-acceptance.md——种子=旧 APK 自带 FullRecoveryPhase1Test，零格式猜测）
+- 已保存：本目录全部 31+ 证据文件 + 计划分支进度（9ee0591 + 本快照）
