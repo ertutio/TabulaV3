@@ -399,11 +399,7 @@ class OtherAppMediaAuthDeviceTest {
                     .flatMap { root!!.findAccessibilityNodeInfosByText(it).asSequence() }
                     .firstOrNull { it.isClickable && it.text?.toString() in allowTexts }
                 if (button != null) {
-                    val bounds = Rect()
-                    button.getBoundsInScreen(bounds)
-                    check(!bounds.isEmpty) { "Empty bounds on consent button" }
-                    Log.i(TAG, "system consent dialog owner=$owner tapped=${button.text}")
-                    shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
+                    tapAllowWithBoundedRetap(allowTexts)
                     return true
                 }
             }
@@ -411,6 +407,52 @@ class OtherAppMediaAuthDeviceTest {
         }
         captureUiEvidence("consent dialog")
         return false
+    }
+
+    /**
+     * API37 三次失败（run 42653961146 时期 / 42840727007 / 42857428672）同签名：
+     * tapped=Allow 已记录但 verifyDeletionState 的 deleted 为空（用例断言
+     * `expected:<[…]> but was:<[]>`）——授权点按落在系统对话框入场动画窗口内被
+     * 吞掉，onConfirm 未执行、MediaProvider applyBatch 未发生。与 CloudCleanupUiTest
+     * 已证机制同签名（9979967 同款修法已让 API37 该用例转绿）。修法：点按后轮询
+     * 系统对话框消失（授权结果已由生产 launcher startIntentSenderForResult 消费，
+     * 行消失由 grantThroughRealSystemDialog 轮询为同步点，无需事件监听）；未消失
+     * 则有界重点（≤5 次/1.5s 间隔/总 20s 封顶）；耗尽仍开着如实抛
+     * IllegalStateException，不伪装成其它失败。断言语义不变。
+     */
+    private fun tapAllowWithBoundedRetap(allowTexts: Set<String>) {
+        var taps = 0
+        var lastTap = 0L
+        val deadline = SystemClock.uptimeMillis() + 20000
+        while (SystemClock.uptimeMillis() < deadline) {
+            val root = ins.uiAutomation.rootInActiveWindow
+            val owner = root?.packageName?.toString().orEmpty()
+            val dialogUp = owner.contains("providers.media") || owner.contains("permissioncontroller")
+            if (root != null && !dialogUp) {
+                // 对话框已关闭：授权由 MediaProvider 在对话框内 applyBatch 完成。
+                Log.i(TAG, "system consent dialog closed after taps=$taps")
+                return
+            }
+            if (root != null && dialogUp && taps < 5 && SystemClock.uptimeMillis() - lastTap > 1500) {
+                val button = allowTexts.asSequence()
+                    .flatMap { root.findAccessibilityNodeInfosByText(it).asSequence() }
+                    .firstOrNull { it.isClickable && it.text?.toString() in allowTexts }
+                if (button != null) {
+                    val bounds = Rect()
+                    button.getBoundsInScreen(bounds)
+                    check(!bounds.isEmpty) { "Empty bounds on consent button" }
+                    Log.i(TAG, "system consent dialog owner=$owner tapped=${button.text} taps=$taps")
+                    shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
+                    taps++
+                    lastTap = SystemClock.uptimeMillis()
+                }
+            }
+            SystemClock.sleep(100)
+        }
+        captureUiEvidence("consent dialog still open after bounded retaps")
+        throw IllegalStateException(
+            "system consent dialog never accepted the Allow tap after $taps bounded taps"
+        )
     }
 
     private fun grantThroughRealSystemDialog(result: FileOperationManager.DeleteResult, row: Row): Boolean {

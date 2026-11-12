@@ -82,7 +82,14 @@ status=0
 # 跨月夹具与设置页导航，机制结论见 PR57/notes）。
 # OtherAppMediaAuthDeviceTest 4 例（包C2：他人媒体真实系统授权流程——直接删除归属边界 /
 # 未授权按项保留 / 真实系统授权对话框删除 / 清理入口组合未授权保留，见套件 KDoc）。
-for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest; do
+# ProdAuthCallbackDeviceTest 2 例（包C2 收尾：生产授权回调消费路径——系统对话框确认/
+# 取消结果经应用真实入口（生产 launcher）消费 + in-flight 释放，见套件 KDoc）。
+# [历史登记 2026-11-09→11-11] 曾因 3 轮红摘除：轮1 uiAutomation.windows 恒空（2951ed2
+# 修）；轮2 CANCEL_TEXTS 缺 Deny（5c035ec 补）；轮3 取消后查看器覆盖层滞留+api37 点按
+# 入动画窗被吞。收尾单元三已全部修正（513d3df：closeViewerIfOpen/正向观察/前置条件
+# 重试/用例末释放；47f38c9：OtherAppMediaAuth Allow 有界自验证重点，run 42863345514
+# 三 job 全绿 API37 OK(4)）——本行恢复 runner 登记，双 API 复验随本次门禁。
+for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest ProdAuthCallbackDeviceTest; do
   case "$class" in
     CloudCleanupUiTest) expected_tests=8 ;;
     CloudRestoreUiTest) expected_tests=3 ;;
@@ -90,6 +97,7 @@ for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTe
     ForegroundPermissionUiTest) expected_tests=2 ;;
     PixelRefreshUiTest) expected_tests=2 ;;
     OtherAppMediaAuthDeviceTest) expected_tests=4 ;;
+    ProdAuthCallbackDeviceTest) expected_tests=2 ;;
     *) expected_tests=2 ;;
   esac
   dir="device-results/$class"
