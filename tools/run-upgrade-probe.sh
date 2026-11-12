@@ -330,6 +330,7 @@ fi
 
 # ===== 8. 轮询等待语义回归（d541b3c 补，2026-11-12 执行记录补齐：run 43066100515
 # 用方法级过滤未覆盖这两个 @Test——本段显式驱动并留设备执行记录） =====
+mkdir -p device-results/t13-waitsem
 for m in awaitUntilMustFailOnPersistentFalse awaitUntilMustPassAsSoonAsConditionTurnsTrue; do
   if ! adb shell am instrument -w -r     -e allowSyntheticMediaProbe true     -e class "com.tabula.v3.UpgradeOverlayDeviceTest#$m"     "$TEST_ID/$RUNNER" | tee "device-results/t13-waitsem/$m.txt"; then
     fail "wait-semantics instrumentation failed: $m"
