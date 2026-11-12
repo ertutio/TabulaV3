@@ -107,7 +107,15 @@ import org.junit.runner.RunWith
  *   系统对话框 active——生产仅经 DeletePermissionSession.inFlight 才发出
  *   createDeleteRequest，系统对话框 active 即 in-flight 已置位的充分证据；释放判定
  *   语义不变），waitInFlightEntered 日志区分证据来源。一轮前已验证修正（closeViewer
- *   IfOpen 轮询、0 计数空态等待）保持不动。
+ *   IfOpen 轮询、0 计数空态等待）保持不动。**run 43260104714（head 90c5d14）三 job
+ *   全绿，双 API OK(2)——双证据轮收敛**。
+ * - **三轮微单元（协调者追加指令·同快照化，仅本文件）**：缺席/就绪判定不得来自
+ *   不同时点的两次查找——①closeViewerIfOpen 缺席计数以**同一 activeRoot 快照内**
+ *   「彻底删除 absent+计数可见+条目可见」三条件同真为前提（viewerAbsentAndReadyIn
+ *   Snapshot；absent 但未就绪不累计；effect 同快照化），20s 截止留证如实失败；
+ *   ②inFlightDialogVisible 双证据改单快照并判（inFlightObservableEvidence 返回证据
+ *   来源，waitInFlightEntered 日志沿用）；③waitAppRecycleBinReady 计数+条目改单快照
+ *   并判（条件逐字不变）。持久层断言与重入断言零改动。
  *
  * ## 缺口
  *
@@ -531,12 +539,12 @@ class ProdAuthCallbackDeviceTest {
     }
 
     /**
-     * in-flight 的 UI 可观测面（**双证据**；run 43251910422 API37 取消例诊断
-     * diag-pr66-43251910422 §2.1 → 升级复核采纳）：
+     * in-flight 的 UI 可观测面（**双证据，同一 root 快照内判定**；run 43251910422
+     * API37 取消例诊断 diag-pr66-43251910422 §2.1 → 升级复核采纳）：
      * 1) 应用窗内「正在处理回收站」进度对话框可见（isDeletingRecycleBin ||
      *    deletePermissionInFlight 的 UI 面，MainActivity L1128-1141）；或
-     * 2) 系统授权对话框已成为 active window（systemDialogActive：providers.media/
-     *    permissioncontroller root，本轮 dump 实证 active root 可见系统对话框全文）。
+     * 2) 系统授权对话框已成为 active window（providers.media/permissioncontroller
+     *    root，本轮 dump 实证 active root 可见系统对话框全文）。
      * 证据 2 的必要性：本环境 uiAutomation.windows 恒空、查找只走 rootInActiveWindow，
      * 系统对话框 ~0.7s 内抢焦点使证据 1 的观测窗 <0.5s（tap 删除 @+0ms → 生产
      * create_delete_request @+370ms → PermissionActivity 表面 @+0.5s）→ 20s 必超时；
@@ -547,17 +555,31 @@ class ProdAuthCallbackDeviceTest {
      * 释放判定（waitInFlightReleased 连续 3 次 !visible）语义保持：系统对话框 active
      * ⟹ 结果尚未投递 ⟹ in-flight 未释放；对话框关闭后回到证据 1 单独判定，与原行为
      * 一致（实际调用时序中到达释放判定时系统对话框已关）。
+     * 二轮追加（协调者指令·同快照化）：两证据在**单次 activeRoot 快照内**并判——
+     * 证据 1 与证据 2 不得来自不同时点的两次 rootInActiveWindow（消除跨快照竞态：
+     * 原 `findNodeInAnyWindow(...) || systemDialogActive()` 为两次独立取 root）。
      */
-    private fun inFlightDialogVisible(): Boolean =
-        findNodeInAnyWindow { it.text?.toString() == "正在处理回收站" } != null ||
-            systemDialogActive()
+    private fun inFlightObservableEvidence(): String? {
+        val root = activeRoot() ?: return null
+        if (findNodeIn(root) { it.text?.toString() == "正在处理回收站" } != null) {
+            return "progress dialog visible"
+        }
+        val owner = root.packageName?.toString().orEmpty()
+        return if (owner.contains("providers.media") || owner.contains("permissioncontroller")) {
+            "system dialog active"
+        } else {
+            null
+        }
+    }
+
+    private fun inFlightDialogVisible(): Boolean = inFlightObservableEvidence() != null
 
     /** in-flight 进入（生产 DeletePermissionSession.launch 置位；进度对话框弹出或系统对话框 active 即真）。 */
     private fun waitInFlightEntered() {
         val deadline = SystemClock.uptimeMillis() + 15000
         while (SystemClock.uptimeMillis() < deadline) {
-            if (inFlightDialogVisible()) {
-                val via = if (systemDialogActive()) "system dialog active" else "progress dialog visible"
+            val via = inFlightObservableEvidence()
+            if (via != null) {
                 Log.i(TAG, "in-flight observable ($via; production session inFlight=true, deletion suspended)")
                 return
             }
@@ -648,7 +670,7 @@ class ProdAuthCallbackDeviceTest {
         waitSystemDialogClosed()
         // 收尾单元三：明确关闭动作——取消后查看器覆盖层滞留（轮 3 API36 dump 实证），
         // 先关查看器，使「N 项待处理」与保留条目节点可达，再做就绪判定。
-        closeViewerIfOpen()
+        closeViewerIfOpen(expectedPendingText, retainedName)
         waitAppRecycleBinReady(expectedPendingText, retainedName)
         waitInFlightReleased()
     }
@@ -665,22 +687,63 @@ class ProdAuthCallbackDeviceTest {
      * 刚关、active window 归属过渡期内**单次查找** desc=彻底删除 返回 null → 早退
      * 不点关闭 → 查看器滞留遮蔽「N 项待处理」计数 20s 超时（失败 dump 内 关闭/
      * 彻底删除/条目节点全在树内=记录实际保留，生产无误；API37 同款竞态两段均未
-     * 触发=时序性）。改为**有界轮询**：连续 3 次（间隔 2s）确认 absent 才早退
-     * （幂等保留），任一次找到即走既有 tap+效果链。
+     * 触发=时序性）。改为**有界轮询**（幂等保留），任一次找到即走既有 tap+效果链。
+     *
+     * 二轮追加（协调者指令·**同快照化**）：缺席计数与就绪确认**不得来自不同时点的
+     * 两次查找**——每次扫描先取一次 activeRoot，随后三条件全部在该快照内判定：
+     * 「彻底删除」absent + 计数文本可见 + 保留条目名可见（[viewerAbsentAndReadyInSnapshot]）。
+     * absent+就绪**同真**才累计缺席（连续 3 次、间隔 500ms 确认关闭——就绪成立本身
+     * 即证明无覆盖层遮蔽，见轮 3 实证）；absent 但未就绪（active root 过渡期空树/
+     * 非应用窗）**不累计**，等待重扫；「彻底删除」在场即走既有 tap+效果链（effect
+     * 同快照化=absent+就绪，杜绝关闭动画期单条件误真）。20s 截止留证如实失败
+     * （此时 waitAppRecycleBinReady 的兜底判定尚未开始）。
      */
-    private fun closeViewerIfOpen() {
+    private fun closeViewerIfOpen(expectedPendingText: String, retainedName: String) {
+        val deadline = SystemClock.uptimeMillis() + 20000
         var absentStreak = 0
-        while (absentStreak < 3) {
-            if (findNodeInAnyWindow { it.contentDescription?.toString() == "彻底删除" } != null) {
+        while (SystemClock.uptimeMillis() < deadline) {
+            val root = activeRoot()
+            if (root != null &&
+                findNodeIn(root) { it.contentDescription?.toString() == "彻底删除" } != null
+            ) {
                 tapDescUntilEffect("关闭", "viewer close button (cancel path)") {
-                    findNodeInAnyWindow { it.contentDescription?.toString() == "彻底删除" } == null
+                    viewerAbsentAndReadyInSnapshot(expectedPendingText, retainedName)
                 }
                 return
             }
-            absentStreak++
-            if (absentStreak < 3) SystemClock.sleep(2000)
+            if (root != null && viewerAbsentAndReadyInSnapshot(expectedPendingText, retainedName, root)) {
+                absentStreak++
+                if (absentStreak >= 3) {
+                    Log.i(TAG, "viewer confirmed closed and recycle bin ready in same snapshots (streak=$absentStreak)")
+                    return
+                }
+                SystemClock.sleep(500)
+            } else {
+                // root 为空（active window 过渡期）或 absent 但应用未就绪：不累计缺席
+                SystemClock.sleep(200)
+            }
         }
-        Log.i(TAG, "viewer confirmed closed after $absentStreak consecutive absent scans")
+        captureUiEvidence("viewer close + recycle bin ready not confirmed after cancel")
+        error("Viewer close and recycle bin readiness were not confirmed in the same snapshots " +
+            "(count=$expectedPendingText, item=$retainedName)")
+    }
+
+    /**
+     * **同一 root 快照**内的复合判定：查看器「彻底删除」absent + 计数文本可见 +
+     * 保留条目名可见。三条件共用一次 activeRoot（[root] 缺省时取当前快照），杜绝
+     * 缺席判定与就绪确认来自不同时点的跨快照竞态。
+     */
+    private fun viewerAbsentAndReadyInSnapshot(
+        expectedPendingText: String,
+        retainedName: String,
+        root: AccessibilityNodeInfo? = null
+    ): Boolean {
+        val r = root ?: activeRoot() ?: return false
+        if (findNodeIn(r) { it.contentDescription?.toString() == "彻底删除" } != null) return false
+        if (findNodeIn(r) { it.text?.toString() == expectedPendingText } == null) return false
+        return findNodeIn(r) {
+            it.text?.toString() == retainedName || it.contentDescription?.toString() == retainedName
+        } != null
     }
 
     /** 收尾单元三：正向观察——应用前台且回收站计数文本可见（确认分支的可用界面观察）。 */
@@ -759,15 +822,22 @@ class ProdAuthCallbackDeviceTest {
      * 应用恢复前台 + 回收站就绪：active window 回到应用，且回收站屏「N 项待处理」计数与
      * 保留条目名重新可见（同一 Compose 窗口内，查看器覆盖层不改变节点可达性）。in-flight
      * 进度对话框若仍是 active window，计数/条目不可见会自然等待其释放后再通过。
+     * 二轮追加（协调者指令·同快照化）：计数与条目两条件改为**单次 activeRoot 快照内**
+     * 并判（原两次 findNodeInAppWindows 为两个时点的 root）——判定条件逐字不变，仅
+     * 消除跨快照竞态。
      */
     private fun waitAppRecycleBinReady(expectedPendingText: String, retainedName: String) {
         val deadline = SystemClock.uptimeMillis() + 20000
         while (SystemClock.uptimeMillis() < deadline) {
-            val ready = findNodeInAppWindows {
-                it.text?.toString() == expectedPendingText
-            } != null && findNodeInAppWindows {
-                it.text?.toString() == retainedName || it.contentDescription?.toString() == retainedName
-            } != null
+            val ready = activeRoot()
+                ?.takeIf { it.packageName?.toString() == ctx.packageName }
+                ?.let { root ->
+                    findNodeIn(root) { it.text?.toString() == expectedPendingText } != null &&
+                        findNodeIn(root) {
+                            it.text?.toString() == retainedName ||
+                                it.contentDescription?.toString() == retainedName
+                        } != null
+                } == true
             if (ready) {
                 Log.i(TAG, "app foreground regained; recycle bin ready (count + retained item visible)")
                 return
