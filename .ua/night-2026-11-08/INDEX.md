@@ -139,7 +139,7 @@
 **去重映射（步骤一）**：T13 演练（run 43264360831）已覆盖=组/checkpoint/私有哨兵/debug 覆盖安装（判据 5–10 全绿）；已明确留下=**回收记录空、acknowledged/永久完成空、冷却被 OLD 小图库策略合法清空（total≤batchSize→clearAllPickRecords，库仅 3 张）**。既有适用断言已复用（升级框架 545570e 的双 APK 构造/覆盖装/状态契约/留证纪律）。今晚新增=下两行，无功能重复套件。
 | 单元 | 分支 | 执行者 | 覆盖 |
 | --- | --- | --- | --- |
-| 任务 A 非空回收记录跨升级+真实恢复 | test/upgrade-recycle-2026-11-12 | wg-RA | 判据：OLD 真实写入口建档（≥2 成员+哨兵）→覆盖前 shell 三面读回→覆盖装→磁盘读回→真实 UI 恢复一项→恢复/未恢复/媒体身份→force-stop 新进程读回幂等 |
+| 任务 A 非空回收记录跨升级+真实恢复 | test/upgrade-recycle-2026-11-12 | wg-RA | **✅ 首轮全绿**（run 43271456222 三 job，1 轮无红）**→ PR #75**（base=master；依赖=先合 #73）：OLD 种子经真实生产写入口（3 成员 UUID 名+互异色+哨兵 s1，身份 external_primary|17..19/20）；判据 1–5 双 API 工件实证（pre-launch 三面一致/真实 UI 恢复/恰余 2 项无串项/两次冷重启幂等）；三门 OK(1)×2API；FATAL=0；单元门 393/0。notes-RA.md 已存 |
 | 任务 B 有效冷却+非空清理进度跨升级 | test/upgrade-cooldown-2026-11-12 | wg-RB | 判据：冷却真实生效（构造 >阈值候选）→升级前身份/期限/排除行为→升级后保留+约束+无关可推荐+双重启→≥2 组 acknowledged/永久完成/无关组进度（夹具清单定预期） |
 - 文件所有权：A=run-upgrade-probe-recycle.sh+upgrade-recycle-verification.yml+UpgradeRecycleDeviceTest；B=run-upgrade-probe-cooldown.sh+upgrade-cooldown-verification.yml+UpgradeCooldownDeviceTest——零共享文件
 - 共同基点：test/upgrade-overlay-2026-11-11 @ 545570e（升级框架含 T13 演练与 waitsem 修复）
