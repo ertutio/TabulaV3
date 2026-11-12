@@ -103,7 +103,7 @@
 ## 交付状态精确校正（2026-11-12，替代"全部队列完成"表述）
 | 项 | SHA | 结论 | 验证 | 覆盖范围 |
 | --- | --- | --- | --- | --- |
-| #74 T06 | **e38a3c18+88a591b** | **两项 P2 已闭合**（isWithin 双重下界防串用+会话连续性三重信号封死假阳性；变异反例经复审者实际编译执行 ALL EXPECTATIONS MET） | 修正后 run 43248972561 三 job 全绿（双 API OK(3)）；增量复审 PASS | ✅ 审计闭环 |
+| #74 T06 | **最终 head `05a6e27`**（CI 绑定 0eb0ab5，代码逐字节同；docs 尾随按低-1 口径） | **两项 P2 已闭合+严格 head 绑定 CI 补齐**：独立复核既有实现全过（生产顺序 L1154/L1424-1431/L1511-1515/L3118-3225 逐条对齐；resume 恰 4 调用点）；变异复刻经复审者实际编译执行 ALL EXPECTATIONS MET；轮 7-B run 43273628834 三 job 全绿双 API OK(3)；轮 7-A 红定性=环境 flake（GPU ColorBuffer+adb 启动异常，同代码轮 6 绿，已留证） | ✅ 审计闭环 |
 | #70 组合 | ec65f0c | ProdAuthCallback 已恢复登记；**门禁 43065284177 双 API 红**（API36 取消+确认、API37 确认——诊断子代理在飞） | build 绿+API36 部分；设备三用例失败 | 失败例覆盖缺口=诊断中 |
 | #73 T13 | d541b3c+**545570e** | Boolean 等待已修；两轮询回归**设备执行记录完成**（545570e 修复 mkdir 根因→run 43264360831 全绿，API36 工件双文件 STATUS_CODE:0 实证） | 全绿 | ✅ 审计+执行记录闭环 |
 | #66 回调 | **ec65f0c+caacab5** | 修正轮 1 收敛：**API36 双用例全绿实证**（有界轮询+空态文本等待均生效）；API37 取消例=上游观测缺陷新形态（in-flight 观测面在 windows 恒空环境永不可见——dump 实证生产无误）；API37 确认例=次生污染（前例遗留对话框）。**执行路径更正**：原分支 ff 至 ec65f0c（组合态，验证空洞修正），无重写 | 轮 1 CI 43251910422：build 绿/API36 双例绿（域外 PartialSelectionPhaseB 独立红已登记，#74 的 P2-2 修法覆盖）| **轮 2 已授权在飞**：in-flight 双证据化（系统对话框 active window=充分证据）+一次 CI |
@@ -140,6 +140,6 @@
 | 单元 | 分支 | 执行者 | 覆盖 |
 | --- | --- | --- | --- |
 | 任务 A 非空回收记录跨升级+真实恢复 | test/upgrade-recycle-2026-11-12 | wg-RA | **✅ 首轮全绿**（run 43271456222 三 job，1 轮无红）**→ PR #75**（base=master；依赖=先合 #73）：OLD 种子经真实生产写入口（3 成员 UUID 名+互异色+哨兵 s1，身份 external_primary|17..19/20）；判据 1–5 双 API 工件实证（pre-launch 三面一致/真实 UI 恢复/恰余 2 项无串项/两次冷重启幂等）；三门 OK(1)×2API；FATAL=0；单元门 393/0。notes-RA.md 已存 |
-| 任务 B 有效冷却+非空清理进度跨升级 | test/upgrade-cooldown-2026-11-12 | wg-RB | 判据：冷却真实生效（构造 >阈值候选）→升级前身份/期限/排除行为→升级后保留+约束+无关可推荐+双重启→≥2 组 acknowledged/永久完成/无关组进度（夹具清单定预期） |
+| 任务 B 有效冷却+非空清理进度跨升级 | test/upgrade-cooldown-2026-11-12 | wg-RB | **✅ R2 全绿**（run 43274154738 三 job，56910d2）**→ PR #76**（base=master，叠 T13 #73）：OLD 冷却写入口实测=getRandomWalkBatch→recordImagesPickedByIdentity（清理条件=库≤batchSize(15)）；种子 140 张候选（>2×阈值），目标经生产推荐 ≤10 批命中、pick prefs=16 条（T13 缺口正面回归双 API 绿）；升级后 pickedAt/days 逐位一致+目标仍被排除+无关照常+双重启幂等；三组进度（组1 断点幸存+续接交付、组2 永久标记不复活、组3 原样、生产放弃规则跨版本一致）；预期全来自 OLD 实拍 JSON。4 新文件零生产触碰。notes-RB.md 已存 |
 - 文件所有权：A=run-upgrade-probe-recycle.sh+upgrade-recycle-verification.yml+UpgradeRecycleDeviceTest；B=run-upgrade-probe-cooldown.sh+upgrade-cooldown-verification.yml+UpgradeCooldownDeviceTest——零共享文件
 - 共同基点：test/upgrade-overlay-2026-11-11 @ 545570e（升级框架含 T13 演练与 waitsem 修复）
