@@ -88,8 +88,12 @@ status=0
 # 修）；轮2 CANCEL_TEXTS 缺 Deny（5c035ec 补）；轮3 取消后查看器覆盖层滞留+api37 点按
 # 入动画窗被吞。收尾单元三已全部修正（513d3df：closeViewerIfOpen/正向观察/前置条件
 # 重试/用例末释放；47f38c9：OtherAppMediaAuth Allow 有界自验证重点，run 42863345514
-# 三 job 全绿 API37 OK(4)）——本行恢复 runner 登记，双 API 复验随本次门禁。
-for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest ProdAuthCallbackDeviceTest; do
+# 三 job 全绿 API37 OK(4)）——恢复 runner 登记，双 API 复验随本次门禁（run 43260104714
+# 与 43276688191 连续两轮绿）。
+# CardLifecycleDeviceTest 3 例（T06 设备级生命周期验收 2026-11-12，基线含 #61/#62：
+# 场景1 SHUFFLE cancel→resume 接线+swipe 删除+回收站恢复 / 场景1 DRAW 同循环（prefs 预置）/
+# 场景2 会话内 Settings 切换 SHUFFLE→DRAW 后重复循环+返回可操作，见套件 KDoc）。
+for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest ProdAuthCallbackDeviceTest CardLifecycleDeviceTest; do
   case "$class" in
     CloudCleanupUiTest) expected_tests=8 ;;
     CloudRestoreUiTest) expected_tests=3 ;;
@@ -98,6 +102,7 @@ for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTe
     PixelRefreshUiTest) expected_tests=2 ;;
     OtherAppMediaAuthDeviceTest) expected_tests=4 ;;
     ProdAuthCallbackDeviceTest) expected_tests=2 ;;
+    CardLifecycleDeviceTest) expected_tests=3 ;;
     *) expected_tests=2 ;;
   esac
   dir="device-results/$class"
