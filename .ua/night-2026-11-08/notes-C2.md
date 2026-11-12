@@ -95,3 +95,11 @@
 **CI（run [42863345514](https://github.com/ertutio/TabulaV3/actions/runs/42863345514)，head 47f38c9，workflow_dispatch 一次）三 job 全绿**：build 1m28s；API36 OK(4 tests)、API37 OK(4 tests)。API37 工件实证（OtherAppMediaAuthDeviceTest/logcat.txt）：`system consent dialog owner=com.google.android.providers.media.module tapped=Allow taps=0` @17:26:02.293 → `system consent dialog closed after taps=1` @17:26:02.748（455ms 后对话框关闭=点按被处理、applyBatch 完成；本轮首击即中，有界重点未触发，防御网在场）。API36 同用例同轮绿（OK(4 tests)），双 API 套件 4/4。
 
 **状态**：预算内绿收敛（1 修正提交 47f38c9 + 1 次 CI 全绿）；累计 API37 该用例失败次数定格为 3（不再 +1）；唯一残余登记项不变（API37 环境敏感性以本轮防御网+同签名先例覆盖，无需额外解锁动作）。
+
+## 八、收尾微单元（2026-11-11 00:30 登记，协调者代笔）
+
+**第 2 轮（in-flight 双证据化）绿**：提交 `90c5d14`（inFlightDialogVisible 改双证据：「正在处理回收站」可见 OR 系统对话框成为 active window——后者在 windows 列表恒空环境仍可从 active-root 观测，run 43260104714 dump 实证），CI run **43260104714 三 job 全绿**：ProdAuthCallbackDeviceTest 双 API OK(2)×3——确认例（空态文本等待生效）与取消例（双段含重入）全部通过。轮 1（caacab5）的 API36 双例修正在本轮保持绿（非侥幸）。
+
+**#66 全链收口**：生产授权回调消费路径（#65 缺口）实现+验证完成。修复链：513d3df（单元三四项修正）→ 47f38c9（OtherAppMediaAuth Allow 有界重点）→ caacab5（观测层两处：有界轮询+空态文本）→ 90c5d14（in-flight 双证据）。执行路径：分支 ff 至组合态 ec65f0c 后叠加（验证空洞修正，登记于 diag-pr66-43251910422.md §0）。累计：ProdAuthCallback 相关红轮 5 次（全部诊断归档）；第 2 轮起全绿。
+
+**剩余登记**：①该套件对环境时序敏感（入场动画窗/窗口列表空），后续如复发按 KDoc 与 diag 文件复核；②release 对照装（unsigned）与 fork 签名 secrets 解锁为独立待验边界（见 T13 登记）。
