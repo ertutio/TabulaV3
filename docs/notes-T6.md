@@ -24,7 +24,7 @@ pause()/resume() 各一行 DEBUG 门 Log.d）+ probe 第 7 类登记。
 | deck 激活判定 | 标记存在 **且无 overlay 特征节点**（回收站空态/计数/设置区标题） | 轮 3 API36 实证：RECYCLE_BIN/SETTINGS 以 deck 为背景层，背景标记在树中恒可见，仅凭标记会把前台 overlay 误判为已回 deck |
 | 场景 1 DRAW 模式进入 | prefs 预置（AppPreferences.swipeStyle=DRAW 后启动） | 任务允许二选一；会话内切换本身由场景 2 专测（Settings UI 驱动），两途径均有覆盖 |
 | 场景 2 模式切换 | Settings UI 驱动：deck 顶栏"设置"→**"显示设置"子页**→"切换样式"区"轻掠模式"→逐级返回（deckActive 判定） | 轮 1 实证："切换样式"区在 DisplaySettingsScreen 子页，主设置列表不含；诊断口径：切换经 StateFlow 会话内生效；生效信号=`dragCancel draw` 模式串 |
-| 返回导航 | 每步返回后有界等待 deckActive（3s）+ 桌面逃逸恢复（am start 重入） | 轮 2 实证：固定短睡导致双击返回退出应用至桌面（树=launcher） |
+| 返回导航 | 每步返回后有界等待 deckActive（3s）+ 桌面逃逸恢复（am start 重入）——仅回收站恢复路径；**Settings 返回路径（场景 2）禁止重入**（allowRelaunch=false，逸出留证失败，P2-2） | 轮 2 实证：固定短睡导致双击返回退出应用至桌面（树=launcher）；审计 P2-2：静默重入使"退出后重启"冒充会话内切换 |
 | 删除真值（MediaStore） | 行存在性 + 按 relative_path 圈定的行数恒定 + RecycleBinManager 记录 | 生产契约：deck swipe 删除=软删除（回收站记录，物理删除仅经清空/对账通道）；若生产改为 swipe 即物理删除，此断言即契约变更警报 |
 | 恢复验证 | 回收站 UI 逐条恢复 → RecycleBinManager 记录清除（数据真值）+ UI 空态/计数文本 + MediaStore 行保留 + deckActive | 轮 2 实证：回收站**空态无计数文本**（"回收站空空如也"），UI 条件需含空态分支 |
 | 恢复边界 | 恢复后镜像重新进入当前 deck 批次不在断言范围 | deck 批次同步（C-1 syncRowsToSnapshot）只剪不增，恢复行经下一批派生进入（DeckScreen L731 effect 实证） |
@@ -37,8 +37,13 @@ pause()/resume() 各一行 DEBUG 门 Log.d）+ probe 第 7 类登记。
    — 断言 resume 时间戳 ≤ `dragCancel` 时间戳：恢复发生在取消处理内而非下次 dragEnd。
 3. `CardStackDebug dragCancel shuffle|draw idx=…`（DEBUG 构建生效）
 4. `CardStackDebug dragEnd shuffle|draw`（删除轮；drag end resume 接线 L1431/3125）
+   — 收尾修正后删除阶段断言**本次手势**三元组 pause ≤ dragEnd ≤ resume（生产
+   onDragEnd 先记 dragEnd 日志后 resume）。
 5. MediaStore 真值（行存在 + 夹具目录行数恒定）；回收站记录（RecycleBinManager.loadRecycleBin）
 6. UI 真值（无障碍树）：deck 大卡节点、回收站"项待处理"、"恢复"、deck"张待整理"状态标记
+7. 会话连续性真值（**收尾新增，P2-2**）：pidof pid 前后一致 + Application 生命周期
+   onDestroy 事件集为空 + 持有 Activity record 未 destroyed/finishing——场景 2
+   Settings 返回路径专用。
 
 ## 断言纪律
 
@@ -50,6 +55,67 @@ pause()/resume() 各一行 DEBUG 门 Log.d）+ probe 第 7 类登记。
 - 覆盖口径：本套件只宣称设备级接线验收；reducer 级覆盖仍归 DrawCardStateLifecycleTest
   等单测，互不冒称（诊断口径）。
 - 预期 case 数：3（probe 登记 expected_tests=3）。
+
+## 收尾微单元（2026-11-12，审计 audit-T06-pr74 两 P2 修正）
+
+范围：仅 CardLifecycleDeviceTest.kt（+本 notes）；生产/单测/probe 不动。
+
+### P2-1 删除阶段日志串用（跨阶段污染）
+
+- 问题：`epochNow()` 回退 1s 作时钟余量；`phaseSwipeDelete()` 紧接 `phaseCancel()`
+  且尾部断言耗时可低至亚秒——mark 窗口可能覆盖上一阶段的 pause/resume，删除阶段的
+  pause/resume 断言可能命中前序阶段日志（时间游标回退导致跨阶段污染）。
+- 修正（阶段标记 + 日志游标）：①阶段边界单调游标 `logCursor`（phaseCancel /
+  phaseSwipeDelete / horizontalSwipeUntilDragEnd 入口各推进一次），所有断言匹配要求
+  `ts >= mark && ts >= cursor`（统一谓词 `LogLine.isWithin`，waitForLog 内联同口径）；
+  ②手势标记 `logMark()` 改为注入前**精确采样、不回退**——与 `logcat -v epoch` 同一
+  墙钟（CLOCK_REALTIME），采样先于注入 ⇒ 本次手势日志必然 ts > 标记，1s 余量无必要；
+  ③候选重试内逐候选重新采样标记，前序候选日志被排除。
+- 生产顺序核对（真实顺序，断言对齐）：onDragCancel 内 `resume()` 先于 `dragCancel`
+  日志（CardStack L1511→L1513 / L3213→L3215，同一同步 handler）——取消三元组断言
+  resume ≤ dragCancel、pause ≤ resume 维持并补引用；onDragEnd 先记 `dragEnd` 日志后
+  `resume()`（L1424-1431 / L3118-3125；onDragStart pause 在 L1154 / L2831）——删除
+  阶段**新增**本次手势三元组断言 pause ≤ dragEnd ≤ resume。
+- 反例变异验证（必须项）：**临时移除删除手势的 resume 接线**（CardStack.kt
+  L1431/L3125 的 `preloadingManager.resume()`）时，目标断言必须失败。
+  - 本机 SDK 无 emulator/system-images（仅 build-tools/platforms），设备级执行不可
+    本地完成；按"隔离验证环境"以 JVM 单文件忠实复刻测试的日志匹配管线
+    （同一 LogLine 解析正则、dumpLogcat 时间序、waitForLog 轮询/20s 超时语义、
+    新旧两种谓词）在合成时间线上验证（scratch-T6-mutation/P2MutationCheck.java，
+    仓库外、不进提交）：
+    S1 旧方案+变异 → 误配 phaseCancel 的 resume（100.15）→ phaseSwipeDelete 假阳性
+    通过（P2-1 污染复现）；S2 新方案+变异 → 本次手势窗口内 resume 缺失 →
+    waitForLog 超时 error（"log not observed ... since=100.6 cursor=100.5"）→ 转红
+    （变异精确命中：pause 接线完好仍命中本次手势）；S3/S4 新方案+无变异 → 三元组
+    pause=100.62/dragEnd=100.70/resume=100.71 满足生产顺序且归属本次手势
+    （前序 100.10/100.15 被游标排除）；S0 取消三元组维持。全预期满足。
+  - 断言失败路径的生产代码佐证：resume() 全仓仅 4 处（CardStack L1431/L3125 onDragEnd、
+    L1511/L3213 onDragCancel）——变异后删除手势到 waitForLog 之间无其它 resume 来源，
+    必然超时。变异本体不落工作区（复现于隔离副本），`git diff` 仅 CardLifecycleDeviceTest.kt
+    即源码干净之核对；设备级红点由本次 CI 轮实测背书（修复后全绿 ⇒ 变异差异被
+    本次手势窗口真实区分）。
+
+### P2-2 会话内切模式连续性（假阳性封堵）
+
+- 问题：`backUntilDeck()` 遇桌面/空窗口会 `am start` 重入——应用意外退出后重启亦能
+  通过场景 2 的会话内切换验收。
+- 修正：①`backUntilDeck(allowRelaunch)` 参数——场景 2 Settings 返回路径以
+  `allowRelaunch=false` 调用：每步返回后的有界过渡等待（3s settle ×5 步 + 终态
+  12s）不变，但应用逸出前台即保存截图 + 窗口树 + 生命周期报告并失败（禁止静默
+  重入）；回收站恢复路径（phaseRestoreViaBin）沿用默认重入行为，不动。②启动后
+  `armSessionWatch()` 布防：pidof 采样 + Application registerActivityLifecycleCallbacks
+  收集 onDestroy；返回 deck 后 `assertSessionContinuity("after-mode-switch-back")`：
+  同一实例证据 = pid 不变 + destroy 事件集为空 + 持有 Activity record 未
+  destroyed/finishing（窗口树/进程证据多重可靠信号）；意外退出 → 会话报告
+  `card-lifecycle-session-*.txt` + 截图/树/logcat 留证 + 失败。③切回 deck 后新模式
+  生效验证不变：真实手势 `dragCancel draw`（phaseCancel）+ 可观察状态变化（删除
+  使"张待整理"计数递减）+ 最终 `dragEnd draw` 操作性滑。
+
+### 收尾定点验证
+
+- 本地：`compileDebugAndroidTestKotlin` BUILD SUCCESSFUL（2026-11-12，
+  e38a3c18 + 本修正）。
+- CI：轮 6（结果待补，run id 见提交后记录）。
 
 ## 验证链（按轮记录）
 
@@ -75,11 +141,17 @@ pause()/resume() 各一行 DEBUG 门 Log.d）+ probe 第 7 类登记。
     同代码轮 1/3 该阶段 API36 全过、轮 4 API37 全过、基线 combination/2026-11-10
     自身的 run 43065284177 亦红于另一既有环节（ProdAuthCallback 摘除态）——判定为
     API36 既有间歇性 flake，与本套件/生产改动无关。
-  - **轮 5 run 43086693791**：复跑（结果待补）。
+  - **轮 5 run 43086693791**：复跑全绿（build/device36/device37 三 job；本套件双
+    API `OK (3 tests)`，审计 audit-T06-pr74 实证）。
 
 ## 已知边界 / 不做的事
 
 - 生产改动仅限 PreloadingManager 两行 DEBUG 门日志（+import），无行为变化；未动 app/src/test。
 - 单文件单写者：本工作树独占（wg-T6）。
 - 恢复镜像重进 deck 当前批次的行为未断言（批次同步只剪不增，见上表"恢复验证"行）。
-- logcat 采集用 `-v epoch` 墙钟过滤（标记时刻-1s 余量）；不做 logcat -c 以外的缓冲假设。
+- logcat 采集用 `-v epoch` 墙钟过滤（收尾修正：手势标记注入前精确采样不回退 +
+  阶段游标排除前序事件，见"收尾微单元"P2-1）；不做 logcat -c 以外的缓冲假设。
+- 场景 2 Settings 返回路径禁止 am start 静默重入（P2-2）；回收站恢复路径保留
+  既有重入行为。
+- 反例变异的本机限制：本地无 emulator，变异以管线复现（JVM）验证断言失败路径，
+  设备级执行归 CI（见"收尾微单元"P2-1 反例变异验证）。

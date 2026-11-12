@@ -1,6 +1,7 @@
 package com.tabula.v3
 
 import android.Manifest
+import android.app.Application
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Intent
@@ -9,6 +10,7 @@ import android.graphics.Bitmap
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
@@ -77,6 +79,22 @@ import java.util.UUID
  *   （CloudFixtureCleanup，@After 校验无关哨兵未被误删）。
  * - 预期 case 数：3（probe 登记 expected_tests=3）。
  *
+ * 收尾修正（2026-11-12，审计 audit-T06-pr74 两 P2）：
+ * - P2-1 日志串用：删除阶段日志归属收紧为**本次手势**——旧 epochNow 回退 1s 使
+ *   phaseSwipeDelete 紧接 phaseCancel 时可能误配前序阶段 pause/resume（时间游标
+ *   回退导致跨阶段污染）。修正 = 阶段标记（logCursor 单调游标，每阶段入口推进）
+ *   + 手势标记（logMark 注入前精确采样，不回退）双重下界；并按生产顺序补断言
+ *   删除手势三元组 pause ≤ dragEnd ≤ resume（CardStack L1154/L1424-1431、
+ *   L2831/L3118-3125）。反例变异（移除删除手势 resume 接线 → 目标断言必须失败）
+ *   本地隔离验证后恢复，不进提交（见 notes-T6.md）。
+ * - P2-2 会话内切模式连续性：backUntilDeck 的桌面/空窗口 am start 重入会使
+ *   "退出后重启"通过会话内切换验收（假阳性）。修正 = Settings 返回路径
+ *   backUntilDeck(allowRelaunch=false)（有界过渡等待不变，禁止静默重入）+
+ *   assertSessionContinuity 验证原 Activity 会话持续存在（pid 不变 + 生命周期无
+ *   destroy 事件 + Activity record 未 destroyed/finishing）；意外退出留证（截图 +
+ *   窗口树 + 生命周期报告）并失败。切回 deck 后新模式生效仍以真实手势（dragCancel
+ *   draw / dragEnd draw）与可观察状态变化（待整理计数递减）验证。
+ *
  * 时序要点：deck swipe 删除经撤销 Snackbar 延迟提交（UndoSnackbar 3000ms 超时 =
  * 确认删除 → onRemove → 回收站记录写入）——回收站记录轮询先等 Snackbar 提交窗口。
  */
@@ -92,6 +110,73 @@ class CardLifecycleDeviceTest {
     private val trash get() = RecycleBinManager.getInstance(ctx)
     private val fixturePath = "Pictures/CardLifecycleFixtures/"
     private val deckStatusMarker = "张待整理"
+
+    // ==================== P2-2 会话连续性证据（pid + 生命周期 destroy 监听） ====================
+
+    /** 主进程 pid（armSessionWatch 时采样；Settings 返回路径前后必须一致）。 */
+    private var sessionPid: String? = null
+
+    /** 生命周期 destroy 事件（Application 回调收集；会话内不得出现）。 */
+    private val activityDestroyEvents = java.util.concurrent.ConcurrentLinkedQueue<String>()
+
+    private fun currentPid(): String? = shell("pidof ${ctx.packageName}").trim().ifEmpty { null }
+
+    /**
+     * 采样 pid 并挂生命周期 destroy 监听（P2-2，2026-11-12）。场景 2 启动 Activity 后
+     * 立即布防：此后若发生 Activity destroy / 进程重启（"退出后重启"），collect 与
+     * pid 均留痕，供 assertSessionContinuity 与 backUntilDeck 严格模式判失败。
+     */
+    private fun armSessionWatch() {
+        sessionPid = currentPid()
+        (ctx as? Application)?.registerActivityLifecycleCallbacks(
+            object : Application.ActivityLifecycleCallbacks {
+                override fun onActivityCreated(a: android.app.Activity, savedInstanceState: Bundle?) {}
+                override fun onActivityStarted(a: android.app.Activity) {}
+                override fun onActivityResumed(a: android.app.Activity) {}
+                override fun onActivityPaused(a: android.app.Activity) {}
+                override fun onActivityStopped(a: android.app.Activity) {}
+                override fun onActivitySaveInstanceState(a: android.app.Activity, outState: Bundle) {}
+                override fun onActivityDestroyed(a: android.app.Activity) {
+                    val event = "${a::class.java.simpleName}@${Integer.toHexString(System.identityHashCode(a))}" +
+                        " epoch=${System.currentTimeMillis() / 1000.0}"
+                    activityDestroyEvents.add(event)
+                    Log.w(TAG, "activity destroyed during test session: $event")
+                }
+            }
+        )
+        Log.i(TAG, "session watch armed: pid=$sessionPid")
+    }
+
+    /** 会话状态报告（失败留证与错误信息共用）。 */
+    private fun sessionReport(context: String, pidNow: String?): String = buildString {
+        appendLine("context=$context")
+        appendLine("pidAtArm=$sessionPid pidNow=$pidNow")
+        val act = activity
+        appendLine("heldActivity=${act?.let { "${it::class.java.simpleName}@${Integer.toHexString(System.identityHashCode(it))}" }}")
+        appendLine("heldIsDestroyed=${act?.isDestroyed} heldIsFinishing=${act?.isFinishing}")
+        appendLine("destroyEvents=${activityDestroyEvents.joinToString("; ").ifEmpty { "(none)" }}")
+    }
+
+    /**
+     * 断言**原 Activity 会话持续存在**（P2-2，2026-11-12）：同一实例证据 = pid 不变 +
+     * 生命周期无 destroy 事件 + 持有的 Activity record 未 destroyed/finishing（窗口
+     * 树/进程证据中选多重可靠信号，见 KDoc）。意外退出时保存截图 + 窗口树 + 生命周期
+     * 报告并失败——"退出后重启"不得冒充会话内切换验收。
+     */
+    private fun assertSessionContinuity(context: String) {
+        val pidNow = currentPid()
+        val act = activity
+        val report = sessionReport(context, pidNow)
+        val broken = sessionPid == null || pidNow == null || pidNow != sessionPid ||
+            act == null || act.isDestroyed || act.isFinishing || activityDestroyEvents.isNotEmpty()
+        if (broken) {
+            Log.e(TAG, "session continuity broken:\n$report")
+            saveEvidence("session-broken-$context")
+            evidenceDir().resolve("card-lifecycle-session-$context.txt").writeText(report)
+            error("原 Activity 会话未持续（$context）:\n$report")
+        }
+        Log.i(TAG, "session continuity verified ($context): pid=$pidNow, destroyEvents=0")
+    }
 
     // ==================== 基础设施（沿用既有设备探针夹具模式） ====================
 
@@ -250,13 +335,25 @@ class CardLifecycleDeviceTest {
 
     /**
      * 逐级返回直至 deck 为激活屏。每步返回后有界等待重组完成再决定下一步（轮 2
-     * 实证：固定短睡导致双击返回退出应用至桌面）；若已逸出应用（桌面）则 am start 重入。
+     * 实证：固定短睡导致双击返回退出应用至桌面）；若已逸出应用（桌面）则 am start 重入
+     * （allowRelaunch=true 默认——仅回收站恢复路径沿用既有行为）。
+     *
+     * P2-2（2026-11-12）：Settings 返回路径以 allowRelaunch=false 调用——应用逸出
+     * 前台时**禁止静默重入**（"退出后重启"不得冒充会话内切换验收），保存截图 +
+     * 窗口树 + 生命周期证据并失败。
      */
-    private fun backUntilDeck(maxSteps: Int = 5) {
+    private fun backUntilDeck(maxSteps: Int = 5, allowRelaunch: Boolean = true) {
         repeat(maxSteps) { step ->
             val root = ins.uiAutomation.rootInActiveWindow
             if (deckActive(root)) return
             if (root == null || root.packageName != ctx.packageName) {
+                if (!allowRelaunch) {
+                    Log.e(TAG, "back step=$step: app left foreground (strict return path)")
+                    saveEvidence("session-exit-back-step$step")
+                    val report = sessionReport("backUntilDeck strict step=$step", currentPid())
+                    evidenceDir().resolve("card-lifecycle-session-exit-back.txt").writeText(report)
+                    error("Settings 返回路径应用逸出前台（意外退出，禁止静默重入）: step=$step\n$report")
+                }
                 Log.i(TAG, "back step=$step: app not foreground, relaunching")
                 shell("am start -n ${ctx.packageName}/com.tabula.v3.MainActivity")
                 waitForState("relaunch-deck", timeoutMs = 15000) { r -> deckActive(r) }
@@ -353,8 +450,28 @@ class CardLifecycleDeviceTest {
         }
     }
 
-    /** epoch 秒（与 logcat -v epoch 同一墙钟），留 1s 余量吸收时钟粒度。 */
-    private fun epochNow(): Double = System.currentTimeMillis() / 1000.0 - 1.0
+    /**
+     * 本次手势的时间标记（P2-1 修正，2026-11-12）：**手势注入之前**采样、不回退。
+     * 与 `logcat -v epoch` 同一墙钟（CLOCK_REALTIME），采样先于注入 ⇒ 本次手势产生的
+     * 日志必然 ts > 本值。旧实现回退 1s 作"时钟粒度"余量，使紧邻上一阶段结束的下一
+     * 阶段（phaseSwipeDelete 紧接 phaseCancel）可能把上一阶段的 pause/resume 误配为
+     * 本阶段事件（跨阶段污染，审计 P2-1）。
+     */
+    private fun logMark(): Double = System.currentTimeMillis() / 1000.0
+
+    /**
+     * 日志游标（P2-1 修正）：阶段边界标记，单调推进，每阶段入口推进一次。所有断言
+     * 匹配要求 ts ≥ 本次手势标记**且** ts ≥ 游标——前序阶段已消费的日志按构造排除，
+     * 不依赖时序余量假设（阶段标记 + 日志游标，审计口径）。
+     */
+    private var logCursor: Double = 0.0
+
+    private fun advanceLogCursor() {
+        logCursor = maxOf(logCursor, System.currentTimeMillis() / 1000.0)
+    }
+
+    /** 统一匹配谓词：本次手势标记 + 日志游标双重下界（排除前序阶段/前序候选事件）。 */
+    private fun LogLine.isWithin(since: Double): Boolean = ts >= since && ts >= logCursor
 
     private fun describeSince(since: Double): String = dumpLogcat()
         .filter { it.ts >= since }
@@ -365,12 +482,12 @@ class CardLifecycleDeviceTest {
     private fun waitForLog(tag: String, contains: String, since: Double, timeoutMs: Long = 20000): LogLine {
         val end = SystemClock.uptimeMillis() + timeoutMs
         while (SystemClock.uptimeMillis() < end) {
-            dumpLogcat().firstOrNull { it.ts >= since && it.tag == tag && it.msg.contains(contains) }
+            dumpLogcat().firstOrNull { it.isWithin(since) && it.tag == tag && it.msg.contains(contains) }
                 ?.let { return it }
             SystemClock.sleep(200)
         }
         saveEvidence("log-miss-$tag-$contains")
-        error("log not observed: [$tag] contains=\"$contains\" since=$since; observed:\n${describeSince(since)}")
+        error("log not observed: [$tag] contains=\"$contains\" since=$since cursor=$logCursor; observed:\n${describeSince(since)}")
     }
 
     // ==================== 手势注入（ACTION_CANCEL 选择已登记） ====================
@@ -421,13 +538,14 @@ class CardLifecycleDeviceTest {
      * 完成页；SHUFFLE 循环切换无完成页风险。
      */
     private fun horizontalSwipeUntilDragEnd(modeLogFragment: String, dx: Float) {
+        advanceLogCursor() // 阶段边界：排除前序阶段已消费日志（P2-1）
         for (candidate in gestureCandidates()) {
-            val mark = epochNow()
+            val mark = logMark()
             val (cx, cy) = cardCenter(candidate)
             realSwipeHorizontal(cx, cy, dx)
             val windowEnd = SystemClock.uptimeMillis() + 6000
             while (SystemClock.uptimeMillis() < windowEnd) {
-                if (dumpLogcat().any { it.ts >= mark && it.tag == "CardStackDebug" && it.msg.contains("dragEnd $modeLogFragment") }) {
+                if (dumpLogcat().any { it.isWithin(mark) && it.tag == "CardStackDebug" && it.msg.contains("dragEnd $modeLogFragment") }) {
                     Log.i(TAG, "horizontal swipe ($modeLogFragment) engaged the interactive card")
                     return
                 }
@@ -473,24 +591,30 @@ class CardLifecycleDeviceTest {
     /**
      * 场景 1 前半：拖动中途 ACTION_CANCEL → 断言 dragCancel <mode> 日志、pause 日志
      * （拖动开始）与 resume 日志（#61 onDragCancel 接线），并断言 resume 时间戳不晚于
-     * dragCancel（恢复发生在取消处理内）；取消语义不变量：夹具行/行数不变、回收站
-     * 无夹具记录、deck 可操作。
+     * dragCancel（恢复发生在取消处理内；生产顺序：onDragCancel 内 resume() 先于
+     * dragCancel 日志，CardStack L1511→L1513/L3213→L3215）；取消语义不变量：夹具
+     * 行/行数不变、回收站无夹具记录、deck 可操作。
+     *
+     * 日志归属（P2-1 修正）：三元组取自**本次手势**窗口——入口推进日志游标排除前序
+     * 阶段事件，候选内以注入前精确标记区分本次手势（旧实现标记回退 1s，紧邻上一
+     * 阶段结束时可能误配前序 pause/resume）。
      *
      * 原点选择为信号驱动（轮 2 修正）：逐候选（面积降序）注入取消序列，以 pause 日志
      * 出现确认"拖动已启动"，未命中换下一候选——对未启动拖动的候选无副作用。
      */
     private fun phaseCancel(modeLogFragment: String) {
+        advanceLogCursor() // 阶段边界：排除前序阶段已消费日志（P2-1）
         var pauseLog: LogLine? = null
         var resumeLog: LogLine? = null
         var cancelLog: LogLine? = null
         for (candidate in gestureCandidates()) {
-            val mark = epochNow()
+            val mark = logMark()
             val (cx, cy) = cardCenter(candidate)
             injectDragThenCancel(cx, cy)
-            val pause = dumpLogcat().firstOrNull { it.ts >= mark && it.tag == "PreloadingManager" && it.msg.contains("pause") }
+            val pause = dumpLogcat().firstOrNull { it.isWithin(mark) && it.tag == "PreloadingManager" && it.msg.contains("pause") }
             if (pause != null) {
                 Log.i(TAG, "cancel attempt engaged the interactive card (pause seen at ${pause.ts})")
-                // 三元组都取自本候选窗口（mark 过滤），跨阶段日志不会误配
+                // 三元组都取自本次手势窗口（mark+游标双重下界，P2-1），跨阶段日志不会误配
                 resumeLog = waitForLog("PreloadingManager", "resume", mark)
                 cancelLog = waitForLog("CardStackDebug", "dragCancel $modeLogFragment", mark)
                 pauseLog = pause
@@ -503,10 +627,11 @@ class CardLifecycleDeviceTest {
         val cancel = requireNotNull(cancelLog)
         assertTrue(
             "resume(${resume.ts}) 必须不晚于 dragCancel(${cancel.ts})" +
-                "——恢复应发生在取消处理内（#61 接线），而非后续 dragEnd",
+                "——生产 onDragCancel 内 resume() 先于 dragCancel 日志（CardStack L1511→L1513/L3213→L3215，同一同步 handler），" +
+                "恢复应发生在取消处理内（#61 接线），而非后续 dragEnd",
             resume.ts <= cancel.ts
         )
-        assertTrue("pause 必须先于 resume（拖动开始 → 取消恢复）", pause.ts <= resume.ts)
+        assertTrue("pause(${pause.ts}) 必须先于 resume(${resume.ts})（拖动开始 → 取消恢复）", pause.ts <= resume.ts)
         Log.i(TAG, "cancel phase logs: pause=${pause.ts} resume=${resume.ts} cancel=${cancel.ts}")
         // 取消语义不变量：无删除发生
         photos.forEach { assertTrue("取消不得影响媒体行: ${it.displayName}", present(primaryItem(it.uri))) }
@@ -521,30 +646,49 @@ class CardLifecycleDeviceTest {
      * （恰好一条夹具记录；交互卡身份不预设，见 KDoc）→ 状态计数递减 + MediaStore
      * 行数不变（软删除契约）。返回观察到的被删卡名。
      *
+     * 日志归属（P2-1 修正）：pause/dragEnd/resume 三元组必须取自**本次删除手势**——
+     * 入口推进日志游标排除 phaseCancel 等前序阶段事件（旧实现标记回退 1s，紧接
+     * phaseCancel 时会把前序 resume 误配为本手势事件），候选内以注入前精确标记区分；
+     * 并按生产顺序断言 pause ≤ dragEnd ≤ resume（onDragStart pause；onDragEnd 先记
+     * dragEnd 日志后 resume，CardStack L1154/L1424-1431、L2831/L3118-3125）。
+     *
      * 原点选择为信号驱动（轮 2 修正）：逐候选（面积降序）真实上滑，以 dragEnd 日志
      * 出现确认"交互卡承接了手势"；600px 位移恒超删除阈值，dragEnd 即必然进入删除
      * 路径——不会产生"已启动但未删除"的中间态，重试对未命中候选无副作用。
      */
     private fun phaseSwipeDelete(modeLogFragment: String): String {
+        advanceLogCursor() // 阶段边界：排除 phaseCancel 等前序阶段的 pause/resume（P2-1）
         val countBefore = readDeckPendingCount()
         var engaged = false
         for (candidate in gestureCandidates()) {
-            val mark = epochNow()
+            val mark = logMark()
             val (cx, cy) = cardCenter(candidate)
             realSwipeUp(cx, cy, 600f)
-            // 有界等待本候选窗口的 dragEnd（交互卡承接手势的信号）；pause 是 dragEnd
-            // 的前提事件，命中后补断言
+            // 有界等待本候选窗口的 dragEnd（交互卡承接手势的信号）
             val windowEnd = SystemClock.uptimeMillis() + 6000
             var dragEnd: LogLine? = null
             while (SystemClock.uptimeMillis() < windowEnd) {
-                dragEnd = dumpLogcat().firstOrNull { it.ts >= mark && it.tag == "CardStackDebug" && it.msg.contains("dragEnd $modeLogFragment") }
+                dragEnd = dumpLogcat().firstOrNull { it.isWithin(mark) && it.tag == "CardStackDebug" && it.msg.contains("dragEnd $modeLogFragment") }
                 if (dragEnd != null) break
                 SystemClock.sleep(250)
             }
             if (dragEnd != null) {
                 Log.i(TAG, "delete attempt engaged the interactive card (dragEnd at ${dragEnd.ts})")
-                waitForLog("PreloadingManager", "pause", mark)
-                waitForLog("PreloadingManager", "resume", mark)
+                // pause/resume 同取本次手势窗口（mark+游标双重下界，P2-1）——前序阶段
+                // 或前序候选的日志被排除；缺失即失败（删除手势的 resume 接线断开时
+                // 本等待必然超时，见反例变异登记）
+                val pause = waitForLog("PreloadingManager", "pause", mark)
+                val resume = waitForLog("PreloadingManager", "resume", mark)
+                assertTrue(
+                    "pause(${pause.ts}) 必须不晚于本次手势 dragEnd(${dragEnd.ts})" +
+                        "——pause 记于拖动开始（onDragStart 接线，CardStack L1154/L2831）",
+                    pause.ts <= dragEnd.ts
+                )
+                assertTrue(
+                    "本次手势 dragEnd(${dragEnd.ts}) 必须不晚于 resume(${resume.ts})" +
+                        "——生产 onDragEnd 先记 dragEnd 日志后恢复预载（删除手势的 resume 接线，L1431/L3125）",
+                    dragEnd.ts <= resume.ts
+                )
                 engaged = true
                 break
             }
@@ -671,11 +815,20 @@ class CardLifecycleDeviceTest {
      * 驱动切换轻掠模式（设置 → 显示设置子页 → 切换样式 → 轻掠模式 → 逐级返回；
      * 离页/返回经重组，会话内生效）→ DRAW 重复场景 1 循环（`dragCancel draw` 即
      * 切换生效信号）→ 返回验证（deck 可操作）。
+     *
+     * 会话连续性（P2-2 修正，2026-11-12）：启动后布防 pid+destroy 监听；Settings
+     * 返回路径 backUntilDeck(allowRelaunch=false)——每步返回后有界等待 deckActive，
+     * 应用逸出前台即留证失败（禁止 am start 静默重入）；返回 deck 后断言原 Activity
+     * 会话持续存在（pid 不变 + 无 destroy 事件 + Activity record 未 destroyed/
+     * finishing）——"退出后重启"不再能通过会话内切换验收。新模式生效验证沿用真实
+     * 手势与可观察状态变化：`dragCancel draw` 日志（真实取消手势）、待整理计数递减
+     * （真实删除）、最终 `dragEnd draw` 操作性滑。
      */
     @Test fun scenario2InSessionShuffleToDrawSwitchKeepsLifecycleOperable() = runBlocking {
         AppPreferences(ctx).swipeStyle = SwipeStyle.SHUFFLE
         val names = (1..3).map { photo().displayName }
         activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        armSessionWatch() // P2-2：采样 pid + 挂 destroy 监听（覆盖整个场景）
         waitForState("deck-ready-scenario2", timeoutMs = 25000) { root ->
             find(root, deckStatusMarker) != null && names.any { find(root, it) != null }
         }
@@ -687,16 +840,18 @@ class CardLifecycleDeviceTest {
         waitForState("deck-operable-after-shuffle-swipe", timeoutMs = 8000) { root -> deckActive(root) }
 
         // 离页：设置 → 显示设置子页 → 切换样式 → 轻掠模式 → 逐级返回（轮 1 修正：
-        // "切换样式"区位于 DisplaySettingsScreen，主列表不含——run 43067990321 实证）
+        // "切换样式"区位于 DisplaySettingsScreen，主列表不含——run 43067990321 实证）。
+        // 返回路径严格化（P2-2）：禁止静默重入，意外退出留证失败
         tapNode(waitForNode("设置"))
         tapNode(scrollToNode("显示设置"))
         val drawOption = scrollToNode("轻掠模式")
         Log.i(TAG, "draw option tap via ${tapNode(drawOption)}")
         SystemClock.sleep(400)
-        backUntilDeck()
+        backUntilDeck(allowRelaunch = false)
         waitForState("back-on-deck-after-switch", timeoutMs = 12000) { root ->
             deckActive(root) && names.any { find(root, it) != null }
         }
+        assertSessionContinuity("after-mode-switch-back") // P2-2：原 Activity 会话持续存在
 
         // DRAW 模式重复场景 1 循环（dragCancel draw 日志即切换生效信号）
         phaseCancel("draw")
