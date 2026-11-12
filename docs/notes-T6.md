@@ -115,7 +115,9 @@ pause()/resume() 各一行 DEBUG 门 Log.d）+ probe 第 7 类登记。
 
 - 本地：`compileDebugAndroidTestKotlin` BUILD SUCCESSFUL（2026-11-12，
   e38a3c18 + 本修正）。
-- CI：轮 6（结果待补，run id 见提交后记录）。
+- CI：**轮 6 run 43248972561**（head=88a591b，本套件代码提交）全绿——build /
+  device36 / device37 三 job success，本套件双 API `OK (3 tests)`
+  （15:43:03/15:43:04；ui-failures COLLECTION rc=1 为无失败无目录的非门禁噪音）。
 
 ## 验证链（按轮记录）
 
