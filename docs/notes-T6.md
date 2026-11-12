@@ -118,6 +118,20 @@ pause()/resume() 各一行 DEBUG 门 Log.d）+ probe 第 7 类登记。
 - CI：**轮 6 run 43248972561**（head=88a591b，本套件代码提交）全绿——build /
   device36 / device37 三 job success，本套件双 API `OK (3 tests)`
   （15:43:03/15:43:04；ui-failures COLLECTION rc=1 为无失败无目录的非门禁噪音）。
+- CI：**轮 7 head 绑定复跑**（2026-11-13，两轮）：
+  - **run 43270500697**（head=0eb0ab5，首次绑定收尾 docs 提交）红——device36 全绿
+    （本套件 `OK (3 tests)` 78.4s），device37 红点=场景 2 与场景 1 draw 同步骤
+    `恢复 button not found in recycle bin item page`（phaseRestoreViaBin 条目页
+    "恢复"一次性查找，前序 waitForNode(deletedName) 已命中；shuffle 例同轮绿）。
+    定性=环境 flake 非回归：受测代码与轮 6 绿跑逐字节相同（0eb0ab5 仅 docs），
+    device37 该轮日志密集 GPU 报错（Failed to find ColorBuffer / bind to texture）
+    + adb daemon 启动异常（17:35 exit 1），与轮 4 已登记的恢复阶段间歇 flake
+    （API36 FULL recovery 超时，run 43082882514）同类、今日镜像（API37 恢复步骤、
+    API36 绿）。
+  - **run 43273628834**（同 head=0eb0ab5，round 2）全绿——build / device36 /
+    device37 三 job success，本套件双 API `OK (3 tests)`（device37 74.3s /
+    device36 82.0s）——轮 7 红点确认 transient，两 P2 修正在最终 head 绑定 CI 下
+    复验通过。
 
 ## 验证链（按轮记录）
 
