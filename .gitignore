@@ -20,4 +20,9 @@ app/build/
 build/
 
 .worktrees/
+<<<<<<< HEAD
 .kotlin/
+=======
+__pycache__/
+*.pyc
+>>>>>>> origin/fix/perf-tool-fixtures-2026-11-05
