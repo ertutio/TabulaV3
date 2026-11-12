@@ -238,7 +238,7 @@ class UpgradeCooldownSeedTest {
                 put(groupJson(g2Id, g2Rows, g2Rows.map { it.mediaIdentityKey() }))
                 put(groupJson(g3Id, g3Rows, emptyList()))
             })
-            put("permanentlyProcessed", org.json.JSONArray(listOf(g2Id)))
+            put("permanentlyProcessedGroups", org.json.JSONArray(listOf(g2Id)))
             put("expectedBatch", org.json.JSONObject().apply {
                 put("groupIds", org.json.JSONArray(expectedBatchIds))
                 put("images", org.json.JSONArray(expectedBatchKeys))
