@@ -84,6 +84,19 @@ import org.junit.runner.RunWith
  *   关闭**（tapDescUntilEffect 同款防吞先例：api37 进入动画期单次点按被吞），BACK 兜底
  *   保留；重入验证段（本轮已验证逻辑面）随后按同一链路收尾。验证通过后重新登记
  *   tools/run-cloud-ui-probe.sh（expected_tests=2）。
+ * - **复验轮（run [43065284177](https://github.com/ertutio/TabulaV3/actions/runs/43065284177)，
+ *   head ec65f0ce，探针登记已在 combination 分支恢复；API36 取消+确认红、API37 确认红、
+ *   API37 取消绿；独立诊断定性三例均为测试观测缺陷，无生产缺陷）**：①取消例（API36）——
+ *   第二段重入取消后 closeViewerIfOpen **单次查找** desc=彻底删除 在系统对话框刚关、
+ *   active window 归属过渡期返回 null → 早退不点关闭 → 查看器滞留遮蔽计数 20s 超时
+ *   （失败 dump 内 关闭/彻底删除/条目全在树内=记录实际保留，生产无误；API37 同款竞态
+ *   两段均未触发=时序性佐证）；②确认例（双 API 同因）——waitAppRecycleBinCount 等
+ *   「0 项待处理」，而计数文本生产仅 itemCount>0 渲染（RecycleBinScreen.kt
+ *   `if (itemCount > 0)` guard），itemCount=0 渲染空态——该断言系收尾单元三新增、
+ *   本 run 为其首次设备验证、从未绿过。**收尾微单元修法（仅本文件两处）**：
+ *   ①closeViewerIfOpen 改有界轮询（连续 3 次确认 absent 才早退，找到即走既有
+ *   tap+效果链）；②预期计数=0 改等空态文本（回收站空空如也/暂无被删除的照片），
+ *   计数>0 维持既有计数文本等待。
  *
  * ## 缺口
  *
@@ -615,12 +628,27 @@ class ProdAuthCallbackDeviceTest {
      * 取消后查看器覆盖层滞留（「N 项待处理」/保留条目节点不可达，原"同窗可达"
      * 假设不成立）。若「彻底删除」入口仍在（查看器未关），点按查看器关闭钮
      * （RecycleBinScreen L803 IconButton onDismiss），效果=入口节点消失。
+     *
+     * 收尾微单元（run 43065284177 API36 取消例诊断）：第二段重入取消后系统对话框
+     * 刚关、active window 归属过渡期内**单次查找** desc=彻底删除 返回 null → 早退
+     * 不点关闭 → 查看器滞留遮蔽「N 项待处理」计数 20s 超时（失败 dump 内 关闭/
+     * 彻底删除/条目节点全在树内=记录实际保留，生产无误；API37 同款竞态两段均未
+     * 触发=时序性）。改为**有界轮询**：连续 3 次（间隔 2s）确认 absent 才早退
+     * （幂等保留），任一次找到即走既有 tap+效果链。
      */
     private fun closeViewerIfOpen() {
-        if (findNodeInAnyWindow { it.contentDescription?.toString() == "彻底删除" } == null) return
-        tapDescUntilEffect("关闭", "viewer close button (cancel path)") {
-            findNodeInAnyWindow { it.contentDescription?.toString() == "彻底删除" } == null
+        var absentStreak = 0
+        while (absentStreak < 3) {
+            if (findNodeInAnyWindow { it.contentDescription?.toString() == "彻底删除" } != null) {
+                tapDescUntilEffect("关闭", "viewer close button (cancel path)") {
+                    findNodeInAnyWindow { it.contentDescription?.toString() == "彻底删除" } == null
+                }
+                return
+            }
+            absentStreak++
+            if (absentStreak < 3) SystemClock.sleep(2000)
         }
+        Log.i(TAG, "viewer confirmed closed after $absentStreak consecutive absent scans")
     }
 
     /** 收尾单元三：正向观察——应用前台且回收站计数文本可见（确认分支的可用界面观察）。 */
@@ -635,6 +663,28 @@ class ProdAuthCallbackDeviceTest {
         }
         captureUiEvidence("recycle bin count not visible after confirm")
         error("Recycle bin count not visible after confirm ($countText)")
+    }
+
+    /**
+     * 收尾微单元（run 43065284177 API36+API37 确认例同因诊断）：预期计数=0 时
+     * 「0 项待处理」在生产**永不渲染**——RecycleBinScreen.kt 计数文本位于
+     * `if (itemCount > 0)` guard 内，itemCount=0 渲染空态（确定性，非时序非环境；
+     * 该断言系收尾单元三新增，本 run 为其首次设备验证、从未绿过）。改等空态文本：
+     * 「回收站空空如也」或「暂无被删除的照片」任一出现即空态已渲染（失败 dump
+     * 实证两节点在树；回收站空=记录已消费的可用界面证据）。
+     */
+    private fun waitAppRecycleBinEmptyState() {
+        val emptyTexts = setOf("回收站空空如也", "暂无被删除的照片")
+        val deadline = SystemClock.uptimeMillis() + 20000
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (findNodeInAppWindows { it.text?.toString() in emptyTexts } != null) {
+                Log.i(TAG, "app foreground regained; recycle bin empty state visible")
+                return
+            }
+            SystemClock.sleep(100)
+        }
+        captureUiEvidence("recycle bin empty state not visible after confirm")
+        error("Recycle bin empty state not visible after confirm (回收站空空如也/暂无被删除的照片)")
     }
 
     /**
@@ -844,8 +894,15 @@ class ProdAuthCallbackDeviceTest {
         }
         if (!granted) { captureUiEvidence("system consent confirm button"); error("Allow button not tapped / dialog did not close") }
         waitSystemDialogClosed()
-        // 正向观察：应用前台 + 回收站计数回到删除前基线（条目已消费的可用界面证据）
-        waitAppRecycleBinCount("${beforeCount} 项待处理")
+        // 正向观察：应用前台 + 回收站计数回到删除前基线（条目已消费的可用界面证据）。
+        // 收尾微单元（run 43065284177 诊断）：计数文本仅 itemCount>0 渲染
+        // （RecycleBinScreen.kt `if (itemCount > 0)` guard），itemCount=0 渲染空态——
+        // "0 项待处理"节点生产永不渲染。预期计数=0 改等空态文本，>0 维持既有计数等待。
+        if (beforeCount == 0) {
+            waitAppRecycleBinEmptyState()
+        } else {
+            waitAppRecycleBinCount("${beforeCount} 项待处理")
+        }
         // 回调消费 → in-flight 释放（complete(true)）
         waitInFlightReleased()
         // 删除推进：行/文件三面消失 + 记录消费 + journal 回到基线（真实单例为共享存储，
