@@ -328,6 +328,20 @@ if ! python3 tools/run-volume-device-probe.py window after t13-idempotency; then
   fail "device window after t13-idempotency"
 fi
 
+# ===== 8. 轮询等待语义回归（d541b3c 补，2026-11-12 执行记录补齐：run 43066100515
+# 用方法级过滤未覆盖这两个 @Test——本段显式驱动并留设备执行记录） =====
+for m in awaitUntilMustFailOnPersistentFalse awaitUntilMustPassAsSoonAsConditionTurnsTrue; do
+  if ! adb shell am instrument -w -r     -e allowSyntheticMediaProbe true     -e class "com.tabula.v3.UpgradeOverlayDeviceTest#$m"     "$TEST_ID/$RUNNER" | tee "device-results/t13-waitsem/$m.txt"; then
+    fail "wait-semantics instrumentation failed: $m"
+  fi
+  if ! grep -Eq '^OK \(1 tests?\)' "device-results/t13-waitsem/$m.txt"; then
+    fail "wait-semantics expected OK(1): $m"
+  fi
+  if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]'     "device-results/t13-waitsem/$m.txt"; then
+    fail "wait-semantics failure or skip observed: $m"
+  fi
+done
+
 # ===== 10. logcat FATAL 门（判据 10）+ 升级后状态留证 =====
 adb logcat -d -v threadtime > device-results/t13-logcat-final.txt 2>/dev/null || true
 if grep -q "FATAL EXCEPTION" device-results/t13-logcat-final.txt; then
