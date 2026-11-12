@@ -96,7 +96,18 @@ import org.junit.runner.RunWith
  *   本 run 为其首次设备验证、从未绿过。**收尾微单元修法（仅本文件两处）**：
  *   ①closeViewerIfOpen 改有界轮询（连续 3 次确认 absent 才早退，找到即走既有
  *   tap+效果链）；②预期计数=0 改等空态文本（回收站空空如也/暂无被删除的照片），
- *   计数>0 维持既有计数文本等待。
+ *   计数>0 维持既有计数文本等待。**API36 实证：双例全绿（OK(2)，empty state 日志
+ *   :123595）；API36 job 红因域外（PartialSelectionPhaseBTest，包B）**。
+ * - **二轮微单元（run 43251910422 API37 取消例诊断 → 升级复核采纳；仅本文件一处）**：
+ *   API37 取消例红于 tapAppDialogConfirmButton——app 对话框「删除」tap 已被处理、
+ *   生产 create_delete_request @+370ms 发出、系统对话框 ~0.7s 内抢焦点成为 active
+ *   window，而「正在处理回收站」in-flight 对话框（应用窗内）在本环境（windows 恒空、
+ *   只走 rootInActiveWindow）观测窗 <0.5s → 20s 必超时；确认例红为次例污染（同
+ *   轮 2/轮 3 机制）。**修法：inFlightDialogVisible 双证据化**（进度对话框可见 OR
+ *   系统对话框 active——生产仅经 DeletePermissionSession.inFlight 才发出
+ *   createDeleteRequest，系统对话框 active 即 in-flight 已置位的充分证据；释放判定
+ *   语义不变），waitInFlightEntered 日志区分证据来源。一轮前已验证修正（closeViewer
+ *   IfOpen 轮询、0 计数空态等待）保持不动。
  *
  * ## 缺口
  *
@@ -126,7 +137,9 @@ import org.junit.runner.RunWith
  *   孤儿结果（无 callback，如进程恢复）走 `recoveryRevision++`（本套件不覆盖）。
  * - in-flight 的 UI 可观测面：`isDeletingRecycleBin || deletePermissionInFlight`
  *   时回收站界面渲染「正在处理回收站」进度对话框（MainActivity.kt L1128-1141）
- *   ——生产状态面在 UI 上的直接投影，本套件以其出现/消失断言 in-flight 进入与释放。
+ *   ——生产状态面在 UI 上的直接投影，本套件以其出现/消失断言 in-flight 进入与释放
+ *   （二轮微单元：进入判定双证据化——系统对话框成为 active window 亦为进入的充分
+ *   证据，见 inFlightDialogVisible KDoc；释放判定语义不变）。
  * - 消费后推进：授权 → verify → `finishDeletion(deleted, covered)`（记录消费、
  *   journal 关闭）；拒绝 → `finishDeletion(emptySet, covered)`（RecycleBinDeletion.kt
  *   L119-122，BatchDeleteResult.Cancelled——记录保留、journal 关闭、源保留）。
@@ -517,16 +530,35 @@ class ProdAuthCallbackDeviceTest {
         error("App delete-confirm dialog button not tapped / in-flight state not entered")
     }
 
-    /** in-flight 的 UI 可观测面：「正在处理回收站」对话框（isDeletingRecycleBin || deletePermissionInFlight）。 */
+    /**
+     * in-flight 的 UI 可观测面（**双证据**；run 43251910422 API37 取消例诊断
+     * diag-pr66-43251910422 §2.1 → 升级复核采纳）：
+     * 1) 应用窗内「正在处理回收站」进度对话框可见（isDeletingRecycleBin ||
+     *    deletePermissionInFlight 的 UI 面，MainActivity L1128-1141）；或
+     * 2) 系统授权对话框已成为 active window（systemDialogActive：providers.media/
+     *    permissioncontroller root，本轮 dump 实证 active root 可见系统对话框全文）。
+     * 证据 2 的必要性：本环境 uiAutomation.windows 恒空、查找只走 rootInActiveWindow，
+     * 系统对话框 ~0.7s 内抢焦点使证据 1 的观测窗 <0.5s（tap 删除 @+0ms → 生产
+     * create_delete_request @+370ms → PermissionActivity 表面 @+0.5s）→ 20s 必超时；
+     * 而生产仅在 DeletePermissionSession.inFlight 持有期间才发出 createDeleteRequest，
+     * **系统对话框 active 即 in-flight 已置位的充分证据**。无误报路径：本判定在
+     * tapAppDialogConfirmButton/waitInFlightEntered 的调用时序中，系统对话框 active 前
+     * 必先经「app 对话框为 active window 且已点删除」。
+     * 释放判定（waitInFlightReleased 连续 3 次 !visible）语义保持：系统对话框 active
+     * ⟹ 结果尚未投递 ⟹ in-flight 未释放；对话框关闭后回到证据 1 单独判定，与原行为
+     * 一致（实际调用时序中到达释放判定时系统对话框已关）。
+     */
     private fun inFlightDialogVisible(): Boolean =
-        findNodeInAnyWindow { it.text?.toString() == "正在处理回收站" } != null
+        findNodeInAnyWindow { it.text?.toString() == "正在处理回收站" } != null ||
+            systemDialogActive()
 
-    /** in-flight 进入（生产 DeletePermissionSession.launch 置位；对话框弹出即真）。 */
+    /** in-flight 进入（生产 DeletePermissionSession.launch 置位；进度对话框弹出或系统对话框 active 即真）。 */
     private fun waitInFlightEntered() {
         val deadline = SystemClock.uptimeMillis() + 15000
         while (SystemClock.uptimeMillis() < deadline) {
             if (inFlightDialogVisible()) {
-                Log.i(TAG, "in-flight dialog visible (production session inFlight=true, deletion suspended)")
+                val via = if (systemDialogActive()) "system dialog active" else "progress dialog visible"
+                Log.i(TAG, "in-flight observable ($via; production session inFlight=true, deletion suspended)")
                 return
             }
             SystemClock.sleep(100)
