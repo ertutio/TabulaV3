@@ -314,6 +314,15 @@ fi
 
 # ===== 8. force-stop → 冷重启 → force-stop（判据 5 的宿主侧换代操作） =====
 for round in 1 2; do
+  if ! adb shell am force-stop "$APP_ID"; then
+    fail "force-stop before cold restart round $round"
+    exit 1
+  fi
+  sleep 2
+  if [ -n "$(adb shell pidof "$APP_ID" | tr -d '\r')" ]; then
+    fail "app process still alive before cold restart round $round"
+    exit 1
+  fi
   adb shell am start -W -n "$APP_ID/com.tabula.v3.MainActivity" > "device-results/r-restart-$round.txt" 2>&1 || true
   sleep 8
   if [ -z "$(adb shell pidof "$APP_ID" | tr -d '\r')" ]; then
