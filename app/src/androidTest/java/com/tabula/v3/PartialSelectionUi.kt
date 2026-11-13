@@ -530,12 +530,32 @@ internal object PartialSelectionUi {
     }
 
     /**
+     * App 权限页的宿主包（"Permissions" 行点击 → permissioncontroller
+     * ManagePermissionsActivity；Google API 镜像 = com.google.android.permissioncontroller，
+     * AOSP 镜像 = com.android.permissioncontroller）。run 43490249343 API36 实证：
+     * App Info 页 SPA 渲染中段取到的 a11y bounds 落点为相邻 Notifications 行
+     * （点击打开 AppNotificationSettings），仅凭 goneMarkers 消失判"已导航"
+     * 会在错误页面误判成功 → 正向包名核验为裁决依据。
+     */
+    val PERMISSIONS_PAGE_PKGS = listOf(
+        "com.google.android.permissioncontroller", "com.android.permissioncontroller"
+    )
+
+    /**
      * 带导航核验的点击（轮3/R13 实证：Settings 页行点击可能被吞没且无导航）：
      * 点击后等待 goneMarkers 全部消失（已离开当前页），未导航重试并轮换
      * ACTION_CLICK/坐标两种方式，至多 3 次；全部失败留证报错。
+     *
+     * verifyPkgs（正向核验，run 43490249343 API36 裁决）：goneMarkers 全部消失
+     * 且 active window 包 ∈ verifyPkgs（或权限条目可见）才算到达；仅离开当前页
+     * 但落在错误页面（如误触 Notifications 行 → AppNotificationSettings）时
+     * 按 BACK 回到原页再重试——中途渲染的 a11y bounds 滞后实际布局，坐标
+     * 回退点击可能命中相邻行（API37 同轮 attempt0 未导航、attempt1 成功；
+     * API36 attempt0 误入通知页 → 误判成功 → photos 条目 40s 不可见红）。
      */
     fun tapWithNavigationVerify(
-        candidates: List<String>, goneMarkers: List<String>, tag: String, attempts: Int = 3
+        candidates: List<String>, goneMarkers: List<String>, tag: String,
+        attempts: Int = 3, verifyPkgs: List<String>? = null
     ) {
         repeat(attempts) { attempt ->
             // 候选等待（页面渲染需要时间；R14 实证 AppInfo 页 ~2-5s 才出节点）
@@ -558,14 +578,28 @@ internal object PartialSelectionUi {
                 Log.i(TAG, "$tag-attempt$attempt clicked via coordinate")
             }
             val deadline = SystemClock.uptimeMillis() + 8000
+            var leftOnWrongPage = false
             while (SystemClock.uptimeMillis() < deadline) {
-                if (goneMarkers.all { marker -> find(ins.uiAutomation.rootInActiveWindow, marker) == null }) {
-                    Log.i(TAG, "$tag navigated after attempt $attempt")
+                val root = ins.uiAutomation.rootInActiveWindow
+                val leftPage = goneMarkers.all { marker -> find(root, marker) == null }
+                val pkg = root?.packageName?.toString()
+                val pkgOk = verifyPkgs == null || pkg in verifyPkgs ||
+                    findAny(root, candidates) != null
+                if (leftPage && pkgOk) {
+                    Log.i(TAG, "$tag navigated after attempt $attempt (pkg=$pkg)")
                     return
                 }
+                if (leftPage && !pkgOk) leftOnWrongPage = true
                 SystemClock.sleep(200)
             }
-            Log.w(TAG, "$tag attempt $attempt did not navigate; retrying")
+            if (leftOnWrongPage) {
+                Log.w(TAG, "$tag attempt $attempt landed on wrong page; BACK and retry")
+                dumpTree("wrong-page-$tag-attempt$attempt")
+                shell("input keyevent 4")
+                SystemClock.sleep(1000)
+            } else {
+                Log.w(TAG, "$tag attempt $attempt did not navigate; retrying")
+            }
         }
         dumpTree("no-navigation-$tag")
         saveScreenshot("no-navigation-$tag")
