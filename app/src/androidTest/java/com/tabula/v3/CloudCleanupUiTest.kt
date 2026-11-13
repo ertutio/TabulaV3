@@ -426,8 +426,35 @@ class CloudCleanupUiTest {
             photo()
             activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             tap("图库")
-            tap(albumName)
-            waitFor("返回")
+            // Confirm navigation in this Activity using the same armed request.
+            // API36 evidence showed the gallery still open after a single coordinate tap.
+            val navigationDeadline = SystemClock.uptimeMillis() + 20000
+            var navigationAttempts = 0
+            var lastNavigationAttempt = 0L
+            while (SystemClock.uptimeMillis() < navigationDeadline) {
+                val root = ins.uiAutomation.rootInActiveWindow
+                if (request.entered || find(root, "返回") != null) break
+                val now = SystemClock.uptimeMillis()
+                if (root?.packageName?.toString() == ctx.packageName &&
+                    find(root, "新建图集")?.text?.toString() == "新建图集" &&
+                    navigationAttempts < 3 && now - lastNavigationAttempt >= 1000
+                ) {
+                    var albumNode = find(root, albumName)
+                    while (albumNode != null && !albumNode.isClickable) {
+                        albumNode = albumNode.parent
+                    }
+                    val clickableAlbum = albumNode
+                    if (clickableAlbum != null && clickableAlbum.isVisibleToUser && clickableAlbum.isEnabled) {
+                        val bounds = Rect().also { clickableAlbum.getBoundsInScreen(it) }
+                        val clicked = clickableAlbum.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                        navigationAttempts++
+                        lastNavigationAttempt = now
+                        Log.i("CloudLateNavigation", "attempt=$navigationAttempts bounds=$bounds clicked=$clicked")
+                    }
+                }
+                SystemClock.sleep(100)
+            }
+            waitFor("返回", timeout = 1000)
             awaitCondition("old album request entered: ${request.albumId}") { request.entered }
             assertFalse("old request must stay blocked until explicitly released", request.completed)
             shell("input keyevent 4")
