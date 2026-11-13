@@ -241,7 +241,7 @@ def main():
         raise RuntimeError("Unexpected emulator Android version")
     print(json.dumps({"sdk": metadata["sdk"], "tests": 3, "failures": 0, "observations": rows}), flush=True)
     # Preserve all volume checks above; only then exercise the UI regressions.
-    subprocess.run(["bash", "tools/run-cloud-ui-probe.sh"], check=True, timeout=720)
+    subprocess.run(["bash", "tools/run-cloud-ui-probe.sh"], check=True, timeout=1200)
 
 if len(sys.argv) > 1:
     if sys.argv[1:] == ["metadata"]:

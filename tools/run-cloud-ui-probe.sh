@@ -78,8 +78,11 @@ status=0
 # PixelRefreshUiTest 2 例（C4/T07 审计轮：外部编辑后卡片与查看器像素级刷新 + ViewerPollPolicy 跨时刻拼接回归，见套件 KDoc）。
 # PartialSelectionPhaseATest 1 例 + PartialSelectionPhaseBTest 1 例（包B：PARTIAL 选择集 A→B
 # 真实系统机制两阶段——阶段A 系统权限对话框 Select photos → 照片选择器建立 PARTIAL(A)；
-# 宿主 force-stop；阶段B 系统设置页重选 B + 地面真值 + UI/保留/哨兵断言——收尾单元改为
-# 跨月夹具与设置页导航，机制结论见 PR57/notes）。
+# PartialSelection 两阶段（包B：PARTIAL A→B，见套件 KDoc）。
+# FullPartialFullPhase1Test 1 例 + FullPartialFullPhase2Test 1 例 + FullPartialFullPhase3Test 1 例
+# （B2 收尾：T07 FULL→PARTIAL→FULL 三阶段——FULL 建立+处理 g1+断点指向 g2+落盘；
+# pm revoke 系统强停→PARTIAL(B) 像素重选+进度持有读回；pm grant+force-stop→FULL 恢复
+# +已处理保持+g2 续接+旧快照晚到不覆盖竞争门，见套件 KDoc 与 coord/notes-B2.md）。
 # OtherAppMediaAuthDeviceTest 4 例（包C2：他人媒体真实系统授权流程——直接删除归属边界 /
 # 未授权按项保留 / 真实系统授权对话框删除 / 清理入口组合未授权保留，见套件 KDoc）。
 # ProdAuthCallbackDeviceTest 2 例（包C2 收尾：生产授权回调消费路径——系统对话框确认/
@@ -264,6 +267,174 @@ if [ "$partial_status" != "0" ]; then
   echo "PARTIAL selection A->B two-stage verification failed" >&2
   status=1
 fi
+# ===== T07 FULL→PARTIAL→FULL 三阶段验证（B2 收尾单元）=====
+# 成员（全部宿主 shell 绑定所有权，Pictures/FullPartialFullFixtures/）：
+# G 组 g1/g2（生产写入口成组、g1 经真实 UI 上滑部分处理）、非组成员 n1（FULL 下
+# 可见、PARTIAL(B) 下不在 B 集合）、B 集合专有 b1/b2（PARTIAL 阶段才可读）、
+# 哨兵 s1（任何阶段不进任何集合/选择集）。推送顺序 S→N1→G1→G2→B1→B2（mtime
+# 升序、全落 2026-11、相邻 >1.1s）→ 选择器网格时间倒序 [B2,B1,G2,G1,N1,S1]
+# → B = 网格索引 {0,1}（#57 像素驱动原语）。
+# 阶段1（FULL 建立+真实 UI 处理 g1+断点指向 g2+期望状态落盘，FullPartialFullPhase1Test
+# 1 例）→ 宿主 pm revoke（应用被系统强停，#52 实证口径；应用数据保留）→
+# 阶段2（真实系统对话框 Select photos 像素重选 b1/b2 → PARTIAL(B) 地面真值 +
+# 进度持有读回，FullPartialFullPhase2Test 1 例）→ 宿主 pm grant（不杀进程）+
+# am force-stop（#52 显式重启口径）→ 阶段3（FULL 恢复地面真值 + 已处理保持 +
+# g2 续接 + 旧快照晚到不覆盖竞争门，FullPartialFullPhase3Test 1 例）。
+# 阶段间仅权限与进程边界变化，禁止 pm clear（期望状态 files/ 落盘跨阶段读回）。
+echo "=== T07 FULL->PARTIAL->FULL three-stage verification ==="
+fpf_status=0
+adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '\r' | grep -Fx Success || fpf_status=1
+# VISUAL_USER_SELECTED 清理（判据 1：pm clear 天然清理 + 兜底 revoke）
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED >/dev/null 2>&1 || true
+adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || fpf_status=1
+for fixture_dir in "Pictures/FullPartialFullFixtures/" "Pictures/PartialSelectionFixtures/" "Pictures/FullRecoveryFixtures/" "Pictures/PixelRefreshFixtures/" "Pictures/ForegroundPermFixtures/" "Pictures/CloudSafetySentinels/" "Pictures/TabulaVolumeProbe/"; do
+  adb shell "content delete --uri content://media/external/images/media --where \"relative_path='$fixture_dir'\"" >/dev/null 2>&1 || true
+done
+adb shell "rm -rf /sdcard/Pictures/FullPartialFullFixtures" >/dev/null 2>&1 || true
+gallery_rows=$(adb shell "content query --uri content://media/external/images/media --projection _id" | grep -c "^Row:") || gallery_rows=0
+if [ "$gallery_rows" != "0" ]; then
+  adb shell "content query --uri content://media/external/images/media --projection _display_name" | head -20 >&2 || true
+  echo "Gallery not clean before FULL->PARTIAL->FULL suite: $gallery_rows rows" >&2
+  fpf_status=1
+fi
+mkdir -p device-results/FullPartialFull
+# ---- 宿主夹具编排：纯 python 生成 6 张 96x96 纯色 PNG → adb push → scan_file
+#      入库（行所有权=shell，非应用自有：scoped storage 下应用可见集合=严格授权
+#      级别决定的集合；字节传输只走宿主 adb——CI run 42476083194/42477634711 实证）----
+python3 - <<'PY'
+import os, struct, zlib
+
+def write_png(path, rgb, size=96):
+    def chunk(tag, data):
+        c = struct.pack(">I", len(data)) + tag + data
+        return c + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+    raw = b"".join(b"\x00" + bytes(rgb) * size for _ in range(size))
+    ihdr = struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0)
+    with open(path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+                + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+out = "device-results/FullPartialFull/fixtures"
+os.makedirs(out, exist_ok=True)
+plan = [("fpf-s1.png", (136, 136, 136)),
+        ("fpf-n1.png", (0, 0, 255)),
+        ("fpf-g1.png", (255, 0, 0)),
+        ("fpf-g2.png", (255, 0, 255)),
+        ("fpf-b1.png", (255, 255, 0)),
+        ("fpf-b2.png", (0, 255, 255))]
+for name, rgb in plan:
+    write_png(os.path.join(out, name), rgb)
+print("fixtures generated:", [n for n, _ in plan])
+PY
+fixture_ok=1
+adb shell "mkdir -p /sdcard/Pictures/FullPartialFullFixtures" >/dev/null 2>&1 || true
+for f in fpf-s1.png fpf-n1.png fpf-g1.png fpf-g2.png fpf-b1.png fpf-b2.png; do
+  case "$f" in
+    fpf-s1.png) touch_time=202611010900 ;;
+    fpf-n1.png) touch_time=202611031000 ;;
+    fpf-g1.png) touch_time=202611051100 ;;
+    fpf-g2.png) touch_time=202611061200 ;;
+    fpf-b1.png) touch_time=202611071300 ;;
+    fpf-b2.png) touch_time=202611082000 ;;
+  esac
+  adb push "device-results/FullPartialFull/fixtures/$f" "/sdcard/Pictures/FullPartialFullFixtures/$f" >/dev/null || fixture_ok=0
+  adb shell "touch -t $touch_time /sdcard/Pictures/FullPartialFullFixtures/$f" >/dev/null 2>&1 || true
+  sleep 1.1
+  adb shell "content call --uri content://media/ --method scan_file --arg /sdcard/Pictures/FullPartialFullFixtures/$f" >/dev/null 2>&1 || true
+  row=$(adb shell "content query --uri content://media/external/images/media --projection _id --where \"_display_name='$f'\"" | grep -c "^Row:") || row=0
+  if [ "$row" != "1" ]; then
+    # 兜底扫描路径：MEDIA_SCANNER_SCAN 广播后再核对一次
+    adb shell "am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/FullPartialFullFixtures/$f" >/dev/null 2>&1 || true
+    sleep 1
+    row=$(adb shell "content query --uri content://media/external/images/media --projection _id --where \"_display_name='$f'\"" | grep -c "^Row:") || row=0
+  fi
+  if [ "$row" != "1" ]; then
+    echo "Host fixture scan failed: $f (rows=$row)" >&2
+    fixture_ok=0
+  fi
+done
+if [ "$fixture_ok" != "1" ]; then
+  echo "Host fixture orchestration failed" >&2
+  fpf_status=1
+fi
+# 依赖跳过辅助（coord/notes-B2.md §7.3.6）：上游阶段红 → 下游 instrumentation 跳过
+# （"dependency-unmet" 日志，fpf_status 保持 1，不跑依赖阶段）；跳过时宿主侧按名
+# 兜底清理 6 夹具（依赖阶段未跑 → 其 @After 清理未执行，防残留污染后续 probe 段）。
+fpf_cleanup_fixtures() {
+  for f in fpf-s1.png fpf-n1.png fpf-g1.png fpf-g2.png fpf-b1.png fpf-b2.png; do
+    adb shell "content delete --uri content://media/external/images/media --where \"_display_name='$f' AND relative_path='Pictures/FullPartialFullFixtures/'\"" >/dev/null 2>&1 || true
+    adb shell "rm -f /sdcard/Pictures/FullPartialFullFixtures/$f" >/dev/null 2>&1 || true
+  done
+  adb shell "rm -rf /sdcard/Pictures/FullPartialFullFixtures" >/dev/null 2>&1 || true
+  echo "FPF skip fallback: 6 fixtures removed by name"
+}
+fpf_phase1_ok=1
+if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+  -e class com.tabula.v3.FullPartialFullPhase1Test \
+  com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee device-results/FullPartialFull/phase1.txt; then
+  echo "FPF Phase1 instrumentation failed" >&2; fpf_status=1; fpf_phase1_ok=0
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/FullPartialFull/phase1.txt || { echo "FPF Phase1 expected OK(1)" >&2; fpf_status=1; fpf_phase1_ok=0; }
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/FullPartialFull/phase1.txt; then
+  echo "Failure or skip observed in FPF phase1" >&2; fpf_status=1; fpf_phase1_ok=0
+fi
+
+if [ "$fpf_phase1_ok" != "1" ]; then
+  echo "dependency-unmet: FPF Phase2 skipped (Phase1 red) — downstream instrumentation not run" >&2
+  fpf_phase2_ok=0
+  fpf_cleanup_fixtures
+else
+  # 宿主侧权限收窄：应用被系统强停（#52 实证行为）；应用数据保留，阶段2 新进程续接
+  adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || fpf_status=1
+  sleep 2
+  fpf_phase2_ok=1
+  if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+    -e class com.tabula.v3.FullPartialFullPhase2Test \
+    com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+    | tee device-results/FullPartialFull/phase2.txt; then
+    echo "FPF Phase2 instrumentation failed" >&2; fpf_status=1; fpf_phase2_ok=0
+  fi
+  grep -Eq "^OK \(1 tests?\)" device-results/FullPartialFull/phase2.txt || { echo "FPF Phase2 expected OK(1)" >&2; fpf_status=1; fpf_phase2_ok=0; }
+  if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/FullPartialFull/phase2.txt; then
+    echo "Failure or skip observed in FPF phase2" >&2; fpf_status=1; fpf_phase2_ok=0
+  fi
+fi
+
+if [ "$fpf_phase2_ok" != "1" ]; then
+  echo "dependency-unmet: FPF Phase3 skipped (Phase2 red) — downstream instrumentation not run" >&2
+  fpf_cleanup_fixtures
+else
+  # 恢复 FULL：grant 不杀进程 → 显式 force-stop 对齐 #52 重启口径（应用数据保留）
+  adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || fpf_status=1
+  adb shell am force-stop com.tabula.v3.recyclebin.test || fpf_status=1
+  if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+    -e class com.tabula.v3.FullPartialFullPhase3Test \
+    com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+    | tee device-results/FullPartialFull/phase3.txt; then
+    echo "FPF Phase3 instrumentation failed" >&2; fpf_status=1
+  fi
+  grep -Eq "^OK \(1 tests?\)" device-results/FullPartialFull/phase3.txt || { echo "FPF Phase3 expected OK(1)" >&2; fpf_status=1; }
+fi
+for phase in phase1 phase2 phase3; do
+  [ -f "device-results/FullPartialFull/$phase.txt" ] || continue
+  if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' "device-results/FullPartialFull/$phase.txt"; then
+    echo "Failure or skip observed in FPF $phase" >&2
+    fpf_status=1
+  fi
+done
+adb logcat -d -v threadtime > device-results/FullPartialFull/logcat.txt || true
+# 裁决 S6 同款：宿主 grep 摘要（MediaProvider user-selected/PhotoPicker 授权路径 +
+# 测试 verdict/evidence 行）cat 进 job log
+grep -iE "user.?select|PhotoPicker|GrantUri|accessible|confirmCommitted|verdict=|FullPartialFull" device-results/FullPartialFull/logcat.txt | tail -40 > device-results/FullPartialFull/mediaprovider-grep.txt || true
+cat device-results/FullPartialFull/mediaprovider-grep.txt || true
+adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/full-partial-full-expected-state.json device-results/FullPartialFull/ || true
+adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/FullPartialFull/ui-failures || true
+
+if [ "$fpf_status" != "0" ]; then
+  echo "T07 FULL->PARTIAL->FULL three-stage verification failed" >&2
+  status=1
+fi
 # ===== FULL 恢复两阶段（+缺席断言）验证（审计轮：工作包 2）=====
 # 阶段一建立真实清理组/断点；宿主 revoke（应用被强停）→ 缺席断言 →
 # grant（恢复 FULL）→ UI 软删除 → 强停 → 新进程读回。阶段间保留应用数据。
@@ -315,6 +486,122 @@ collect full-ui-failures 0 - adb pull /sdcard/Android/data/com.tabula.v3.recycle
 
 if [ "$full_status" != "0" ]; then
   echo "FULL recovery four-stage verification failed" >&2
+  status=1
+fi
+
+# ===== PR72 后续（2026-11-14）：B2 真实 MainActivity 权限刷新接线设备验证 =====
+# B2PermissionRefreshDeviceTest 3 例 = 3 次独立 instrumentation（宿主编排，进程
+# 边界对齐 #52 口径：pm revoke 系统强停 / pm grant 不杀进程）：
+# 步骤1 T1 fullDeckShowsFixturesInjectsLateMediaAndRecordsPid（pm clear → grant →
+#   FULL deck 地面真值（恰 2 夹具）→ 会话内 shell 注入晚到媒体（无重扫触发 →
+#   当前界面旧集合保持、晚到媒体不入界面）→ 进程 PID 落盘（跨进程核对基准））。
+# 步骤2 宿主 pm revoke（系统强停；in-process revoke 会杀死 instrumentation——
+#   CI 41706417934 双 API 实证口径，ForegroundPermissionUiTest 同登记，故 revoke
+#   必须宿主侧）→ T2 revokedRelaunchShowsGateAndOldSetNeverReappears（新进程：
+#   REVOKE 后语义——权限门控屏呈现 + 旧集合 3 名/deck 标记组合观察窗内不重现
+#   （应用包窗口有效性门）+ MediaStore 集合面 3 行仍在库（不可见=权限语义非删除））。
+# 步骤3 T3 inSessionGrantUpgradeRerunsScanOnSameProcess（同进程会话内授权升级
+#   接线：无权限启动=门控 → 测试侧 pm grant（grant 不杀进程，应用前台持门控时
+#   授权）→ Home→am start（onResume 修订重查，applyAccessLevel 级别变更分支
+#   revision++）→ deck 新池提交（批次日志行含 2 夹具行 id + 卡节点可见）→ 全程
+#   pidof 恒等）。
+# 如实登记：在途扫描取消/晚返回不覆盖的严格竞态形态设备层不可确定性构造（生产
+# load 无注入点）——单测级 MediaSnapshotLoadRaceTest（PR50）+ FPF Phase3 受控
+# 竞争门覆盖；本段验证真实接线端到端信息流终态。
+# 夹具：全部 shell 身份测试侧注入（base64 文本通道，宿主不推）——b2pr-a1/a2/late
+# （步骤1）与 b2pr-c1/c2（步骤3），Pictures/B2PermissionRefreshFixtures/；每方法
+# 用例末自清 + @After 兜底 + 宿主 dependency-skip 按名兜底。
+echo "=== B2 permission-refresh wiring three-step verification ==="
+b2pr_status=0
+adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '\r' | grep -Fx Success || b2pr_status=1
+# VISUAL_USER_SELECTED 清理（pm clear 天然清理 + 兜底 revoke）
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED >/dev/null 2>&1 || true
+adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || b2pr_status=1
+for fixture_dir in "Pictures/FullPartialFullFixtures/" "Pictures/PartialSelectionFixtures/" "Pictures/FullRecoveryFixtures/" "Pictures/PixelRefreshFixtures/" "Pictures/ForegroundPermFixtures/" "Pictures/CloudSafetySentinels/" "Pictures/TabulaVolumeProbe/" "Pictures/B2PermissionRefreshFixtures/"; do
+  adb shell "content delete --uri content://media/external/images/media --where \"relative_path='$fixture_dir'\"" >/dev/null 2>&1 || true
+done
+adb shell "rm -rf /sdcard/Pictures/B2PermissionRefreshFixtures" >/dev/null 2>&1 || true
+b2pr_gallery_rows=$(adb shell "content query --uri content://media/external/images/media --projection _id" | grep -c "^Row:") || b2pr_gallery_rows=0
+if [ "$b2pr_gallery_rows" != "0" ]; then
+  adb shell "content query --uri content://media/external/images/media --projection _display_name" | head -20 >&2 || true
+  echo "Gallery not clean before B2 permission-refresh suite: $b2pr_gallery_rows rows" >&2
+  b2pr_status=1
+fi
+mkdir -p device-results/B2PermissionRefresh
+b2pr_cleanup_fixtures() {
+  for f in b2pr-a1.png b2pr-a2.png b2pr-late.png b2pr-c1.png b2pr-c2.png; do
+    adb shell "content delete --uri content://media/external/images/media --where \"_display_name='$f' AND relative_path='Pictures/B2PermissionRefreshFixtures/'\"" >/dev/null 2>&1 || true
+    adb shell "rm -f /sdcard/Pictures/B2PermissionRefreshFixtures/$f" >/dev/null 2>&1 || true
+  done
+  adb shell "rm -rf /sdcard/Pictures/B2PermissionRefreshFixtures" >/dev/null 2>&1 || true
+  echo "B2PermissionRefresh skip fallback: fixtures removed by name"
+}
+b2pr_step1_ok=1
+if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+  -e class com.tabula.v3.B2PermissionRefreshDeviceTest#fullDeckShowsFixturesInjectsLateMediaAndRecordsPid \
+  com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee device-results/B2PermissionRefresh/step1.txt; then
+  echo "B2PermissionRefresh step1 instrumentation failed" >&2; b2pr_status=1; b2pr_step1_ok=0
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/B2PermissionRefresh/step1.txt || { echo "B2PermissionRefresh step1 expected OK(1)" >&2; b2pr_status=1; b2pr_step1_ok=0; }
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/B2PermissionRefresh/step1.txt; then
+  echo "Failure or skip observed in B2PermissionRefresh step1" >&2; b2pr_status=1; b2pr_step1_ok=0
+fi
+
+if [ "$b2pr_step1_ok" != "1" ]; then
+  echo "dependency-unmet: B2PermissionRefresh step2/3 skipped (step1 red) — downstream instrumentation not run" >&2
+  b2pr_cleanup_fixtures
+else
+  # 宿主侧权限收窄：应用被系统强停（#52 实证口径）。宿主记录 revoke 前后 pidof
+  # （仅登记留证不强门——步骤1 instrumentation 退出后应用进程存活时序非确定）。
+  b2pr_pid_before=$(adb shell pidof com.tabula.v3.recyclebin.test 2>/dev/null | tr -d '\r' || true)
+  adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || b2pr_status=1
+  sleep 2
+  b2pr_pid_after=$(adb shell pidof com.tabula.v3.recyclebin.test 2>/dev/null | tr -d '\r' || true)
+  echo "B2PermissionRefresh revoke kill evidence: pid_before=$b2pr_pid_before pid_after=$b2pr_pid_after (empty=dead)"
+  b2pr_step2_ok=1
+  if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+    -e class com.tabula.v3.B2PermissionRefreshDeviceTest#revokedRelaunchShowsGateAndOldSetNeverReappears \
+    com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+    | tee device-results/B2PermissionRefresh/step2.txt; then
+    echo "B2PermissionRefresh step2 instrumentation failed" >&2; b2pr_status=1; b2pr_step2_ok=0
+  fi
+  grep -Eq "^OK \(1 tests?\)" device-results/B2PermissionRefresh/step2.txt || { echo "B2PermissionRefresh step2 expected OK(1)" >&2; b2pr_status=1; b2pr_step2_ok=0; }
+  if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/B2PermissionRefresh/step2.txt; then
+    echo "Failure or skip observed in B2PermissionRefresh step2" >&2; b2pr_status=1; b2pr_step2_ok=0
+  fi
+  if [ "$b2pr_step2_ok" != "1" ]; then
+    echo "dependency-unmet: B2PermissionRefresh step3 skipped (step2 red) — downstream instrumentation not run" >&2
+    b2pr_cleanup_fixtures
+  else
+    # 步骤3：无 grant（宿主 revoke 后状态延续）——T3 测试侧自授权完成会话内升级。
+    # 显式 force-stop（FPF Phase3/FullRecovery 同款口径）：步骤2 遗留进程/门控
+    # activity 死亡，T3 的 am start 在 T3 instrumentation 进程内冷启动，pid 基准
+    # 与 pidof 恒等断言确定性成立。
+    adb shell am force-stop com.tabula.v3.recyclebin.test || b2pr_status=1
+    if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+      -e class com.tabula.v3.B2PermissionRefreshDeviceTest#inSessionGrantUpgradeRerunsScanOnSameProcess \
+      com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+      | tee device-results/B2PermissionRefresh/step3.txt; then
+      echo "B2PermissionRefresh step3 instrumentation failed" >&2; b2pr_status=1
+    fi
+    grep -Eq "^OK \(1 tests?\)" device-results/B2PermissionRefresh/step3.txt || { echo "B2PermissionRefresh step3 expected OK(1)" >&2; b2pr_status=1; }
+    if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/B2PermissionRefresh/step3.txt; then
+      echo "Failure or skip observed in B2PermissionRefresh step3" >&2; b2pr_status=1
+    fi
+  fi
+fi
+collect b2pr-logcat 2 device-results/B2PermissionRefresh/logcat.txt adb logcat -d -v threadtime || true
+# 裁决摘要：权限/批次/接线证据行 cat 进 job log（T1/T2/T3 Log.i 锚 + 生产批次行）
+grep -iE "B2PermRefresh|currentBatch<-\[|MediaProvider|user.?select" device-results/B2PermissionRefresh/logcat.txt | tail -30 > device-results/B2PermissionRefresh/wiring-grep.txt || true
+cat device-results/B2PermissionRefresh/wiring-grep.txt || true
+collect b2pr-state 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/b2-permission-refresh-state.json device-results/B2PermissionRefresh/ || true
+collect b2pr-ui-failures 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/B2PermissionRefresh/ui-failures || true
+# 段末卫生：回收权限（revoke 强停无害——本段已结束；下一段 pm clear 亦重置）
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES >/dev/null 2>&1 || true
+
+if [ "$b2pr_status" != "0" ]; then
+  echo "B2 permission-refresh wiring three-step verification failed" >&2
   status=1
 fi
 
