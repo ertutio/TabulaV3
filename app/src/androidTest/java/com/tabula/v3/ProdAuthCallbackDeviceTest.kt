@@ -552,9 +552,8 @@ class ProdAuthCallbackDeviceTest {
      * **系统对话框 active 即 in-flight 已置位的充分证据**。无误报路径：本判定在
      * tapAppDialogConfirmButton/waitInFlightEntered 的调用时序中，系统对话框 active 前
      * 必先经「app 对话框为 active window 且已点删除」。
-     * 释放判定（waitInFlightReleased 连续 3 次 !visible）语义保持：系统对话框 active
-     * ⟹ 结果尚未投递 ⟹ in-flight 未释放；对话框关闭后回到证据 1 单独判定，与原行为
-     * 一致（实际调用时序中到达释放判定时系统对话框已关）。
+     * 释放判定要求应用回收站在同一快照中就绪且进度缺席，连续三次成立。
+     * 系统窗口或暂时不可观测的窗口会打断连续计数。
      * 二轮追加（协调者指令·同快照化）：两证据在**单次 activeRoot 快照内**并判——
      * 证据 1 与证据 2 不得来自不同时点的两次 rootInActiveWindow（消除跨快照竞态：
      * 原 `findNodeInAnyWindow(...) || systemDialogActive()` 为两次独立取 root）。
@@ -591,13 +590,16 @@ class ProdAuthCallbackDeviceTest {
 
     /**
      * in-flight 释放（生产 launcher 回调 → deletePermissionSession.complete 消费系统
-     * 结果 → inFlight=false）。连续 3 次轮询皆无才算释放，防窗口过渡期误判。
+     * 结果 → inFlight=false）。同一应用回收站快照已就绪且无进度，连续 3 次才算释放。
      */
-    private fun waitInFlightReleased() {
+    private fun waitInFlightReleased(expectedPendingText: String?) {
         val deadline = SystemClock.uptimeMillis() + 20000
         var goneStreak = 0
         while (SystemClock.uptimeMillis() < deadline) {
-            goneStreak = if (inFlightDialogVisible()) 0 else goneStreak + 1
+            val root = readyRecycleBinRoot(expectedPendingText)
+            val released = root != null &&
+                findNodeIn(root) { it.text?.toString() == "正在处理回收站" } == null
+            goneStreak = if (released) goneStreak + 1 else 0
             if (goneStreak >= 3) {
                 Log.i(TAG, "in-flight dialog released (production callback consumed the system result)")
                 return
@@ -672,7 +674,7 @@ class ProdAuthCallbackDeviceTest {
         // 先关查看器，使「N 项待处理」与保留条目节点可达，再做就绪判定。
         closeViewerIfOpen(expectedPendingText, retainedName)
         waitAppRecycleBinReady(expectedPendingText, retainedName)
-        waitInFlightReleased()
+        waitInFlightReleased(expectedPendingText)
     }
 
     private fun systemDialogActive(): Boolean = systemDialogRoot() != null
@@ -719,7 +721,8 @@ class ProdAuthCallbackDeviceTest {
                 }
                 SystemClock.sleep(500)
             } else {
-                // root 为空（active window 过渡期）或 absent 但应用未就绪：不累计缺席
+                // 不可观测或未就绪的扫描打断连续缺席。
+                absentStreak = 0
                 SystemClock.sleep(200)
             }
         }
@@ -897,14 +900,27 @@ class ProdAuthCallbackDeviceTest {
         error("Journal still holds the denied deletion request")
     }
 
-    private fun waitUiNameGone(name: String) {
+    /** null 计数表示空回收站。所有就绪条件都从同一个应用 root 读取。 */
+    private fun readyRecycleBinRoot(expectedPendingText: String?): AccessibilityNodeInfo? {
+        val root = activeRoot()?.takeIf { it.packageName?.toString() == ctx.packageName }
+            ?: return null
+        val ready = findNodeIn(root) {
+            val text = it.text?.toString()
+            if (expectedPendingText != null) text == expectedPendingText
+            else text == "回收站空空如也" || text == "暂无被删除的照片"
+        } != null
+        return root.takeIf { ready }
+    }
+
+    private fun waitUiNameGone(name: String, expectedPendingText: String?) {
         val deadline = SystemClock.uptimeMillis() + 20000
         var goneStreak = 0
         while (SystemClock.uptimeMillis() < deadline) {
-            goneStreak = if (findNodeInAppWindows {
+            val root = readyRecycleBinRoot(expectedPendingText)
+            val gone = root != null && findNodeIn(root) {
                     it.text?.toString() == name || it.contentDescription?.toString() == name
                 } == null
-            ) goneStreak + 1 else 0
+            goneStreak = if (gone) goneStreak + 1 else 0
             if (goneStreak >= 3) return
             SystemClock.sleep(100)
         }
@@ -960,6 +976,7 @@ class ProdAuthCallbackDeviceTest {
         val sentinel = outOfSelectionSentinel()
         val beforeJournal = realManager().pendingDeletionUris().toSet()
         val beforeCount = realManager().loadRecycleBin().size
+        val expectedPendingText = "${beforeCount} 项待处理".takeIf { beforeCount > 0 }
         val record = row.record()
         realManager().addAllToRecycleBin(listOf(record))
         seededRecords += record
@@ -1006,7 +1023,7 @@ class ProdAuthCallbackDeviceTest {
             waitAppRecycleBinCount("${beforeCount} 项待处理")
         }
         // 回调消费 → in-flight 释放（complete(true)）
-        waitInFlightReleased()
+        waitInFlightReleased(expectedPendingText)
         // 删除推进：行/文件三面消失 + 记录消费 + journal 回到基线（真实单例为共享存储，
         // 基线对照而非全局空——其他条目不属于本套件断言面）。
         waitRowGone(row)
@@ -1020,7 +1037,7 @@ class ProdAuthCallbackDeviceTest {
         assertEquals(setOf(row.primary), verification.deleted)
         assertTrue("no unknown may be introduced by a granted delete", verification.unknown.isEmpty())
         // UI 如实反馈：条目从回收站消失
-        waitUiNameGone(row.name)
+        waitUiNameGone(row.name, expectedPendingText)
         // 集合外哨兵不受影响。
         assertTrue("sentinel must survive", present(sentinel.primary))
         assertTrue("sentinel must survive shell query", shellRowExists(sentinel.name))
