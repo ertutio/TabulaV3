@@ -17,6 +17,66 @@ def adb(*args, check=True):
         raise RuntimeError(p.stdout)
     return p.stdout
 
+# ===== 采集诊断（收尾单元 2026-11-10）=====
+# run 42662260995/42844759640 API36 两连败定位：window("after") 里的证据采集
+# 命令 `adb logcat -d -v threadtime -T <窗口起点>`（line 104 原 adb() 调用）
+# 在 API36 模拟器上 rc!=0（stdout 截断于行中、无错误文本——adbd/logd 流式
+# 读取中断形态），原 adb() 把整段 stdout 塞进 RuntimeError（job log 被 38k 行
+# logcat 淹没、真正的失败原因反而不可见）。以下包装：每条只读采集尝试登记
+# （命令/返回码/耗时/输出摘要/adb devices）到 collection-diagnostics.jsonl，
+# 首败即登记不吞；logcat -d 类采集加 ≤2 次有界重试；重试仍失败则整段输出
+# 留档 device-results/ 并以有界摘要 raise——采集结果缺失继续阻断完整通过，
+# 设备健康判定（boot_id/SurfaceFlinger PID/DeadSystem）门禁效力不变。
+diagnostics_path = out / "collection-diagnostics.jsonl"
+MAX_COLLECTION_RETRIES = 2
+
+def record_collection_diagnostic(command, attempt, returncode, duration_s, output, verdict):
+    lines = (output or "").splitlines()
+    try:
+        devices = subprocess.run(["adb", "devices"], text=True, stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT, timeout=60).stdout.strip()
+    except (OSError, subprocess.SubprocessError) as error:
+        devices = f"adb devices unavailable: {type(error).__name__}: {error}"
+    event = {"timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"), "command": command,
+             "attempt": attempt, "returncode": returncode,
+             "duration_s": round(duration_s, 2), "output_lines": len(lines),
+             "output_head": lines[:3], "output_tail": lines[-8:],
+             "adb_devices": devices, "verdict": verdict}
+    with diagnostics_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+def adb_readonly(*args, retries=MAX_COLLECTION_RETRIES):
+    attempts = 1 + retries
+    output = ""
+    returncode = -1
+    duration_s = 0.0
+    for attempt in range(1, attempts + 1):
+        started = time.monotonic()
+        try:
+            p = subprocess.run(["adb", *args], text=True, stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT, timeout=180)
+            output, returncode = p.stdout, p.returncode
+        except (OSError, subprocess.SubprocessError) as error:
+            output = f"{type(error).__name__}: {error}"
+            returncode = -1
+        duration_s = time.monotonic() - started
+        if returncode == 0:
+            if attempt > 1:
+                record_collection_diagnostic(" ".join(args), attempt, returncode,
+                                             duration_s, output, "recovered-after-retry")
+            return output
+        record_collection_diagnostic(" ".join(args), attempt, returncode,
+                                     duration_s, output, "failed")
+        if attempt < attempts:
+            time.sleep(2)
+    failure_log = out / ("collection-failure-" + args[0] + ".log")
+    failure_log.write_text(output, encoding="utf-8")
+    tail = "\n".join(output.splitlines()[-5:])
+    raise RuntimeError(
+        f"Read-only collection failed after {attempts} attempts: adb {' '.join(args)} "
+        f"(rc={returncode}, {len(output.splitlines())} output lines, tail: {tail!r}; "
+        f"full output: {failure_log.name}, per-attempt evidence: {diagnostics_path.name})")
+
 def collect_host_metadata():
     """Collect only selected tool versions and AVD/image identity fields."""
     sdk = Path(os.environ.get("ANDROID_SDK_ROOT") or os.environ.get("ANDROID_HOME") or "")
@@ -101,7 +161,7 @@ def window(phase, name):
     before = data["before"]
     after = process_snapshot()
     data["after"] = after
-    log = adb("logcat", "-d", "-v", "threadtime", "-T", before["logcat_since"])
+    log = adb_readonly("logcat", "-d", "-v", "threadtime", "-T", before["logcat_since"])
     (out / ("window-" + name + "-logcat.txt")).write_text(log)
     issues = []
     if before["boot_id"] != after["boot_id"] or after["uptime"] < before["uptime"]:
@@ -181,7 +241,7 @@ def main():
         raise RuntimeError("Unexpected emulator Android version")
     print(json.dumps({"sdk": metadata["sdk"], "tests": 3, "failures": 0, "observations": rows}), flush=True)
     # Preserve all volume checks above; only then exercise the UI regressions.
-    subprocess.run(["bash", "tools/run-cloud-ui-probe.sh"], check=True, timeout=720)
+    subprocess.run(["bash", "tools/run-cloud-ui-probe.sh"], check=True, timeout=1200)
 
 if len(sys.argv) > 1:
     if sys.argv[1:] == ["metadata"]:

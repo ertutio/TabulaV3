@@ -82,7 +82,28 @@ class CloudCleanupUiTest {
         } catch (e: Exception) { "query-error:${e.javaClass.simpleName}:${e.message}" }
         Log.i("CloudMediaIdentity", "stage=$stage package=${ctx.packageName} opPackage=${ctx.opPackageName} uid=${android.os.Process.myUid()} uri=$uri owner=$owner")
     }
+    // U18 诊断（run 42369922277 工件）：pm clear 后本进程首个 MediaStore 插入存在
+    // provider 调用方身份解析竞态——行被创建但归属为空（logcat 证据：SQLiteQueryBuilder
+    // "owner_package_name IN ()"、owner=query-null），创建者写自己的 pending 行即被
+    // RecoverableSecurityException 拒绝（media/26），约 130ms 后身份解析完成，重试
+    // 插入成功（media/28 owner=本应用）。创建者对自己的 pending 行必有写权限，失败即
+    // 归属竞态而非产品缺陷；与 archive() 的 publish 0 行重试同口径做有界重试（保留
+    // 竞态行供 @After shell 清理），仍失败则如实抛出。
     private fun photo(path: String = "CloudSafetyFixtures", register: Boolean = true): Uri {
+        var lastError: Throwable? = null
+        repeat(3) { attempt ->
+            try {
+                return insertPendingJpeg(path, register)
+            } catch (e: Throwable) {
+                lastError = e
+                Log.w("CloudMediaIdentity", "fixture insert attempt=$attempt failed (provider identity race window)", e)
+                if (attempt < 2) SystemClock.sleep(2000)
+            }
+        }
+        throw requireNotNull(lastError)
+    }
+
+    private fun insertPendingJpeg(path: String, register: Boolean): Uri {
         val name = "cloud-" + UUID.randomUUID() + ".jpg"
         val item = requireNotNull(ctx.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
             ContentValues().apply {
@@ -405,8 +426,35 @@ class CloudCleanupUiTest {
             photo()
             activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             tap("图库")
-            tap(albumName)
-            waitFor("返回")
+            // Confirm navigation in this Activity using the same armed request.
+            // API36 evidence showed the gallery still open after a single coordinate tap.
+            val navigationDeadline = SystemClock.uptimeMillis() + 20000
+            var navigationAttempts = 0
+            var lastNavigationAttempt = 0L
+            while (SystemClock.uptimeMillis() < navigationDeadline) {
+                val root = ins.uiAutomation.rootInActiveWindow
+                if (request.entered || find(root, "返回") != null) break
+                val now = SystemClock.uptimeMillis()
+                if (root?.packageName?.toString() == ctx.packageName &&
+                    find(root, "新建图集")?.text?.toString() == "新建图集" &&
+                    navigationAttempts < 3 && now - lastNavigationAttempt >= 1000
+                ) {
+                    var albumNode = find(root, albumName)
+                    while (albumNode != null && !albumNode.isClickable) {
+                        albumNode = albumNode.parent
+                    }
+                    val clickableAlbum = albumNode
+                    if (clickableAlbum != null && clickableAlbum.isVisibleToUser && clickableAlbum.isEnabled) {
+                        val bounds = Rect().also { clickableAlbum.getBoundsInScreen(it) }
+                        val clicked = clickableAlbum.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                        navigationAttempts++
+                        lastNavigationAttempt = now
+                        Log.i("CloudLateNavigation", "attempt=$navigationAttempts bounds=$bounds clicked=$clicked")
+                    }
+                }
+                SystemClock.sleep(100)
+            }
+            waitFor("返回", timeout = 1000)
             awaitCondition("old album request entered: ${request.albumId}") { request.entered }
             assertFalse("old request must stay blocked until explicitly released", request.completed)
             shell("input keyevent 4")
@@ -531,8 +579,35 @@ class CloudCleanupUiTest {
         startAndOpenDialog()
         assertEquals(1, ctx.contentResolver.delete(primaryItem(destination), null, null))
         assertFalse("injected copy deletion must take effect", present(destination))
+        // API37（run 42840727007 工件）：确认点按落在 AlertDialog 入场动画窗口内被丢弃——
+        // logcat 证据：对话框 back-callback 注册后 20s 未清空、无点击事件、系统侧全程无
+        // Toast 窗口（VRI-Toast），等待期唯一的 a11y 事件是对话框自身的入场
+        // TYPE_WINDOW_STATE_CHANGED（EventTime 147108≈开窗后 190ms）。即 onConfirm 从未
+        // 执行、生产 Toast 从未入队：操作未完成（点按丢失），非反馈缺失/非观测失效。
+        // 与 startAndOpenDialog 对"清理原图"的有界重点同口径修夹具：监听先于命令生效
+        // （超时报告能捕获入场事件为证），命令内点按后验证对话框确实关闭，仍开着则
+        // 重点按；有界重试耗尽仍开着则如实失败，不改断言语义。
         val completed = ins.uiAutomation.executeAndWaitForEvent(
-            { tap("删除原图") },
+            {
+                var taps = 0
+                var lastTap = 0L
+                val deadline = SystemClock.uptimeMillis() + 10000
+                while (SystemClock.uptimeMillis() < deadline) {
+                    val confirm = find(ins.uiAutomation.rootInActiveWindow, "删除原图")
+                    if (confirm == null && ins.uiAutomation.rootInActiveWindow != null) {
+                        return@executeAndWaitForEvent // 对话框已关闭，Toast 事件由外层监听捕获
+                    }
+                    if (confirm != null && taps < 5 && SystemClock.uptimeMillis() - lastTap > 1500) {
+                        tapNode(confirm, "删除原图")
+                        taps++
+                        lastTap = SystemClock.uptimeMillis()
+                    }
+                    SystemClock.sleep(100)
+                }
+                throw IllegalStateException(
+                    "delete-original dialog never accepted the confirm tap after $taps bounded retaps"
+                )
+            },
             UiAutomation.AccessibilityEventFilter { event ->
                 event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED &&
                     event.text.any { it.toString().contains("副本尚未验证，已保留 1 张原图") }
