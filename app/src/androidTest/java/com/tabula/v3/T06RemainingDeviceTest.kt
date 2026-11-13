@@ -540,6 +540,11 @@ class T06RemainingDeviceTest {
             hasCompletedOnboarding = true
             hasAcknowledgedDisclaimer = true
         }
+        // 轮 1 实证（run 43468670035）：本套件日志断言按 tag 门控（客户端过滤），对
+        // logcat filter spec 是否生效不敏感；但 spec 被忽略时 dump 为全量流，用例后期
+        // 的完整性扫描（token-身份序列、case 2 全程窗口）需早期行仍存活于环形缓冲——
+        // 扩容主缓冲至 16M 消除轮转风险（对 spec 生效环境无害）。
+        shell("logcat -G 16M")
         shell("logcat -c")
     }
 
@@ -555,7 +560,11 @@ class T06RemainingDeviceTest {
         waitForDeckReady(names)
 
         // ---- 初始窗口（preloadRange=1 → 恰 2 张身份入窗；slot0=当前交互卡） ----
-        advanceLogCursor()
+        // 轮 1 实证修正（run 43468670035 双 API 同卡点）：初始 phase 不得推进日志游标
+        // ——窗口/enqueue/finish 日志在 deck 组合期即已发出（早于 deck-ready 返回），
+        // 此处 advanceLogCursor 会把游标推过这些日志使其被 isWithin 永久排除
+        // （"window log not observed"）。startMark（startActivitySync 之前采样）即
+        // 本 phase 下界；游标仍保留给后续 phase 的边界隔离。
         val initial = parseWindow(lastWindowLog(startMark, expectedIdx = 0, description = "initial"))
         val initialFixtureSlots = initial.slots.values.filter { key -> photos.any { key.contains(keyFragment(it)) } }
         assertEquals(
@@ -677,7 +686,7 @@ class T06RemainingDeviceTest {
         waitForDeckReady(names)
 
         // ---- 初始窗口（DRAW preloadRange=5 → 3 张全入窗）+ 真实请求 ----
-        advanceLogCursor()
+        // （同 case 1 轮 1 修正：初始 phase 不推进日志游标——组合期日志早于 deck-ready）
         val initial = parseWindow(lastWindowLog(startMark, expectedIdx = 0, description = "initial-draw"))
         photos.forEach { photo ->
             assertTrue(
@@ -750,7 +759,8 @@ class T06RemainingDeviceTest {
         assertTrue("动画中退出后 crash 缓冲不得有本应用记录:\n$crash", crash.isBlank())
 
         // ---- 实际预载请求恢复（全量重建）：dispose 清空 completed → 新管理器全量重发 ----
-        advanceLogCursor()
+        // （轮 1 修正：此处不推进游标——重启组合期日志早于 deck-ready 返回，同 case 1；
+        //   relaunchMark 即本 phase 下界，管理器 A 的日志均早于 relaunchMark 被排除）
         val rebuilt = parseWindow(lastWindowLog(relaunchMark, expectedIdx = 0, description = "relaunch"))
         photos.forEach { photo ->
             assertTrue(
