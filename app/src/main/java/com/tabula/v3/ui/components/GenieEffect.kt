@@ -983,51 +983,29 @@ class GenieAnimationController {
         this.progress = 0f
 
         animatable.snapTo(0f)
-        if (!BuildConfig.DEBUG) {
-            // T06 剩余场景（2026-11-14）：DEBUG 门测试挂起（GenieDeleteAnimTestHook，KDoc
-            // 见上）——动画已启动（isAnimating=true）后、animateTo 前挂起，仅组合销毁的
-            // 协程取消可结束（onComplete 因此不执行）；Release 构建 takeHold() 恒 false。
-            if (GenieDeleteAnimTestHook.takeHold()) {
-                Log.d("CardStackDebug", "deleteAnimHold genie=${System.identityHashCode(this)}")
-                while (true) delay(20)
-            }
-            animatable.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(
-                    durationMillis = durationMs,
-                    // 极致丝滑的 ease-out 曲线（优化版）
-                    // 灵感来自 iOS 17 的弹性动画，开始快、结束缓慢平滑
-                    // 控制点 (0.22, 1.0, 0.36, 1.0) 比原来更柔和
-                    easing = CubicBezierEasing(0.2f, 0.9f, 0.25f, 1f)
-                )
-            ) {
-                // 每帧更新进度，保证动画流畅
-                progress = value
-            }
-            onComplete()
-            reset()
-        } else {
-            // 负控制变异 A-v2（临时，验证后恢复；DEBUG 门使变异仅作用于设备 debug 构建，
-            // release 单测/生产行为不变）：try 覆盖挂起 + animateTo——取消（含挂起期间）
-            // 仍交付 onComplete——预期 case 2 "旧动画不提交（无 deleteAnimComplete）"
-            // 新断言失败（run 43521168823 实证变异 A-v1 包裹点不含挂起，取消落在 try 外
-            // 不触发）。
-            try {
-                if (GenieDeleteAnimTestHook.takeHold()) {
-                    Log.d("CardStackDebug", "deleteAnimHold genie=${System.identityHashCode(this)}")
-                    while (true) delay(20)
-                }
-                animatable.animateTo(
-                    targetValue = 1f,
-                    animationSpec = tween(durationMillis = durationMs, easing = CubicBezierEasing(0.2f, 0.9f, 0.25f, 1f))
-                ) {
-                    progress = value
-                }
-            } finally {
-                onComplete()
-                reset()
-            }
+        // T06 剩余场景（2026-11-14）：DEBUG 门测试挂起（GenieDeleteAnimTestHook，KDoc
+        // 见上）——动画已启动（isAnimating=true）后、animateTo 前挂起，仅组合销毁的
+        // 协程取消可结束（onComplete 因此不执行）；Release 构建 takeHold() 恒 false。
+        if (GenieDeleteAnimTestHook.takeHold()) {
+            Log.d("CardStackDebug", "deleteAnimHold genie=${System.identityHashCode(this)}")
+            while (true) delay(20)
         }
+        animatable.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(
+                durationMillis = durationMs,
+                // 极致丝滑的 ease-out 曲线（优化版）
+                // 灵感来自 iOS 17 的弹性动画，开始快、结束缓慢平滑
+                // 控制点 (0.22, 1.0, 0.36, 1.0) 比原来更柔和
+                easing = CubicBezierEasing(0.2f, 0.9f, 0.25f, 1f)
+            )
+        ) {
+            // 每帧更新进度，保证动画流畅
+            progress = value
+        }
+        
+        onComplete()
+        reset()
     }
     
     fun reset() {
