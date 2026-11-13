@@ -153,3 +153,18 @@ TAG=PreloadingManager（与 CardStack.debugCardStackLog 同模式）；不动 Ca
   双 uri 形态通吃。
 - **同 run 副证**：dispose 日志在组合销毁（@After finish）时按预期产出
   （`dispose active=0 completed=2`）——case 2 的 teardown dispose 断言路径成立。
+
+## 轮 3（run 43477827912，2026-11-14）：双 API 1/2——case 2 双 API 绿；case 1 仅剩串形比较
+
+- **case 2（DRAW 动画中 BACK 退出）双 API PASS**——teardown dispose + 静默 + 删除未
+  提交 + 重启全量预载重建 + 后续可操作全链路验证成立。
+- **case 1 推进至倒数第 3 断言**：初始窗口匹配/真实删除/换批窗口身份/第三张新请求/
+  旧身份无回写负向扫描/token 完整性/二次删除 全部通过，唯
+  `第二次删除的对象应为换批后的当前卡` 用 uri 串比较——回收站记录行 uri 为应用侧
+  external_primary 形态，夹具对象为插入 external 形态（id 实测相等 143==143 /
+  145==145）。修正：改用 matchesSameMediaIdentity（id+卷，T03 媒体身份比较器）。
+- **同 run 副证（scenario a 生产行为全记录）**：初始窗口 [145,143] → 删除后
+  gen=3 idx=0 [143,144]（同索引承接 + 第三张入窗 + enqueue index=1 token=3）→
+  二次删除后 gen=5 idx=0 [144] 单槽 → dispose active=0 completed=1；staleDispose
+  零出现（微图无 in-flight，负向"无回写"扫描一致通过）。
+- 非同卡点 2 轮红（轮 2 卡点已消），不触发阻塞登记。

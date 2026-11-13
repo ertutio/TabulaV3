@@ -661,9 +661,12 @@ class T06RemainingDeviceTest {
         swipeUpDeleteUntilDragEnd("shuffle")
         val recordsAfterSecond = awaitDeleteCommitted(countBeforeSecond, expectedRecords = 2)
         val secondDeleted = recordsAfterSecond.first { it.displayName != deletedPhoto.displayName }
-        assertEquals(
-            "第二次删除的对象应为换批后的当前卡（原下一张）",
-            nextPhoto.uri.toString(), secondDeleted.uri.toString()
+        // 轮 3 实证修正（run 43477827912）：回收站记录行的 uri 为应用侧卷路径形态
+        // （external_primary），与夹具对象插入形态（external）串不同但媒体身份相同
+        // （id 相等实证 143==143 / 145==145）——跨形态比较必须用媒体身份比较器。
+        assertTrue(
+            "第二次删除的对象应为换批后的当前卡（原下一张）: ${secondDeleted.displayName}",
+            secondDeleted.matchesSameMediaIdentity(nextPhoto)
         )
         val finalWindow = parseWindow(lastWindowLog(secondMark, expectedIdx = 0, description = "final"))
         assertEquals(
