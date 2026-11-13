@@ -40,3 +40,10 @@
 - **验证 instrumentation**（新 APK 内）：UpgradeOverlayDeviceTest 断言判据 5–10（expected-state 存在、getCheckpointBatch 续接 g2、g1 保持已处理、回收/恢复语义、元数据 isHidden 幸存、偏好幂等双启、哨兵）。
 - **工作流**：build-volume-confirmation 增加 upgrade stage（或独立 workflow upgrade-verification.yml）；门=expected_tests 声明。
 - 依赖：无（不依赖 #66/#67）；可与 B2 并行（不同 probe 段）。
+
+## 边界 2 设计（旧快照晚到接线验证，2026-11-14 协调者拟定，待边界 1/3 落码后串行实施）
+- **目标**：验证真实 MainActivity 接线——权限变化→扫描取消→界面状态提交——在旧读取晚返回时保持正确（PR50 语义的设备级验证）。
+- **现有基础**：Phase3 已注入旧读取（AtomicReference 手动取消）=函数级；本边界补**真实接线级**：权限 shell 变化→应用 mediaAccessRevision 触发→生产扫描重启。
+- **设计**：Phase3b（新增段）——FULL 恢复后：①shell 注入新媒体（触发应用扫描在途）②立即 shell revoke→grant（权限变化→应用重扫描）③等待应用稳定 ④断言 UI 最终集合=权限变化后真值（旧扫描晚返回不覆盖）⑤重复两次验证稳定。可观察信号=deck/gallery 节点身份集（复用 Phase3 的成员断言原语）。
+- **控制说明**：旧读取"晚返回"由自然扫描时长提供（不做人工注入——真实接线无注入点）；如需确定性，先扩充库容量拉长扫描。若自然时序无法构造晚返回竞态→登记阻塞（附时序实测）。
+- **约束**：不动生产注入点；复用 Phase3 断言原语与哨兵纪律。
