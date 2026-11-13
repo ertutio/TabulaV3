@@ -154,10 +154,14 @@ class PreloadingManager(
     private fun finish(index: Int, token: Long, success: Boolean) {
         synchronized(lock) {
             val request = active[index] ?: return
-            // 负控制变异 B（临时，验证后恢复）：移除 token 匹配门——预期 case 3
-            // "旧 token 不得产生任何回写"新断言失败（失效后释放的旧回调直接写回，
-            // 覆盖新请求的 Active）。
+            // 负控制变异 B（临时，验证后恢复；DEBUG 门：run 43519541480 实证未门控时
+            // reducer 级 PreloadingManagerTest 先红（oldCallbackCannotCompleteReplacementAtSameIndex
+            // / resetIgnoresLateCallbackWhenSameMediaIsReentered）阻断 device job——
+            // 门控后 release 单测不变，变异仅作用于设备 debug 构建）：debug 构建移除
+            // token 匹配门（token 失配不再拦截、直接回写）——预期 case 3 "旧 token
+            // 不得产生任何回写"新断言失败。
             if (disposed) return
+            if (!BuildConfig.DEBUG && request.token != token) return
             // T06 剩余场景（2026-11-14）：DEBUG 门日志——仅活 token 的回写可见
             // （token 失配/已释放的旧回调在本守卫处静默丢弃，不产生本日志）。
             // 设备测试据此断言"新批次回写身份=新请求身份、旧批次无迟到回写"。
