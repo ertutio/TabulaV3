@@ -154,7 +154,10 @@ class PreloadingManager(
     private fun finish(index: Int, token: Long, success: Boolean) {
         synchronized(lock) {
             val request = active[index] ?: return
-            if (request.token != token || disposed) return
+            // 负控制变异 B（临时，验证后恢复）：移除 token 匹配门——预期 case 3
+            // "旧 token 不得产生任何回写"新断言失败（失效后释放的旧回调直接写回，
+            // 覆盖新请求的 Active）。
+            if (disposed) return
             // T06 剩余场景（2026-11-14）：DEBUG 门日志——仅活 token 的回写可见
             // （token 失配/已释放的旧回调在本守卫处静默丢弃，不产生本日志）。
             // 设备测试据此断言"新批次回写身份=新请求身份、旧批次无迟到回写"。

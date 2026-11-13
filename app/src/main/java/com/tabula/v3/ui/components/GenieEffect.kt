@@ -990,22 +990,26 @@ class GenieAnimationController {
             Log.d("CardStackDebug", "deleteAnimHold genie=${System.identityHashCode(this)}")
             while (true) delay(20)
         }
-        animatable.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(
-                durationMillis = durationMs,
-                // 极致丝滑的 ease-out 曲线（优化版）
-                // 灵感来自 iOS 17 的弹性动画，开始快、结束缓慢平滑
-                // 控制点 (0.22, 1.0, 0.36, 1.0) 比原来更柔和
-                easing = CubicBezierEasing(0.2f, 0.9f, 0.25f, 1f)
-            )
-        ) {
-            // 每帧更新进度，保证动画流畅
-            progress = value
+        // 负控制变异 A（临时，验证后恢复）：取消路径仍交付 onComplete——预期 case 2
+        // "旧动画不提交（无 deleteAnimComplete）"新断言失败。
+        try {
+            animatable.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = durationMs,
+                    // 极致丝滑的 ease-out 曲线（优化版）
+                    // 灵感来自 iOS 17 的弹性动画，开始快、结束缓慢平滑
+                    // 控制点 (0.22, 1.0, 0.36, 1.0) 比原来更柔和
+                    easing = CubicBezierEasing(0.2f, 0.9f, 0.25f, 1f)
+                )
+            ) {
+                // 每帧更新进度，保证动画流畅
+                progress = value
+            }
+        } finally {
+            onComplete()
+            reset()
         }
-        
-        onComplete()
-        reset()
     }
     
     fun reset() {
