@@ -15,11 +15,13 @@ import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.tabula.v3.di.PreloadingManager
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.SwipeStyle
 import com.tabula.v3.data.repository.RecycleBinManager
 import com.tabula.v3.data.repository.matchesSameMediaIdentity
+import com.tabula.v3.ui.components.GenieDeleteAnimTestHook
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -57,15 +59,36 @@ import java.util.UUID
  *   的可观测边界。
  * - `dispose active=<n> completed=<n>`：组合销毁时管理器整体释放——"旧 Disposable 释放"
  *   的生命周期级信号。
+ * - `deleteAnimStart draw img=<id> genie=<hash>`（CardStackDebug）：genie 删除动画启动
+ *   信号（绑定照片 id 与控制器实例；path=fallback 为 bitmap 失败兜底路径变体）。
+ * - `deleteAnimHold genie=<hash>`（CardStackDebug）：测试钩子挂起信号（动画已启动且
+ *   未完成的结构性窗口起点）。
+ * - `deleteAnimComplete draw img=<id> genie=<hash>`（CardStackDebug）：删除动画完成即
+ *   提交边界（onComplete 先于 onRemove）——取消路径不执行 onComplete，无本日志。
+ * - `lateFinishCaptured/Delivered index=<i> token=<t> identity=<身份>`：
+ *   （PreloadingManager）晚到回调钩子的捕获/交付信号——"旧回调真实交付晚于失效"的
+ *   竞争态直接证据（Delivered 后无 finish 日志 = 守卫丢弃）。
+ * - `lateFinishReleased`（PreloadingManager）：测试释放闸门动作信号。
  *
- * 生产改动（全部 BuildConfig.DEBUG 门 + 既有 TAG=PreloadingManager，与 debugCardStackLog
- * 同模式，逐行登记）：PreloadingManager.kt 共 5 处——
- * 1. preloadAround 防抖体内 window 构建后：window 日志；
- * 2. stale 过滤后：staleDispose 日志（stale 非空才输出）；
- * 3. enqueue 内 imageLoader.enqueue 前：enqueue 日志；
- * 4. finish 守卫（active 存在 + token 匹配 + 未 disposed）之后：finish 日志；
- * 5. dispose 内 disposed=true 之后、清空之前：dispose 日志（记录 active/completed 计数）。
- * 不动 CardStack（既有 dragStart/dragEnd/dragCancel 日志已足够）；不动 app/src/test。
+ * 生产改动（全部 BuildConfig.DEBUG 门，与 debugCardStackLog 同模式，逐行登记；
+ * 不动 app/src/test）：本轮（2026-11-14 修复一/二）新增 3 处——
+ * 1. GenieEffect.kt：新增 GenieDeleteAnimTestHook 单例对象（armForPhoto/onTarget/
+ *    takeHold 三入口全 DEBUG 门）+ startAnimation 内 snapTo(0f) 之后、animateTo 之前
+ *    的挂起块（takeHold() 命中时输出 deleteAnimHold 日志并 `while(true) delay(20)`
+ *    挂起——仅组合销毁的协程取消可结束；Release takeHold() 恒 false 直通）+
+ *    imports（Log/BuildConfig/delay）；
+ * 2. CardStack.kt（仅 DRAW 变体 executeDeleteAnimation）：genie 分支 startAnimation
+ *    调用前 deleteAnimStart 日志 + `if (BuildConfig.DEBUG)` 钩子 onTarget 接线；
+ *    onComplete 内（onRemove 前）deleteAnimComplete 日志；fallback 分支启动前
+ *    path=fallback 日志（无挂起钩子，夹具不可达，出现即留证定位）；
+ * 3. PreloadingManager.kt：enqueue listener onSuccess 内 tryDeferFinish 直通包裹
+ *    （未 arm/Release 恒 false 即 finish，行为不变）+ companion 晚到回调钩子块
+ *    （armDeferredFinishForTest/releaseDeferredFinishForTest/tryDeferFinish，全
+ *    DEBUG 门；捕获即解除 consume-once；lateFinishCaptured/Delivered/Released 日志）。
+ *    既有 5 处日志（window/staleDispose/enqueue/finish/dispose）不变。
+ * 不动 SHUFFLE 变体（修复一为 DRAW 场景专属）；不动 app/src/test。
+ *
+ * ==================== case 1（场景 a，SHUFFLE）：同索引换批请求身份同步 ====================
  *
  * ==================== case 1（场景 a，SHUFFLE）：同索引换批请求身份同步 ====================
  *
@@ -86,17 +109,24 @@ import java.util.UUID
  *
  * ==================== case 2（场景 c，DRAW）：删除动画中 BACK 退出与返回恢复 ====================
  *
- * 3 张合成媒体（prefs 预置 DRAW，#57 注入路径口径）→ deck → 真实 swipe 上滑删除
- * （dragEnd draw + pause/dragEnd/resume 三元组，生产顺序同 #74）→ **genie 删除动画进行中
- * 注入 BACK**（deck 为应用主页，无 BackHandler 拦截（DeckScreen 仅 viewerState/isSelection
- * 挂 BackHandler），KEYCODE_BACK → Activity finish → 组合销毁）→ 断言：
+ * 3 张合成媒体（prefs 预置 DRAW，#57 注入路径口径）→ deck → 绑定确定性窗口（初始
+ * 窗口 slot0=当前交互卡 → GenieDeleteAnimTestHook.armForPhoto（DEBUG 钩子，绑定本次
+ * 照片身份与动画实例，Release 不变））→ 真实 swipe 上滑删除（dragEnd draw + pause/
+ * dragEnd/resume 三元组，生产顺序同 #74）→ **等待删除动画已启动（deleteAnimStart，
+ * 绑定照片 id+控制器实例）且被钩子挂起（deleteAnimHold，genie 实例哈希与 start 一致）
+ * ——挂起无释放 API，完成在取消前结构性不可能（不再依赖宿主负载时序）**→ 注入 BACK
+ * （deck 为应用主页，无 BackHandler 拦截（DeckScreen 仅 viewerState/isSelection 挂
+ * BackHandler），KEYCODE_BACK → Activity finish → 组合销毁 → 删除动画协程（挂起于
+ * startAnimation 内 onComplete 前的 suspension point）被取消）→ 断言：
+ * - 注入前双重前置：deleteAnimStart/deleteAnimHold 均已出现且 BACK 注入前无
+ *   deleteAnimComplete（"已启动且未完成"确定性窗口，轮 4 之前仅有的
+ *   dispose.ts >= dragEnd.ts 后验比较升级为结构性窗口）；
  * - 应用离开前台（root 包名非本应用）；teardown `dispose` 日志出现（组合销毁释放管理器）
  *   且其后到重启前无任何 enqueue/window/staleDispose/finish（已释放管理器静默——
  *   disposed 守卫 + debounce 取消 + scope cancel）；
- * - **删除未提交**（时序收敛论证：BACK 在 dragEnd 观察后立即注入，genie 440ms；无论
- *   BACK 是否先于 genie onComplete——先至则组合销毁中断动画与回调，后至则 Snackbar
- *   3000ms 计时的 LaunchedEffect 随组合销毁取消、数据层删除仅发生于 Snackbar dismiss
- *   ——回收站必无记录、媒体行/行数不变）；
+ * - **旧动画不提交（负向，直接证据）**：组合销毁取消路径 onComplete 不执行——自删除
+ *   手势标记至重启前无任何 deleteAnimComplete（含被绑定 id）；叠加数据层契约
+ *   （回收站无夹具记录、媒体行/行数不变——Snackbar 3000ms 提交随组合销毁取消）；
  * - 重启（am start）后：进程存活（pid 非空）+ crash 缓冲无本应用记录（无崩溃）+ deck
  *   计数=退出前计数（状态正确：未提交的删除不丢失任何卡）+ 夹具名可见；
  * - **实际预载请求恢复（全量重建）**：重启后新 PreloadingManager（dispose 已清空
@@ -104,6 +134,38 @@ import java.util.UUID
  *   断言；
  * - **后续操作能力（DRAW）**：再次真实 swipe 删除 → dragEnd draw → 计数递减 → 回收站
  *   恰 1 条记录 → 行数恒定。
+ *
+ * ==================== case 3（修复二 2026-11-14）：旧回调晚到设备验证 ====================
+ *
+ * 真实生产预载入口（DeckScreen→CardStack DRAW/SHUFFLE remember{PreloadingManager} →
+ * preloadAround 防抖体 → enqueue → coil listener → finish 流）+ 晚到回调注入钩子
+ * （PreloadingManager companion，DEBUG 门，逐行登记见类 KDoc 生产改动 3）建立可控
+ * 顺序：arm（绑定全部夹具媒体 id——窗口槽位身份不可预设；捕获首个命中即解除）
+ * → deck 组合真实 enqueue（旧请求进入，持身份/版本（dateModified 缓存键）/token）
+ * → 真实 swipe 删除同索引换批使其失效（staleDispose + Disposable dispose + 新窗口
+ * enqueue）→ 测试释放旧回调（真实 listener 结果的 finish 交付延迟至失效之后进入
+ * 生产守卫）→ 断言：
+ * - 捕获/交付日志证明晚到回调**真实交付**（竞争态直接证据，非合成推断）：
+ *   lateFinishCaptured（失效前捕获）→ lateFinishDelivered（失效后交付）；
+ * - **守卫拦截（负向）**：交付后无旧 token 的 finish 回写（不能完成新 token / 不能
+ *   更新已移除的旧 Active——token 失配在守卫处静默丢弃）；释放后无旧身份的
+ *   enqueue/finish（不能污染新窗口）；
+ * - 新请求正常成功：换批后第三张真实 enqueue + finish success=true；
+ * - 后续交互可用：再次真实删除可提交（计数递减 + 回收站累计 + 终态窗口 slot0=第三张）
+ *   + 全程 token-身份序列完整性；
+ * - 媒体与回收记录符合契约（软删除行数恒定）。
+ *
+ * 控制点覆盖层（逐项登记）：
+ * - 钩子控制 listener→finish 的**交付时机**（捕获→释放）；finish 的 active 存在 +
+ *   token 匹配 + 未 disposed 三重守卫与 stale remove + Disposable.dispose 均按生产
+ *   原样执行（钩子不改动任何守卫/取消逻辑；Release 恒直通）。
+ * - 底层取消（coil Disposable.dispose）后回调是否仍可能：对**已完成**请求 dispose 为
+ *   no-op（无观测差异）；真实竞态中"完成与 dispose 交错"产生晚到回调——本钩子以
+ *   确定性顺序复现同一守卫路径；不覆盖 coil 内部取消状态机。
+ * - coil 结果路径（缓存写入）未延迟：生产中结果与回调同源完成，晚到的可观测契约即
+ *   回写（finish），延迟该交付即复现竞态。
+ * - 既有单测回归为相邻证据：PreloadingManagerTest（oldCallbackCannotComplete... 等）
+ *   reducer 级确定性覆盖，本套件只做设备级接线（覆盖口径同类 KDoc）。
  *
  * 断言纪律：全部等待为有截止时间轮询；失败留存截图 + 树 dump + logcat 切片到
  * cloud-ui-failures/；日志归属用"手势标记（注入前采样不回退）+ 单调游标"双重下界
@@ -115,7 +177,7 @@ import java.util.UUID
  * 记录轮询先等 Snackbar 提交窗口；deck 计数在 genie onComplete（onRemove）即递减，
  * 先于 Snackbar 提交。
  *
- * 预期 case 数：2（probe 登记 expected_tests=2）。
+ * 预期 case 数：3（probe 登记 expected_tests=3，tools/run-cloud-ui-probe.sh 第 9 类）。
  */
 @RunWith(AndroidJUnit4::class)
 class T06RemainingDeviceTest {
@@ -702,13 +764,40 @@ class T06RemainingDeviceTest {
             )
             waitForLog("PreloadingManager", "enqueue", startMark) { it.contains(keyFragment(photo)) }
         }
+        // ---- 修复一：绑定确定性窗口（DEBUG 钩子，绑定本次照片身份与动画实例；
+        //      Release 构建钩子恒直通——见类 KDoc 生产改动 1/2 逐行登记） ----
+        val currentDrawPhoto = photoForKey(initial.slots.getValue(0))
+        GenieDeleteAnimTestHook.armForPhoto(currentDrawPhoto.id)
 
-        // ---- 真实上滑删除（dragEnd draw + 接线三元组）→ 动画进行中立即 BACK ----
+        // ---- 真实上滑删除（dragEnd draw + 接线三元组）→ 确定性窗口内注入 BACK ----
         val countBeforeExit = readDeckPendingCount()
         val deleteMark = logMark()
         val (dragEnd, _, _) = swipeUpDeleteUntilDragEnd("draw")
-        // genie 删除动画进行中（440ms 窗口）注入 BACK：deck 为主页无 BackHandler 拦截，
-        // KEYCODE_BACK → Activity finish → 组合销毁（时序收敛论证见类 KDoc case 2）
+        // 修复一（2026-11-14）：删除动画已启动且未完成的确定性窗口——deleteAnimStart
+        // （绑定照片 id + 控制器实例）→ deleteAnimHold（测试钩子挂起，genie 实例哈希
+        // 与 start 一致；挂起无释放 API，完成在取消前结构性不可能）→ 窗口内注入 BACK：
+        // deck 为主页无 BackHandler 拦截，KEYCODE_BACK → Activity finish → 组合销毁
+        // → 删除动画协程（挂起于 startAnimation 内 onComplete 之前的 suspension
+        // point）被取消（轮 4 之前仅有的 dispose.ts >= dragEnd.ts 后验比较升级为
+        // 结构性窗口；取消契约等价性登记见类 KDoc case 2）。
+        val animStart = waitForLog("CardStackDebug", "deleteAnimStart draw", deleteMark) {
+            it.contains("img=${currentDrawPhoto.id} ") && !it.contains("fallback")
+        }
+        val animHold = waitForLog("CardStackDebug", "deleteAnimHold", deleteMark) {
+            it.substringAfter("genie=") == animStart.msg.substringAfter("genie=")
+        }
+        assertTrue(
+            "deleteAnimHold(${animHold.ts}) 必须不早于 deleteAnimStart(${animStart.ts})（同动画实例挂起）",
+            animHold.ts >= animStart.ts
+        )
+        val completesBeforeBack = dumpLogcat().filter {
+            it.isWithin(deleteMark) && it.tag == "CardStackDebug" && it.msg.contains("deleteAnimComplete")
+        }
+        assertTrue(
+            "BACK 注入前删除动画不得已完成（挂起窗口的结构性保证）:\n" +
+                completesBeforeBack.joinToString("\n") { it.msg },
+            completesBeforeBack.isEmpty()
+        )
         shell("input keyevent KEYCODE_BACK")
 
         // ---- 退出观察：应用离开前台 ----
@@ -753,6 +842,20 @@ class T06RemainingDeviceTest {
         photos.forEach { assertTrue("退出周期必须保留媒体行: ${it.displayName}", present(primaryItem(it.uri))) }
         assertEquals("退出周期夹具行数必须恒定", photos.size, fixtureCount())
 
+        // ---- 修复一负向（直接证据）：取消路径 onComplete 不执行——无 complete 日志 ----
+        // 扫描点在重启前（此后才可能有新删除的 complete 日志入缓冲），此刻自删除手势
+        // 标记起若存在 deleteAnimComplete 即旧动画提交路径曾执行（onComplete → onRemove）。
+        // 叠加数据层契约（上方：回收站无记录 + 行数恒定）构成"旧动画不提交"双重证据。
+        val completesAfterExit = dumpLogcat().filter {
+            it.isWithin(deleteMark) && it.tag == "CardStackDebug" && it.msg.contains("deleteAnimComplete")
+        }
+        if (completesAfterExit.isNotEmpty()) saveEvidence("old-anim-committed")
+        assertTrue(
+            "动画中退出后旧删除动画不得提交（取消路径 onComplete 不执行，无 deleteAnimComplete）:\n" +
+                completesAfterExit.joinToString("\n") { it.msg },
+            completesAfterExit.isEmpty()
+        )
+
         // ---- 重启返回：无崩溃 + deck 状态正确（计数=退出前，未提交删除不丢卡） ----
         val relaunchMark = logMark() // 必须先于 startActivitySync（组合期日志早于同步返回）
         activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -788,6 +891,105 @@ class T06RemainingDeviceTest {
         assertTokenIdentityIntegrity(relaunchMark, until = null, context = "manager-B")
     }
 
+    /**
+     * 修复二（2026-11-14）：旧回调晚到设备验证（SHUFFLE 同索引换批失效路径）。可控顺序、
+     * 断言清单与控制点覆盖层逐项登记见类 KDoc case 3（生产改动 3 = PreloadingManager
+     * companion 晚到回调钩子，DEBUG 门 consume-once）。
+     */
+    @Test fun lateOldCallbackDeliveredAfterSwapInvalidationCannotWriteback() = runBlocking {
+        val names = (1..3).map { photo().displayName }
+        // arm：绑定全部夹具媒体 id（窗口槽位身份不可预设；捕获首个命中即解除——
+        // 后续请求一律直通）。空集合语义 = 解除（@After 卫生复位用）。
+        PreloadingManager.armDeferredFinishForTest(photos.map { ContentUris.parseId(it.uri) }.toSet())
+        AppPreferences(ctx).swipeStyle = SwipeStyle.SHUFFLE
+        val startMark = logMark()
+        activity = ins.startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        waitForDeckReady(names)
+
+        // ---- 旧请求进入：初始窗口真实 enqueue（身份/版本（dateModified 缓存键）/
+        //      token 持于 enqueue 日志）----
+        val initial = parseWindow(lastWindowLog(startMark, expectedIdx = 0, description = "latecb-initial"))
+        val currentPhoto = photoForKey(initial.slots.getValue(0))
+        val nextPhoto = photoForKey(initial.slots.getValue(1))
+        val thirdPhoto = photos.first { it.uri != currentPhoto.uri && it.uri != nextPhoto.uri }
+        // 捕获证据：旧请求的真实 listener 结果由钩子持有（finish 交付延迟）——初始窗口
+        // 仅 2 槽（preloadRange=1），捕获必属 slot0/slot1 之一，两者换批后均失效。
+        val captured = waitForLog("PreloadingManager", "lateFinishCaptured", startMark) { line ->
+            photos.any { line.contains(keyFragment(it)) } && Regex("index=[01] ").containsMatchIn(line)
+        }
+        val capturedToken = captured.msg.substringAfter("token=").substringBefore(" ").trim()
+        val capturedFrag = keyFragment(photos.first { captured.msg.contains(keyFragment(it)) })
+        Log.i(TAG, "late callback captured: token=$capturedToken identity-frag=$capturedFrag")
+
+        // ---- 真实换批使旧请求失效（staleDispose + Disposable dispose + 新窗口 enqueue）----
+        val countBeforeFirst = readDeckPendingCount()
+        val deleteMark = logMark()
+        swipeUpDeleteUntilDragEnd("shuffle")
+        val stale = waitForLog("PreloadingManager", "staleDispose", deleteMark) {
+            it.contains("token=$capturedToken")
+        }
+        Log.i(TAG, "old request invalidated by real swap: ${stale.msg}")
+
+        // ---- 失效后释放旧回调（真实 finish 交付进入生产守卫）----
+        val releaseMark = logMark()
+        val released = PreloadingManager.releaseDeferredFinishForTest()
+        assertTrue("晚到回调必须存在待释放（捕获→失效→释放顺序）", released)
+        val delivered = waitForLog("PreloadingManager", "lateFinishDelivered", releaseMark) {
+            it.contains("token=$capturedToken")
+        }
+        assertTrue(
+            "晚到回调交付(${delivered.ts}) 必须不早于失效 staleDispose(${stale.ts})——交付晚于失效",
+            delivered.ts >= stale.ts
+        )
+
+        // ---- 守卫拦截（负向）：旧 token 释放后不得产生任何 manager 生命周期日志 ----
+        // token 只属该请求：无 finish=旧回调不能回写（不能完成新 token）；无 enqueue=
+        // 旧请求不能以旧 token 重发；已移除的旧 Active 无任何写入路径（更新已释放实例
+        // 不可能）。同身份的新 token 合法重建请求（换批承接）不受限——污染判定以
+        // token 为锚（lateFinish 日志为交付信号本身，显式排除）。
+        val staleTokenLines = dumpLogcat().filter {
+            it.isWithin(releaseMark) && it.tag == "PreloadingManager" &&
+                !it.msg.contains("lateFinish") && it.msg.contains("token=$capturedToken")
+        }
+        if (staleTokenLines.isNotEmpty()) saveEvidence("late-callback-writeback")
+        assertTrue(
+            "失效后交付的旧回调不得产生任何回写/重发（finish 守卫 token 拦截）:\n" +
+                staleTokenLines.joinToString("\n") { it.msg },
+            staleTokenLines.isEmpty()
+        )
+
+        // ---- 新请求正常成功：第三张真实 enqueue + finish success（新 token 回写可见）----
+        waitForLog("PreloadingManager", "enqueue", deleteMark) {
+            it.contains(keyFragment(thirdPhoto)) && it.contains("index=1")
+        }
+        waitForLog("PreloadingManager", "finish", deleteMark) {
+            it.contains(keyFragment(thirdPhoto)) && it.contains("success=true")
+        }
+        assertTokenIdentityIntegrity(startMark, until = null, context = "latecb-after-release")
+
+        // ---- 后续交互可用：首次删除提交 + 再次真实删除可提交（换批继续成立）----
+        val recordsAfterFirst = awaitDeleteCommitted(countBeforeFirst, expectedRecords = 1)
+        val firstDeleted = photos.first { it.displayName == recordsAfterFirst.single().displayName }
+        val countBeforeSecond = readDeckPendingCount()
+        val secondMark = logMark()
+        swipeUpDeleteUntilDragEnd("shuffle")
+        val recordsAfterSecond = awaitDeleteCommitted(countBeforeSecond, expectedRecords = 2)
+        val secondDeleted = recordsAfterSecond.first { !it.matchesSameMediaIdentity(firstDeleted) }
+        assertTrue(
+            "第二次删除对象应为换批后的当前卡（原下一张）: ${secondDeleted.displayName}",
+            secondDeleted.matchesSameMediaIdentity(nextPhoto)
+        )
+        val finalWindow = parseWindow(lastWindowLog(secondMark, expectedIdx = 0, description = "latecb-final"))
+        assertEquals(
+            "二次换批后 idx0 唯一身份应为第三张",
+            thirdPhoto.uri.toString(), photoForKey(finalWindow.slots.getValue(0)).uri.toString()
+        )
+        assertTokenIdentityIntegrity(startMark, until = null, context = "latecb-final")
+        // MediaStore 真值：软删除不物理删除（#74 契约锚点）
+        photos.forEach { assertTrue("软删除必须保留媒体行: ${it.displayName}", present(primaryItem(it.uri))) }
+        assertEquals("软删除周期夹具行数必须恒定", photos.size, fixtureCount())
+    }
+
     @After fun cleanup() {
         if (activity != null) {
             try {
@@ -800,6 +1002,9 @@ class T06RemainingDeviceTest {
         }
         val errors = mutableListOf<Throwable>()
         fun attempt(block: () -> Unit) { try { block() } catch (e: Throwable) { errors += e } }
+        // DEBUG 钩子卫生复位：晚到回调闸门解除（空集合=解除语义），残余待释放回调
+        // 直接放行（交由生产守卫处置），不影响后续测试。
+        attempt { PreloadingManager.armDeferredFinishForTest(emptySet()) }
         attempt { runBlocking { trash.removeAllFromRecycleBin(photos) } }
         var sentinel: CloudFixtureCleanup.Fixture? = null
         attempt { sentinel = fixtures.fixture(photo(register = false).uri) }

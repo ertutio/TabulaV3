@@ -2,6 +2,7 @@ package com.tabula.v3.ui.components
 
 import android.graphics.Bitmap
 import android.graphics.Paint
+import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
@@ -19,9 +20,11 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
+import com.tabula.v3.BuildConfig
 import kotlin.math.PI
 import kotlin.math.pow
 import kotlin.math.sin
+import kotlinx.coroutines.delay
 
 // ========== 性能优化：预计算正弦值查找表 ==========
 // 避免每帧重复计算 sin 函数，提升 ~30% 性能
@@ -879,8 +882,55 @@ private fun easeInOutQuad(t: Float): Float {
 }
 
 /**
+ * T06 剩余场景（2026-11-14）：设备测试专用 genie 删除动画控制钩子（仅 DEBUG 生效）。
+ *
+ * 目的：T06RemainingDeviceTest 场景 c（DRAW 删除动画中 BACK 退出）需要确定性注入
+ * 窗口——真实手势时序无法保证 BACK 稳定落在 440ms genie 动画窗内（宿主负载抖动，
+ * 后验日志只能证 dispose.ts >= dragEnd.ts）。本钩子使删除动画在**已启动（isAnimating
+ * =true、progress=0）且未完成**处挂起，测试在其后任意时刻注入 BACK 均落于该窗口。
+ *
+ * 语义与生产取消契约等价：挂起点是 startAnimation 内 onComplete 之前的 suspension
+ * point——组合销毁取消协程时 delay 抛 CancellationException，onComplete 不执行
+ * （删除不提交），与生产 BACK 取消（取消于 animateTo 期间）的可观测契约一致。
+ *
+ * 消费即一次性：arm 绑定照片 id；DRAW executeDeleteAnimation 命中同一 id 时置位；
+ * 下一次 startAnimation（即同一次删除的 genie 启动，同线程紧随）消费置位并挂起，
+ * 消费同时解除 id 绑定（重启后的后续删除动画实例不受影响）；挂起无释放 API——
+ * 仅组合销毁的协程取消可结束，杜绝"释放竞态完成动画"。
+ *
+ * Release 构建：armForPhoto/onTarget/takeHold 三入口全部 BuildConfig.DEBUG 门，
+ * Release 直接返回 false/null，生产行为零变化。
+ */
+object GenieDeleteAnimTestHook {
+    @Volatile private var armedImgId: Long? = null
+    @Volatile internal var holdNextStart: Boolean = false
+
+    /** 测试入口：绑定目标照片 id（下一次 DRAW 删除动画命中该 id 即挂起）。 */
+    fun armForPhoto(imgId: Long) {
+        if (!BuildConfig.DEBUG) return
+        armedImgId = imgId
+        holdNextStart = false
+    }
+
+    /** DRAW executeDeleteAnimation 调用（调用点已 DEBUG 门）：命中绑定 id 则置位挂起。 */
+    internal fun onTarget(imgId: Long) {
+        if (!BuildConfig.DEBUG) return
+        if (armedImgId == imgId) holdNextStart = true
+    }
+
+    /** startAnimation 调用（consume-once）：返回是否挂起本次动画启动；消费即解除绑定。 */
+    internal fun takeHold(): Boolean {
+        if (!BuildConfig.DEBUG) return false
+        val armed = holdNextStart
+        holdNextStart = false
+        if (armed) armedImgId = null
+        return armed
+    }
+}
+
+/**
  * Genie动画控制器 - 极致丝滑版本
- * 
+ *
  * 优化策略：
  * 1. 使用 Apple 风格的 ease-out 贝塞尔曲线
  * 2. 每帧更新进度，保证 60fps 流畅渲染
@@ -931,8 +981,15 @@ class GenieAnimationController {
         this.direction = direction
         this.isAnimating = true
         this.progress = 0f
-        
+
         animatable.snapTo(0f)
+        // T06 剩余场景（2026-11-14）：DEBUG 门测试挂起（GenieDeleteAnimTestHook，KDoc
+        // 见上）——动画已启动（isAnimating=true）后、animateTo 前挂起，仅组合销毁的
+        // 协程取消可结束（onComplete 因此不执行）；Release 构建 takeHold() 恒 false。
+        if (GenieDeleteAnimTestHook.takeHold()) {
+            Log.d("CardStackDebug", "deleteAnimHold genie=${System.identityHashCode(this)}")
+            while (true) delay(20)
+        }
         animatable.animateTo(
             targetValue = 1f,
             animationSpec = tween(
