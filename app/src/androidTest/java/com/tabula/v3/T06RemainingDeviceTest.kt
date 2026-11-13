@@ -346,11 +346,15 @@ class T06RemainingDeviceTest {
     // ==================== 窗口/请求日志解析 ====================
 
     /**
-     * 夹具归属的日志匹配片段：`card_<uri>_`（缓存键 = card_<uri>_<dateModifiedMs>，
-     * 键内 uri 后必跟 `_`）——纯 uri 前缀匹配会互串（media/123 是 media/1234 的前缀），
-     * 必须带尾分隔符。
+     * 夹具归属的日志匹配片段：`images/media/<id>_`（缓存键 = card_<uri>_<dateModifiedMs>，
+     * 键内 uri 后必跟 `_`；Media 行 id 全卷唯一，`<path>/<id>_` 形态互不为前缀）。
+     *
+     * 轮 2 实证修正（run 43473978834）：不能用夹具对象自身 uri 串——插入返回
+     * `content://media/external/images/media/<id>`，而应用侧缓存键为
+     * `content://media/external_primary/images/media/<id>`（卷路径 external_primary），
+     * 串匹配恒不中（expected:<2> but was:<0>）。以 id 路径段匹配，双形态通吃。
      */
-    private fun keyFragment(photo: ImageFile): String = "card_${photo.uri}_"
+    private fun keyFragment(photo: ImageFile): String = "images/media/${ContentUris.parseId(photo.uri)}_"
 
     /**
      * 取指定下界之后当前最新的 idx 匹配窗口日志（"最新"= 组合多次重组后的已结算状态，

@@ -137,3 +137,19 @@ TAG=PreloadingManager（与 CardStack.debugCardStackLog 同模式）；不动 Ca
   `window gen=4 idx=0 identities=[0=card_137...,1=card_136...]` + `enqueue index=1
   token=3 identity=card_136...`（删除 idx0 后同索引承接原下一张、第三张获得真实新
   请求）——case 1 断言所依赖的生产行为在真实设备按预期发生。
+
+## 轮 2（run 43473978834，2026-11-14）：双 API 0/2 红 → 根因定位与修正（卡点前移，非同点）
+
+- **进展**：轮 1 的 window-not-observed 已消（初始窗口日志双 API 均命中）——轮 1 根因
+  修正有效。卡点前移至初始窗口身份匹配断言。
+- **同卡点判定**：轮 2 卡点（keyFragment 串匹配恒不中）≠ 轮 1 卡点（游标排除）——
+  非同卡点 2 轮红，不触发阻塞登记。
+- **根因（确定性）**：日志匹配片段用夹具对象自身 uri 串（插入返回
+  `content://media/external/images/media/<id>`），而应用侧缓存键为
+  `content://media/external_primary/images/media/<id>`（卷路径 external_primary）——
+  `expected:<2> but was:<0>`。实测窗口/请求日志内容本身完全正确（draw 三槽
+  [141,140,139]、shuffle 两槽 [145,144]）。修正：keyFragment 改为
+  `images/media/<id>_`（Media 行 id 全卷唯一 + 带尾分隔符防 45/145 类互串），
+  双 uri 形态通吃。
+- **同 run 副证**：dispose 日志在组合销毁（@After finish）时按预期产出
+  （`dispose active=0 completed=2`）——case 2 的 teardown dispose 断言路径成立。
