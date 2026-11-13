@@ -489,4 +489,120 @@ if [ "$full_status" != "0" ]; then
   status=1
 fi
 
+# ===== PR72 后续（2026-11-14）：B2 真实 MainActivity 权限刷新接线设备验证 =====
+# B2PermissionRefreshDeviceTest 3 例 = 3 次独立 instrumentation（宿主编排，进程
+# 边界对齐 #52 口径：pm revoke 系统强停 / pm grant 不杀进程）：
+# 步骤1 T1 fullDeckShowsFixturesInjectsLateMediaAndRecordsPid（pm clear → grant →
+#   FULL deck 地面真值（恰 2 夹具）→ 会话内 shell 注入晚到媒体（无重扫触发 →
+#   当前界面旧集合保持、晚到媒体不入界面）→ 进程 PID 落盘（跨进程核对基准））。
+# 步骤2 宿主 pm revoke（系统强停；in-process revoke 会杀死 instrumentation——
+#   CI 41706417934 双 API 实证口径，ForegroundPermissionUiTest 同登记，故 revoke
+#   必须宿主侧）→ T2 revokedRelaunchShowsGateAndOldSetNeverReappears（新进程：
+#   REVOKE 后语义——权限门控屏呈现 + 旧集合 3 名/deck 标记组合观察窗内不重现
+#   （应用包窗口有效性门）+ MediaStore 集合面 3 行仍在库（不可见=权限语义非删除））。
+# 步骤3 T3 inSessionGrantUpgradeRerunsScanOnSameProcess（同进程会话内授权升级
+#   接线：无权限启动=门控 → 测试侧 pm grant（grant 不杀进程，应用前台持门控时
+#   授权）→ Home→am start（onResume 修订重查，applyAccessLevel 级别变更分支
+#   revision++）→ deck 新池提交（批次日志行含 2 夹具行 id + 卡节点可见）→ 全程
+#   pidof 恒等）。
+# 如实登记：在途扫描取消/晚返回不覆盖的严格竞态形态设备层不可确定性构造（生产
+# load 无注入点）——单测级 MediaSnapshotLoadRaceTest（PR50）+ FPF Phase3 受控
+# 竞争门覆盖；本段验证真实接线端到端信息流终态。
+# 夹具：全部 shell 身份测试侧注入（base64 文本通道，宿主不推）——b2pr-a1/a2/late
+# （步骤1）与 b2pr-c1/c2（步骤3），Pictures/B2PermissionRefreshFixtures/；每方法
+# 用例末自清 + @After 兜底 + 宿主 dependency-skip 按名兜底。
+echo "=== B2 permission-refresh wiring three-step verification ==="
+b2pr_status=0
+adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '\r' | grep -Fx Success || b2pr_status=1
+# VISUAL_USER_SELECTED 清理（pm clear 天然清理 + 兜底 revoke）
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED >/dev/null 2>&1 || true
+adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || b2pr_status=1
+for fixture_dir in "Pictures/FullPartialFullFixtures/" "Pictures/PartialSelectionFixtures/" "Pictures/FullRecoveryFixtures/" "Pictures/PixelRefreshFixtures/" "Pictures/ForegroundPermFixtures/" "Pictures/CloudSafetySentinels/" "Pictures/TabulaVolumeProbe/" "Pictures/B2PermissionRefreshFixtures/"; do
+  adb shell "content delete --uri content://media/external/images/media --where \"relative_path='$fixture_dir'\"" >/dev/null 2>&1 || true
+done
+adb shell "rm -rf /sdcard/Pictures/B2PermissionRefreshFixtures" >/dev/null 2>&1 || true
+b2pr_gallery_rows=$(adb shell "content query --uri content://media/external/images/media --projection _id" | grep -c "^Row:") || b2pr_gallery_rows=0
+if [ "$b2pr_gallery_rows" != "0" ]; then
+  adb shell "content query --uri content://media/external/images/media --projection _display_name" | head -20 >&2 || true
+  echo "Gallery not clean before B2 permission-refresh suite: $b2pr_gallery_rows rows" >&2
+  b2pr_status=1
+fi
+mkdir -p device-results/B2PermissionRefresh
+b2pr_cleanup_fixtures() {
+  for f in b2pr-a1.png b2pr-a2.png b2pr-late.png b2pr-c1.png b2pr-c2.png; do
+    adb shell "content delete --uri content://media/external/images/media --where \"_display_name='$f' AND relative_path='Pictures/B2PermissionRefreshFixtures/'\"" >/dev/null 2>&1 || true
+    adb shell "rm -f /sdcard/Pictures/B2PermissionRefreshFixtures/$f" >/dev/null 2>&1 || true
+  done
+  adb shell "rm -rf /sdcard/Pictures/B2PermissionRefreshFixtures" >/dev/null 2>&1 || true
+  echo "B2PermissionRefresh skip fallback: fixtures removed by name"
+}
+b2pr_step1_ok=1
+if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+  -e class com.tabula.v3.B2PermissionRefreshDeviceTest#fullDeckShowsFixturesInjectsLateMediaAndRecordsPid \
+  com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee device-results/B2PermissionRefresh/step1.txt; then
+  echo "B2PermissionRefresh step1 instrumentation failed" >&2; b2pr_status=1; b2pr_step1_ok=0
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/B2PermissionRefresh/step1.txt || { echo "B2PermissionRefresh step1 expected OK(1)" >&2; b2pr_status=1; b2pr_step1_ok=0; }
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/B2PermissionRefresh/step1.txt; then
+  echo "Failure or skip observed in B2PermissionRefresh step1" >&2; b2pr_status=1; b2pr_step1_ok=0
+fi
+
+if [ "$b2pr_step1_ok" != "1" ]; then
+  echo "dependency-unmet: B2PermissionRefresh step2/3 skipped (step1 red) — downstream instrumentation not run" >&2
+  b2pr_cleanup_fixtures
+else
+  # 宿主侧权限收窄：应用被系统强停（#52 实证口径）。宿主记录 revoke 前后 pidof
+  # （仅登记留证不强门——步骤1 instrumentation 退出后应用进程存活时序非确定）。
+  b2pr_pid_before=$(adb shell pidof com.tabula.v3.recyclebin.test 2>/dev/null | tr -d '\r' || true)
+  adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || b2pr_status=1
+  sleep 2
+  b2pr_pid_after=$(adb shell pidof com.tabula.v3.recyclebin.test 2>/dev/null | tr -d '\r' || true)
+  echo "B2PermissionRefresh revoke kill evidence: pid_before=$b2pr_pid_before pid_after=$b2pr_pid_after (empty=dead)"
+  b2pr_step2_ok=1
+  if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+    -e class com.tabula.v3.B2PermissionRefreshDeviceTest#revokedRelaunchShowsGateAndOldSetNeverReappears \
+    com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+    | tee device-results/B2PermissionRefresh/step2.txt; then
+    echo "B2PermissionRefresh step2 instrumentation failed" >&2; b2pr_status=1; b2pr_step2_ok=0
+  fi
+  grep -Eq "^OK \(1 tests?\)" device-results/B2PermissionRefresh/step2.txt || { echo "B2PermissionRefresh step2 expected OK(1)" >&2; b2pr_status=1; b2pr_step2_ok=0; }
+  if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/B2PermissionRefresh/step2.txt; then
+    echo "Failure or skip observed in B2PermissionRefresh step2" >&2; b2pr_status=1; b2pr_step2_ok=0
+  fi
+  if [ "$b2pr_step2_ok" != "1" ]; then
+    echo "dependency-unmet: B2PermissionRefresh step3 skipped (step2 red) — downstream instrumentation not run" >&2
+    b2pr_cleanup_fixtures
+  else
+    # 步骤3：无 grant（宿主 revoke 后状态延续）——T3 测试侧自授权完成会话内升级。
+    # 显式 force-stop（FPF Phase3/FullRecovery 同款口径）：步骤2 遗留进程/门控
+    # activity 死亡，T3 的 am start 在 T3 instrumentation 进程内冷启动，pid 基准
+    # 与 pidof 恒等断言确定性成立。
+    adb shell am force-stop com.tabula.v3.recyclebin.test || b2pr_status=1
+    if ! timeout 420s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+      -e class com.tabula.v3.B2PermissionRefreshDeviceTest#inSessionGrantUpgradeRerunsScanOnSameProcess \
+      com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+      | tee device-results/B2PermissionRefresh/step3.txt; then
+      echo "B2PermissionRefresh step3 instrumentation failed" >&2; b2pr_status=1
+    fi
+    grep -Eq "^OK \(1 tests?\)" device-results/B2PermissionRefresh/step3.txt || { echo "B2PermissionRefresh step3 expected OK(1)" >&2; b2pr_status=1; }
+    if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/B2PermissionRefresh/step3.txt; then
+      echo "Failure or skip observed in B2PermissionRefresh step3" >&2; b2pr_status=1
+    fi
+  fi
+fi
+collect b2pr-logcat 2 device-results/B2PermissionRefresh/logcat.txt adb logcat -d -v threadtime || true
+# 裁决摘要：权限/批次/接线证据行 cat 进 job log（T1/T2/T3 Log.i 锚 + 生产批次行）
+grep -iE "B2PermRefresh|currentBatch<-\[|MediaProvider|user.?select" device-results/B2PermissionRefresh/logcat.txt | tail -30 > device-results/B2PermissionRefresh/wiring-grep.txt || true
+cat device-results/B2PermissionRefresh/wiring-grep.txt || true
+collect b2pr-state 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/b2-permission-refresh-state.json device-results/B2PermissionRefresh/ || true
+collect b2pr-ui-failures 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/B2PermissionRefresh/ui-failures || true
+# 段末卫生：回收权限（revoke 强停无害——本段已结束；下一段 pm clear 亦重置）
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES >/dev/null 2>&1 || true
+
+if [ "$b2pr_status" != "0" ]; then
+  echo "B2 permission-refresh wiring three-step verification failed" >&2
+  status=1
+fi
+
 exit "$status"
