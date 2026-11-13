@@ -88,7 +88,10 @@ environment = {
     "animations": {key: shell("settings get global " + key) for key in
                    ("window_animation_scale", "transition_animation_scale", "animator_duration_scale")},
     "hostCPU": subprocess.check_output(["lscpu"], text=True),
-    "emulatorVersion": subprocess.check_output(["emulator", "-version"], text=True, stderr=subprocess.STDOUT),
+    "emulatorVersion": subprocess.check_output(
+        [str(Path(os.environ["ANDROID_HOME"]) / "emulator" / "emulator"), "-version"],
+        text=True, stderr=subprocess.STDOUT,
+    ),
     "systemImageProperties": (Path(os.environ["ANDROID_HOME"]) / "system-images/android-36/google_apis/x86_64/source.properties").read_text(),
     "protocolSHA256": hashlib.sha256((BUILD / "protocol.json").read_bytes()).hexdigest(),
     "datasetSHA256": dataset["datasetSHA256"], "mediaStoreCount": total_count,
