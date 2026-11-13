@@ -423,25 +423,29 @@ fun DeckScreen(
         if (remaining <= 5) {
             // 开始预加载下一批
             isPreloadingNextBatch = true
-            
-            // 预取下一批数据，排除当前正在处理的组（避免重复）
-            // 分析范围仍是当前图集/月；已保存成员的访问与版本校验使用完整快照，
-            // 避免外部编辑跨月或移动图集后把仍可访问的成员误判为权限缺席。
-            val currentGroupIds = currentCleanupBatch?.groupIds ?: emptyList()
-            val nextBatch = albumCleanupEngine.getNextBatch(cleanupId, cleanupImages, currentGroupIds, latestSnapshot = allImagesForCleanup)
-            if (nextBatch != null) {
-                preloadedNextBatch = nextBatch
-                
-                // 只预加载前 3 张图片，使用低优先级
-                nextBatch.images.take(3).forEach { image ->
-                    // T06：预取请求规格统一走 deckCleanupPrefetchRequest
-                    // （cardMemoryCacheKey 身份/版本键 + cardLoadSize 卡片规格），
-                    // 使下一批卡片显示请求真正命中预取条目
-                    imageLoader.enqueue(deckCleanupPrefetchRequest(context, image))
+            // N2（活性，2026-11-08 登记）：标志复位放入 finally——getNextBatch 为
+            // 挂起调用，被取消时若不复位将永久拦截本会话的清理预取（实时获取
+            // 兜底仍在，但预取通道失效）。
+            try {
+                // 预取下一批数据，排除当前正在处理的组（避免重复）
+                // 分析范围仍是当前图集/月；已保存成员的访问与版本校验使用完整快照，
+                // 避免外部编辑跨月或移动图集后把仍可访问的成员误判为权限缺席。
+                val currentGroupIds = currentCleanupBatch?.groupIds ?: emptyList()
+                val nextBatch = albumCleanupEngine.getNextBatch(cleanupId, cleanupImages, currentGroupIds, latestSnapshot = allImagesForCleanup)
+                if (nextBatch != null) {
+                    preloadedNextBatch = nextBatch
+
+                    // 只预加载前 3 张图片，使用低优先级
+                    nextBatch.images.take(3).forEach { image ->
+                        // T06：预取请求规格统一走 deckCleanupPrefetchRequest
+                        // （cardMemoryCacheKey 身份/版本键 + cardLoadSize 卡片规格），
+                        // 使下一批卡片显示请求真正命中预取条目
+                        imageLoader.enqueue(deckCleanupPrefetchRequest(context, image))
+                    }
                 }
+            } finally {
+                isPreloadingNextBatch = false
             }
-            
-            isPreloadingNextBatch = false
         }
     }
 

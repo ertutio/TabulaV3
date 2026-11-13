@@ -40,6 +40,16 @@ class StringDragSelectState<T>(
         itemBounds[id] = bounds
     }
 
+    /**
+     * A4/T03 清理（2026-11-08）：将边界集修剪到当前数据列表的键——离场行
+     * （删除/换批后不再存在的 id）的旧边界不再残留于命中路径。解析端对
+     * 离场 id 本就天然兜底，此修剪消除极端时序命中与长会话的键积累。
+     * 布局回调（onGloballyPositioned）与本方法同在主线程，无并发窗口。
+     */
+    fun pruneBoundsNotIn(validIds: Set<String>) {
+        itemBounds.keys.retainAll(validIds)
+    }
+
     fun onDragStart(startPosition: Offset, haptic: HapticFeedback) {
         val windowPosition = startPosition + gridPositionInWindow
         val hitItem = findItemAt(windowPosition)
@@ -94,7 +104,8 @@ class StringDragSelectState<T>(
         onDragEnd()
     }
 
-    private fun findItemAt(position: Offset): String? {
+    // internal 供边界修剪回归测试断言命中行为（原 private，无行为变化）
+    internal fun findItemAt(position: Offset): String? {
         for ((id, bounds) in itemBounds) {
             if (bounds.contains(position)) {
                 return id
@@ -124,7 +135,7 @@ fun <T> rememberStringDragSelectState(
     val updatedOnSelectionChange = rememberUpdatedState(onSelectionChange)
     val updatedOnEnterSelectionMode = rememberUpdatedState(onEnterSelectionMode)
 
-    return remember {
+    val state = remember {
         StringDragSelectState(
             items = { updatedItems.value },
             itemKey = itemKey,
@@ -133,6 +144,11 @@ fun <T> rememberStringDragSelectState(
             onEnterSelectionMode = { updatedOnEnterSelectionMode.value() }
         )
     }
+    // A4/T03：数据列表变化时修剪离场行边界（可见行随布局回调重新登记）
+    androidx.compose.runtime.LaunchedEffect(items) {
+        state.pruneBoundsNotIn(items.mapTo(mutableSetOf(), itemKey))
+    }
+    return state
 }
 
 @Composable

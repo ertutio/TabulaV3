@@ -1,11 +1,61 @@
 #!/usr/bin/env bash
 set -euo pipefail
 mkdir -p device-results
+# ===== 采集诊断包装（收尾单元 2026-11-10）=====
+# 定位结论：run 42662260995 / 42844759640 API36 两连败的根因不是本脚本的
+# 未保护采集命令（全部带 || true），也不是外层 timeout=720s（两次 UI 探针段
+# 实测 ≈467s / ≈542s，且外层报的是 CalledProcessError 而非 TimeoutExpired），
+# 而是 tools/run-volume-device-probe.py window() 里的套件后证据采集命令
+# `adb logcat -d -v threadtime -T <窗口起点>` 在 API36 模拟器上非零退出
+# （输出截断于行中、无错误文本——adbd/logd 流式读取中断的形态）。
+# 此处为本脚本侧的证据采集（logcat/pull/screencap）提供统一登记：
+# 命令、返回码、耗时、输出摘要、adb devices 连接状态，失败输出留档
+# device-results/；首败即登记不吞；logcat -d 类只读采集加 ≤2 次有界重试。
+# 证据采集失败不阻断门禁（仍保持原 || true 语义）；门禁仍由套件断言与
+# window before/after 设备健康检查（boot_id/SurfaceFlinger PID/DeadSystem
+# 图形断言）把守。python 侧对应实现见 run-volume-device-probe.py 的
+# adb_readonly()（窗口 logcat 采集走同一诊断协议，采集失败仍阻断）。
+diag_log="device-results/collection-diagnostics.log"
+collect() {
+  local label="$1" retries="$2" artifact="$3"; shift 3
+  local max_attempts=$((retries + 1)) attempt rc=1 start end tmp
+  tmp="device-results/.collect-tmp-$$.log"
+  for attempt in $(seq 1 "$max_attempts"); do
+    start=$(date +%s)
+    if "$@" >"$tmp" 2>&1; then
+      rc=0
+    else
+      rc=$?
+    fi
+    end=$(date +%s)
+    {
+      echo "=== bash/$label attempt=$attempt/$max_attempts rc=$rc elapsed=$((end - start))s cmd=$*"
+      adb devices || echo "adb devices failed"
+      echo "--- output head ---"
+      head -n 3 "$tmp"
+      echo "--- output tail ---"
+      tail -n 8 "$tmp"
+    } >>"$diag_log" 2>&1
+    if [ "$rc" -eq 0 ]; then
+      if [ "$artifact" != "-" ]; then mv "$tmp" "$artifact"; fi
+      break
+    fi
+    cp "$tmp" "device-results/collection-failure-bash-$label-attempt$attempt.log"
+    if [ "$attempt" -lt "$max_attempts" ]; then sleep 2; fi
+  done
+  rm -f "$tmp"
+  if [ "$rc" -ne 0 ]; then
+    echo "COLLECTION FAILED (evidence recorded in $diag_log, non-gating): bash/$label rc=$rc" >&2
+  fi
+  return "$rc"
+}
 capture() {
-  adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/ui-failures || true
-  adb logcat -d -v threadtime > device-results/ui-logcat.txt || true
-  adb shell screencap -p /sdcard/cloud-ui-result.png || true
-  adb pull /sdcard/cloud-ui-result.png device-results/ui-screen.png || true
+  collect trap-ui-failures-pull 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/ui-failures || true
+  collect trap-logcat 2 device-results/ui-logcat.txt adb logcat -d -v threadtime || true
+  collect trap-screencap 0 - adb shell screencap -p /sdcard/cloud-ui-result.png || true
+  collect trap-screen-pull 0 - adb pull /sdcard/cloud-ui-result.png device-results/ui-screen.png || true
+  echo "=== collection diagnostics (bash) ==="
+  cat "$diag_log" 2>/dev/null || true
 }
 trap capture EXIT
 adb wait-for-device
@@ -28,18 +78,34 @@ status=0
 # PixelRefreshUiTest 2 例（C4/T07 审计轮：外部编辑后卡片与查看器像素级刷新 + ViewerPollPolicy 跨时刻拼接回归，见套件 KDoc）。
 # PartialSelectionPhaseATest 1 例 + PartialSelectionPhaseBTest 1 例（包B：PARTIAL 选择集 A→B
 # 真实系统机制两阶段——阶段A 系统权限对话框 Select photos → 照片选择器建立 PARTIAL(A)；
-# 宿主 force-stop；阶段B ACTION_PICK_IMAGES 重选 B + 地面真值 + UI/保留/哨兵断言）。
+# PartialSelection 两阶段（包B：PARTIAL A→B，见套件 KDoc）。
 # FullPartialFullPhase1Test 1 例 + FullPartialFullPhase2Test 1 例 + FullPartialFullPhase3Test 1 例
 # （B2 收尾：T07 FULL→PARTIAL→FULL 三阶段——FULL 建立+处理 g1+断点指向 g2+落盘；
 # pm revoke 系统强停→PARTIAL(B) 像素重选+进度持有读回；pm grant+force-stop→FULL 恢复
 # +已处理保持+g2 续接+旧快照晚到不覆盖竞争门，见套件 KDoc 与 coord/notes-B2.md）。
-for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest; do
+# OtherAppMediaAuthDeviceTest 4 例（包C2：他人媒体真实系统授权流程——直接删除归属边界 /
+# 未授权按项保留 / 真实系统授权对话框删除 / 清理入口组合未授权保留，见套件 KDoc）。
+# ProdAuthCallbackDeviceTest 2 例（包C2 收尾：生产授权回调消费路径——系统对话框确认/
+# 取消结果经应用真实入口（生产 launcher）消费 + in-flight 释放，见套件 KDoc）。
+# [历史登记 2026-11-09→11-11] 曾因 3 轮红摘除：轮1 uiAutomation.windows 恒空（2951ed2
+# 修）；轮2 CANCEL_TEXTS 缺 Deny（5c035ec 补）；轮3 取消后查看器覆盖层滞留+api37 点按
+# 入动画窗被吞。收尾单元三已全部修正（513d3df：closeViewerIfOpen/正向观察/前置条件
+# 重试/用例末释放；47f38c9：OtherAppMediaAuth Allow 有界自验证重点，run 42863345514
+# 三 job 全绿 API37 OK(4)）——恢复 runner 登记，双 API 复验随本次门禁（run 43260104714
+# 与 43276688191 连续两轮绿）。
+# CardLifecycleDeviceTest 3 例（T06 设备级生命周期验收 2026-11-12，基线含 #61/#62：
+# 场景1 SHUFFLE cancel→resume 接线+swipe 删除+回收站恢复 / 场景1 DRAW 同循环（prefs 预置）/
+# 场景2 会话内 Settings 切换 SHUFFLE→DRAW 后重复循环+返回可操作，见套件 KDoc）。
+for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest ProdAuthCallbackDeviceTest CardLifecycleDeviceTest FullPartialFullPhase1Test FullPartialFullPhase2Test FullPartialFullPhase3Test; do
   case "$class" in
     CloudCleanupUiTest) expected_tests=8 ;;
     CloudRestoreUiTest) expected_tests=3 ;;
     CreateAlbumDiagnosticDeviceTest) expected_tests=2 ;;
     ForegroundPermissionUiTest) expected_tests=2 ;;
     PixelRefreshUiTest) expected_tests=2 ;;
+    OtherAppMediaAuthDeviceTest) expected_tests=4 ;;
+    ProdAuthCallbackDeviceTest) expected_tests=2 ;;
+    CardLifecycleDeviceTest) expected_tests=3 ;;
     *) expected_tests=2 ;;
   esac
   dir="device-results/$class"
@@ -76,8 +142,8 @@ for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTe
     echo "Failure or skip observed in $class" >&2
     status=1
   fi
-  adb logcat -d -v threadtime > "$dir/logcat.txt" || true
-  adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures "$dir/ui-failures" || true
+  collect "$class-logcat" 2 "$dir/logcat.txt" adb logcat -d -v threadtime || true
+  collect "$class-ui-failures" 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures "$dir/ui-failures" || true
 done
 # ===== PARTIAL 选择集 A→B 两阶段（真实系统 UI 驱动）验证（包B）=====
 # 阶段A：shell 身份写入+扫描 5 张非应用自有合成媒体（scoped storage 下应用
@@ -190,12 +256,12 @@ for phase in phaseA phaseB; do
     partial_status=1
   fi
 done
-adb logcat -d -v threadtime > device-results/PartialSelection/logcat.txt || true
+collect partial-logcat 2 device-results/PartialSelection/logcat.txt adb logcat -d -v threadtime || true
 # 裁决 S6：宿主 grep 摘要（MediaProvider user-selected/PhotoPicker 授权路径 + 测试 verdict/confirm 行），cat 进 job log
 grep -iE "user.?select|PhotoPicker|GrantUri|accessible|confirmCommitted|verdict=" device-results/PartialSelection/logcat.txt | tail -40 > device-results/PartialSelection/mediaprovider-grep.txt || true
 cat device-results/PartialSelection/mediaprovider-grep.txt || true
-adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/partial-selection-expected-state.json device-results/PartialSelection/ || true
-adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/PartialSelection/ui-failures || true
+collect partial-expected-state 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/partial-selection-expected-state.json device-results/PartialSelection/ || true
+collect partial-ui-failures 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/PartialSelection/ui-failures || true
 
 if [ "$partial_status" != "0" ]; then
   echo "PARTIAL selection A->B two-stage verification failed" >&2
@@ -414,9 +480,9 @@ for phase in phase1 absence continuation readback; do
     full_status=1
   fi
 done
-adb logcat -d -v threadtime > device-results/FullRecovery/logcat.txt || true
-adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/full-recovery-expected-state.json device-results/FullRecovery/ || true
-adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/FullRecovery/ui-failures || true
+collect full-logcat 2 device-results/FullRecovery/logcat.txt adb logcat -d -v threadtime || true
+collect full-expected-state 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/full-recovery-expected-state.json device-results/FullRecovery/ || true
+collect full-ui-failures 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/FullRecovery/ui-failures || true
 
 if [ "$full_status" != "0" ]; then
   echo "FULL recovery four-stage verification failed" >&2

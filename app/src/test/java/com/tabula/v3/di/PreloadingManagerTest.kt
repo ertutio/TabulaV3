@@ -13,6 +13,7 @@ import com.tabula.v3.data.model.ImageFile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -388,6 +389,44 @@ class PreloadingManagerTest {
         runner.testScheduler.advanceUntilIdle()
         assertEquals("requests after a mid-wait reset must enqueue normally", 3, fakeLoader.enqueued.size)
         deterministic.dispose()
+    }
+
+    @Test
+    fun inFlightRequestWithSameIdentityIsNotReenqueued() {
+        // 包D 覆盖核对补钉（排队 leg）：同窗口重复 preloadAround 时，仍在途
+        //（未成功/未失败）的同身份请求不得重复入队——排队/在途/成功三态分离
+        // 的"在途不重排"半边。首个窗口 3 项入队后不派发任何回调，同一窗口
+        // 再次请求必须零新增（成功不重排已由
+        // successfulPreloadIsNotRepeatedForSameContent 钉住）。
+        val (deterministic, runner) = managerWithTestScope()
+        deterministic.preloadAround(images(3), 1, cardSize)
+        runner.testScheduler.advanceUntilIdle()
+        assertEquals(3, fakeLoader.enqueued.size)
+
+        deterministic.preloadAround(images(3), 1, cardSize)
+        runner.testScheduler.advanceUntilIdle()
+
+        assertEquals("in-flight same-identity requests must not be enqueued again", 3, fakeLoader.enqueued.size)
+        deterministic.dispose()
+    }
+
+    @Test
+    fun disposeCancelsProvidedScopeDirectly() {
+        // 包D 覆盖核对补钉（scope 释放 leg）：dispose 不仅 dispose 既有请求
+        //（disposeCancelsAllRequests 已钉），还必须取消管理器 scope 本身——
+        // 防抖等待中的任务随 scope 取消，迟到回调/后续启动失去调度载体。
+        // PR35 审计 CONCERN-4（"disposeCancelsAllRequests 未直接断言 scope
+        // 取消（间接覆盖）"）由此闭合；providedScope 即管理器 scope，
+        // dispose 后 isActive == false 是直接断言。
+        val (deterministic, runner) = managerWithTestScope()
+        deterministic.preloadAround(images(3), 1, cardSize)
+        runner.testScheduler.advanceTimeBy(50)         // 防抖在飞
+        runner.testScheduler.runCurrent()
+        assertTrue("precondition: manager scope active before dispose", runner.isActive)
+
+        deterministic.dispose()
+
+        assertFalse("dispose must cancel the manager scope itself", runner.isActive)
     }
 }
 
