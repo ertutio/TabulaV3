@@ -212,3 +212,96 @@ probe 脚本（tools/run-cloud-ui-probe.sh 新段，插在 PARTIAL 段之后、F
   - 定向修正（commit 991307e）：startMonth 月行 a11y 不可达时有界重开 sheet 重试——`tapMonthIfExposed`（10s 轮询可达即点击）→ `reopenCleanupSheet`（scrim "Close sheet" = 生产 onDismissRequest 路径，关闭核验 = 头部最终消失）→ 重切月份，至多 3 轮，逐轮留证、无固定 sleep。
 - **R3 = run 43055853277（991307e，双 API 全绿，~25min）**：API36/API37 三阶段各 OK(1)，probe 数量门+失败 grep 门全过；Phase1/Phase3 月行均 attempt 0 命中、无 reopening 触发（重试为未触发的保险路径）。判据 1–10 全断言双 API 绿（映射表 §4 全兑现），通用纪律全程在案。
 - 遗留：无。R3 = 收拢轮（全绿）；PR：base=test/partial-selection-ab-2026-11-08。
+## 8. 边界补强轮（2026-11-14，PR72 收尾单元——边界 1+3；边界 2 由主代理串行另做）
+
+指令源：coord/INDEX.md "新指令批（2026-11-14）：PR72 补强三边界"。约束：只改 androidTest
+（4 个 FPF 文件）+notes；不动 app/src/main、app/src/test、probe；边界 2（旧快照晚到接线
+验证，t13-overlay-acceptance.md §边界 2 设计）不在本单元。
+
+### 8.1 先确认生产语义（读码实证，再写断言）
+- `AlbumCleanupEngine.getCheckpointBatch` 放弃规则（AlbumCleanupEngine.kt:796-831）：
+  ①临时不可见（成员不在快照且未 acknowledged）→ **返回 null 不清断点**（持有，FULL 后
+  同实例可再恢复）；②**acknowledged 成员规则（:800-804）**：断点保存组内任一成员已
+  acknowledged → `clearCheckpoint` + 返回 null（"明确删除已缩短可操作成员，旧索引无法
+  判断保存与删除先后。安全从该原组剩余行重开，不能盲目平移而漏掉尚未浏览的成员"）；
+  ③批次组成变化/保存后重分析 → 同为放弃形态。行缺席在快照校验处"只持有，不清断点"
+  （:845-850）。`saveCheckpoint(groupIds, currentIndex)` = 原批次 groupIds + 当前帧索引
+  （AppPreferences 键序字符串+index+时间戳，7 天过期）。
+- deck 退出自保存路径（DeckScreen.kt:367/382/1753-1757 + onRemove ~1056-1090）：被滑卡
+  从批次移除、**currentIndex 不前移**（下一张滑入原位）；onSwitchToGlobal 保存
+  `saveCheckpoint(currentCleanupBatch.groupIds, currentIndex)` → 3 成员组滑 1 张后退出
+  = **([G], 0)**。月专清入口（:1677）getCheckpointBatch null → 回退 getNextBatch 正常取批
+  （重算分支与断点分支同函数内并列，R3 已实证）。
+- 回收站 loadRecycleBin = JSON 追加序（addAllToRecycleBin 逐条 append，RecycleBinManager
+  :86-96）→ 处理 g1、g2 后 = **[g1键, g2键]**。
+
+### 8.2 边界 1：PARTIAL 哨兵 2s 同窗观察（Phase2 判据 7 补强）
+- 旧形态差异登记：单次 `visibleDisplayNameList` 缺席断言 + `awaitGone(2s)` 仅 a11y 树——
+  媒体集合面只在窗前采样一点；且 awaitGone 的 `find()==null` 无法区分"确认缺席"与
+  "窗口缺失/他包窗口"。
+- 新形态（FullPartialFullPhase2Test 判据 7 块）：同一 2s 观察窗内逐次（100ms）三面读数：
+  ①**应用权限下的生产媒体查询**逐次断言哨兵缺席——新增
+  `FullPartialFullStateContract.visibleDisplayNameListOrNull`（cursor=null 按语义返回
+  null，不折叠为异常）；查询异常 → dumpTree+saveScreenshot 留证后如实失败；cursor=null
+  → 计数登记（Log.w，"null 不是缺席证据"）继续；成功 → 逐次缺席断言（含查询原文）。
+  ②**应用界面可观测**：`rootInActiveWindow` 非空且 packageName==被测应用包；缺失/他包
+  → 计数登记继续；全程无应用窗口 → 失败（界面面从未成立）。③**UI 树哨兵节点缺席**
+  （原 awaitGone 不变量语义并入同窗，出现即留证失败）。窗末汇总登记
+  （queryOk/queryNull/appWindowOk/windowMissing）+ 两道有效性门（queryOk≥1、
+  appWindowOk≥1）+ shell 行存在（全程行存在保留）。
+- 效果：把"窗口缺失导致的假缺席"与"确认缺席"分离；媒体集合面在窗内持续采样（非单点）。
+
+### 8.3 边界 3：真实 UI 自保存断点的跨进程读回 + 安全重启（判据 2/9 补强）
+- 夹具：**第 7 张 shell 身份夹具 g3**（fpf-g3.png，纯绿 FF00FF00 → COLOR_G3=0xFF00FF00，
+  宿主同款 zlib PNG 算法）。宿主 probe 只推 6 张（不动）→ Phase1 测试侧补建
+  `ensureG3Fixture`：shellScript 通道 mkdir + `base64 -d` 落盘（PNG 以 base64 **文本**
+  内嵌于测试源——run 42476083194/42477634711 截断实证针对字节传输；文本 argv 无此问题，
+  shellScript 通道自身即依赖 on-device base64 -d）→ `touch -t 202611090900`（全套最晚）
+  → scan_file 入库（宿主同款机制+广播兜底，截止轮询行出现）→ shell 行核对。文件由
+  shell UID 经 FUSE 落盘、shell 扫描 → 行所有权=shell（与 adb push 同身份，非应用自有，
+  PARTIAL 选择集语义保持可观测）。g3 mtime 取最晚是刻意的：g3 同时是最后入库行（_id
+  最大）→ 时间倒序与 _id 倒序两排序模型下网格同为 [G3,B2,B1,G2,G1,N1,S1]，B={1,2}
+  不依赖未实证的排序模型。Phase1 增 @After：@Test 红（状态文件未落盘）时按名+路径
+  删 g3，防残留行污染同宿主图库空核对（宿主 skip 兜底只按名清 6 张）。
+- Phase1：3 成员组 [g1,g2,g3]（seedCleanupGroup 生产写入口；地面真值 6 成员 + 哨兵；
+  shell 7 行）。**移除旧形态的 `engine.saveCheckpoint([G],1)` 覆盖**——经真实 sheet 退出
+  （onSwitchToGlobal）后读回并断言 UI 自保存状态 = **([G],0)**（onRemove 索引不前移），
+  flush 后落盘（状态文件 checkpointIndex=0 = UI 自保存基准）。
+- Phase2：断点原样 = ([G],0)（跨 revoke 进程死亡读回，只读纪律不变）；组键 [g1,g2,g3]。
+- Phase3（跨 force-stop 读回后按**生产契约明文**断言，非重算）：
+  ①`getCheckpointBatch` 返回 **null** + 断点**已被清除**（acknowledged 放弃规则
+  :800-804——UI 自保存 ([G],0) 含已处理 g1；盲目平移索引 0 将重新交付 g1）；
+  ②放弃不误伤：组键/已处理/回收站原样；
+  ③安全重启批次 = **[g2,g3]** 持久键序（≥2 有序未处理成员——成员顺序可断言；单成员
+  批次无法区分索引续接/重算/顺序多种定位行为，此即 g3 存在的理由）；
+  ④UI 续接：deck 当前卡 = g2、g1 不在 deck（生产安全重启路径，getCheckpointBatch null
+  → getNextBatch 回退）→ **上滑处理 g2 → 下一卡 = g3**（顺序在真实 deck 上成立）→
+  生产撤销窗口提交（acknowledged={g1,g2}、回收站=[g1,g2] 追加序）；
+  ⑤最终一致性同步更新（{g1,g2}/[g1,g2]）。
+- 与判据 2 的关系：判据 2"断点=组内指向 g2 待处理"的语义由"UI 自保存状态 + 生产续接
+  契约解析出 g2 待处理"端到端落实（强化：不再由测试钉指定索引），判据未降低。
+
+### 8.4 执行记录
+- 实现 + compileDebugAndroidTestKotlin 通过（4 文件 +327/−88，CR=0），commit **d1de057**
+  推送 test/full-partial-full-2026-11-09。
+- CI：build-volume-confirmation.yml @ test/full-partial-full-2026-11-09 =
+  **run 43467600831（@d1de0579）= 首轮全绿**：build + device(API36) + device(API37)
+  三 job success（~23min，1 轮无红）。双 API 工件核对：FPF phase1/2/3 各 **OK(1)**、
+  0 FAILURES、无 dependency-unmet；logcat 证据线（双 API 同构）：
+  - P1 `boundary-3 fixture g3 ensured (shell identity, mtime newest)`（g3 on-device
+    补建成功）+ 地面真值 7 行（含 g3）+ `phase FULL complete: uiCheckpoint=0`；
+  - P2 `sentinel same-window observation: queryOk=4 queryNull=0 appWindowOk=4
+    windowMissing=0 (2s window)`（API36）/ `queryOk=12 ... appWindowOk=12`（API37）
+    ——同窗配对观察 4/12 次，cursor=null 与窗口缺失均为 0；
+  - P3 `resumed batch processed in persistent order: g2 committed, deck at g3` +
+    `phase FULL-recovery complete: safe-restart resumed [g2,g3]`；@After 7 夹具
+    全部 gone=true（含 g3）。
+  - full-partial-full-expected-state.json：`checkpointIndex:0`（UI 自保存基准）、
+    members=3 键（g1,g2,g3）、processedMembers=[g1键]。
+- 登记：同窗观察实际迭代次数由"查询+树遍历"成本决定（API36 4 次/API37 12 次，
+  窗口固定 2s、间隔 100ms）——"反复读取"成立（非单点），次数非目标值；g3 残留
+  风险面：仅 instrumentation 进程在 g3 创建后、@After 前硬崩溃会残留 g3 行
+  （常规红路径由 Phase1 @After 覆盖；硬崩溃属 probe 已红场景，登记不追加门）。
+- 后续：边界 2（旧快照晚到接线验证，真实 MainActivity 接线级）由主代理在本单元
+  之后串行实施（t13-overlay-acceptance.md §边界 2 设计），本 PR 正文覆盖声明已按
+  三边界现状重写（判据 10 的接线级验证不在本 PR 完成声明内）。
