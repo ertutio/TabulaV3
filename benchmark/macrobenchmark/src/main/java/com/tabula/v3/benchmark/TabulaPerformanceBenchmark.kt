@@ -30,7 +30,9 @@ class TabulaPerformanceBenchmark {
     private val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
     private val packageName = "com.tabula.v3"
     private val args = InstrumentationRegistry.getArguments()
-    private val output = File(args.getString("additionalTestOutputDir")!!).apply { mkdirs() }
+    // AndroidX Outputs clears direct files on first use, after the standalone smoke test.
+    private val output = File(args.getString("additionalTestOutputDir")!!, "harness-evidence")
+        .apply { mkdirs() }
     private var currentStyle = "SHUFFLE"
     private val events = File(output, "operations.jsonl")
 

@@ -99,7 +99,10 @@ def read_session(folder):
         for row in selected:
             for key, value in meminfo(row["meminfo"]).items():
                 metrics.setdefault("memory." + stage + "." + key, []).append(value)
-    events_file = folder / "operations.jsonl"
+    events_files = list(folder.rglob("operations.jsonl"))
+    if len(events_files) != 1:
+        raise ValueError("Expected one operations report")
+    events_file = events_files[0]
     events = [json.loads(l) for l in events_file.read_text().splitlines() if l]
     if len([r for r in events if r["action"] in ("leftSwipe", "rightSwipe")]) != 180:
         raise ValueError("Not all 180 card advances executed")

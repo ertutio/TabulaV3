@@ -137,6 +137,19 @@ def write_valid_input(root):
 
 
 class ValidFixtureTest(unittest.TestCase):
+    def test_nestedHarnessEvidenceProducesValidReport(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = write_valid_input(Path(tmp))
+            for session in ("session-a", "session-b"):
+                folder = root / session / "baseline"
+                evidence = folder / "harness-evidence"
+                evidence.mkdir()
+                for name in ("operations.jsonl", "memory.json"):
+                    (folder / name).rename(evidence / name)
+            output = Path(tmp) / "out"
+            report.make_report(root, output)
+            self.assertTrue(json.loads((output / "baseline.json").read_text())["valid"])
+
     def test_completeValidSessionsProduceValidBaselineReport(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "out"
@@ -174,6 +187,16 @@ class ValidFixtureTest(unittest.TestCase):
 
 
 class NegativeFixtureTest(unittest.TestCase):
+    def test_duplicateOperationsReportsAreRejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = write_valid_input(Path(tmp))
+            folder = root / "session-a" / "baseline"
+            evidence = folder / "harness-evidence"
+            evidence.mkdir()
+            (evidence / "operations.jsonl").write_bytes((folder / "operations.jsonl").read_bytes())
+            with self.assertRaisesRegex(ValueError, "Expected one operations report"):
+                report.read_session(folder)
+
     def test_iterationCountMismatchIsRejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = write_valid_input(Path(tmp))
