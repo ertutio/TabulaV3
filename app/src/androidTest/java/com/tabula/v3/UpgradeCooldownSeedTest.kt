@@ -117,7 +117,7 @@ class UpgradeCooldownSeedTest {
         val allRows = names.map { rebuildRow(ctx, it) }
         assertEquals(LIBRARY_SIZE, allRows.size)
         val poolKeys = allRows.map { it.mediaIdentityKey() }
-        assertEquals("身份键必须唯一（跨卷同 ID 不允许出现在夹具）", poolKeys.toSet(), poolKeys.toList().toSet())
+        assertEquals("夹具中的媒体身份键必须唯一", poolKeys.size, poolKeys.toSet().size)
 
         // ===== 2. 三组清理进度（生产写入口，Phase1 seedCleanupGroup 模式扩为 3 组） =====
         val g1Rows = allRows.subList(0, G1_SIZE)
