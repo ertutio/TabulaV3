@@ -81,8 +81,23 @@ class PreloadingManager(
                         snapshot.getOrNull(index)?.let { index to requestIdentity(it) }
                     }.toMap() else emptyMap()
                     val windowKeys = window.values.toSet()
+                    // T06 剩余场景（2026-11-14）：DEBUG 门日志——窗口身份快照（含索引映射），
+                    // 同索引换批时设备测试可直接断言"请求身份已同步更新为新卡 identity"。
+                    if (BuildConfig.DEBUG) Log.d(
+                        TAG,
+                        "window gen=$runGeneration idx=$currentIndex identities=[" +
+                            window.entries.joinToString(",") { "${it.key}=${it.value.substringBefore('|')}" } + "]"
+                    )
                     completed.retainAll(windowKeys)
                     val stale = active.filter { (index, request) -> window[index] != request.identity }
+                    // T06 剩余场景（2026-11-14）：DEBUG 门日志——身份失配的旧请求被取消，
+                    // 旧 Disposable 释放的可观测信号（仅在确有释放时输出）。
+                    if (BuildConfig.DEBUG && stale.isNotEmpty()) Log.d(
+                        TAG,
+                        "staleDispose " + stale.entries.joinToString(",") {
+                            "index=${it.key} token=${it.value.token} identity=${it.value.identity}"
+                        }
+                    )
                     stale.forEach { (index, request) -> active.remove(index); request.disposable?.dispose() }
                     window.forEach { (index, identity) ->
                         if (identity !in completed && active[index]?.identity != identity) {
@@ -117,6 +132,10 @@ class PreloadingManager(
                     onSuccess = { _, _ -> finish(index, token, true) },
                     onError = { _, _ -> finish(index, token, false) }
                 ).build()
+            // T06 剩余场景（2026-11-14）：DEBUG 门日志——真实请求发出（token+完整身份），
+            // "实际预载请求恢复"的行为级信号（resume 日志只证明调用发生，本日志证明
+            // 恢复后有真实新请求发出且身份即该槽位的当前 identity）。
+            if (BuildConfig.DEBUG) Log.d(TAG, "enqueue index=$index token=$token identity=$identity")
             val disposable = imageLoader.enqueue(request)
             if (active[index] === requestState) requestState.disposable = disposable else disposable.dispose()
         } catch (e: Exception) {
@@ -129,6 +148,12 @@ class PreloadingManager(
         synchronized(lock) {
             val request = active[index] ?: return
             if (request.token != token || disposed) return
+            // T06 剩余场景（2026-11-14）：DEBUG 门日志——仅活 token 的回写可见
+            // （token 失配/已释放的旧回调在本守卫处静默丢弃，不产生本日志）。
+            // 设备测试据此断言"新批次回写身份=新请求身份、旧批次无迟到回写"。
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "finish index=$index token=$token success=$success identity=${request.identity}")
+            }
             active.remove(index)
             if (success && request.cacheResult) completed.add(request.identity)
         }
@@ -164,6 +189,12 @@ class PreloadingManager(
             disposed = true
             generation++
             debounceJob?.cancel()
+            // T06 剩余场景（2026-11-14）：DEBUG 门日志——组合销毁时管理器整体释放
+            // （disposable 全量 dispose + scope cancel），"旧 Disposable 释放"的
+            // 生命周期级可观测信号；释放后本管理器不再产生任何 enqueue/window 日志。
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "dispose active=${active.size} completed=${completed.size}")
+            }
             val old = active.values.toList()
             active.clear()
             completed.clear()
