@@ -143,3 +143,11 @@
 | 任务 B 有效冷却+非空清理进度跨升级 | test/upgrade-cooldown-2026-11-12 | wg-RB | **✅ R2 全绿**（run 43274154738 三 job，56910d2）**→ PR #76**（base=master，叠 T13 #73）：OLD 冷却写入口实测=getRandomWalkBatch→recordImagesPickedByIdentity（清理条件=库≤batchSize(15)）；种子 140 张候选（>2×阈值），目标经生产推荐 ≤10 批命中、pick prefs=16 条（T13 缺口正面回归双 API 绿）；升级后 pickedAt/days 逐位一致+目标仍被排除+无关照常+双重启幂等；三组进度（组1 断点幸存+续接交付、组2 永久标记不复活、组3 原样、生产放弃规则跨版本一致）；预期全来自 OLD 实拍 JSON。4 新文件零生产触碰。notes-RB.md 已存 |
 - 文件所有权：A=run-upgrade-probe-recycle.sh+upgrade-recycle-verification.yml+UpgradeRecycleDeviceTest；B=run-upgrade-probe-cooldown.sh+upgrade-cooldown-verification.yml+UpgradeCooldownDeviceTest——零共享文件
 - 共同基点：test/upgrade-overlay-2026-11-11 @ 545570e（升级框架含 T13 演练与 waitsem 修复）
+
+
+## 新指令批（2026-11-14）：PR72 补强 + T06 剩余 + 状态校正
+- **master 已前移**：f7450366（维护者合并 #70/#75/#76——13 组件+收尾+T12+任务 A/B 全部入库）；开放 PR=#77（A/A 基线发布，run 43387329019 valid=true，冷启动中位 842.86/1295.00ms 差 42.3% 未归因）、#72（head ace7625 未变）、#12
+- **PR72 补强三边界**：边界1（哨兵 2s 同窗轮询：生产媒体查询反复确认哨兵缺席+界面可观测）与边界3（≥2 有序未处理成员的断点续接跨进程读回）→ 子代理 A 在飞（wg-B2）；边界2（旧快照晚到接线验证）→ 主代理（A 完成后串行，同文件写者）
+- **T06 剩余场景** → 子代理 B 在飞（wg-T6B，test/t06-remaining-2026-11-12 基 master f7450366）
+- **#73 补记录收口**：两轮询回归设备执行完成（run 43264360831 全绿，STATUS_CODE:0×2 API36 工件实证；mkdir 根因修复 545570e）
+- **#77 登记**：A/A 基线有效（fixed app 474129e、harness 55b8edf6、emulator 16740729、candidate 空；每会话 180 swipe/31 viewer/1 smoke）；当前 master 候选测量的离线兼容检查=待办（perf 工具链未合 master，PR77 分支待核）
