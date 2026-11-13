@@ -170,5 +170,10 @@
 | 单元 | 分支/PR | 内容 | 验证 | 状态 |
 | --- | --- | --- | --- | --- |
 | #72 后续 PR | test/b2-to-master-2026-11-14 → **PR #79**（base=master） | B2 三阶段并入最新 master（父链 b1a93cd 已预解 probe 并集——8 类+FPF 依赖门，master 零丢失） | 关系核验（Already-up-to-date=父链已含并集） | 待审计 |
-| 真实权限刷新接线 | 09df170（@09df170 CI 43514530630 三 job 全绿） | B2PermissionRefreshDeviceTest 3 例：①FULL 地面真值→会话内注入晚到媒体→当前界面旧集合保持（无重扫触发确定性缺席）→PID 落盘 ②pm revoke 系统强停→新进程恢复=REVOKE 语义（门控屏+旧集合观察窗不重现）③同进程 grant 升级（NONE→FULL）→Home→Resume→revision++→deck 新池提交→pidof 恒等；严格晚到竞态设备层不可构造=如实登记（单测级覆盖） | CI 首轮全绿双 API | 待审计 |
+| 真实权限刷新接线 | 09df170（@09df170 CI 43514530630 三 job 全绿） | B2PermissionRefreshDeviceTest 3 例：①FULL 地面真值→会话内注入晚到媒体→当前界面旧集合保持（无重扫触发确定性缺席）→PID 落盘 ②pm revoke 系统强停→新进程恢复=REVOKE 语义（门控屏+旧集合观察窗不重现）③同进程 grant 升级（NONE→FULL）→Home→Resume→revision++→deck 新池提交→pidof 恒等；严格晚到竞态设备层不可构造=如实登记（单测级覆盖） | CI 首轮全绿双 API | **✅ 审计 PASS**（audit-B2-followup.md：生产接线行号全命中、三例实谓词、合并结构逐项实证、LF/约束零违反） |
 - probe 共享文件核验：父分支 b1a93cd 已预解并集（8 类+FPF 依赖门/兜底清理），后续分支零触碰 ✓
+
+
+## 审计跟进（2026-11-13 06:42）
+- **#66 修正链批量审计 PASS**（audit-PR66-fixchain.md：三提交修法与诊断逐条吻合、双证据充分性经生产代码闭合验证、同快照三处不再跨时点、双 API 工件七类全 OK）——**P2-① 跟进**：合并 head 73943f8（释放判定同快照复合）随 PR 进 master 无 CI → **master CI 已补派**（43521426417 @ f7450366，运行中）
+- P3：notes-C2.md §六/§八/§九 位置指向偏差（内容一致）；修正3 轮询强化=KDoc 明文登记的有意演进
