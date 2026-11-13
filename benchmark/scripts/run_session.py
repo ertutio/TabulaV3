@@ -23,8 +23,12 @@ def adb(*args, check=True):
 def shell(command):
     return adb("shell", command)
 
-adb("root")
-adb("wait-for-device")
+root_result = subprocess.run(["adb", "root"], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+root_diagnostic = f"returncode={root_result.returncode}\n{root_result.stdout}"
+(OUT / "adb-root.txt").write_text(root_diagnostic)
+print(root_diagnostic, flush=True)
+# adbd can close its connection while restarting as root. Verify the resulting device.
+subprocess.run(["adb", "wait-for-device"], check=True, timeout=120)
 assert shell("getprop ro.kernel.qemu") == "1", "Only a newly-created emulator may be seeded"
 assert shell("id -u") == "0", "Google APIs userdebug image must support adb root"
 shell("wm size 1080x2400")
@@ -80,6 +84,13 @@ for style in ("SHUFFLE", "DRAW"):
 adb("push", "benchmark/scripts/reset-app.sh", "/data/local/tmp/tabula-perf/reset-app.sh")
 shell("chmod 755 /data/local/tmp/tabula-perf/reset-app.sh")
 
+emulator_command = [str(Path(os.environ["ANDROID_HOME"]) / "emulator" / "emulator"), "-version"]
+emulator_version = subprocess.run(emulator_command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+version_diagnostic = f"command={emulator_command!r}\nreturncode={emulator_version.returncode}\n{emulator_version.stdout}"
+(OUT / "emulator-version.txt").write_text(version_diagnostic)
+if emulator_version.returncode:
+    raise RuntimeError(version_diagnostic)
+
 environment = {
     "session": SESSION, "runner": "ubuntu-24.04", "sdk": shell("getprop ro.build.version.sdk"),
     "fingerprint": shell("getprop ro.build.fingerprint"),
@@ -88,10 +99,7 @@ environment = {
     "animations": {key: shell("settings get global " + key) for key in
                    ("window_animation_scale", "transition_animation_scale", "animator_duration_scale")},
     "hostCPU": subprocess.check_output(["lscpu"], text=True),
-    "emulatorVersion": subprocess.check_output(
-        [str(Path(os.environ["ANDROID_HOME"]) / "emulator" / "emulator"), "-version"],
-        text=True, stderr=subprocess.STDOUT,
-    ),
+    "emulatorVersion": emulator_version.stdout,
     "systemImageProperties": (Path(os.environ["ANDROID_HOME"]) / "system-images/android-36/google_apis/x86_64/source.properties").read_text(),
     "protocolSHA256": hashlib.sha256((BUILD / "protocol.json").read_bytes()).hexdigest(),
     "datasetSHA256": dataset["datasetSHA256"], "mediaStoreCount": total_count,
