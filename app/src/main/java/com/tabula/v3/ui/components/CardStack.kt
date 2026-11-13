@@ -1506,6 +1506,10 @@ bitmap = ownedScaledCopyOrNull(cachedBitmap, 250)
                                 onDragCancel = {
                                     isDragging = false
                                     hasDragged = false
+                                    // N1（活性，2026-11-08 登记）：手势取消与拖动结束同口径——
+                                    // 恢复预加载并退出快速检测模式，避免取消后预载停摆至下次滑动
+                                    preloadingManager.resume()
+                                    com.tabula.v3.data.repository.ImageFeatureDetector.setFastMode(false)
                                     debugCardStackLog(
                                         "dragCancel shuffle idx=$currentIndex locked=$lockedDirection " +
                                             "dx=${dragOffsetX.value} dy=${dragOffsetY.value} trans=$isTransitioning"
@@ -1768,16 +1772,17 @@ private fun DrawModeCardStack(
     // 手动预加载函数 - 在动画开始前调用
     fun preloadNextCards(fromIndex: Int) {
         scope.launch {
-            // 预加载接下来的几张卡片
-            for (offset in 1..4) {
-                val index = fromIndex + offset
-                if (index < images.size) {
-                    preloadingManager.preloadAround(
-                        images = images,
-                        currentIndex = index,
-                        cardSize = IntSize(1080, 1440)
-                    )
-                }
+            // T06 清理（2026-11-08 审计确证）：原先对 offset 1..4 连发 4 次
+            // preloadAround，防抖窗口内仅最后一次入队——可观察结果恰等于
+            // 只对最远有效索引调用一次（含越界回退：最远 = min(+4, 末张)，
+            // 无有效后续时整体 no-op）。行为不变，去掉 3 次无效排队。
+            val furthest = minOf(fromIndex + 4, images.size - 1)
+            if (furthest >= fromIndex + 1) {
+                preloadingManager.preloadAround(
+                    images = images,
+                    currentIndex = furthest,
+                    cardSize = IntSize(1080, 1440)
+                )
             }
         }
     }
@@ -3203,6 +3208,10 @@ bitmap = ownedScaledCopyOrNull(cachedBitmap, 250)
                                 onDragCancel = {
                                     isDragging = false
                                     hasDragged = false
+                                    // N1（活性，2026-11-08 登记）：手势取消与拖动结束同口径——
+                                    // 恢复预加载并退出快速检测模式，避免取消后预载停摆至下次滑动
+                                    preloadingManager.resume()
+                                    com.tabula.v3.data.repository.ImageFeatureDetector.setFastMode(false)
                                     debugCardStackLog(
                                         "dragCancel draw idx=${drawState.currentIndex} locked=$lockedDirection " +
                                             "dx=${centerDragOffsetX.value} dy=${centerDragOffsetY.value} " +

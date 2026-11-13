@@ -25,6 +25,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowContentResolver
 import java.io.File
 import java.security.MessageDigest
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], manifest = Config.NONE)
@@ -168,6 +170,103 @@ class ArchiveCommitEvidenceTest {
 
         assertEquals(ArchiveCommitOutcome.NOT_CLAIMED, outcome)
         assertEquals(0, provider.insertCalls)
+    }
+
+    // ===== TC57 后半：撤销与并发提交交错（包C 2026-11-08）=====
+    // 断言：同一 action 的撤销与提交在任意交错下至多一次复制副作用，
+    // 且“撤销成功⇒零副作用”与“提交成功⇒恰好一次副作用+账本/源记录齐”互斥成立。
+
+    /** 每轮重置账本与源记录，使逐轮断言互不叠加。 */
+    private suspend fun resetLedgerAndSourceRecords() {
+        albumManager.clearDeletedUris(setOf(sourceUri.toString()))
+    }
+
+    @Test
+    fun cancelDuringInFlightCommitDoesNotDisturbTheSingleCopy() = runBlocking {
+        // 确定性交错：提交已领取（队列已摘除）且复制推进到源读取时，撤销入口触发。
+        val action = albumManager.queueImageToAlbum(1L, sourceUri.toString(), "Target", "Target")
+        val copyReachedSource = CountDownLatch(1)
+        val releaseCopy = CountDownLatch(1)
+        provider.afterSourceRead = {
+            copyReachedSource.countDown()
+            releaseCopy.await(10, TimeUnit.SECONDS)
+        }
+
+        val commit = async(Dispatchers.IO) { albumManager.commitPendingArchive(action.id) }
+        assertTrue(copyReachedSource.await(10, TimeUnit.SECONDS))
+
+        // 复制在途：队列已无该 action——撤销不得报出已领取的操作，也不得扰动唯一复制。
+        assertNull(albumManager.cancelLastPendingArchive())
+
+        releaseCopy.countDown()
+        assertEquals(ArchiveCommitOutcome.COMMITTED, commit.await())
+        assertEquals(1, provider.insertCalls)
+        assertEquals(1, albumManager.copyEvidenceStore.loadAll().size)
+        assertEquals(
+            listOf(sourceUri.toString()),
+            albumManager.getSourceImagesForAlbum("Target").map { it.toString() }
+        )
+        assertArrayEquals(sourceBytes, sourceFile.readBytes())
+    }
+
+    @Test
+    fun cancelDuringInFlightCommitTargetsOnlyRemainingPendingAction() = runBlocking {
+        // 排队 A、B：A 提交已领取且复制在途时撤销——撤销只摘除仍待执行的 B，
+        // 不扰动 A 的唯一副作用；被撤销的 B 保持零复制。
+        val actionA = albumManager.queueImageToAlbum(1L, sourceUri.toString(), "Target", "Target")
+        val actionB = albumManager.queueImageToAlbum(2L, sourceUri.toString(), "Target", "Target")
+        val copyReachedSource = CountDownLatch(1)
+        val releaseCopy = CountDownLatch(1)
+        provider.afterSourceRead = {
+            copyReachedSource.countDown()
+            releaseCopy.await(10, TimeUnit.SECONDS)
+        }
+
+        val commitA = async(Dispatchers.IO) { albumManager.commitPendingArchive(actionA.id) }
+        assertTrue(copyReachedSource.await(10, TimeUnit.SECONDS))
+
+        val cancelled = albumManager.cancelLastPendingArchive()
+
+        releaseCopy.countDown()
+        assertEquals(ArchiveCommitOutcome.COMMITTED, commitA.await())
+        assertEquals(actionB.id, cancelled?.id)
+        assertEquals(1, provider.insertCalls)
+        assertEquals(1, albumManager.copyEvidenceStore.loadAll().size)
+        assertEquals(
+            listOf(sourceUri.toString()),
+            albumManager.getSourceImagesForAlbum("Target").map { it.toString() }
+        )
+    }
+
+    @Test
+    fun concurrentCancelAndCommitOfSameActionResolveExactlyOneWinner() = runBlocking {
+        repeat(10) {
+            resetLedgerAndSourceRecords()
+            provider.resetCopyState()
+            val action = albumManager.queueImageToAlbum(1L, sourceUri.toString(), "Target", "Target")
+
+            val commit = async(Dispatchers.IO) { albumManager.commitPendingArchive(action.id) }
+            val cancel = async(Dispatchers.IO) { albumManager.cancelLastPendingArchive() }
+            val outcome = commit.await()
+            val cancelled = cancel.await()
+
+            if (cancelled != null) {
+                // 撤销赢：action 不得再产生任何副作用，也不得冒充提交成功。
+                assertEquals(ArchiveCommitOutcome.NOT_CLAIMED, outcome)
+                assertEquals(0, provider.insertCalls)
+                assertTrue(albumManager.copyEvidenceStore.loadAll().isEmpty())
+                assertTrue(albumManager.getSourceImagesForAlbum("Target").isEmpty())
+            } else {
+                // 提交赢：撤销不得撤走已领取的操作；复制恰好一次且账本/源记录齐。
+                assertEquals(ArchiveCommitOutcome.COMMITTED, outcome)
+                assertEquals(1, provider.insertCalls)
+                assertEquals(1, albumManager.copyEvidenceStore.loadAll().size)
+                assertEquals(
+                    listOf(sourceUri.toString()),
+                    albumManager.getSourceImagesForAlbum("Target").map { it.toString() }
+                )
+            }
+        }
     }
 
     private fun resetSingleton(clazz: Class<*>) {
