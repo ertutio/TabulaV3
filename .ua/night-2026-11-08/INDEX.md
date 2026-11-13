@@ -68,6 +68,11 @@
 - **组合门禁 42856903671 三 job 全绿**（全量 430 单元 + Release/R8 + API36/37 设备全套；R8 metadata 警告 0——#68 效力在组合中复验）
 - **独立复审 PASS**（audit-combination.md：单次顶层合并、与 integration 逐字节一致、冲突标记 0、6 类设备门+阶段门齐全且 ProdAuthCallback 摘除态无回潮、生产面恰 7 文件、R8 8.13.19 在位且警告 0、CI XML 430 全绿）；**#66 单元三 CI**：API36 绿（修正+诊断生效），API37 OtherAppMediaAuth 第 3 次红（同签名=tap 被入场动画吞）→ 有界重点修正轮已派（9979967 同款模式）；B2 维持额度阻塞登记
 
+## T06 剩余交付（2026-11-13）
+- **PR #78**（test/t06-remaining-2026-11-14，base=master f7450366）：T06RemainingDeviceTest 2 例——**同索引换批**（删除当前卡→同索引承接新卡→窗口身份快照+enqueue 真实请求断言）与**动画中导航退出**（genie 动画中 BACK→删除未提交竞速无关确定结论）；生产改动=PreloadingManager 5 行 DEBUG 日志（window/staleDispose/enqueue/finish/dispose）；场景 b（取消后重入）登记=设备级不可确定性构造（单测级 PR50 覆盖）
+- **CI run 43481421413 三 job 全绿**（T06RemainingDeviceTest 双 API OK(2)，CardLifecycle OK(3)×2）
+- 状态：待独立审计
+
 ## T06 交付（设备级生命周期验收，2026-11-12）
 - **PR #74**（test/card-lifecycle-2026-11-12，base=combination/2026-11-10；diff 恰 4 文件）：CardLifecycleDeviceTest 3 例（场景 1 SHUFFLE/DRAW 真实 swipe+ACTION_CANCEL 注入→dragCancel/resume 日志时序断言→真实删除真值→恢复入口；场景 2 Settings 驱动会话内切模式→DRAW 全循环）+ PreloadingManager pause/resume 各 1 行 DEBUG 日志（可观测性增补，无行为变化）+ probe 第 7 类登记
 - **门禁 run 43086693791 三 job 全绿**（本套件双 API OK(3)；API36 FULL recovery 间歇 flake 已登记为与 PR 无关——对比基线自身既有红）
@@ -151,3 +156,11 @@
 - **T06 剩余场景** → 子代理 B 在飞（wg-T6B，test/t06-remaining-2026-11-12 基 master f7450366）
 - **#73 补记录收口**：两轮询回归设备执行完成（run 43264360831 全绿，STATUS_CODE:0×2 API36 工件实证；mkdir 根因修复 545570e）
 - **#77 登记**：A/A 基线有效（fixed app 474129e、harness 55b8edf6、emulator 16740729、candidate 空；每会话 180 swipe/31 viewer/1 smoke）；当前 master 候选测量的离线兼容检查=待办（perf 工具链未合 master，PR77 分支待核）
+
+
+## 最终状态（2026-11-12 02:35，全部队列完成）
+- **master `f7450366`**：已含 #68/#70/#71/#75/#76（13 组件+T12 EXIF+coroutines+任务 A/B）
+- **base 分支 test/partial-selection @ `d8ab544`**：已含 #72（B2 三阶段）——待维护者合入 master
+- **待审开放 PR**：#78（T06 剩余，43481421413 全绿，待审计）、#77（A/A 基线发布，人工）、#12（计划）
+- **已闭合**：#66（5 轮修复链→90c5d14+ed3f850 双证据+同快照全绿）、#73（waitsem 记录 545570e/43264360831 绿）、#74（两 P2+严格 CI）
+- **等待**：B2 Phase2/3 后续（按 notes-B2 恢复入口）；正式 fork 签名 secrets 配置（T13 解锁）；性能测量续批
