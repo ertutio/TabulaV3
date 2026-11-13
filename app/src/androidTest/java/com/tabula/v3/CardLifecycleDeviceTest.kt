@@ -320,8 +320,50 @@ class CardLifecycleDeviceTest {
             SystemClock.sleep(500)
             Log.i(TAG, "scroll attempt=$attempt for $label")
         }
+        findExact(ins.uiAutomation.rootInActiveWindow, label)?.let { return it }
+        find(ins.uiAutomation.rootInActiveWindow, label)?.let { return it }
         saveEvidence("missing-after-scroll-$label")
         error("UI element not found after scrolling: $label")
+    }
+
+    private fun findScrollable(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        if (node == null) return null
+        if (node.isVisibleToUser && node.isScrollable) return node
+        for (i in 0 until node.childCount) {
+            findScrollable(node.getChild(i))?.let { return it }
+        }
+        return null
+    }
+
+    private fun findDisplaySettings(): AccessibilityNodeInfo {
+        waitForState("settings-ready") { root ->
+            val settingsNodes = mutableListOf<AccessibilityNodeInfo>()
+            findAll(root, "设置", settingsNodes)
+            root.packageName?.toString() == ctx.packageName &&
+                settingsNodes.any { it.text?.toString() == "设置" } &&
+                findExact(root, "返回") != null && findScrollable(root) != null
+        }
+        // Settings retains its scroll position. Search toward the earlier display row.
+        repeat(10) { attempt ->
+            val root = ins.uiAutomation.rootInActiveWindow
+            if (root?.packageName?.toString() == ctx.packageName) {
+                findExact(root, "显示设置")?.let { return it }
+                val scroll = findScrollable(root)
+                val moved = scroll?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) == true
+                Log.i(TAG, "settings scroll backward attempt=$attempt moved=$moved actions=${scroll?.actionList}")
+                if (!moved) {
+                    saveEvidence("settings-backward-unavailable")
+                    error("Settings cannot scroll backward to 显示设置")
+                }
+            }
+            SystemClock.sleep(500)
+        }
+        val root = ins.uiAutomation.rootInActiveWindow
+        if (root?.packageName?.toString() == ctx.packageName) {
+            findExact(root, "显示设置")?.let { return it }
+        }
+        saveEvidence("settings-display-row-missing")
+        error("Settings display row not found after backward scrolling")
     }
 
     /**
@@ -849,7 +891,7 @@ class CardLifecycleDeviceTest {
         // "切换样式"区位于 DisplaySettingsScreen，主列表不含——run 43067990321 实证）。
         // 返回路径严格化（P2-2）：禁止静默重入，意外退出留证失败
         tapNode(waitForNode("设置"))
-        tapNode(scrollToNode("显示设置"))
+        tapNode(findDisplaySettings())
         val drawOption = scrollToNode("轻掠模式")
         Log.i(TAG, "draw option tap via ${tapNode(drawOption)}")
         SystemClock.sleep(400)
