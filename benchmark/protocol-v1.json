@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "name": "Tabula emulator performance baseline v1",
+  "baselineCommit": "474129ed4d5262befc8bdab0fbd60e4df81411f2",
+  "packageName": "com.tabula.v3",
+  "runner": "ubuntu-24.04",
+  "apiLevel": 36,
+  "target": "google_apis",
+  "arch": "x86_64",
+  "profile": "pixel_6",
+  "cores": 2,
+  "ramMB": 2048,
+  "width": 1080,
+  "height": 2400,
+  "density": 420,
+  "gpu": "swiftshader_indirect",
+  "animations": 1,
+  "compilationMode": "Full",
+  "dataset": {
+    "version": 1,
+    "count": 96,
+    "width": 1280,
+    "height": 1920,
+    "format": "JPEG",
+    "quality": 85,
+    "seed": 20261014,
+    "pillow": "10.4.0",
+    "modifiedEpoch": 1735689600
+  },
+  "settings": {
+    "theme": "DARK",
+    "batchSize": 30,
+    "cardSize": "FIXED",
+    "hdrBadges": true,
+    "motionBadges": true,
+    "liquidGlass": false,
+    "fluidCloud": false,
+    "haptics": false
+  },
+  "iterations": {
+    "startupCold": 10,
+    "startupWarm": 10,
+    "shuffleCards": 5,
+    "drawCards": 5,
+    "viewer": 5,
+    "memory": 5
+  },
+  "operations": {
+    "swipesPerIteration": 12,
+    "viewerCyclesPerIteration": 6,
+    "swipeSteps": 18,
+    "settleMs": 250
+  },
+  "rounds": [
+    "a",
+    "b"
+  ],
+  "metricMeaning": {
+    "coldStartup": "Cold process and cleared app caches; OS file cache is not guaranteed cold",
+    "memory": "Post-action PSS snapshots, not a continuous peak measurement",
+    "frameTiming": "Software-rendered emulator frames, not phone GPU performance"
+  }
+}
