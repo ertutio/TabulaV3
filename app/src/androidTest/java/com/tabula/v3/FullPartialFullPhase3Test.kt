@@ -25,6 +25,7 @@ import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -39,24 +40,33 @@ import java.util.concurrent.atomic.AtomicReference
  * am force-stop（显式重启）→ 本阶段新 instrumentation 进程；应用数据保留。
  *
  * 断言链（判据逐条）：
- * 8. 地面真值：可见恰 = {g1,g2,n1,b1,b2}+哨兵存在性（无重复：list==set；无缺失：
- *    shell 6 行核对）；级别=FULL。
- * 9. 已处理保持（驱动 UI 前的记录读回）：断点 (group,1) 原样（PARTIAL 期间只读
- *    未触碰）、acknowledged={g1键}、回收站=[g1键]、组键 [g1,g2] 无重复无丢失、未
- *    永久完成；引擎续接：真实月行（6 行）下 getNextBatch 批次恰=[g2]——g1 不重新
- *    进入待处理、g2 依进度恢复为待处理。
+ * 8. 地面真值：可见恰 = {g1,g2,g3,n1,b1,b2}+哨兵存在性（无重复：list==set；无缺失：
+ *    shell 7 行核对）；级别=FULL。
+ * 9. 已处理保持（驱动 UI 前的记录读回）：断点 = **真实 UI 自保存状态 (group,0)**
+ *    原样（PARTIAL 期间只读未触碰——Phase1 不再覆盖的边界 3 基准）、
+ *    acknowledged={g1键}、回收站=[g1键]、组键 [g1,g2,g3] 无重复无丢失、未永久完成。
+ * 9-边界3（生产续接契约，2026-11-14）：生产入口 getCheckpointBatch 的放弃规则
+ *    （AlbumCleanupEngine.kt:800-804）：断点保存组内任一成员已 acknowledged →
+ *    clearCheckpoint + 返回 null（"明确删除已缩短可操作成员，旧索引无法判断保存
+ *    与删除先后。安全从该原组剩余行重开，不能盲目平移而漏掉尚未浏览的成员"）。
+ *    UI 自保存 ([G],0) 含已处理 g1 → 断言：返回 null + 断点被清除 + 组记录/已处理
+ *    不受放弃误伤；随后安全重启批次 = 剩余成员持久键序 **[g2,g3]**（≥2 有序未处理
+ *    成员：成员顺序可断言，g1 经 acknowledged 过滤不交付）。预期值全部来自生产
+ *    契约明文，非被测算法重算。
  * 10. 旧快照晚到不覆盖：以真实生产链 loadAndApplyMediaSnapshot 重演 PR50
  *     MediaSnapshotLoadRaceTest.lateReturningOldReadReturnsButNeverCommits 的晚到
  *     形态——旧扫描滞留在 PARTIAL 时代投影 {b1,b2}（底层读取 NonCancellable 闸门，
  *     晚返回形态成立）、新扫描走默认真实生产 load 并提交；断言：旧读取确实返回、
- *     提交只归新扫描、新扫描 apply 到的投影 = 当前真实全池投影（6 行 − 回收站 g1
- *     = 5 行，真实数据）、取消不落 error 态。
- * 9'. UI 续接：真实月份入口 → 生产安全重启路径（getCheckpointBatch 遇 acknowledged
- *     成员清旧断点→按组目录+acknowledged 重算）→ deck 当前卡 = g2、g1 不在 deck。
+ *     提交只归新扫描、新扫描 apply 到的投影 = 当前真实全池投影（7 行 − 回收站 g1
+ *     = 6 行，真实数据）、取消不落 error 态。
+ * 9'. UI 续接 + 后续处理（真实月份入口 → 生产安全重启路径）→ deck 当前卡 = g2、
+ *     g1 不在 deck；上滑处理 g2（续接批次实际可操作）→ 下一卡 = g3（持久键序的
+ *     成员顺序在真实 deck 上成立）→ 生产撤销窗口提交（acknowledged={g1,g2}、
+ *     回收站=[g1,g2]）。
  * 10'. 最终一致性：可见集/acknowledged/回收站/组键/月份归属与第 9 条一致（最终
  *      UI/查询状态不受晚到旧快照影响）。
  *
- * 套件收尾（@After）：按名+路径 shell 精确删除全部 6 夹具并核对消失（#57 PhaseB
+ * 套件收尾（@After）：按名+路径 shell 精确删除全部 7 夹具并核对消失（#57 PhaseB
  * 收尾同款），不残留到后续 probe 段。
  */
 @RunWith(AndroidJUnit4::class)
@@ -115,6 +125,7 @@ class FullPartialFullPhase3Test {
         val sentinelName = expected.getString("sentinelName")
         val g1Key = expected.getJSONArray("processedMembers").getString(0)
         val g2Key = groupMembers[1]
+        val g3Key = groupMembers[2]
         val preferences = AppPreferences.getInstance(ctx)
 
         // ---- 判据 8：地面真值（无重复无缺失 + 哨兵存在性）+ shell 双面核对 ----
@@ -125,7 +136,7 @@ class FullPartialFullPhase3Test {
             visibleList.size == visibleSet.size
         )
         assertEquals(
-            "FULL 恢复地面真值：可见集合恰为 5 成员（无重复无缺失）；实际=$visibleSet",
+            "FULL 恢复地面真值：可见集合恰为 6 成员（无重复无缺失）；实际=$visibleSet",
             FullPartialFullStateContract.MEMBER_NAMES.toSet(), visibleSet - sentinelName
         )
         assertTrue("哨兵存在性核对", sentinelName in visibleSet)
@@ -135,7 +146,7 @@ class FullPartialFullPhase3Test {
 
         // ---- 判据 9（记录读回，驱动 UI 前）：已处理保持、断点原样、无重复无丢失 ----
         assertEquals(
-            "断点必须原样（PARTIAL 期间只读未触碰）",
+            "断点必须原样（真实 UI 自保存状态 (G,0)，PARTIAL 期间只读未触碰——边界 3 基准）",
             listOf(groupId) to checkpointIndex,
             preferences.getAlbumCleanupCheckpoint(albumId)
         )
@@ -156,19 +167,41 @@ class FullPartialFullPhase3Test {
         )
         assertTrue(albumId !in preferences.getCompletedCleanupAlbumIds())
 
-        // ---- 判据 9（引擎续接）：g1 不重新进入待处理；g2 恢复为待处理 ----
-        // 输入 = 真实月份专辑行（与生产 deck 同口径：可见全集 6 行）
+        // ---- 判据 9-边界3（生产续接契约）：UI 自保存断点的安全重启 ----
+        // 生产入口 getCheckpointBatch 的放弃规则（AlbumCleanupEngine.kt:800-804）：
+        // 断点保存组内任一成员已 acknowledged → clearCheckpoint + 返回 null（"明确
+        // 删除已缩短可操作成员，旧索引无法判断保存与删除先后。安全从该原组剩余行
+        // 重开，不能盲目平移而漏掉尚未浏览的成员"）。UI 自保存 ([G],0) 含已处理
+        // g1 → 契约必须放弃并清除（盲目平移索引 0 将重新交付已处理的 g1）。预期值
+        // 来自生产契约明文，非被测算法重算。
+        val engine = FullRecoveryStateContract.cleanupEngine(ctx)
+        // 输入 = 真实月份专辑行（与生产 deck 同口径：可见全集 7 行）
         val allVisibleRows = visibleList.map { rebuildRow(ctx, it) }
         val monthInfos = com.tabula.v3.ui.components.buildMonthInfos(allVisibleRows)
         assertEquals("全部夹具同月（生产月专辑唯一）", 1, monthInfos.size)
         val month = monthInfos.single()
+        val resumed = engine.getCheckpointBatch(albumId, month.images, latestSnapshot = allVisibleRows)
+        assertNull(
+            "UI 自保存断点 ([G],0) 含 acknowledged 成员 g1——生产放弃规则必须返回 null（安全重启）",
+            resumed
+        )
+        assertNull(
+            "放弃规则必须已清除断点（仅清断点，不动组记录/已处理）",
+            preferences.getAlbumCleanupCheckpoint(albumId)
+        )
+        // 放弃不得误伤进度记录：组键/已处理/回收站原样
+        assertEquals("组键必须原样（放弃只清断点）", groupMembers,
+            preferences.getGroupImageIds(albumId, groupId))
+        assertEquals("g1 已处理记录必须保持", setOf(g1Key),
+            preferences.getAlbumAcknowledgedCleanupMembers(albumId))
+        // 安全重启：按组目录+acknowledged 重算 → 批次 = 剩余成员持久键序 [g2,g3]
+        // （≥2 有序未处理成员——成员顺序可断言；g1 经 acknowledged 过滤不交付）
         val batch = requireNotNull(
-            FullRecoveryStateContract.cleanupEngine(ctx)
-                .getNextBatch(albumId, month.images, latestSnapshot = allVisibleRows)
-        ) { "engine must resume with the pending member after FULL restore" }
+            engine.getNextBatch(albumId, month.images, latestSnapshot = allVisibleRows)
+        ) { "engine must resume with the pending members after safe restart" }
         assertEquals(
-            "恢复批次必须恰为 [g2]（g1 经 acknowledged 过滤不交付、g2 待处理）",
-            listOf(g2Key), batch.images.map { it.mediaIdentityKey() }
+            "安全重启批次必须恰为 [g2,g3]（持久键序；g1 经 acknowledged 过滤不交付）",
+            listOf(g2Key, g3Key), batch.images.map { it.mediaIdentityKey() }
         )
         assertEquals(listOf(groupId), batch.groupIds)
         assertTrue(
@@ -244,7 +277,7 @@ class FullPartialFullPhase3Test {
         assertTrue("旧读取确实返回了（晚到形态成立）", oldReadReturned.get())
         assertEquals("提交只归新扫描", "new", committedBy.get())
         assertTrue("取消不得落 error 态", errors.get() == null)
-        // 新扫描 apply 到的投影 = 当前真实全池投影：6 行 − 回收站 g1 = 5 行（真实数据）
+        // 新扫描 apply 到的投影 = 当前真实全池投影：7 行 − 回收站 g1 = 6 行（真实数据）
         val expectedProjectedKeys = allVisibleRows.map { it.mediaIdentityKey() }
             .filter { it != g1Key }.toSet()
         assertEquals(
@@ -263,6 +296,23 @@ class FullPartialFullPhase3Test {
         )
         Log.i(TAG, "deck resumed at g2 via production safe-restart path")
 
+        // ---- 边界 3：成员顺序 + 后续处理结果（真实 deck 上逐卡落实）----
+        // 上滑处理续接批次首卡 g2 → 下一卡必为 g3（持久键序 [g2,g3] 在真实 deck 上
+        // 成立——单成员批次无法区分"索引续接/重算/顺序"多种定位行为，≥2 有序成员
+        // 即为此设计）→ 生产撤销窗口提交（acknowledged/回收站）
+        FullPartialFullUi.removeCard(FullPartialFullStateContract.G2_NAME)
+        FullPartialFullUi.waitForExact(FullPartialFullStateContract.G3_NAME)
+        FullPartialFullUi.awaitDismissed(
+            FullPartialFullStateContract.G2_NAME, tag = "g2-removed-from-deck"
+        )
+        FullPartialFullUi.await("g2-removal-committed") {
+            runBlocking { trash.loadRecycleBin().map { it.mediaIdentityKey() } } ==
+                listOf(g1Key, g2Key) &&
+                preferences.getAlbumAcknowledgedCleanupMembers(albumId) ==
+                    setOf(g1Key, g2Key)
+        }
+        Log.i(TAG, "resumed batch processed in persistent order: g2 committed, deck at g3")
+
         // ---- 判据 10'：最终一致性（最终 UI/查询状态与第 9 条一致）----
         val finalVisible = visibleDisplayNameList(ctx).toSet()
         assertEquals(
@@ -270,11 +320,13 @@ class FullPartialFullPhase3Test {
             FullPartialFullStateContract.MEMBER_NAMES.toSet() + sentinelName, finalVisible
         )
         assertEquals(
-            "最终已处理记录保持", setOf(g1Key),
+            "最终已处理记录 = {g1,g2}（Phase3 UI 续接后真实提交）",
+            setOf(g1Key, g2Key),
             preferences.getAlbumAcknowledgedCleanupMembers(albumId)
         )
         assertEquals(
-            "最终回收站保持", listOf(g1Key),
+            "最终回收站保持（追加序 [g1,g2]）",
+            listOf(g1Key, g2Key),
             runBlocking { trash.loadRecycleBin().map { it.mediaIdentityKey() } }
         )
         assertEquals("最终组键保持（无重复无丢失）", groupMembers,
@@ -304,6 +356,6 @@ class FullPartialFullPhase3Test {
                 entry.getInt("year"), containingMonth.year
             )
         }
-        Log.i(TAG, "phase FULL-recovery complete: processed kept, resume at g2, race guarded")
+        Log.i(TAG, "phase FULL-recovery complete: safe-restart resumed [g2,g3], g2 committed, race guarded")
     }
 }
