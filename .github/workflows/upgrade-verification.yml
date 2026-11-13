@@ -1,0 +1,180 @@
+name: Verify overlay upgrade recovery (T13)
+
+on:
+  workflow_dispatch:
+  # Bootstrap registration on GitHub (new files on non-default branches become
+  # dispatchable only after their first run) and keep iterating on this branch.
+  push:
+    branches:
+      - test/upgrade-overlay-2026-11-11
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: upgrade-verification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install build SDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+      - name: Prepare OLD worktree (43a8da1) with clean-tree digest guard
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)" || { echo "new worktree dirty" >&2; exit 1; }
+          git worktree add "$RUNNER_TEMP/old-src" 43a8da1
+          test -z "$(git -C "$RUNNER_TEMP/old-src" status --porcelain)" || { echo "old worktree dirty" >&2; exit 1; }
+          {
+            echo "newHead=$(git rev-parse HEAD)"
+            echo "newTree=$(git rev-parse HEAD^{tree})"
+            echo "oldHead=43a8da1"
+            echo "oldTree=$(git rev-parse 43a8da1^{tree})"
+          } > source-identity.txt
+          cat source-identity.txt
+      - name: Build NEW APKs (branch head; full gate build)
+        run: bash ./gradlew --no-daemon --stacktrace :app:testReleaseUnitTest :app:assembleRelease :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Build OLD APKs (43a8da1)
+        working-directory: ${{ runner.temp }}/old-src
+        run: bash ./gradlew --no-daemon --stacktrace :app:assembleRelease :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Verify package identity and collect APKs
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          mkdir -p device-apks/old device-apks/new artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk device-apks/new/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk device-apks/new/
+          cp app/build/outputs/apk/release/app-release-unsigned.apk artifacts/new-app-release.apk
+          cp "$RUNNER_TEMP/old-src/app/build/outputs/apk/debug/app-debug.apk" device-apks/old/
+          cp "$RUNNER_TEMP/old-src/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk" device-apks/old/
+          cp "$RUNNER_TEMP/old-src/app/build/outputs/apk/release/app-release-unsigned.apk" artifacts/old-app-release.apk
+          for side in old new; do
+            "$AAPT" dump badging "device-apks/$side/app-debug.apk" > "artifacts/badging-$side-app.txt"
+            "$AAPT" dump badging "device-apks/$side/app-debug-androidTest.apk" > "artifacts/badging-$side-test.txt"
+            grep -F "package: name='com.tabula.v3.recyclebin.test'" "artifacts/badging-$side-app.txt"
+            grep -F "versionCode='5'" "artifacts/badging-$side-app.txt"
+          done
+          old_test_pkg=$(grep -o "package: name='[^']*'" artifacts/badging-old-test.txt | head -1)
+          new_test_pkg=$(grep -o "package: name='[^']*'" artifacts/badging-new-test.txt | head -1)
+          test "$old_test_pkg" = "package: name='com.tabula.v3.recyclebin.test.test'"
+          test "$new_test_pkg" = "$old_test_pkg"
+          cp source-identity.txt artifacts/
+          sha256sum device-apks/old/*.apk device-apks/new/*.apk \
+            artifacts/old-app-release.apk artifacts/new-app-release.apk > artifacts/SHA256SUMS.txt
+          cat artifacts/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: upgrade-old-apks
+          path: device-apks/old/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: upgrade-new-apks
+          path: device-apks/new/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: upgrade-build-record
+          path: |
+            artifacts/
+            app/build/test-results/testReleaseUnitTest/
+          if-no-files-found: warn
+
+  device:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 36
+            sdk: '36'
+            ram: 2048M
+          - api: 37
+            sdk: '37.0'
+            ram: 4096M
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      API_LEVEL: ${{ matrix.api }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: upgrade-old-apks
+          path: device-apks/old
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: upgrade-new-apks
+          path: device-apks/new
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Prepare command-line tools and verified AVD
+        if: matrix.api == 37
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p device-results
+          evidence=device-results/avd-preflight.txt
+          java -version > "$evidence" 2>&1 || true
+          sdk="$ANDROID_HOME"
+          "$sdk/cmdline-tools/latest/bin/sdkmanager" --install 'cmdline-tools;22.0'
+          tools="$sdk/cmdline-tools/22.0"
+          "$tools/bin/sdkmanager" --version >> "$evidence" 2>&1 || true
+          cat "$tools/source.properties" >> "$evidence"
+          grep -Eq '^Pkg.Revision[[:space:]]*=[[:space:]]*22\.0([[:space:]]|$)' "$tools/source.properties"
+          tools_root="$(readlink -f "$sdk/cmdline-tools")"
+          latest_resolved="$(readlink -f "$sdk/cmdline-tools/latest")"
+          case "$latest_resolved" in "$tools_root"/*) ;; *) echo "latest resolves outside cmdline-tools" >&2; exit 1 ;; esac
+          backup="$RUNNER_TEMP/tabula-original-cmdline-tools-latest"
+          test ! -e "$backup" && test ! -L "$backup"
+          mv "$sdk/cmdline-tools/latest" "$backup"
+          ln -s 22.0 "$sdk/cmdline-tools/latest"
+          export PATH="$sdk/cmdline-tools/latest/bin:$PATH"
+          test "$(readlink -f "$(command -v avdmanager)")" = "$(readlink -f "$tools/bin/avdmanager")"
+          "$tools/bin/sdkmanager" --install "system-images;android-${{ matrix.sdk }};google_apis;x86_64"
+          mkdir -p "$HOME/.android/avd"
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          echo no | "$tools/bin/avdmanager" create avd --force -n test --package "system-images;android-${{ matrix.sdk }};google_apis;x86_64" --device pixel_6
+          grep -E '^(target|path)[[:space:]]*=' "$ANDROID_AVD_HOME/test.ini" >> "$evidence" || true
+          grep -Eq '^target[[:space:]]*=[[:space:]]*android-37\.0[[:space:]]*$' "$ANDROID_AVD_HOME/test.ini"
+      - name: Exercise overlay upgrade OLD(43a8da1) -> NEW(head)
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: ${{ matrix.sdk }}
+          force-avd-creation: ${{ matrix.api != 37 }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: ${{ matrix.ram }}
+          disk-size: 8G
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -no-metrics
+          disable-animations: true
+          script: bash tools/run-upgrade-probe.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: upgrade-verification-API${{ matrix.api }}
+          path: device-results/
+          if-no-files-found: warn
