@@ -84,7 +84,7 @@ for style in ("SHUFFLE", "DRAW"):
 adb("push", "benchmark/scripts/reset-app.sh", "/data/local/tmp/tabula-perf/reset-app.sh")
 shell("chmod 755 /data/local/tmp/tabula-perf/reset-app.sh")
 
-emulator_command = [str(Path(os.environ["ANDROID_HOME"]) / "emulator" / "emulator"), "-version"]
+emulator_command = [str(Path(os.environ["ANDROID_HOME"]) / "emulator" / "emulator"), "-no-window", "-noaudio", "-version"]
 emulator_version = subprocess.run(emulator_command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 version_diagnostic = f"command={emulator_command!r}\nreturncode={emulator_version.returncode}\n{emulator_version.stdout}"
 (OUT / "emulator-version.txt").write_text(version_diagnostic)
