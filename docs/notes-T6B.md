@@ -168,3 +168,20 @@ TAG=PreloadingManager（与 CardStack.debugCardStackLog 同模式）；不动 Ca
   二次删除后 gen=5 idx=0 [144] 单槽 → dispose active=0 completed=1；staleDispose
   零出现（微图无 in-flight，负向"无回写"扫描一致通过）。
 - 非同卡点 2 轮红（轮 2 卡点已消），不触发阻塞登记。
+
+## 轮 4（run 43481421413，2026-11-14）：全绿
+
+- build + device API36 + device API37 全部 success；T06RemainingDeviceTest 双 API
+  `OK (2 tests)`；既有套件回归全绿（含 CardLifecycleDeviceTest 双 API OK(3)——轮 1
+  API37 的"恢复 button not found"为环境性偶发，本轮未复现）。
+- 分支提交：49aa39f → 3fb335a（轮 1 游标修正）→ 2bc3a38（轮 2 keyFragment 修正）→
+  dec8fcf（轮 3 媒体身份比较修正）。
+
+## 覆盖映射（任务四验证维度 → 断言）
+
+| 验证维度 | 断言落点 |
+| --- | --- |
+| 实际预载请求恢复 | case 1：换批后对从未入窗第三张的真实 `enqueue index=1`（resume ≤ enqueue）+ `finish success`；case 2：BACK 退出组合销毁 dispose 后，重启新管理器全量重发（窗口含 3 身份 + 逐卡 enqueue） |
+| 旧 Disposable 释放 | case 2：组合销毁 `dispose` 日志（组合销毁即整体释放路径）+ 其后至重启前零请求活动（disposed 守卫+debounce 取消+scope cancel 的静默负向断言）；in-flight 时刻 staleDispose 路径已日志化（轮 3 实证微图场景零出现，与夹具解码时序一致） |
+| 旧回调无法写入新批次 | case 1：换批标记后无被删身份 enqueue/finish（有界负向扫描）+ 全程 token-身份序列完整性（每个 finish 必有先行同 token 同身份 enqueue）；reducer 级由 PreloadingManagerTest oldCallbackCannotCompleteReplacementAtSameIndex 等确定性覆盖 |
+| 两种卡片模式后续操作能力 | case 1（SHUFFLE）：二次真实删除（换批继续成立+计数递减+记录累计）；case 2（DRAW）：重启返回后真实删除可提交 |
