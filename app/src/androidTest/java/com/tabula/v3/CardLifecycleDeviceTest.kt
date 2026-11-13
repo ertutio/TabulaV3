@@ -103,6 +103,9 @@ class CardLifecycleDeviceTest {
     private val TAG = "CardLifecycle"
     private val ins get() = InstrumentationRegistry.getInstrumentation()
     private val ctx get() = ins.targetContext
+    private val application get() = checkNotNull(ctx.applicationContext as? Application) {
+        "Target Application is required for lifecycle monitoring"
+    }
     private var activity: android.app.Activity? = null
     private val photos = mutableListOf<ImageFile>()
     private val fixtureRows = mutableListOf<CloudFixtureCleanup.Fixture>()
@@ -115,6 +118,7 @@ class CardLifecycleDeviceTest {
 
     /** 主进程 pid（armSessionWatch 时采样；Settings 返回路径前后必须一致）。 */
     private var sessionPid: String? = null
+    private var sessionLifecycleCallbacks: Application.ActivityLifecycleCallbacks? = null
 
     /** 生命周期 destroy 事件（Application 回调收集；会话内不得出现）。 */
     private val activityDestroyEvents = java.util.concurrent.ConcurrentLinkedQueue<String>()
@@ -128,7 +132,8 @@ class CardLifecycleDeviceTest {
      */
     private fun armSessionWatch() {
         sessionPid = currentPid()
-        (ctx as? Application)?.registerActivityLifecycleCallbacks(
+        val targetApplication = application
+        val callbacks =
             object : Application.ActivityLifecycleCallbacks {
                 override fun onActivityCreated(a: android.app.Activity, savedInstanceState: Bundle?) {}
                 override fun onActivityStarted(a: android.app.Activity) {}
@@ -143,7 +148,8 @@ class CardLifecycleDeviceTest {
                     Log.w(TAG, "activity destroyed during test session: $event")
                 }
             }
-        )
+        targetApplication.registerActivityLifecycleCallbacks(callbacks)
+        sessionLifecycleCallbacks = callbacks
         Log.i(TAG, "session watch armed: pid=$sessionPid")
     }
 
@@ -865,6 +871,8 @@ class CardLifecycleDeviceTest {
     }
 
     @After fun cleanup() {
+        sessionLifecycleCallbacks?.let { application.unregisterActivityLifecycleCallbacks(it) }
+        sessionLifecycleCallbacks = null
         if (activity != null) {
             try {
                 ins.runOnMainSync { activity?.finish() }

@@ -92,8 +92,8 @@ pause()/resume() 各一行 DEBUG 门 Log.d）+ probe 第 7 类登记。
   - 断言失败路径的生产代码佐证：resume() 全仓仅 4 处（CardStack L1431/L3125 onDragEnd、
     L1511/L3213 onDragCancel）——变异后删除手势到 waitForLog 之间无其它 resume 来源，
     必然超时。变异本体不落工作区（复现于隔离副本），`git diff` 仅 CardLifecycleDeviceTest.kt
-    即源码干净之核对；设备级红点由本次 CI 轮实测背书（修复后全绿 ⇒ 变异差异被
-    本次手势窗口真实区分）。
+    即当时的源码范围核对。上述 JVM 合成时间线支持日志匹配逻辑分析，设备级变异
+    红点仍待执行。正常版本 CI 绿灯覆盖修复后的设备路径。
 
 ### P2-2 会话内切模式连续性（假阳性封堵）
 
