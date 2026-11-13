@@ -89,9 +89,13 @@ class TabulaPerformanceBenchmark {
             val snapshot = waitPhoto()
             val old = snapshot.contentDescription
             val rect = snapshot.visibleBounds
+            val leftX = rect.left + rect.width() / 5
+            val rightX = rect.right - rect.width() / 5
+            val swipeLeft = currentStyle == "SHUFFLE"
+            val startX = if (swipeLeft) rightX else leftX
+            val endX = if (swipeLeft) leftX else rightX
             val start = SystemClock.uptimeMillis()
-            check(device.swipe(rect.left + rect.width() / 5, rect.centerY(),
-                rect.right - rect.width() / 5, rect.centerY(), 18))
+            check(device.swipe(startX, rect.centerY(), endX, rect.centerY(), 18))
             val deadline = SystemClock.uptimeMillis() + 15000
             while (SystemClock.uptimeMillis() < deadline) {
                 val current = photo()
@@ -101,7 +105,7 @@ class TabulaPerformanceBenchmark {
             val next = waitPhoto().contentDescription
             check(next != old) { "Gesture did not advance a photo" }
             SystemClock.sleep(250)
-            event(JSONObject().put("action", "rightSwipe").put("from", old).put("to", next)
+            event(JSONObject().put("action", if (swipeLeft) "leftSwipe" else "rightSwipe").put("from", old).put("to", next)
                 .put("automationWallMs", SystemClock.uptimeMillis() - start))
         }
     }

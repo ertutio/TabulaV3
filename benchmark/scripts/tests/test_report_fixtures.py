@@ -119,7 +119,8 @@ def write_round(folder, seed):
             rows.append({"stage": stage, "iteration": iteration,
                          "meminfo": meminfo_text(seed + iteration)})
     (folder / "memory.json").write_text(json.dumps({"rows": rows}))
-    events = [{"action": "rightSwipe", "n": n} for n in range(180)]
+    events = [{"action": "leftSwipe", "n": n} for n in range(120)]
+    events += [{"action": "rightSwipe", "n": n} for n in range(60)]
     events += [{"action": "viewerOpenClose", "n": n} for n in range(31)]
     events.append({"action": "decodedFixtureSmoke"})
     (folder / "operations.jsonl").write_text("\n".join(json.dumps(e) for e in events))
@@ -253,7 +254,8 @@ class NegativeFixtureTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = write_valid_input(Path(tmp))
             folder = root / "session-a" / "baseline"
-            events = ([{"action": "rightSwipe", "n": n} for n in range(181)]  # 应为 180
+            events = ([{"action": "leftSwipe", "n": n} for n in range(120)]
+                      + [{"action": "rightSwipe", "n": n} for n in range(61)]  # 应为总共 180
                       + [{"action": "viewerOpenClose", "n": n} for n in range(31)]
                       + [{"action": "decodedFixtureSmoke"}])
             (folder / "operations.jsonl").write_text("\n".join(json.dumps(e) for e in events))

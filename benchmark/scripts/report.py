@@ -101,7 +101,7 @@ def read_session(folder):
                 metrics.setdefault("memory." + stage + "." + key, []).append(value)
     events_file = folder / "operations.jsonl"
     events = [json.loads(l) for l in events_file.read_text().splitlines() if l]
-    if len([r for r in events if r["action"] == "rightSwipe"]) != 180:
+    if len([r for r in events if r["action"] in ("leftSwipe", "rightSwipe")]) != 180:
         raise ValueError("Not all 180 card advances executed")
     if len([r for r in events if r["action"] == "viewerOpenClose"]) != 31:
         raise ValueError("Not all viewer cycles executed")
