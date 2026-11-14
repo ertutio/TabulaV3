@@ -61,7 +61,8 @@
 - **CI**：run 43604993882 轮 1 双 API 全绿（本段 OK(1) API36 146.3s/API37 137.3s；锚序 47 ids == full 47 pool）
 - **如实登记**：严格"在途扫描晚返回不覆盖"竞态设备层不可确定性构造（生产 load 无注入点、毫秒级扫描不可控）——由单测 MediaSnapshotLoadRaceTest（PR50）+ FPF Phase3 判据 10 受控竞争门覆盖；PARTIAL 选中集合不可 pm 夹具化（既有口径）
 - **FPF Phase3 API36 flake**（全局 timeout）：上轮先存问题，本轮未复现，独立单元跟进（证据链完整：notes-B2.md:211 留证裁决+43597856253 红/43604993882 绿=间歇性，框架层非生产缺陷）
-- **审计结果**（coord/audit-B2MR.md）：核心交付/判据映射/生产接线/断言面/CI 工件全过；结论"需修复"1 项——46da489 顺带改动 FullRecovery 段 `tr -d '<CR>'`→`<LF>`（超申报形态）。**已修复**：83e3ccf 恢复 `tr -d ''`（与其余 8 处一致，notes §9 登记）；head 绑定 CI 已派 run 43609384927
+- **审计结果**（coord/audit-B2MR.md）：核心交付/判据映射/生产接线/断言面/CI 工件全过；结论"需修复"1 项——46da489 顺带改动 FullRecovery 段 `tr -d '<CR>'`→`<LF>`（超申报形态）。**已修复**：83e3ccf 恢复 `tr -d '
+'`（与其余 8 处一致，notes §9 登记）；head 绑定 CI 已派 run 43609384927
 - 状态：**修复已交付，CI 43609384927 运行中（head=83e3ccf）**
 
 ## 在飞三路（2026-11-12）
@@ -184,12 +185,12 @@
 
 ## 审计跟进（2026-11-14 23:40 补）
 - **PR #76 合并后审计 PASS**（coord/audit-RB-pr76.md）：7 项全过（范围恰 4 新文件零生产触碰、种子真实入口 getRandomWalkBatch→recordImagesPickedByIdentity 两版同文件零 diff、pickedAt/days 逐位 OLD 实拍比对、三组进度+放弃规则 ACE.kt:795-802 跨版本一致、零 sleep+哨兵+digest 门、CI=自有绿轮 43375382346@a50b0de+R2 43274154738@56910d2、notes 交叉一致）；唯一 P3=notes §2 "≤7 次" vs bound 12 笔误（非阻塞）
-- **PR #75 合并后审计**：续派完成中（首派撞并发限额，已恢复）
+- **PR #75 合并后审计 PASS**（coord/audit-RA-pr75.md）：合并净 diff（fc6a6f65...b172bf80）恰 4 新文件零生产面；种子经 addAllToRecycleBin 生产委托链实证；OLD 源零触碰=digest 门+白名单（oldHead=43a8da1）；身份全用 volumeName|id；真实 UI 恢复全链+恰余 2 项+两轮冷重启幂等；**合并 head eac4b98 绑定 run 43375199019 四连绿**（brief 引 43271456222=R1@ac1d13a2 首轮，P3-2 表述澄清）；P3×2 非阻塞（截图/树 dump 形态缺失登记、run 表述项）
 
 ## 审计跟进（2026-11-14 23:10）
 - **master CI 43521426417 @ f7450366 绿**——P2-① 覆盖缺口正式闭合（73943f8 释放判定同快照复合已进 master 且有运行证据）
 - **B2MR 独立审计派出**（46da489+0cbdb0e 增量；范围零生产面/竞态声明一致性/run 43604993882 复核）
-- **PR #75（eac4b98，已 MERGED）/ #76（a50b0de，已 MERGED）合并后独立审计补派**——原审计随电脑重启阵亡；报告将落 coord/audit-RA-pr75.md、audit-RB-pr76.md
+- **PR #75/#76 合并后独立审计补派→双双 PASS**（audit-RA-pr75.md / audit-RB-pr76.md）；原审计随电脑重启阵亡后补齐，证据链闭环
 
 ## 审计跟进（2026-11-13 06:42）
 - **#66 修正链批量审计 PASS**（audit-PR66-fixchain.md：三提交修法与诊断逐条吻合、双证据充分性经生产代码闭合验证、同快照三处不再跨时点、双 API 工件七类全 OK）——**P2-① 跟进**：合并 head 73943f8（释放判定同快照复合）随 PR 进 master 无 CI → **master CI 已补派**（43521426417 @ f7450366，运行中）
