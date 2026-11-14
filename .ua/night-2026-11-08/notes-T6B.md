@@ -185,3 +185,131 @@ TAG=PreloadingManager（与 CardStack.debugCardStackLog 同模式）；不动 Ca
 | 旧 Disposable 释放 | case 2：组合销毁 `dispose` 日志（组合销毁即整体释放路径）+ 其后至重启前零请求活动（disposed 守卫+debounce 取消+scope cancel 的静默负向断言）；in-flight 时刻 staleDispose 路径已日志化（轮 3 实证微图场景零出现，与夹具解码时序一致） |
 | 旧回调无法写入新批次 | case 1：换批标记后无被删身份 enqueue/finish（有界负向扫描）+ 全程 token-身份序列完整性（每个 finish 必有先行同 token 同身份 enqueue）；reducer 级由 PreloadingManagerTest oldCallbackCannotCompleteReplacementAtSameIndex 等确定性覆盖 |
 | 两种卡片模式后续操作能力 | case 1（SHUFFLE）：二次真实删除（换批继续成立+计数递减+记录累计）；case 2（DRAW）：重启返回后真实删除可提交 |
+
+# 微单元 #78（2026-11-14）：两项设备验证补强
+
+任务：修复一（DRAW 动画中退出确定性——BACK 注入落在"删除动画已启动且未完成"的
+结构性窗口，替换轮 4 仅有的 dispose.ts >= dragEnd.ts 后验比较）+ 修复二（旧回调
+晚到设备验证——真实预载入口 + 晚到回调注入钩子 + 守卫拦截断言）。分支
+test/t06-remaining-2026-11-14（实际分支名，任务书 11-12 为笔误；起点 head 与任务书
+指定一致 = 1047f912）。
+
+## 真实调用链读取结论（修复一）
+
+- DRAW 删除执行体：`CardStack.kt` DRAW 变体 `executeDeleteAnimation`：onDragEnd →
+  `dragEnd draw` 日志 → `preloadingManager.resume()` → `scope.launch`
+  （rememberCoroutineScope，组合销毁即取消）→ bitmap 预载等待（≤100ms）/IO 兜底 →
+  `genieController.startAnimation(...)` → `GenieEffect.kt`
+  `GenieAnimationController.startAnimation`：isAnimating=true → snapTo(0) →
+  animateTo(440ms) → **onComplete()（先于 onRemove——提交边界）** → reset()。
+  取消语义：组合销毁取消协程 → onComplete 不执行（删除不提交）。
+- 最小可观测位置：启动/完成日志置于 DRAW executeDeleteAnimation（绑照片 id 与
+  控制器实例）；挂起点置于 startAnimation 内 snapTo(0) 之后、animateTo 之前
+  （isAnimating=true 后的 suspension point——取消契约与生产"取消于 animateTo 期间"
+  等价：onComplete 均不执行）。
+
+## 生产改动（仅 DEBUG 门，逐行登记；不动 app/src/test）
+
+1. **GenieEffect.kt**：新增 `GenieDeleteAnimTestHook` 单例（armForPhoto/onTarget/
+   takeHold 三入口全 BuildConfig.DEBUG 门；consume-once、消费即解除 id 绑定；挂起
+   无释放 API——仅组合销毁的协程取消可结束，杜绝"释放竞态完成动画"）；startAnimation
+   内 snapTo(0f) 后、animateTo 前挂起块（命中时 `deleteAnimHold genie=<hash>` 日志 +
+   while(true) delay(20)）；imports 增 Log/BuildConfig/delay。Release：takeHold()
+   恒 false 直通。
+2. **CardStack.kt**（仅 DRAW 变体 executeDeleteAnimation）：genie 分支 startAnimation
+   调用前 `deleteAnimStart draw img=<id> genie=<hash>` 日志 + if(BuildConfig.DEBUG)
+   钩子 onTarget 接线；onComplete 内（onRemove 前）`deleteAnimComplete draw img=<id>
+   genie=<hash>` 日志；fallback 分支启动前 `path=fallback` 日志（无挂起钩子——夹具
+   有效 JPEG 不可达，出现即 hold 等待超时留证定位）。SHUFFLE 变体不动。
+3. **PreloadingManager.kt**：enqueue listener onSuccess 内 tryDeferFinish 直通包裹
+   （未 arm/Release 恒 false 即 finish，行为不变）+ companion 晚到回调钩子块
+   （armDeferredFinishForTest/releaseDeferredFinishForTest/tryDeferFinish 全 DEBUG
+   门；捕获即解除 consume-once；lateFinishCaptured/lateFinishDelivered/
+   lateFinishReleased 日志）。既有 5 处日志不变。probe 登记 expected_tests=3；
+   包装 timeout 720→900s（轮 5 实证）。
+
+## 修复二控制点覆盖层（逐项登记）
+
+- 钩子控制 **listener→finish 的交付时机**（捕获→测试释放→真实 finish 守卫）；
+  finish 的 active 存在 + token 匹配 + 未 disposed 三重守卫与 stale remove +
+  Disposable.dispose 均按生产原样执行（钩子不改任何守卫/取消逻辑）。
+- **底层取消后回调是否仍可能**：coil Disposable.dispose 对已完成请求为 no-op（无
+  观测差异）；真实竞态"完成与 dispose 交错"产生晚到回调——钩子以确定性顺序复现
+  同一守卫路径；不覆盖 coil 内部取消状态机。
+- coil 结果路径（缓存写入）未延迟：生产中结果与回调同源完成，晚到的可观测契约即
+  回写（finish）。
+- 旧请求进入持身份/版本/token：identity 含 dateModified 缓存键 + token，均持于
+  enqueue/lateFinish 日志。
+- 相邻证据：PreloadingManagerTest（reducer 级，不动）+ 负控制 run 43519541480
+  实证（变异 B 未门控时 reducer 级先红）。
+
+## 轮次记录
+
+### 轮 5（run 43513218218，1e950de）：API36 红——probe 包装超时，非测试失败
+
+- API37 device 绿（T06Remaining 3/3 OK）；API36 红：probe.sh 在 720s subprocess
+  超时被截断（截断点 = 收尾套件 PartialSelectionPhaseB 进行中）。T06Remaining 增至
+  3 例（+晚到回调用例 ≈90s）使 2GB API36 首次触顶。修正：run-volume-device-probe.py
+  包装 timeout 720→900s（2be08ad）。
+
+### 轮 6（run 43516660722，2be08ad）：全绿
+
+- build + device API36 + API37 全 success；T06RemainingDeviceTest 双 API
+  OK (3 tests)（确定性窗口 case 2 + 晚到回调 case 3 首次双 API 绿）。
+
+### 负控制（必须项，隔离变异，验证后恢复）
+
+- **变异 B（修复二）**：finish 移除 token 匹配门。
+  - run 43519541480（未门控）：build 阶段 release reducer 级先红——
+    PreloadingManagerTest.oldCallbackCannotCompleteReplacementAtSameIndex 与
+    resetIgnoresLateCallbackWhenSameMediaIsReentered 失败（PreloadingManagerTest.kt:83），
+    device job 被阻断——reducer 级负向证据。
+  - run 43521168823（DEBUG 门控至设备 debug 构建，release 单测绿、device 可达）：
+    **API37 device 实证** case 3 在新负向断言
+    `失效后交付的旧回调不得产生任何回写/重发（finish 守卫 token 拦截）` 失败——
+    logcat 实录：lateFinishDelivered index=1 token=2 后紧跟
+    `finish index=1 token=2 success=true identity=...146_...`（旧 token=2 回写覆盖
+    新 token=4 的 Active）。**API36 同 run 全绿**——机制：捕获次序不定（该 run
+    API36 捕获 index0/token1，换批后该槽因 completed 命中不重建请求，生产第二重
+    守卫 active[index] ?: return 仍丢弃——变异只破坏 token 门未破坏 presence 门；
+    API37 捕获 index1/token2，槽位有新 Active → 回写 → 断言咬合）。登记为捕获
+    次序相关的非确定性咬合；API37 路径即真实竞态主害路径。
+- **变异 A（修复一）**：取消路径仍交付 onComplete。
+  - run 43521168823 的 A-v1（仅包裹 animateTo）**不触发**（API36 全绿机制实证）：
+    测试挂起点在 try 外，取消落在 hold 循环，finally 不执行。
+  - run 43525310678（A-v2：try 覆盖 挂起+animateTo，DEBUG 门控）：**双 API device
+    job 均红**，失败位置即新负向断言
+    `动画中退出后旧删除动画不得提交（取消路径 onComplete 不执行，无 deleteAnimComplete）`
+    （drawBackDuringDeleteAnimationExitsCleanlyAndRecoversPreload）——case 2 断言
+    对"取消仍提交"类回归确实咬合。
+- 恢复：c938158（restore 双文件至 2be08ad 态）→ b54cbc2（restore GenieEffect 至
+  c938158 态）；git diff 2be08ad HEAD 为空——生产代码与轮 6 绿态逐字节一致。
+- **证明范围登记**：普通绿 CI（轮 6/轮 10）证明新断言在正常生产下通过且不破坏
+  既有断言（3 例双 API OK(3)、全套件回归绿）；变异轮红证明新断言对对应行为破坏
+  确实失败；合成日志分析（artifact logcat 实录，如 43521168823 API37
+  lateFinishDelivered→finish token=2 序列）证明失败位置即所破坏契约的直接观测点。
+
+### 轮 7-10（b54cbc2，与 2be08ad 生产/测试代码逐字节一致；docs-only 差异）
+
+- 轮 7（run 43528838111）：API37 绿（T06Remaining 3/3）；API36 红——收尾套件
+  PARTIAL PhaseA `photo picker grid cells < 5 (saw 0)`（系统照片选择器空网格，
+  环境性）+ PhaseB 前置级联。T06Remaining 自身双 API 绿。
+- 轮 8（run 43531362728）：双 API 红——既有套件 CardLifecycleDeviceTest 在 CI
+  容量低谷超时（CloudCleanupUiTest Time 169.8s ≈常态 3 倍；API36 probe 触 900s
+  包装超时）。环境性减速，T06Remaining 未及执行。
+- 轮 9（run 43534666245）：API37 绿；API36 红——PARTIAL PhaseB
+  `photos access page not reached`（系统 UI 导航环境性 flake，与轮 7 同套件不同
+  断言点）。T06Remaining 双 API 绿（API36 本轮该套件未及执行的部分与 API37 一致）。
+- **轮 10（run 43536950642，最终头 b54cbc2）：全绿**——build + device API36 +
+  device API37 全 success，T06RemainingDeviceTest 双 API OK (3 tests)
+  （API37 01:07:46 / API36 01:08:22）。轮 7-9 三连红均为相邻既有套件（PARTIAL/
+  CardLifecycle）的环境性 flake（同代码轮 6 全绿佐证），非同卡点测试逻辑问题。
+
+## 覆盖映射增量（#78 两项 → 断言）
+
+| 验证维度 | 断言落点 |
+| --- | --- |
+| 动画中退出确定性窗口 | case 2：deleteAnimStart（绑定照片 id+控制器实例）→ deleteAnimHold（genie 哈希一致；挂起无释放 API → 完成在取消前结构性不可能）→ BACK 注入；注入前无 deleteAnimComplete 前置断言 |
+| 旧动画不提交（负向直接证据） | case 2：自删除手势标记至重启前无 deleteAnimComplete（取消路径 onComplete 不执行）+ 数据层契约（回收站无记录/行数恒定/计数=退出前） |
+| 旧回调晚到不能写回 | case 3：lateFinishCaptured（失效前捕获）→ staleDispose（真实换批失效）→ lateFinishDelivered（交付≥失效）→ 旧 token 零生命周期日志（finish 守卫拦截；同身份新 token 合法重建不受限） |
+| 新请求正常成功/后续交互 | case 3：第三张真实 enqueue+finish success → 再次真实删除可提交（计数/回收站累计/终态窗口 slot0=第三张）+ 全程 token-身份完整性 |

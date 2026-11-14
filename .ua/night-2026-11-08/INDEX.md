@@ -71,7 +71,7 @@
 ## T06 剩余交付（2026-11-13）
 - **PR #78**（test/t06-remaining-2026-11-14，base=master f7450366）：T06RemainingDeviceTest 2 例——**同索引换批**（删除当前卡→同索引承接新卡→窗口身份快照+enqueue 真实请求断言）与**动画中导航退出**（genie 动画中 BACK→删除未提交竞速无关确定结论）；生产改动=PreloadingManager 5 行 DEBUG 日志（window/staleDispose/enqueue/finish/dispose）；场景 b（取消后重入）登记=设备级不可确定性构造（单测级 PR50 覆盖）
 - **CI run 43481421413 三 job 全绿**（T06RemainingDeviceTest 双 API OK(2)，CardLifecycle OK(3)×2）
-- 状态：待独立审计
+- 状态：**✅ 前段审计 PASS**；本轮两修复（动画退出确定性 GenieDeleteAnimTestHook+晚回调设备验证）已交付 `158a368`（CI 43536950642 三 job 绿双 API OK(3)，负控制变异双红实证后 revert）——独立审计在飞
 
 ## T06 交付（设备级生命周期验收，2026-11-12）
 - **PR #74**（test/card-lifecycle-2026-11-12，base=combination/2026-11-10；diff 恰 4 文件）：CardLifecycleDeviceTest 3 例（场景 1 SHUFFLE/DRAW 真实 swipe+ACTION_CANCEL 注入→dragCancel/resume 日志时序断言→真实删除真值→恢复入口；场景 2 Settings 驱动会话内切模式→DRAW 全循环）+ PreloadingManager pause/resume 各 1 行 DEBUG 日志（可观测性增补，无行为变化）+ probe 第 7 类登记
