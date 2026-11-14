@@ -245,7 +245,11 @@ def main():
     # （+晚到回调用例 ≈90s），API36（2GB）全量 probe 首次触顶 720s——收尾套件
     # PartialSelectionPhaseB 进行中被 subprocess 超时截断（非测试失败）。单独T06历史上限升至900s。
     # 合并#79 B2三阶段后，1200s为T06+B2组合runner的总上限。
-    subprocess.run(["bash", "tools/run-cloud-ui-probe.sh"], check=True, timeout=1200)
+    # 2026-11-14 B2MediaAccessRevision 段新增（PARTIAL(B)→FULL 设备验收，真实选择器
+    # 建立 PARTIAL + 47 行池断言，段预算 480s）→ 1200s→1500s（段位增长同步上调，
+    # e95f705/2be08ad 同款口径；全脚本基线 ≈17 分钟（run 43597856253 API36 实测
+    # + T06Remaining 3 例）+ 新段预算余量 < 25 分钟；device job timeout 30→40 分钟同步）。
+    subprocess.run(["bash", "tools/run-cloud-ui-probe.sh"], check=True, timeout=1500)
 
 if len(sys.argv) > 1:
     if sys.argv[1:] == ["metadata"]:

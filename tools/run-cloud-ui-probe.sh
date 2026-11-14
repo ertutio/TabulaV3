@@ -444,7 +444,8 @@ fi
 # grant（恢复 FULL）→ UI 软删除 → 强停 → 新进程读回。阶段间保留应用数据。
 echo "=== FULL recovery four-stage verification ==="
 full_status=0
-adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '' | grep -Fx Success || full_status=1
+adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '
+' | grep -Fx Success || full_status=1
 adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || full_status=1
 mkdir -p device-results/FullRecovery
 if ! adb shell am instrument -w -r -e allowSyntheticMediaProbe true   -e class "com.tabula.v3.FullRecoveryPhase1Test"   com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner   | tee device-results/FullRecovery/phase1.txt; then
@@ -606,6 +607,74 @@ adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_
 
 if [ "$b2pr_status" != "0" ]; then
   echo "B2 permission-refresh wiring three-step verification failed" >&2
+  status=1
+fi
+
+# ===== PR72/PR79 后续（2026-11-14）：B2 mediaAccessRevision PARTIAL(B)→FULL 设备验收 =====
+# B2MediaAccessRevisionDeviceTest 1 例 = 1 次独立 instrumentation（单方法全链路，
+# 全程同进程）。场景：真实系统机制建立 PARTIAL(B)（系统权限对话框 Select photos
+# → 照片选择器 7 格像素驱动只选 {1,2}——PARTIAL 用户选中集合不可经 pm 确定性
+# 夹具化，既有登记口径）→ deck 持 B 批次 → 会话内 shell 注入 40 填充媒体（池 47
+# > DEFAULT_BATCH_SIZE 15 = 冷却保存路径；batchSize 预置 50 → 池 ≤ 50 重取批 =
+# 整池，池集相等确定性成立；注入后应用可见仍恰={b1,b2}——无 ContentObserver）→
+# PARTIAL 时代前台刷新重扫（旧时代扫描基准）→ 会话内 pm grant 升级 FULL（grant
+# 不杀进程 #52 口径）→ Home→am start 升级重启 ×2（各 revision++：级别变更分支
+# + 键控取消路径真实触发）→ 断言：集合面终态 = 47 名全集（g1,g2,g3,n1,b1,b2 +
+# 哨兵 s1 存在性）无重复无缺失 / deck 存活行同步不白屏不回退（组合观察窗）/
+# 真实 Settings 推荐模式现值重选触发 deck batch-site-4 重取批 → 批次日志行 id
+# 与 47 行全集集合相等（"陈旧快照不得覆盖"终局判别器：旧 PARTIAL 扫描若曾覆盖
+# allImages，重取批只含 2 行 id 即红灯）→ 全程 pidof 恒等。
+# 如实登记：在途扫描取消/旧读取晚返回不覆盖的严格竞态形态设备层不可确定性构造
+# （生产 load 无注入点）——单测级 MediaSnapshotLoadRaceTest（PR50）+ FPF Phase3
+# 受控竞争门覆盖；本段验证真实接线的信息流终态 + 会话内已提交池终局判别。
+# 夹具：全部 shell 身份测试侧注入（base64 文本模板复制通道，宿主不推）——
+# b2mr-s1/n1/g1/g2/g3/b1/b2 + b2m-fill-01..40，Pictures/B2MediaAccessRevisionFixtures/；
+# 用例末自清 + @After 兜底 + 本段失败按目录兜底清理。
+echo "=== B2 media-access-revision PARTIAL->FULL device verification ==="
+b2mr_status=0
+adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '\r' | grep -Fx Success || b2mr_status=1
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED >/dev/null 2>&1 || true
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES >/dev/null 2>&1 || true
+for fixture_dir in "Pictures/B2MediaAccessRevisionFixtures/" "Pictures/B2PermissionRefreshFixtures/" "Pictures/FullPartialFullFixtures/"; do
+  adb shell "content delete --uri content://media/external/images/media --where \"relative_path='$fixture_dir'\"" >/dev/null 2>&1 || true
+done
+adb shell "rm -rf /sdcard/Pictures/B2MediaAccessRevisionFixtures" >/dev/null 2>&1 || true
+b2mr_gallery_rows=$(adb shell "content query --uri content://media/external/images/media --projection _id" | grep -c "^Row:") || b2mr_gallery_rows=0
+if [ "$b2mr_gallery_rows" != "0" ]; then
+  adb shell "content query --uri content://media/external/images/media --projection _display_name" | head -20 >&2 || true
+  echo "Gallery not clean before B2 media-access-revision suite: $b2mr_gallery_rows rows" >&2
+  b2mr_status=1
+fi
+mkdir -p device-results/B2MediaAccessRevision
+b2mr_cleanup_fixtures() {
+  adb shell "content delete --uri content://media/external/images/media --where \"relative_path='Pictures/B2MediaAccessRevisionFixtures/'\"" >/dev/null 2>&1 || true
+  adb shell "rm -rf /sdcard/Pictures/B2MediaAccessRevisionFixtures" >/dev/null 2>&1 || true
+  echo "B2MediaAccessRevision fallback: fixtures removed by dir"
+}
+if ! timeout 480s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+  -e class com.tabula.v3.B2MediaAccessRevisionDeviceTest \
+  com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee device-results/B2MediaAccessRevision/test.txt; then
+  echo "B2MediaAccessRevision instrumentation failed" >&2; b2mr_status=1
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/B2MediaAccessRevision/test.txt || { echo "B2MediaAccessRevision expected OK(1)" >&2; b2mr_status=1; }
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/B2MediaAccessRevision/test.txt; then
+  echo "Failure or skip observed in B2MediaAccessRevision" >&2; b2mr_status=1
+fi
+if [ "$b2mr_status" != "0" ]; then
+  b2mr_cleanup_fixtures
+fi
+collect b2mr-logcat 2 device-results/B2MediaAccessRevision/logcat.txt adb logcat -d -v threadtime || true
+# 裁决摘要：权限/批次/接线证据行 cat 进 job log（套件 Log.i 锚 + 生产批次行）
+grep -iE "B2MediaRevision|currentBatch<-\[|MediaProvider|user.?select" device-results/B2MediaAccessRevision/logcat.txt | tail -30 > device-results/B2MediaAccessRevision/wiring-grep.txt || true
+cat device-results/B2MediaAccessRevision/wiring-grep.txt || true
+collect b2mr-ui-failures 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/B2MediaAccessRevision/ui-failures || true
+# 段末卫生：回收权限（probe 末段，revoke 强停无害）
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES >/dev/null 2>&1 || true
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED >/dev/null 2>&1 || true
+
+if [ "$b2mr_status" != "0" ]; then
+  echo "B2 media-access-revision PARTIAL->FULL device verification failed" >&2
   status=1
 fi
 
