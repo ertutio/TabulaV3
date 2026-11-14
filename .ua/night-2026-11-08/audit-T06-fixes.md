@@ -1,0 +1,16 @@
+# T06 PR#78 两修复独立审计（2026-11-14，全新会话，静态核验+CI 证据，未跑模拟器）
+
+## 总评：**可合并**。两修复真实有效、负控制闭环、CI 绑定绿；范围登记有一处口径偏差（低级别，PR 侧登记完整，偏差在审计预期清单自身）。
+head=158a368（gh headRefOid 一致）；CI 绑定 diff=1047f912..b54cbc2；b54cbc2..158a368 恰 docs/notes-T6B.md（+128，docs 尾随口径如实）。
+1. **范围=通过（偏差见低-1）**：diff 恰 6 文件——T06RemainingDeviceTest.kt（+245，case2 改写+case3 新增+负断言）、PreloadingManager.kt（+70）、CardStack.kt（+26）、GenieEffect.kt（+61）、run-cloud-ui-probe.sh（expected_tests=3）、run-volume-device-probe.py（timeout 720→900，注释登记 run 43513218218）。app/src/test 零改动；无第 7 文件。
+2. **修复一真实性=通过**：GenieDeleteAnimTestHook（GenieEffect.kt L884+）三入口全 BuildConfig.DEBUG 门；绑定照片 id（CardStack DRAW 分支 onTarget，调用点 DEBUG 门）+ consume-once（takeHold 消费即清 armedImgId/holdNextStart）；挂起无释放 API（仅组合销毁协程取消可结束）。结构性保证核verified：startAnimation 链=isAnimating=true→snapTo→hold（`while(true) delay(20)`）→animateTo→onComplete（GenieEffect.kt L966-1007）；挂起期间 animateTo 不可推进→onComplete 结构性不可能；BACK→组合销毁→rememberCoroutineScope()（CardStack.kt L1599）取消→delay 抛 CancellationException→onComplete 不执行。实例同一性由测试断言 hold.genie==start.genie 哈希兜底；新负断言"重启前自 deleteMark 无 deleteAnimComplete"在测（双重证据：+回收站无记录+行数恒定）。
+3. **修复二真实性=通过**：PreloadingManager companion 钩子（arm/release/tryDeferFinish 全 DEBUG 门）——onSuccess listener 经 tryDeferFinish 包裹：命中 armed id 首个回调捕获（consume-once，清 armedIds）、延迟交付时先出 lateFinishDelivered 再调用**真实 finish**；未 arm/Release 恒 false 直通 finish（行为不变）。真实 finish 守卫三重门原样在位（L154-157：active 存在+token 匹配+未 disposed）。测试 case3：arm 全夹具 id→真实 enqueue→lateFinishCaptured→真实 swipe→staleDispose(token 命中)→release→lateFinishDelivered 且 ts≥stale ts→负断言释放后无任何 token=captured 非 lateFinish 行→新请求 finish success=true→二次删除可提交。coil 取消状态机不覆盖的论证在 KDoc 如实登记（已完成请求 dispose=no-op；钩子只控制交付时机层，复现同一守卫路径）。
+4. **负控制=通过（实录核验）**：变异 B（e585459，debug 门内 finish 去 token 门）——ungated 版 b5a647c run 43519541480 build job 红（PreloadingManagerTest>oldCallbackCannotCompleteReplacementAtSameIndex FAILED=reducer 级）；门控后 run 43521168823 device37 红，失败用例=lateOldCallback…CannotWriteback，实录断言证据行 `finish index=1 token=2 success=true`（旧 token 回写覆盖新 Active）。变异 A-v2（b12ec39，try/finally 包裹挂起+animateTo 取消仍交付 onComplete）run 43525310678 双 API 红（drawBack…RecoversPreload："旧删除动画不得提交"）；A-v1 不触发原因（包裹点不含挂起）在 A-v2 提交信息如实登记。revert 完整性：`git diff 2be08ad b54cbc2`（全仓库）=**空**，生产代码+测试逐字节一致。
+5. **CI=通过**：run 43536950642 headSha=b54cbc21…，三 job（build/device37/device36）全绿；T06RemainingDeviceTest numtests=3，三用例（drawBack…/lateOldCallback…/shuffleSameIndex…）双 API 终态 INSTRUMENTATION_STATUS_CODE 均=0。
+6. **约束=通过**：app/src/main 三文件逐行核对——GenieEffect.kt 仅 hook 对象+startAnimation 挂起块（Release takeHold() 恒 false 直通）+imports+2 处纯空白行；CardStack.kt 仅 debugCardStackLog（L70-74 既有 DEBUG 门）+`if (BuildConfig.DEBUG)` onTarget 接线；PreloadingManager.kt 仅 onSuccess 直通包裹+companion 钩子块；Release 构建生产行为零变化成立。app/src/test 零改动。
+
+## 问题分级
+- 阻断：无。中：无。
+- 低-1（审计口径，非 PR 缺陷）：审计任务预期清单与实际 diff 有出入——GenieEffect.kt（GenieDeleteAnimTestHook 宿主）与 run-volume-device-probe.py（timeout 900s）在 CI 绑定 diff 内但预期清单未列；约束条目"仅限 PreloadingManager.kt+CardStack.kt"漏 GenieEffect.kt。测试套件 KDoc"生产改动 1/2/3"对 GenieEffect.kt/CardStack.kt/PreloadingManager.kt 三处逐行登记完整准确，PR 侧无隐瞒；notes-T6B.md 在 head 尾随提交（符合 docs 尾随口径）。判定：登记口径偏差在预期清单，不影响合并。
+- 低-2：钩子对象为全局单例但绑定即照片 id+consume-once（非按动画实例持引用）；实例同一性由 genie 哈希日志断言兜底，语义等价，可接受。
+- 低-3：case2 挂起为 `while(true) delay(20)` 轮询占位——仅测试钩子路径可达、Release 不可达，无生产影响；留作风格备注。
