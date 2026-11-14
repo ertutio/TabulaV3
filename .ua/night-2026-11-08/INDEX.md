@@ -56,6 +56,13 @@
 - 登记偏差：①插桩面=debug 应用对（AGP testBuildType 事实）；**仓库无 Actions secrets——release 对照物 unsigned，fork 签名覆盖装解锁=配置 4 项 secrets（无代码改动）**；②种子=单组 3 成员（Phase1 真实行为，非判据原设双组）；③冷却种子被 OLD 生产逻辑合法清空（边界发现非缺陷）
 - 状态：**✅ 独立审计可合并**（audit-T13-pr73.md：head=860bedb 三方一致、双 APK 构造+覆盖链+断言真实性全过、3×P3 登记；外部佐证=AGP testBuildType 行为）
 
+## B2 媒体访问修订设备验收（2026-11-14 交付，PR #79 增量）
+- **提交**：46da489（B2MediaAccessRevisionDeviceTest 1 例）+ 0cbdb0e（notes）；probe 新段 + 预算 1200→1500s + workflow device job 30→40min
+- **CI**：run 43604993882 轮 1 双 API 全绿（本段 OK(1) API36 146.3s/API37 137.3s；锚序 47 ids == full 47 pool）
+- **如实登记**：严格"在途扫描晚返回不覆盖"竞态设备层不可确定性构造（生产 load 无注入点、毫秒级扫描不可控）——由单测 MediaSnapshotLoadRaceTest（PR50）+ FPF Phase3 判据 10 受控竞争门覆盖；PARTIAL 选中集合不可 pm 夹具化（既有口径）
+- **FPF Phase3 API36 flake**（全局 timeout）：上轮先存问题，本轮未复现，独立单元跟进
+- 状态：**待审计**
+
 ## 在飞三路（2026-11-12）
 | 路 | 执行者 | 目标 | 状态 |
 | --- | --- | --- | --- |
