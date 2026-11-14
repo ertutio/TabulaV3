@@ -93,7 +93,10 @@ status=0
 # CardLifecycleDeviceTest 3 例（T06 设备级生命周期验收 2026-11-12，基线含 #61/#62：
 # 场景1 SHUFFLE cancel→resume 接线+swipe 删除+回收站恢复 / 场景1 DRAW 同循环（prefs 预置）/
 # 场景2 会话内 Settings 切换 SHUFFLE→DRAW 后重复循环+返回可操作，见套件 KDoc）。
-for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest ProdAuthCallbackDeviceTest CardLifecycleDeviceTest; do
+# T06RemainingDeviceTest 3 例（T06 剩余场景设备级验收 2026-11-14：场景 a SHUFFLE 同索引
+# 换批请求身份同步+实际预载恢复+旧回调不回写 / 场景 c DRAW 删除动画中 BACK 退出+返回
+# 全量预载重建+后续可操作 / 修复二 旧回调晚到设备验证（失效后交付守卫拦截）；见套件 KDoc）。
+for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest ProdAuthCallbackDeviceTest CardLifecycleDeviceTest T06RemainingDeviceTest; do
   case "$class" in
     CloudCleanupUiTest) expected_tests=8 ;;
     CloudRestoreUiTest) expected_tests=3 ;;
@@ -103,6 +106,7 @@ for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTe
     OtherAppMediaAuthDeviceTest) expected_tests=4 ;;
     ProdAuthCallbackDeviceTest) expected_tests=2 ;;
     CardLifecycleDeviceTest) expected_tests=3 ;;
+    T06RemainingDeviceTest) expected_tests=3 ;;
     *) expected_tests=2 ;;
   esac
   dir="device-results/$class"
