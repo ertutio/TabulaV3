@@ -60,8 +60,9 @@
 - **提交**：46da489（B2MediaAccessRevisionDeviceTest 1 例）+ 0cbdb0e（notes）；probe 新段 + 预算 1200→1500s + workflow device job 30→40min
 - **CI**：run 43604993882 轮 1 双 API 全绿（本段 OK(1) API36 146.3s/API37 137.3s；锚序 47 ids == full 47 pool）
 - **如实登记**：严格"在途扫描晚返回不覆盖"竞态设备层不可确定性构造（生产 load 无注入点、毫秒级扫描不可控）——由单测 MediaSnapshotLoadRaceTest（PR50）+ FPF Phase3 判据 10 受控竞争门覆盖；PARTIAL 选中集合不可 pm 夹具化（既有口径）
-- **FPF Phase3 API36 flake**（全局 timeout）：上轮先存问题，本轮未复现，独立单元跟进
-- 状态：**待审计**
+- **FPF Phase3 API36 flake**（全局 timeout）：上轮先存问题，本轮未复现，独立单元跟进（证据链完整：notes-B2.md:211 留证裁决+43597856253 红/43604993882 绿=间歇性，框架层非生产缺陷）
+- **审计结果**（coord/audit-B2MR.md）：核心交付/判据映射/生产接线/断言面/CI 工件全过；结论"需修复"1 项——46da489 顺带改动 FullRecovery 段 `tr -d '<CR>'`→`<LF>`（超申报形态）。**已修复**：83e3ccf 恢复 `tr -d ''`（与其余 8 处一致，notes §9 登记）；head 绑定 CI 已派 run 43609384927
+- 状态：**修复已交付，CI 43609384927 运行中（head=83e3ccf）**
 
 ## 在飞三路（2026-11-12）
 | 路 | 执行者 | 目标 | 状态 |
@@ -180,6 +181,10 @@
 | 真实权限刷新接线 | 09df170（@09df170 CI 43514530630 三 job 全绿） | B2PermissionRefreshDeviceTest 3 例：①FULL 地面真值→会话内注入晚到媒体→当前界面旧集合保持（无重扫触发确定性缺席）→PID 落盘 ②pm revoke 系统强停→新进程恢复=REVOKE 语义（门控屏+旧集合观察窗不重现）③同进程 grant 升级（NONE→FULL）→Home→Resume→revision++→deck 新池提交→pidof 恒等；严格晚到竞态设备层不可构造=如实登记（单测级覆盖） | CI 首轮全绿双 API | **✅ 审计 PASS**（audit-B2-followup.md：生产接线行号全命中、三例实谓词、合并结构逐项实证、LF/约束零违反） |
 - probe 共享文件核验：父分支 b1a93cd 已预解并集（8 类+FPF 依赖门/兜底清理），后续分支零触碰 ✓
 
+
+## 审计跟进（2026-11-14 23:40 补）
+- **PR #76 合并后审计 PASS**（coord/audit-RB-pr76.md）：7 项全过（范围恰 4 新文件零生产触碰、种子真实入口 getRandomWalkBatch→recordImagesPickedByIdentity 两版同文件零 diff、pickedAt/days 逐位 OLD 实拍比对、三组进度+放弃规则 ACE.kt:795-802 跨版本一致、零 sleep+哨兵+digest 门、CI=自有绿轮 43375382346@a50b0de+R2 43274154738@56910d2、notes 交叉一致）；唯一 P3=notes §2 "≤7 次" vs bound 12 笔误（非阻塞）
+- **PR #75 合并后审计**：续派完成中（首派撞并发限额，已恢复）
 
 ## 审计跟进（2026-11-14 23:10）
 - **master CI 43521426417 @ f7450366 绿**——P2-① 覆盖缺口正式闭合（73943f8 释放判定同快照复合已进 master 且有运行证据）
