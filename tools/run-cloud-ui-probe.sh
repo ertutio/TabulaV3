@@ -444,8 +444,7 @@ fi
 # grant（恢复 FULL）→ UI 软删除 → 强停 → 新进程读回。阶段间保留应用数据。
 echo "=== FULL recovery four-stage verification ==="
 full_status=0
-adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '
-' | grep -Fx Success || full_status=1
+adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '\r' | grep -Fx Success || full_status=1
 adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || full_status=1
 mkdir -p device-results/FullRecovery
 if ! adb shell am instrument -w -r -e allowSyntheticMediaProbe true   -e class "com.tabula.v3.FullRecoveryPhase1Test"   com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner   | tee device-results/FullRecovery/phase1.txt; then
