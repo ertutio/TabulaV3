@@ -71,7 +71,7 @@
 ## T06 剩余交付（2026-11-13）
 - **PR #78**（test/t06-remaining-2026-11-14，base=master f7450366）：T06RemainingDeviceTest 2 例——**同索引换批**（删除当前卡→同索引承接新卡→窗口身份快照+enqueue 真实请求断言）与**动画中导航退出**（genie 动画中 BACK→删除未提交竞速无关确定结论）；生产改动=PreloadingManager 5 行 DEBUG 日志（window/staleDispose/enqueue/finish/dispose）；场景 b（取消后重入）登记=设备级不可确定性构造（单测级 PR50 覆盖）
 - **CI run 43481421413 三 job 全绿**（T06RemainingDeviceTest 双 API OK(2)，CardLifecycle OK(3)×2）
-- 状态：**✅ 前段审计 PASS**；本轮两修复（动画退出确定性 GenieDeleteAnimTestHook+晚回调设备验证）已交付 `158a368`（CI 43536950642 三 job 绿双 API OK(3)，负控制变异双红实证后 revert）——独立审计在飞
+- 状态：**✅ 全链审计闭环**（前段 PASS + 两修复审计 PASS：负控制变异经审计者核验 revert 完整性=git diff 为空、范围恰 6 文件、3 低级备注含审计清单自身口径修正）
 
 ## T06 交付（设备级生命周期验收，2026-11-12）
 - **PR #74**（test/card-lifecycle-2026-11-12，base=combination/2026-11-10；diff 恰 4 文件）：CardLifecycleDeviceTest 3 例（场景 1 SHUFFLE/DRAW 真实 swipe+ACTION_CANCEL 注入→dragCancel/resume 日志时序断言→真实删除真值→恢复入口；场景 2 Settings 驱动会话内切模式→DRAW 全循环）+ PreloadingManager pause/resume 各 1 行 DEBUG 日志（可观测性增补，无行为变化）+ probe 第 7 类登记
@@ -177,3 +177,11 @@
 ## 审计跟进（2026-11-13 06:42）
 - **#66 修正链批量审计 PASS**（audit-PR66-fixchain.md：三提交修法与诊断逐条吻合、双证据充分性经生产代码闭合验证、同快照三处不再跨时点、双 API 工件七类全 OK）——**P2-① 跟进**：合并 head 73943f8（释放判定同快照复合）随 PR 进 master 无 CI → **master CI 已补派**（43521426417 @ f7450366，运行中）
 - P3：notes-C2.md §六/§八/§九 位置指向偏差（内容一致）；修正3 轮询强化=KDoc 明文登记的有意演进
+
+
+## B2→master 整合门禁收拢（2026-11-14 20:00，三次派发三点互异红→按抖动协议收拢）
+- 候选 d3e9437（=master f7450366+B2 ace7625+PR66 修正 ed3f850+T06 e38a3c18+timeout 1200s 的合并树）
+- 三次派发：①43286341159 API36 cancelled(1200s)/API37 全套绿 ②4359452898 API37 CloudCleanup.archiveFailure 单例红/API36 多套件绿 ③43490249343 双 API PhaseB photos-access 导航红
+- **定性：环境抖动（三点互异、无共同根因）**，非系统性代码问题——各组成 PR 独立门禁全绿（#72 42934016082、#66 43276688191、#74 43086693791+43536950642）
+- **维护者合并依据**：各组件 PR 独立门禁全绿已足够；整合候选的门禁可待基础设施稳定后重派
+- 唯一解锁：基础设施稳定后 `gh workflow run build-volume-confirmation.yml --ref test/b2-to-master-2026-11-14-resolved`（分支已推）
