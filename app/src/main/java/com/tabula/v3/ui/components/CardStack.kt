@@ -2284,7 +2284,16 @@ bitmap = ownedScaledCopyOrNull(cachedBitmap, 250)
             
             if (bitmap != null) {
                 centerDragAlpha.snapTo(0f)
-                
+
+                // T06 剩余场景（2026-11-14）：DEBUG 门日志——genie 删除动画启动信号
+                // （绑定照片 id 与控制器实例）；其后 GenieDeleteAnimTestHook 命中绑定
+                // id 即置位挂起（测试确定性 BACK 窗口，见钩子 KDoc）。日志仅观测。
+                debugCardStackLog(
+                    "deleteAnimStart draw img=${currentImg.id} " +
+                        "genie=${System.identityHashCode(genieController)}"
+                )
+                if (BuildConfig.DEBUG) GenieDeleteAnimTestHook.onTarget(currentImg.id)
+
                 genieController.startAnimation(
                     bitmap = bitmap,
                     sourceBounds = relativeSourceBounds,
@@ -2294,10 +2303,25 @@ bitmap = ownedScaledCopyOrNull(cachedBitmap, 250)
                     direction = GenieDirection.UP,
                     durationMs = genieAnimDuration,
                     onComplete = {
+                        // T06 剩余场景（2026-11-14）：DEBUG 门日志——删除动画完成即
+                        // 提交边界（onComplete 先于 onRemove）：设备测试据此负向断言
+                        // "动画中退出的旧动画不提交"（取消路径 onComplete 不执行，
+                        // 无本日志）。
+                        debugCardStackLog(
+                            "deleteAnimComplete draw img=${currentImg.id} " +
+                                "genie=${System.identityHashCode(genieController)}"
+                        )
                         onRemove(currentImg)
                     }
                 )
             } else {
+                // T06 剩余场景（2026-11-14）：DEBUG 门日志——bitmap 加载失败的兜底
+                // 删除动画路径启动信号（该路径无 genie 网格动画、无测试挂起钩子；
+                // 夹具为有效 JPEG 不可达，若出现则测试在 hold 等待超时留证定位）。
+                debugCardStackLog(
+                    "deleteAnimStart draw img=${currentImg.id} " +
+                        "genie=${System.identityHashCode(genieController)} path=fallback"
+                )
                 val animDuration = 400
                 val easeInOut = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
                 
