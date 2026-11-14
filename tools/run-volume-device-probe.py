@@ -241,14 +241,11 @@ def main():
         raise RuntimeError("Unexpected emulator Android version")
     print(json.dumps({"sdk": metadata["sdk"], "tests": 3, "failures": 0, "observations": rows}), flush=True)
     # Preserve all volume checks above; only then exercise the UI regressions.
-<<<<<<< HEAD
     subprocess.run(["bash", "tools/run-cloud-ui-probe.sh"], check=True, timeout=1200)
-=======
     # T06 剩余场景轮 5（2026-11-14，run 43513218218）：T06RemainingDeviceTest 增至 3 例
     # （+晚到回调用例 ≈90s），API36（2GB）全量 probe 首次触顶 720s——收尾套件
     # PartialSelectionPhaseB 进行中被 subprocess 超时截断（非测试失败）。扩容至 900s。
     subprocess.run(["bash", "tools/run-cloud-ui-probe.sh"], check=True, timeout=900)
->>>>>>> origin/master
 
 if len(sys.argv) > 1:
     if sys.argv[1:] == ["metadata"]:
