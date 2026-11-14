@@ -63,7 +63,7 @@
 - **FPF Phase3 API36 flake**（全局 timeout）：上轮先存问题，本轮未复现，独立单元跟进（证据链完整：notes-B2.md:211 留证裁决+43597856253 红/43604993882 绿=间歇性，框架层非生产缺陷）
 - **审计结果**（coord/audit-B2MR.md）：核心交付/判据映射/生产接线/断言面/CI 工件全过；结论"需修复"1 项——46da489 顺带改动 FullRecovery 段 `tr -d '<CR>'`→`<LF>`（超申报形态）。**已修复**：83e3ccf 恢复 `tr -d '
 '`（与其余 8 处一致，notes §9 登记）；head 绑定 CI 已派 run 43609384927
-- 状态：**修复已交付，CI 43609384927 运行中（head=83e3ccf）**
+- 状态：**✅ 审计闭环**——run 43609384927 @ 83e3ccf completed success（双 API 全绿，工件实核 B2MediaAccessRevision OK(1) API36 143.3s/API37 142.3s）；PR #79 head 绑定绿达成
 
 ## 在飞三路（2026-11-12）
 | 路 | 执行者 | 目标 | 状态 |
