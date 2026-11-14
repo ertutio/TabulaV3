@@ -81,8 +81,23 @@ class PreloadingManager(
                         snapshot.getOrNull(index)?.let { index to requestIdentity(it) }
                     }.toMap() else emptyMap()
                     val windowKeys = window.values.toSet()
+                    // T06 剩余场景（2026-11-14）：DEBUG 门日志——窗口身份快照（含索引映射），
+                    // 同索引换批时设备测试可直接断言"请求身份已同步更新为新卡 identity"。
+                    if (BuildConfig.DEBUG) Log.d(
+                        TAG,
+                        "window gen=$runGeneration idx=$currentIndex identities=[" +
+                            window.entries.joinToString(",") { "${it.key}=${it.value.substringBefore('|')}" } + "]"
+                    )
                     completed.retainAll(windowKeys)
                     val stale = active.filter { (index, request) -> window[index] != request.identity }
+                    // T06 剩余场景（2026-11-14）：DEBUG 门日志——身份失配的旧请求被取消，
+                    // 旧 Disposable 释放的可观测信号（仅在确有释放时输出）。
+                    if (BuildConfig.DEBUG && stale.isNotEmpty()) Log.d(
+                        TAG,
+                        "staleDispose " + stale.entries.joinToString(",") {
+                            "index=${it.key} token=${it.value.token} identity=${it.value.identity}"
+                        }
+                    )
                     stale.forEach { (index, request) -> active.remove(index); request.disposable?.dispose() }
                     window.forEach { (index, identity) ->
                         if (identity !in completed && active[index]?.identity != identity) {
@@ -114,9 +129,20 @@ class PreloadingManager(
                 .diskCachePolicy(coil.request.CachePolicy.ENABLED)
                 .allowHardware(false)
                 .listener(
-                    onSuccess = { _, _ -> finish(index, token, true) },
+                    onSuccess = { _, _ ->
+                        // T06 剩余场景（2026-11-14）：DEBUG 门晚到回调注入钩子（见
+                        // companion KDoc）——未 arm 时 tryDeferFinish 恒 false，直通
+                        // finish，与既有路径行为一致；Release 恒直通。
+                        if (!tryDeferFinish(index, token, identity) { finish(index, token, true) }) {
+                            finish(index, token, true)
+                        }
+                    },
                     onError = { _, _ -> finish(index, token, false) }
                 ).build()
+            // T06 剩余场景（2026-11-14）：DEBUG 门日志——真实请求发出（token+完整身份），
+            // "实际预载请求恢复"的行为级信号（resume 日志只证明调用发生，本日志证明
+            // 恢复后有真实新请求发出且身份即该槽位的当前 identity）。
+            if (BuildConfig.DEBUG) Log.d(TAG, "enqueue index=$index token=$token identity=$identity")
             val disposable = imageLoader.enqueue(request)
             if (active[index] === requestState) requestState.disposable = disposable else disposable.dispose()
         } catch (e: Exception) {
@@ -129,6 +155,12 @@ class PreloadingManager(
         synchronized(lock) {
             val request = active[index] ?: return
             if (request.token != token || disposed) return
+            // T06 剩余场景（2026-11-14）：DEBUG 门日志——仅活 token 的回写可见
+            // （token 失配/已释放的旧回调在本守卫处静默丢弃，不产生本日志）。
+            // 设备测试据此断言"新批次回写身份=新请求身份、旧批次无迟到回写"。
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "finish index=$index token=$token success=$success identity=${request.identity}")
+            }
             active.remove(index)
             if (success && request.cacheResult) completed.add(request.identity)
         }
@@ -164,6 +196,12 @@ class PreloadingManager(
             disposed = true
             generation++
             debounceJob?.cancel()
+            // T06 剩余场景（2026-11-14）：DEBUG 门日志——组合销毁时管理器整体释放
+            // （disposable 全量 dispose + scope cancel），"旧 Disposable 释放"的
+            // 生命周期级可观测信号；释放后本管理器不再产生任何 enqueue/window 日志。
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "dispose active=${active.size} completed=${completed.size}")
+            }
             val old = active.values.toList()
             active.clear()
             completed.clear()
@@ -174,6 +212,67 @@ class PreloadingManager(
 
     companion object {
         private const val TAG = "PreloadingManager"
+
+        // ==================== T06 剩余场景（2026-11-14）：晚到回调注入钩子（仅 DEBUG） ====================
+        //
+        // 目的：T06RemainingDeviceTest 旧回调晚到场景需要可控顺序——真实手势无法命中
+        // "请求完成与失效（stale remove + dispose）交错"的竞态窗口（夹具微图解码毫秒级
+        // 完成）。测试先按夹具媒体 id 集合 arm；命中 identity 的**首个真实 listener 回调**
+        // 被捕获（不再直接 finish），由测试显式 release 后才进入真实 finish 守卫——
+        // 复现"回调交付晚于失效"并断言守卫拦截（active/token/disposed 守卫静默丢弃）。
+        //
+        // 控制点覆盖层（逐项登记，套件 KDoc 同名小节同步登记）：
+        // - 覆盖：listener→finish 的交付时机（捕获→释放）；finish 的 active 存在 +
+        //   token 匹配 + 未 disposed 守卫与 stale remove + Disposable.dispose 均按生产
+        //   原样执行（钩子不改动任何守卫/取消逻辑）。
+        // - 不覆盖：coil 内部取消状态机（对已完成请求 dispose 为 no-op，无观测差异）；
+        //   coil 结果路径（缓存写入）未延迟——生产中结果与回调同源完成，晚到的可观测
+        //   契约即回写（finish），钩子延迟该交付即复现真实竞态的守卫路径。
+        //
+        // Release 构建：armDeferredFinishForTest / releaseDeferredFinishForTest /
+        // tryDeferFinish 全部 DEBUG 门，Release 恒直通，生产行为零变化。
+        private val hookLock = Any()
+        @Volatile private var hookArmedIds: Set<Long>? = null
+        private var hookDeferred: (() -> Unit)? = null
+
+        /** 测试入口：arm（绑定夹具媒体 id 集合；捕获首个命中即解除；空集合=解除）。 */
+        internal fun armDeferredFinishForTest(ids: Set<Long>) {
+            if (!BuildConfig.DEBUG) return
+            synchronized(hookLock) { hookArmedIds = ids; hookDeferred = null }
+        }
+
+        /** 测试入口：释放被捕获的旧回调（进入真实 finish 守卫）；返回是否存在待释放。 */
+        internal fun releaseDeferredFinishForTest(): Boolean {
+            if (!BuildConfig.DEBUG) return false
+            val deferred = synchronized(hookLock) {
+                val d = hookDeferred
+                hookDeferred = null
+                d
+            } ?: return false
+            Log.d(TAG, "lateFinishReleased")
+            deferred()
+            return true
+        }
+
+        /** enqueue 的 listener 调用（DEBUG 门）：命中 armed 集合则捕获并延迟交付。 */
+        private fun tryDeferFinish(index: Int, token: Long, identity: String, invoke: () -> Unit): Boolean {
+            if (!BuildConfig.DEBUG) return false
+            val mediaId = identity.substringAfter("images/media/", "").substringBefore("_").toLongOrNull()
+                ?: return false
+            synchronized(hookLock) {
+                val ids = hookArmedIds ?: return false
+                if (mediaId !in ids) return false
+                hookArmedIds = null // 捕获即解除（consume-once），后续请求不受影响
+                hookDeferred = {
+                    // 交付日志：晚到回调真实进入 finish 守卫的直接证据；守卫拦截时
+                    // 不产生 finish 日志，本日志即"已交付"与"守卫丢弃"的区分信号。
+                    Log.d(TAG, "lateFinishDelivered index=$index token=$token identity=$identity")
+                    invoke()
+                }
+            }
+            Log.d(TAG, "lateFinishCaptured index=$index token=$token identity=$identity")
+            return true
+        }
     }
 }
 
