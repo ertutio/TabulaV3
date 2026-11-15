@@ -136,6 +136,12 @@
 | 43694997490 | test/stale-scan-mut-2026-11-15 @ b19f404 | 变异-1 重 dispatch | 被并发组取消（修正链 3；build 绿） |
 | 43696079300 | test/stale-scan-mut1-2026-11-15 @ b19f404 | **变异-1 设备执行** | **本段双 API OK(1) 绿（no-op 预言成立）**；API36 job 整体红 = **无关遗留 flake**（PartialSelectionPhaseA 红 → PhaseB 级联"阶段B前置：PARTIAL 必须仍授权（宿主不得 pm clear） expected:<0> but was:<-1>"——本段在其后运行、时序隔离，与本分支/变异无关，如实登记）；API37 job 全绿 |
 | 43695988574 | test/stale-scan-mut-2026-11-15 @ f3c3a35 | **变异-2（诊断）设备执行** | **双 API device job 红（变异检出）**：StaleScanLateReturnDeviceTest 红，但**红灯位置 = 早期 a11y 树等待**（API37 @ StaleScanLateReturnDeviceTest.kt:589 步骤1b waitFor(张待整理) / API36 @ :622 步骤2 waitFor），**未达步骤5 目标断言**——截屏留证显示界面完全正常（deck 渲染、"1 张待整理"稳态文本）而 rootInActiveWindow 树空（>10-30s 全空，instrumentation a11y 服务失联形态；FPF Phase3 startMonth 已登记过同族 a11y 语义异常先例）；与变异-2 的 zombie 扫描状态churn 的因果性未证实、相关性如实登记 |
+| 43714053881 | test/stale-scan-mut-2026-11-15 @ d5f5fd5 | 变异-2 重跑（带 a11y 恢复） | **双 API 提前红（主线程冻结根因）**：`marker-step1b` awaitDeckMarkerWithRecovery（StaleScanLateReturnDeviceTest.kt:672）a11y recoveries=4 仍失败；THREAD_STATE 双 API 实证 main 阻塞于 MediaLoadTestHook park latch.await——定位过程见下文轮 2 小节 |
+| 43717346095 | test/stale-scan-mut-2026-11-15 @ c3c813f | **变异-3（目标形态）设备执行** | **双 API 步骤5 目标断言红灯（§三 核心证据达成）**：StaleScanLateReturnDeviceTest.kt:939 释放后批次池断言（API37 13:38:46 / API36 13:39:51），双 API 均先走完全部五步；build job 绿（PR50 路由后单测全绿） |
+| 43714036923 | test/stale-scan-2026-11-15 @ 69a9611 | 轮 A（正常分支 dispatch 1） | API37 job **全绿**；API36 job 红 = **无关遗留 flake**（FPFPhase3Test "timed out waiting for 全局"）；本段双 API OK(1)（API36 complete 锚 12:57:39） |
+| 43717360920 | test/stale-scan-2026-11-15 @ 69a9611 | 轮 B（正常分支 dispatch 2） | API37 job **全绿**；API36 job 红 = **无关遗留 flake**（CardLifecycleDeviceTest scenario1DrawCancel…）；本段双 API OK(1)（API36 complete 锚 13:37:16） |
+| 43720733892 | test/stale-scan-2026-11-15 @ 69a9611 | 轮 C（正常分支 dispatch 3，合并判据门） | API36 job **全绿**；API37 job 红 = **无关遗留 flake**（FPFPhase3Test "timed out waiting for 全局"，同轮 A 签名）；**本段 API37 OK(1) 148.13s + API36 OK(1)**（工件实测，详见补记三与时间线小节） |
+| 43724140820 | test/stale-scan-2026-11-15 @ 69a9611 | 轮 D（正常分支 dispatch 4，前任被终止时在跑） | 运行中（结论回填于补记四） |
 
 ### 补记（run 完成后回填）
 
@@ -147,6 +153,14 @@
 - **变异-2（43695988574）**：双 API 红 = 有效变异形态被 CI 检出（job 级）；红灯未落在
   步骤5 目标断言（早期 a11y 树等待），zombie apply 的状态churn 与 a11y 失联的因果链
   未证实——如实在上表登记，不粉饰为"目标断言红灯"。
+- **补记三（轮 C 43720733892，2026-11-15 收口第二轮补齐）**：API37 job 红 =
+  FPFPhase3Test "timed out waiting for 全局"（14:08:04，T07 段门）；**目标段
+  StaleScanLateReturn 在其后独立执行且双 API OK(1)**——API37 test.txt 实测
+  `Time: 148.13 / OK (1 test)`、complete 锚 14:14:52.050、residual=[]；API36
+  complete 锚 14:15:46.756、residual=[]。69a9611 的 a11y 恢复在本绿样本中两次触发并
+  成功（marker-step1b / marker-step2-upgrade 各 recovery #1，见时间线小节）。
+  ui-failures 采集 rc=1（COLLECTION FAILED，非门控）沿用轮 C 诊断口径。
+- **补记四（轮 D 43724140820）**：（运行中，完成后回填）
 
 ## 轮 1 变异-2 提前失败专项存档（2026-11-15 收口第二轮 §三-1，run 43695988574）
 
@@ -221,7 +235,205 @@ withContext 换成 NonCancellable**"（同拦截器路径 → UndispatchedCorout
 预期：StaleScanLateReturnDeviceTest 在步骤5b 红灯（释放后重取批/同步批次出现 2 行事件
 或重取批 ≠ 47 池——旧扫描释放后提交 2 行覆盖）。结果见上方补记。
 
-### 变异验证结论
+## 收口第二轮（2026-11-15 §三）：目标变异证据补齐
+
+### 轮 2 修正（正常分支 1ad07ba + 69a9611）
+
+- **1ad07ba**：轮 1 变异-2 提前失败专项存档（见上节）。
+- **69a9611**：定向修正——`recoverA11yWindowIfLost`（rootInActiveWindow 空/非应用包/
+  全树无可见节点 → 有界 am start 重附窗，每标签 ≤4 次，逐轮留证，文件名无 `|`），
+  应用于全部 5 处 deck 标记等待（`awaitDeckMarkerWithRecovery`）+ `awaitAnyNode` +
+  步骤5a 观察窗；等待目标与截止时间不变（不弱化断言）；三事件登记（接缝恢复/
+  读取返回/提交处理缺席面 + 不可注入约束）载入钩子与测试 KDoc。
+- 本地 `:app:compileDebugAndroidTestKotlin --no-build-cache` ✅ + PR50 单测 ✅。
+- probe 完整性自查（轮 2 编辑后复核）：class 循环 + b2pr + b2mr + FPF Phase1-3 +
+  FullRecovery 四件 + PartialSelection A/B + 本段全部在位；依赖门（FPF Phase2/3、
+  b2pr step1/2、partial 阶段）在位；失败传播（76 处 status=1 + exit "$status"）在位；
+  `bash -n` 通过。
+
+### 轮 2 变异-2 重跑（d5f5fd5 = f3c3a35 形态 + normal 69a9611 合并）→ 提前失败根因定位
+
+run **43714053881**：双 API 仍在 `marker-step1b` 红（`StaleScanLateReturnDeviceTest.kt
+:672` → `awaitDeckMarkerWithRecovery`，`a11y recoveries=4` = 恢复 4 次仍未恢复）。
+**THREAD_STATE 双 API 实证根因（主线程冻结）**：`Thread[main,5,main]` 阻塞于
+`CountDownLatch.await ← MediaLoadTestHook$parkBeforeCommit$2.invokeSuspend
+(MediaLoadTestHook.kt:85)`（round-1 同形态 :76，run 43695988574）——
+
+**机制**：变异-2 的同拦截器 NonCancellable 块经 UndispatchedCoroutine **在主线程
+undispatched 起跑**（caller = Compose 主调度器），块内挂起段经主调度器回归——整个
+load-commit 块有效运行在主线程；接缝 park 的 `gate.await()` 在 **NonCancellable 上下文
+退化为阻塞式 latch.await**（kotlinx.coroutines 实现：不可取消即不挂起）→ **主线程在
+parked 门处永久冻结**：a11y 树死（root=launcher→null，截屏界面为冻结末帧）、窗口焦点
+停留在 launcher（onResume 无法完成）、恢复性 am start 无效（app 无法处理 resume）。
+对照：正常实现中该块在 `withContext(Dispatchers.IO)` 内运行——阻塞 await 只占用一个
+IO worker（主交付 2/2 绿的机理）。**变异-2 的红灯 = 变异缺陷的真实表现（生产等价 =
+扫描冻结主线程），但证据无法落到步骤5 目标断言**（app 冻结，无法驱动到步骤5）——
+按"提前导航超时"形态登记。
+
+**失败形态链（按指令分类）**：轮 1 = 早期 a11y 树等待（误判为伴生症状）→ 轮 2 恢复
+修正后 = 早期导航超时 + 主线程冻结根因（THREAD_STATE 铁证）→ **继续定位收敛到变异
+形态本身**：目标断言判别的是"旧结果提交覆盖"，需要一个**主线程存活**的变异形态。
+
+### 变异-3（c3c813f，supersedes 变异-2；audit-only）
+
+内容：load-commit 块恢复 `withContext(Dispatchers.IO)`（生产形状，主线程不阻塞），
+仅把 `apply` **移入 IO 块内、紧随接缝之后**：被取消扫描在释放后于 IO worker 上恢复，
+到达 apply 前**无任何取消检查点**（提交保护边界在块完成处、位于 apply 之后）→ 旧
+投影提交落地；主线程存活 → 五步握手完整走通 → 红灯落到步骤5 目标断言。PR50 晚返回
+用例在此形态下单测级先红（本分支两竞态用例 @Ignore 路由维持；合作取消用例此形态下
+绿，Ignore 冗余但保留登记）。
+
+**run 43717346095 结果 = 目标断言红灯，双 API**：
+
+| API | 红灯 | 位置 |
+| --- | --- | --- |
+| API37 | `IllegalStateException: 释放后批次池断言失败（旧扫描释放后提交 2 行覆盖 / 或重取批未承接 47 池 / 或释放后无新批次事件）` | `StaleScanLateReturnDeviceTest.kt:939`（13:38:46） |
+| API36 | 同上 | `StaleScanLateReturnDeviceTest.kt:939`（13:39:51） |
+
+**直接指纹（API37 错误消息原文）**：
+```
+postReleaseBatchLines(1)=11-15 13:38:10.978 20197 20197 V DeckScreen:
+currentBatch<-[batch-site-4]: content://media/external_primary/images/media/234:...,
+content://media/external_primary/images/media/235:...
+expectedIds(47)
+```
+API36 同指纹（13:39:15.408，batch-site-4 重取批 = ids 234/235 两行 vs expectedIds(47)）。
+释放（13:38:03.966 released/resumed rows=2）之后 7 秒，步骤5b 确定性重取批
+（batch-site-4，13:38:10.978）从**被旧扫描覆盖后的 2 行池**取批（ids 234/235 = b1,b2）
+——"旧扫描释放后提交 2 行覆盖"被目标断言直接捕获。
+
+**变异-3 证据登记（§三 口径，2026-11-15 接管者复核）**：
+- 正常 SHA：**69a9611**（合并基 d5f5fd5 = 69a9611 并入变异分支）；变异 SHA：
+  **c3c813f**（69a9611→c3c813f diff 仅 MainActivity.kt load 块 +17/-12 与
+  MediaSnapshotLoadRaceTest.kt 路由 +7，隔离性核实）；
+- 变异内容：`apply(projected, loadResult.second)` 移入 `withContext(Dispatchers.IO)`
+  块内、紧随 `MediaLoadTestHook.parkBeforeCommit(...)` 之后（外层 apply 删除）；
+- 目标断言：`parkedStaleScanReleasedAfterNewCommitNeverOverwritesAndNeverReportsFailure`
+  @ StaleScanLateReturnDeviceTest.kt:**939**（步骤5b 释放后批次池断言，行号复核于
+  69a9611 与 c3c813f 两版测试文件——两版测试文件一致）；
+- 双 API 失败行：API37 `INSTRUMENTATION_STATUS: stack=...释放后批次池断言失败...`
+  13:38:46.137Z + API36 13:39:51.001Z（均含 `expectedIds(47)` 与 `at ...kt:939`）；
+- 变异分支 push 状态：origin/test/stale-scan-mut-2026-11-15 = c3c813f（已推送，
+  本地无领先提交）；run 43717346095（build 绿 + 双 device 红）即绑该 SHA。
+
+### 轮 2 具名断言登记（69a9611 版行号，StaleScanLateReturnDeviceTest.kt）
+
+| 断言 | 行 | 语义 |
+| --- | --- | --- |
+| 旧扫描必须停在可控位 | :678 | 步骤1b parkedRows()==2（暂停者=旧选择集合扫描、读取已返回） |
+| 升级后门控屏不得出现 | :748 | 步骤3b 组合观察窗（无门控回退） |
+| 升级后 deck 标记必须持续在窗 | :753 | 步骤3b 存活行同步不白屏 |
+| 释放后必须确认旧读取确实返回 | :827 | 步骤4 isReleased + "resumed rows=2"（接缝恢复+读取返回双事件） |
+| 释放后门控屏不得出现（窗内） | :849 | 步骤5a hasPermission 保持 |
+| 释放后 deck 标记必须持续在窗（窗内） | :854 | 步骤5a 取消不得重置消费面 |
+| 释放后不得出现回收站记录未能读取对话框 | :859 | 步骤5a 取消不误报加载失败（界面面） |
+| 释放后 MediaStore 可见面变化 | :868 | 步骤5a 可见性不变量（覆盖检测由下条承担） |
+| **释放后批次池断言失败（目标断言）** | **:939** | **步骤5b 释放标记后全部批次行 id 集 == 47 池集且至少一条存在——变异-3 双 API 在此红灯** |
+| 取消不得落 error 态 | :946 | 步骤5b TabulaApp error 行缺席（PR50 语义设备面） |
+
+### 变异-3 握手时间线（API37，run 43717346095，artifact logcat 提取；pid=20197）
+
+| 时刻 | 锚 |
+| --- | --- |
+| 13:36:09.732 | step1a PARTIAL(B) established + armed（同毫秒） |
+| 13:36:12.218 | MediaLoadTestHook: parked rows=2（**tid 20691 = IO worker，主线程不阻塞**——与变异-2 的主线程冻结形态成对照） |
+| 13:36:12.768 | step1b parkedRows==2 确认 |
+| 13:37:51.130 | step2 填充注入（store=47）+ grant FULL |
+| 13:37:54.124 | step3a 集合面 47 |
+| 13:38:00.187 | step3b deck 观察窗通过 |
+| 13:38:03.509 | step3c 边界后 batch-site-4 池集 == 47 |
+| 13:38:03.966 | released + resumed rows=2（IO worker 20691） |
+| 13:38:04.256 | step4 旧读取确实返回确认 |
+| 13:38:09.364 | step5a 观察窗通过（MediaStore 47、无门控、无对话框） |
+| 13:38:10.978 | **覆盖指纹**：batch-site-4 重取批 = 2 行（234/235） |
+| 13:38:46 | **步骤5b 目标断言红灯（:939）** |
+
+API36 同构（13:39:51 同断言红灯；双 API 均先走完全部五步再红）。
+
+### 轮 2 正常分支 CI 记录
+
+- run **43714036923**（69a9611）：API37 全绿 + 本段 API36 绿；API36 job 红 =
+  **无关遗留 flake**（FullPartialFullPhase3 "timed out waiting for 全局"）——本段
+  complete 锚 12:57:39 在后、时序隔离。
+- run **43717360920**（69a9611）：API37 全绿 + 本段 API36 绿（complete 锚 13:37:16）；
+  API36 job 红 = **无关遗留 flake**（CardLifecycleDeviceTest scenario1DrawCancel…）。
+  两次失败落在不同遗留套件 = 共享 runner 资源压力型 flake（与本分支改动无关）。
+- run **43720733892**（69a9611，第三次 dispatch，合并判据门）：API36 job **全绿**；
+  API37 job 红 = **无关遗留 flake**（FPFPhase3Test 同轮 A 签名）；**本段双 API OK(1)
+  （API37 148.13s 工件实测）**——目标段在三轮 6 个 job 执行中全部绿（详见矩阵）。
+- run **43724140820**（69a9611，第四次 dispatch，前任被终止时在跑，接管者跟进）：
+  结论见补记四。
+
+### 分段结果矩阵（轮 A-D @ 69a9611，从 --log 提取的段门 + OK 锚）
+
+段序 = probe 顺序（`tools/run-cloud-ui-probe.sh`）：类循环 → PartialSelection A/B →
+FPF Phase1/2/3 → FullRecovery 四件 → b2pr step1/2/3 → b2mr → **StaleScan（本段，末位）**。
+判读口径：每 job 每段按 `OK (n tests)` 锚（类/阶段名配对）判绿、按段门行
+（"expected OK(n)" / "Failure or skip" / "…failed"）判红；失败不早退（status 累积），
+故红轮中后续段仍被执行与判读。**本段（StaleScan）在 4 轮 × 2 API 全部 OK(1)**。
+
+| 段 | A36 | A37 | B36 | B37 | C36 | C37 | D36 | D37 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| VolumeDeletion（probe 前置 3 例） | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| CloudCleanupUiTest(8) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| CloudRestoreUiTest(3) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| CreateAlbumDiagnostic(2) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| ForegroundPermissionUiTest(2) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| PixelRefreshUiTest(2) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| OtherAppMediaAuth(4) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| ProdAuthCallback(2) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| **CardLifecycleDeviceTest(3)** | OK | OK | **红** | OK | OK | OK | 待回填 | 待回填 |
+| T06RemainingDeviceTest(3) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| PartialSelection PhaseA/B | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| FPF Phase1 / Phase2 | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| **FPF Phase3** | **红** | OK | OK | OK | OK | **红** | 待回填 | 待回填 |
+| FullRecovery 四件（phase1/absence/cont/readback） | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| B2PermissionRefresh step1/2/3 | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| B2MediaAccessRevision | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
+| **StaleScanLateReturn（目标段）** | **OK** | **OK** | **OK** | **OK** | **OK** | **OK** | 待回填 | 待回填 |
+
+红格定位：A36 FPF Phase3 = `FPFPhase3Test onSwitchToGlobal` 全局批次等待超时
+（12:50:38，"timed out waiting for 全局"）；B36 CardLifecycle = 13:22:43
+"Failure or skip observed in CardLifecycleDeviceTest"（scenario1DrawCancel…，上游
+登记 flake）；C37 FPF Phase3 = 14:08:04 同 A36 签名。三处红均在本段（末位）之前、
+段门独立、本段时序隔离——与 coord/diag-closure2-burst-2026-11-15.md 三连红逐因一致。
+
+### 正常分支五步握手时间线（轮 C API37，run 43720733892 artifact 提取，pid=19887）
+
+来源：`device-results/StaleScanLateReturn/logcat.txt`（工件 Tabula-VolumeFix-API37）
++ `test.txt`（Time: 148.13, OK (1 test)）。时间 = 设备 logcat threadtime。
+
+| 时刻 | 锚 |
+| --- | --- |
+| 14:12:41.467 | 夹具注入 7 行（shell 身份 bulk 通道） |
+| 14:12:44.329 | 状态面播种（组 g1/g2 + 断点([G],0) + acknowledged={g1}） |
+| 14:12:49.217 | PARTIAL(B) 集合面确认：2 行无重复 |
+| 14:12:50.770 | **step1a** PARTIAL(B) established（visible={b1,b2}）+ **armed**（同毫秒） |
+| 14:12:52.825 | marker-step1b a11y 窗失联（root=launcher）→ **恢复 #1** am start 重附（69a9611 生效证据） |
+| 14:12:53.048 | **parked rows=2**（tid 20247 = IO worker，主线程不阻塞） |
+| 14:12:53.685 | step1b parkedRows==2 确认（读取已返回、投影在手上） |
+| 14:14:16.844 | 40 填充注入（store=47）；after-fill-still-B 2 行（14:14:17.794） |
+| 14:14:27.951 | **step2** 填充注入完成 + 会话内 grant FULL（level=FULL） |
+| 14:14:30.048 | marker-step2-upgrade a11y 恢复 #1（升级后观察窗前） |
+| 14:14:30.869 | **step3a** 集合面 = 47 全名集（哨兵 s1 在内）——新扫描全池提交生效 |
+| 14:14:36.903 | step3b deck 存活行同步（无门控/无白屏） |
+| 14:14:38.657 | **边界后 batch-site-4 池集**：currentBatch 47 ids == 全池 |
+| 14:14:40.133 | step3c 池集相等断言通过 |
+| 14:14:40.574 | **released**（stale-release-boundary → MediaLoadTestHook: released） |
+| 14:14:40.575 | **resumed rows=2**（tid 20247 = 同一 IO worker） |
+| 14:14:40.655 | **step4** 旧读取确实返回确认（isReleased=true） |
+| 14:14:45.729 | step5a 观察窗通过（25 轮询 lastFace=47、无门控、无错误对话框） |
+| 14:14:47.286 | 释放后二次重取 batch-site-4 仍 47 ids（无 2 行事件） |
+| 14:14:48.978 | **step5b** 释放后重取 = 全 47 池、无 2 行批次事件（旧投影未落地） |
+| 14:14:49.036 | step5b 缓冲无 TabulaApp 错误行 + step5c 状态面读回原样 |
+| 14:14:52.050 | **complete** 锚（parked stale scan released） |
+| 14:14:53.953 | after cleanup residual=[] |
+
+要点：五步全程 14:12:50→14:14:52（≈2m02s，套件 Time 148.13s 含夹具与清理）；旧扫描
+park→release 由同一 IO worker（tid 20247）承载；a11y 恢复两次触发均单次成功、未触及
+每标签 ≤4 上限；释放后无任何 2 行批次事件 = "旧结果覆盖新状态"在正常实现下不发生。
+
+### 变异验证结论（轮 2 收口更新）
 
 1. **指令指定的变异形态（变异-1，包下游）是 no-op**：设备段双 API 绿（43696079300）+
    PR50 单测绿（build job）——"变异后设备测试意外通过"，按指令如实记录并诊断：
@@ -229,29 +441,44 @@ withContext 换成 NonCancellable**"（同拦截器路径 → UndispatchedCorout
    （DispatchedTask.run CancellableMode 检查，1.10.2 字节码实证），其下游的 apply 在
    取消路径不可达；PR50 KDoc 自己记载的有效变异形态是"将提交链的 withContext 换成
    NonCancellable"。
-2. **有效变异形态（变异-2）被 CI 检出**：双 API device job 红（43695988574）——设备级
-   检出成立；红灯落在早期 a11y 树等待（zombie 扫描churn 的伴生症状，界面本身正常），
-   步骤5 目标断言未到达，如实登记。**单元级检出实证补全**：本地
-   `lateReturningOldReadReturnsButNeverCommits` 在变异-2 下 FAILED（stale apply 确实
-   执行）——"旧扫描释放后提交覆盖"缺陷类在单测级与 job 级均被检出。
-3. **总体判定**：设备验收（真实接线级五步握手）在主交付全绿；指定变异 no-op 的诊断
-   完成且证据链闭环（字节码 → 单测对照 → PR50 KDoc 交叉印证）；有效变异形态被 job 级
-   检出（双 API）+ 单测级检出（本地）。未达成"步骤5 目标断言红灯"的完成态，差距与
-   原因如上登记，不掩盖。
+2. **PR50 KDoc 形态（变异-2）在设备上 = 主线程冻结缺陷**：双 API device job 红
+   （43695988574/43714053881，4/4 变异运行 vs 0/2 正常运行——因果成立）；根因
+   THREAD_STATE 铁证（main = park 的阻塞 latch.await）。该形态单测级红/挂起（本地
+   实证），设备级表现为扫描冻结主线程——**红灯无法落在步骤5 目标断言**（app 冻结），
+   按"提前导航超时 + 主线程冻结"登记（轮 2 §三-1 存档 + 根因定位）。
+3. **目标断言红灯达成（变异-3，c3c813f）**：apply 移入 IO 块紧随接缝——主线程存活、
+   五步握手完整走通、**双 API 红灯准确落在步骤5 目标断言**（:939，错误消息携带
+   batch-site-4 重取批 2 行指纹 ids 234/235 vs expectedIds(47)）——"旧扫描释放后提交
+   2 行覆盖"被验收直接捕获。检出示意链：变异 → 覆盖发生 → DeckScreen 重取批从被
+   覆盖池取数 → 池集相等断言红灯。
+4. **总体判定**：设备验收（真实接线级五步握手）主交付绿（43694969019 全绿；轮 2
+   A/B/C 三轮目标段 6 job 执行全部 OK(1)，三轮各自恰有一个上游遗留段红——A36/C37
+   FPF Phase3、B36 CardLifecycle——时序隔离，见矩阵）；指定变异 no-op 诊断闭环；
+   **目标变异证据达成**（变异-3 双 API :939 红灯 + 直接指纹）；变异-2 形态的额外发现
+   （主线程冻结）作为该缺陷族的另一表现如实入档。**三 job 全绿判据**：待轮 D
+   （43724140820）结论——若 D 仍遇上游段红而本段 OK(1)，按既有裁决登记、不盲目
+   重派，合并判据以"至少一次全绿 run 绑定最终 head 69a9611"为目标继续视环境窗。
 
-## 遗留登记
+## 遗留登记（轮 2 收口更新）
 
-1. **变异红灯位置偏差**：变异-2 双 API 红灯在早期 a11y 树等待（步骤1b/2 的
-   waitFor(张待整理)，截屏留证界面正常）而非步骤5 目标断言——与 zombie 扫描
-   状态churn 的因果性未证实；如需"目标断言红灯"完成态，需在变异分支给测试加
-   a11y 失联恢复（am start 重新附着活动窗）——属测试改动，超出本单元授权，登记不动。
+1. **变异-2 形态的主线程冻结缺陷族发现**（PR50 KDoc 的"有效变异形态"在设备上的真实
+   表现 = 扫描冻结主线程）：NonCancellable 上下文的挂起式 latch.await 退化为阻塞
+   await + 同拦截器块在主线程 undispatched 起跑——该交互对生产接缝设计是一个**反向
+   印证**（park 必须在 IO 块内：阻塞 await 只准落在 IO worker），已载入钩子 KDoc。
 2. **变异-1 API36 job 的无关 flake**：PartialSelectionPhaseA 红 → PhaseB 级联（本段
-   绿、时序隔离、与本分支无关）——遗留既有套件自身问题，不在本单元处理范围。
-3. **Robolectric 构件下载瞬时故障**（run 43692855424 build 红）：CI runner 对 Maven
-   Central 的下载无缓存护城河（setup-java gradle cache 不含 ~/.m2），偶发即红——
-   既有基础设施口径，本单元未改动（"顺手改进"纪律）。
-4. **probe 预算余量**：主交付实测段墙钟 ≈150-160s（预估 200-290s 偏保守）；1800s/50min
-   预算保持（后续段落增长空间按既有口径预留）。
-5. 审计分支保留：**test/stale-scan-mut-2026-11-15**（f3c3a35：变异-1 + 修正 cherry-pick
-   + 变异-2 复合）与 **test/stale-scan-mut1-2026-11-15**（b19f404：变异-1 隔离点）——
-   均不合并；scratch worktree wg-Stale-mut 保留。
+   绿、时序隔离）——遗留既有套件自身问题。
+3. **轮 2 正常分支三轮各一处上游遗留段红**：FullPartialFullPhase3 "timed out
+   waiting for 全局"（A=43714036923 API36 / C=43720733892 API37，同签名）与
+   CardLifecycle scenario1DrawCancel…（B=43717360920 API36）——三处落在两个不同
+   遗留套件、**目标段 6 job 全绿**、时序隔离 = 共享 runner 资源压力型 flake（下午窗
+   爆发，diag-closure2-burst-2026-11-15.md）；与 master 基线 43713220665 当晨三 job
+   全绿对照。三 job 全绿待轮 D（43724140820）结论回填。
+4. **Robolectric 构件下载瞬时故障**（run 43692855424 build 红）：CI runner 对 Maven
+   Central 的下载无缓存护城河，偶发即红——既有基础设施口径，未改动。
+5. **probe 预算**：轮 2 实测本段墙钟 ≈150-160s（API36）/≈165s（API37 变异含红灯
+   路径）；1800s/50min 预算保持。
+6. **审计分支保留（均不合并）**：test/stale-scan-mut-2026-11-15（**c3c813f** = 变异-1
+   历史 + normal 合并 + 变异-2（主线程冻结形态）+ **变异-3（目标断言红灯形态）**）；
+   test/stale-scan-mut1-2026-11-15（b19f404）；scratch worktree wg-Stale-mut 保留。
+7. 变异-3 的 PR50 合作取消用例 @Ignore 为冗余路由（该形态下其绿），保留为分支级统一
+   路由并登记；变异分支的测试文件与 normal 完全一致（无测试弱化）。
