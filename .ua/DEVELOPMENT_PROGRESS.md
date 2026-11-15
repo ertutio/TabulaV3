@@ -56,6 +56,11 @@
 
 - **§二 轮 7 根因捕获+轮 8 修复**：插桩版（aa2ee8f）给出确切原因=MediaProvider 对刚发布行的 openInputStream **瞬态返回 null 描述符**（轮 7 铁证：awaitReadable 同路径 49.071 成功→compute 两次 open 49.117/49.124 已达 provider（"Open with lower FS" 日志）→49.190 仍 null=瞬态非系统性；轮 5=发布后 90ms 内 4/4 全中）。**修复 ac0de7a（轮 8 43732194440 运行中）**：establishHashesWithTolerance 截止轮询重试包裹**同一生产入口**（检测器自身 Failed 有界重试语义支持重复调用，不注入不改生产）；应用于建立面+重算面（step6 a1 非 null/c1 null=期望 Failed 态、step8 c1 非 null）。夹具位型重设计（d64633a）+契约测试 3/3 维持。
 
+## 额度截止归档（2026-11-16 01:00）
+- **生产缺陷发现+修复（§二 真实重算验收的预设场景命中）**：轮 9 诊断铁证（四路 open 全成功而 computeDHash 仍 Failed）→ 根因=PerceptualHash.computeDHash Step 2 bounds-decode elvis 恒触发（inJustDecodeBounds 契约性返回 null 被 use 尾表达式带回）→ **computeDHash 对任何图片恒 Failed=哈希链从未成功，专清相似分组降级运行**（latent 缺陷首次被设备验收暴露）。有效旧行为 FAIL=轮 5-9 双 API establish 红；最小修复 c382c3d（一行：use 尾加 Unit）；**轮 10 43737578472=同断言 PASS 候选（额度内最后一轮）**。
+- **交接归档**：coord/handoff-closure2-2026-11-16.md（快照/根因定案/轮次链/证据索引/唯一 next_action）已推 plan 分支；全部开发分支推净（#80 head、#81 head、变异分支×2）；PR 正文全同步。
+- **未解/待裁决**（跨会话延续）：轮 10 结果落定；FPF Phase3 flake 高频化门禁政策；#80/#81 合并；性能阶段启动与工具链重建决策。
+
 ## 历史游标：2026-11-08 夜间集中开发会话（已归档，证据仅供追溯）
 
 
