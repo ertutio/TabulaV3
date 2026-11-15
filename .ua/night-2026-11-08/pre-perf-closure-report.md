@@ -17,11 +17,10 @@
 
 ## 二、待复核项（开放，含阻塞详情）
 
-### TC58 相邻用例类间顺序敏感（PR #80 合并判据卡点）【独立咨询中】
-- 现象：master+Tc58 全量 run 下既有用例 directRecycleClear… :177 红（Tc58 自身绿）；master 全绿；两次修正（单例触碰移除）未解。
-- 已定位最小三元组 {AlbumCleanupImageResolverTest（纯类）, Tc58HashRecoveryTest, AlbumCleanupForegroundRefreshTest} 本地确定性红；空壳 sdk34 桩类不触发（非泛移序）；无 Tc58 对子绿（Tc58 行为是必要条件）；{Tc58+失败类+PickCooldown} 绿。
-- 两次有效针对性修正失败 → 按规则转独立咨询（根因+分层修复建议）。
-- **咨询采纳后一次定向修正仍失败 → 保存证据交用户决策**（规则约定）。
+### TC58 相邻用例隔离缺口（PR #80）——**已按咨询定向修正闭合，轮 3 CI 绿**
+- 轮 1/2 红（仅相邻既有用例 :177，Tc58 自身绿）→ 两次修正无效 → 独立咨询定案：Robolectric 4.12.2 filesDir 每方法新建+sandbox classloader 复用=static 跨类存活；Tc58 必要行为=被测生产入口 AlbumCleanupEngine 构造器内部 getInstance（测试侧不可绕过）；失败链路探针完整复刻；"最小三元组"系本地枚举序巧合。
+- **定向修正 5d6331b（采纳咨询推荐 C，基建层）**：ResetAppSingletonsPlugin（TestEnvironmentLifecyclePlugin）+ META-INF/services 注册；本地双变体全量 864/864 绿（含原 :177 类 16/16）；**轮 3 CI run 43703642885 = success**（工件实核 Tc58 2/2 + :177 类 16/16）；shadow @Resetter 路线实验否定（登记勿回头）。
+- 差分复审（插件 delta）执行中；先存隔离缺口对生产进程无影响（application 终身单实例）。
 
 ### 监控中（既有间歇，非本轮新增）
 - FPF Phase3 API36 flake（43597856253 红/43609384927 绿同代码=间歇；框架层 dialog LazyColumn 语义丢失，留证 notes-B2.md:211）
