@@ -22,33 +22,54 @@ import org.robolectric.pluginapi.TestEnvironmentLifecyclePlugin
  * static 的类并置空 `instance`。Kotlin `companion object { @Volatile var instance }`
  * 编译为外层类静态字段（javap 实证；对 Companion 反射会找不到）。
  *
- * 纪律：本清单需随新增应用层单例维护；首个测试方法时 application 尚不存在，
- * 整体 try/catch 兜底为 no-op（无东西可清）。shadow @Resetter 路线在 4.12.2
- * 对自定义 app-class shadow 不触发（实验否定，勿走回头路）。
+ * 失败语义（2026-11-15 收口第二轮 §二 加固）：**清单漂移必须显式失败**——
+ * 应用存在但目标类加载失败/`instance` 字段缺失/置空抛错时抛
+ * IllegalStateException（吞掉=隔离假象：陈旧单例继续存活而测试全绿）。
+ * 唯一合法 no-op = `getApplication()==null`（首个测试方法，尚无可清对象）。
+ * shadow @Resetter 路线在 4.12.2 对自定义 app-class shadow 不触发（实验
+ * 否定，勿走回头路）。清单完整性另有守卫测试钉住
+ * （ResetAppSingletonsPluginGuardTest——字段改名/类移动会在那里以普通测试
+ * 失败形式暴露）。
  */
 class ResetAppSingletonsPlugin : TestEnvironmentLifecyclePlugin {
     override fun onSetupApplicationState() {
-        try {
-            val app = RuntimeEnvironment.getApplication() ?: return
-            val loader = app.javaClass.classLoader ?: return
-            for (name in listOf(
-                "com.tabula.v3.data.preferences.AppPreferences",
-                "com.tabula.v3.data.cache.ImageHashCache",
-                "com.tabula.v3.data.repository.AlbumCleanupEngine",
-                "com.tabula.v3.data.repository.AlbumManager",
-                "com.tabula.v3.data.repository.AlbumUsageTracker",
-                "com.tabula.v3.data.repository.RecommendationEngine",
-                "com.tabula.v3.data.repository.RecycleBinManager"
-            )) {
-                try {
-                    val c = loader.loadClass(name)
-                    val f = c.getDeclaredField("instance")
-                    f.isAccessible = true
-                    f.set(null, null)
-                } catch (_: Throwable) {
-                }
+        val app = RuntimeEnvironment.getApplication() ?: return
+        val loader = app.javaClass.classLoader
+            ?: throw IllegalStateException("ResetAppSingletonsPlugin: sandbox classLoader 不可用（隔离缺口未修复）")
+        for (name in SINGLETON_CLASSES) {
+            val c = try {
+                loader.loadClass(name)
+            } catch (e: Throwable) {
+                throw IllegalStateException(
+                    "ResetAppSingletonsPlugin: 单例类加载失败 $name（类被移动/删除未同步 SINGLETON_CLASSES 清单）", e
+                )
             }
-        } catch (_: Throwable) {
+            val f = try {
+                c.getDeclaredField("instance")
+            } catch (e: Throwable) {
+                throw IllegalStateException(
+                    "ResetAppSingletonsPlugin: 单例字段缺失 $name.instance（字段改名/移动未同步清单——陈旧单例将跨方法存活）", e
+                )
+            }
+            f.isAccessible = true
+            try {
+                f.set(null, null)
+            } catch (e: Throwable) {
+                throw IllegalStateException("ResetAppSingletonsPlugin: 置空失败 $name.instance", e)
+            }
         }
+    }
+
+    companion object {
+        /** 应用层单例清单（外层类持有 `private static volatile instance`）。 */
+        val SINGLETON_CLASSES = listOf(
+            "com.tabula.v3.data.preferences.AppPreferences",
+            "com.tabula.v3.data.cache.ImageHashCache",
+            "com.tabula.v3.data.repository.AlbumCleanupEngine",
+            "com.tabula.v3.data.repository.AlbumManager",
+            "com.tabula.v3.data.repository.AlbumUsageTracker",
+            "com.tabula.v3.data.repository.RecommendationEngine",
+            "com.tabula.v3.data.repository.RecycleBinManager"
+        )
     }
 }

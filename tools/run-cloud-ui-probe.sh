@@ -677,4 +677,47 @@ if [ "$b2mr_status" != "0" ]; then
   status=1
 fi
 
+# ===== 收口第二轮 §二（2026-11-15）：Hash recompute production-chain device verification =====
+# HashRecomputeDeviceTest 1 例 = 真实生产链（loadAllData 读 + ensureHashesComputed 算 +
+# detectSimilarGroups 消费）的新旧重算/失败恢复/消费面采纳/无关面保留。夹具 app 侧
+# IS_PENDING 舞蹈（PixelRefresh 同款）+ 同目录 shell 行面双核对；用例末自清 + @After
+# 兜底 + 本段失败按目录兜底清理。段预算 ≈120-180s（无选择器舞步）。
+echo "=== Hash recompute production-chain device verification ==="
+hashrecompute_status=0
+adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '\r' | grep -Fx Success || hashrecompute_status=1
+adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || hashrecompute_status=1
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED >/dev/null 2>&1 || true
+adb shell "content delete --uri content://media/external/images/media --where \"relative_path='Pictures/HashRecomputeFixtures/'\"" >/dev/null 2>&1 || true
+adb shell "rm -rf /sdcard/Pictures/HashRecomputeFixtures" >/dev/null 2>&1 || true
+hashrecompute_rows=$(adb shell "content query --uri content://media/external/images/media --projection _id" | grep -c "^Row:") || hashrecompute_rows=0
+if [ "$hashrecompute_rows" != "0" ]; then
+  adb shell "content query --uri content://media/external/images/media --projection _display_name" | head -20 >&2 || true
+  echo "Gallery not clean before HashRecompute suite: $hashrecompute_rows rows" >&2
+  hashrecompute_status=1
+fi
+mkdir -p device-results/HashRecompute
+hashrecompute_cleanup_fixtures() {
+  adb shell "content delete --uri content://media/external/images/media --where \"relative_path='Pictures/HashRecomputeFixtures/'\"" >/dev/null 2>&1 || true
+  adb shell "rm -rf /sdcard/Pictures/HashRecomputeFixtures" >/dev/null 2>&1 || true
+  echo "HashRecompute fallback: fixtures removed by dir"
+}
+if ! timeout 480s adb shell am instrument -w -r -e allowSyntheticMediaProbe true   -e class com.tabula.v3.HashRecomputeDeviceTest   com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner   | tee device-results/HashRecompute/test.txt; then
+  echo "HashRecompute instrumentation failed" >&2; hashrecompute_status=1
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/HashRecompute/test.txt || { echo "HashRecompute expected OK(1)" >&2; hashrecompute_status=1; }
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/HashRecompute/test.txt; then
+  echo "Failure or skip observed in HashRecompute" >&2; hashrecompute_status=1
+fi
+collect hashrecompute-logcat 2 device-results/HashRecompute/logcat.txt adb logcat -d -v threadtime || true
+grep -iE "HashRecompute|SimilarGroupDetector|Need to compute" device-results/HashRecompute/logcat.txt | tail -30 > device-results/HashRecompute/chain-grep.txt || true
+cat device-results/HashRecompute/chain-grep.txt || true
+if [ "$hashrecompute_status" != "0" ]; then
+  hashrecompute_cleanup_fixtures
+fi
+
+if [ "$hashrecompute_status" != "0" ]; then
+  echo "Hash recompute production-chain device verification failed" >&2
+  status=1
+fi
+
 exit "$status"
