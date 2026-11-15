@@ -37,6 +37,12 @@
 - **定向修正 5d6331b（采纳咨询推荐 C，基建层）**：新增 ResetAppSingletonsPlugin（TestEnvironmentLifecyclePlugin.onSetupApplicationState——字节码序实证在 clearEnvironment 前被调，经上一方法 Application 的 sandbox loader 反射置空 7 个应用单例 static；Kotlin companion @Volatile 编译为外层类静态字段）+ META-INF/services 注册；shadow @Resetter 路线实验否定（4.12.2 对自定义 app-class shadow 不触发）。**验证：本地双变体全量 864/864 绿（含原 :177 类 16/16）**；轮 3 CI run 43703642885 运行中（合并判据=build job 全绿）。PR80 正文已更新完整因果链。
 - Unit B 遗留登记更新：变异-1 的 no-op 机理与 PR50 KDoc 引用经审计者独立字节码验证一致；先存隔离缺口由本插件正面闭合。
 
+## 收口第二轮执行登记（2026-11-15 05:10）
+- **合并执行（用户 §一 授权，预期 head 校验）**：#77（4e00669b，20 文件零生产面、workflow push 触发仅限 perf/emulator-baseline-v1 分支=master 无自动测量、绿 run 43387329019@55b8edf6 与 head 增量仅结果文件、正文结果边界逐字保留）→ master b787aca；#79（52c9de60，增量全在已审范围：d03dc08=复审 PASS+CI 43690226527 绑定、52c9de6=KDoc/notes 尾随；与 #77 触碰面零叠合）→ master merge commit 52c9de60c3。**master 树核验**：13 个预期 androidTest 文件+benchmark/ 全在。组合 CI run 43713220665 运行中。依赖分支：#81 变基 master（MERGEABLE，diff 恰 7 文件）；#80 并入 master（aff9568）。
+- **§二 交付（4046245b，#80 分支）**：HashRecomputeDeviceTest（真实生产链重算：失效/重算/消费面正负对照/失败恢复/无关面保留/shell 双面哨兵）+ 插件 fail-explicit 加固（清单漂移显式失败，守卫 4 例含 c1→c2 生命周期探针=方法间复位实证）+ probe 新段+预算 1800s/50min（登记）+ probe 全文件 LF 规范化。本地 872/872 双变体。CI 43714628520 运行中。
+- **教训登记**：bash heredoc（<<'EOF' 引号形态）传输层会破坏  字节模式——连续两次字面 CR 修复经 heredoc 失效；改用 Write 工具写脚本文件执行成功。probe 全文件 CRLF 已规范化 LF（历史教训复演拦截）。
+- **§三 在飞**：原执行者（wg-Stale）执行目标变异证据补齐（测试路径 a11y 失联恢复修正+隔离变异落在目标断言+时间线登记）。
+
 ## 历史游标：2026-11-08 夜间集中开发会话（已归档，证据仅供追溯）
 
 
