@@ -4,9 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.LinearGradient
 import android.graphics.Paint
-import android.graphics.Shader
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
@@ -30,6 +28,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import android.os.ParcelFileDescriptor
 
 /**
  * TC58/收口第二轮 §二（2026-11-15）：真实生产链的内容变更→旧结果失效→有界重算
@@ -40,32 +39,25 @@ import org.junit.runner.RunWith
  * 算=SimilarGroupDetector.ensureHashesComputed()（版本=dateModified 毫秒；
  *    过期即重算；此前失败有界重试——SimilarGroupDetector.kt:258-304）
  * 消费=SimilarGroupDetector.detectSimilarGroups()（元数据预筛+哈希验证聚类，
- *    SimilarGroupDetector.kt:110+；hashDistance 阈值见 :422-428）。
+ *    SimilarGroupDetector.kt:110+；hashDistance 阈值 :422-428）。
  *
- * 场景单方法（预期 case 数=1）：
- * 1. 建旧版本结果：夹具 a1=水平渐变 / d1=垂直渐变 / b1=对角渐变 / c1=垂直渐变
- *    变体 / u1=无关（冷却+清理进度种子面）/ s1=哨兵（集合外）。
- *    生产读+ensureHashesComputed 建立旧版本缓存；断言四哈希互异。
- * 2. 消费面负对照（旧哈希时代）：detectSimilarGroups([a1,d1]) 同窗口内
- *    horizontal-vs-vertical dHash 距离>14 → 不成组（哈希驱动的拒绝）。
- * 3. 无关面种子：冷却 pick 记录 + 清理组/断点（生产写入口，FG 刷新测试同款）。
- * 4. 内容变更（同媒体身份，IS_PENDING 舞蹈=PixelRefresh 同款）：a1 内容→与 d1
- *    相同的垂直渐变；c1→损坏字节（真实解码失败载体）；b1/d1 不动。
- * 5. 失效面：再生产读（a1/c1 dateModified 升版）→ 生产缓存读：a1/c1@新版本
- *    =null（旧版本失效）、b1/d1@旧版本仍命中且值不变（复用面）。
- * 6. 重算面：ensureHashesComputed → a1 新哈希≠旧哈希 且 ==d1 哈希（同内容
- *    同解码）；c1=Failed（生产记录失败态）。
- * 7. 消费面正对照（新哈希时代）：detectSimilarGroups([a1,d1]) 同内容同哈希
- *    同窗口 → 成组且组内同时含两身份（消费端确实采用重算后的新结果）。
- * 8. 有界恢复：c1 恢复有效新内容（再升版）→ 再生产链 → c1 新哈希≠旧哈希
- *    且非 Failed（此前失败条目不阻断新版本重算）。
- * 9. 无关面保留：冷却 pick 记录、清理组键、断点经全循环逐项读回原样；
- *    永久完成面为空。
- * 10. 双面核对：shell 行面 6 行全在（含哨兵）；哨兵不入任何组。
+ * 夹具契约（位型设计，audit-recompute-pr80 缺陷 B 修复；设计契约由
+ * HashRecomputeFixtureContractTest 位型仿真钉住）：9 等分列的垂直条纹图案，
+ * dark=10/light=200，dHash（横向相邻比较）按字节重复：
+ * - A=0xAA（暗亮交替）/ B=0x55（相反相位）/ C=0xFF（单调递减）/ D=0x00（单调递增）
+ * - 两两 Hamming 距离 ∈ {32,64}，全部 >14（最严拒绝阈值）
+ * - 消费面载体：a1-old=A、d1=B → pre 距离 64（负对照）；a1-new=B（同 d1）→
+ *   post 距离 0（正对照，消费端采纳重算新结果）
+ * 建立纪律（缺陷 A 修复）：compress() 返回值 check + 发布后有界回读解码验证
+ * （decodeBounds 出维度才算建立完成）——夹具字节面确定性。
  *
- * 断言纪律：截止轮询（行出现/日期升版）、无固定 sleep、失败留证（dumpTree/
- * saveScreenshot 文件名无 `|`）、@After 幂等清理（防死行污染同宿主后续段）。
- * 不动 app/src/main、app/src/test。
+ * 场景单方法（预期 case 数=1）：旧版本建立+四哈希互异 → 消费面负对照 →
+ * 无关面种子 → 同身份内容变更（a1→B、c1→损坏字节）→ 失效面 → 重算面
+ * （a1 新哈希==d1；c1 Failed 记录）→ 消费面正对照 → 有界恢复（c1→C 重算
+ * 成功）→ 无关面保留 → shell 双面（6 行含哨兵不入组）。
+ *
+ * 断言纪律：截止轮询、无固定 sleep、失败留证（文件名无 `|`）、@After 幂等
+ * 清理。不动 app/src/main、app/src/test。
  */
 @RunWith(AndroidJUnit4::class)
 class HashRecomputeDeviceTest {
@@ -75,7 +67,7 @@ class HashRecomputeDeviceTest {
     private val shell: (String) -> String =
         { cmd ->
             val fd = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(cmd)
-            val out = android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).readBytes().decodeToString()
+            val out = ParcelFileDescriptor.AutoCloseInputStream(fd).readBytes().decodeToString()
             out
         }
     private var createdUris = mutableListOf<Uri>()
@@ -93,30 +85,35 @@ class HashRecomputeDeviceTest {
     private val preferences get() = AppPreferences(ctx)
     private val albumId = "tc58r-unrelated-album"
 
-    // ---------- 夹具构造（app 侧 MediaStore 行 + 真实文件，PixelRefresh 同款） ----------
-    private enum class Gradient { HORIZONTAL, VERTICAL, DIAGONAL }
+    // ---------- 夹具构造（位型图案，9 等分列；契约=HashRecomputeFixtureContractTest） ----------
+    private enum class Pattern { STRIPES_A, STRIPES_B, MONO_DOWN, MONO_UP }
 
-    private fun drawGradientBitmap(g: Gradient): Bitmap {
+    private fun drawPatternBitmap(p: Pattern): Bitmap {
         val bmp = Bitmap.createBitmap(128, 128, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         val paint = Paint()
-        val coords = when (g) {
-            Gradient.HORIZONTAL -> intArrayOf(0, 0, 128, 0)
-            Gradient.VERTICAL -> intArrayOf(0, 0, 0, 128)
-            Gradient.DIAGONAL -> intArrayOf(0, 0, 128, 128)
+        val grays: IntArray = when (p) {
+            Pattern.STRIPES_A -> intArrayOf(10, 200, 10, 200, 10, 200, 10, 200, 10)
+            Pattern.STRIPES_B -> intArrayOf(200, 10, 200, 10, 200, 10, 200, 10, 200)
+            Pattern.MONO_DOWN -> intArrayOf(250, 220, 190, 160, 130, 100, 70, 40, 10)
+            Pattern.MONO_UP -> intArrayOf(10, 40, 70, 100, 130, 160, 190, 220, 250)
         }
-        paint.shader = LinearGradient(
-            coords[0].toFloat(), coords[1].toFloat(), coords[2].toFloat(), coords[3].toFloat(),
-            0xFFFF4040.toInt(), 0xFF101010.toInt(), Shader.TileMode.CLAMP
-        )
-        canvas.drawRect(0f, 0f, 128f, 128f, paint)
+        // 9 等分列：每列一个精确灰度（列宽 128/9），dHash 9 列降采样后逐列取值
+        val colW = 128f / 9f
+        for (k in 0 until 9) {
+            val v = grays[k]
+            val c = (v shl 16) or (v shl 8) or v
+            paint.color = c or 0xFF000000.toInt()
+            canvas.drawRect(k * colW, 0f, (k + 1) * colW, 128f, paint)
+        }
         return bmp
     }
 
     private fun writeBitmapToRow(row: Uri, bmp: Bitmap) {
         ctx.contentResolver.openOutputStream(row)!!.use { out ->
-            bmp.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            val ok = bmp.compress(Bitmap.CompressFormat.JPEG, 90, out)
             out.flush()
+            check(ok) { "Bitmap.compress 失败（返回 false）：$row" }
         }
     }
 
@@ -127,7 +124,7 @@ class HashRecomputeDeviceTest {
         }
     }
 
-    private fun insertFixture(name: String, g: Gradient): Uri {
+    private fun insertFixture(name: String, p: Pattern): Uri {
         val row = requireNotNull(
             ctx.contentResolver.insert(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -139,14 +136,14 @@ class HashRecomputeDeviceTest {
                 })
         ) { "insert 失败：$name" }
         createdUris += row
-        writeBitmapToRow(row, drawGradientBitmap(g))
+        writeBitmapToRow(row, drawPatternBitmap(p))
         check(ctx.contentResolver.update(row, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null) == 1)
         return row
     }
 
-    private fun swapContent(row: Uri, g: Gradient) {
+    private fun swapContent(row: Uri, p: Pattern) {
         check(ctx.contentResolver.update(row, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 1) }, null, null) == 1)
-        writeBitmapToRow(row, drawGradientBitmap(g))
+        writeBitmapToRow(row, drawPatternBitmap(p))
         check(ctx.contentResolver.update(row, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null) == 1)
     }
 
@@ -154,6 +151,30 @@ class HashRecomputeDeviceTest {
         check(ctx.contentResolver.update(row, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 1) }, null, null) == 1)
         writeGarbageToRow(row)
         check(ctx.contentResolver.update(row, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null) == 1)
+    }
+
+    /**
+     * 建立完成的有界回读验证（缺陷 A 修复）：经 computeDHash 同款读取路径
+     * （contentResolver.openInputStream + decodeBounds）确认内容可解码——
+     * 字节面未落/损坏在此处以明确消息失败，而非下游静默 Failed。
+     */
+    private fun awaitReadable(row: Uri, name: String, timeoutMs: Long = 15000) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var lastReason = ""
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                ctx.contentResolver.openInputStream(row)?.use { input ->
+                    val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    android.graphics.BitmapFactory.decodeStream(input, null, opts)
+                    if (opts.outWidth > 0 && opts.outHeight > 0) return
+                    lastReason = "decodeBounds 出维度=0（${opts.outWidth}x${opts.outHeight}）"
+                } ?: run { lastReason = "openInputStream=null" }
+            } catch (e: Exception) {
+                lastReason = "read 异常: ${e.message}"
+            }
+            Thread.sleep(200)
+        }
+        error("夹具回读解码未就绪（截止轮询耗尽）name=$name reason=$lastReason")
     }
 
     private suspend fun loadAll(): Map<String, ImageFile> =
@@ -182,16 +203,18 @@ class HashRecomputeDeviceTest {
     // ---------- 用例 ----------
     @Test
     fun contentEditInvalidatesHashAndConsumersAdoptRecomputedResults() = runBlocking<Unit> {
-        // ---- 1. 夹具与旧版本结果 ----
-        val a1Row = insertFixture(a1Name, Gradient.HORIZONTAL)
-        insertFixture(d1Name, Gradient.VERTICAL)
-        insertFixture(b1Name, Gradient.DIAGONAL)
-        val c1Row = insertFixture(c1Name, Gradient.VERTICAL)
-        insertFixture(u1Name, Gradient.DIAGONAL)
-        insertFixture(s1Name, Gradient.DIAGONAL)
+        // ---- 1. 夹具与旧版本结果（位型契约：A/B/C/D 两两距离 ≥32）----
+        val a1Row = insertFixture(a1Name, Pattern.STRIPES_A)
+        insertFixture(d1Name, Pattern.STRIPES_B)
+        insertFixture(b1Name, Pattern.MONO_DOWN)
+        val c1Row = insertFixture(c1Name, Pattern.MONO_UP)
+        insertFixture(u1Name, Pattern.MONO_DOWN)
+        insertFixture(s1Name, Pattern.STRIPES_B)
 
         val all = awaitAllRows()
-        // 夹具落盘核对（字节面）：文件大小 >0 + MIME 有效（诊断：decode 失败的第一嫌疑=字节未落/损坏）
+        for ((name, row) in all) {
+            if (name in allNames) awaitReadable(row.uri, name)
+        }
         val lsOut = shell("ls -l /sdcard/$dir 2>&1")
         Log.i(TAG, "fixture files: $lsOut")
         // 直算面（原因可见）：逐行 computeDHash，Failed 时断言消息携带确切 reason
@@ -211,17 +234,17 @@ class HashRecomputeDeviceTest {
         val oldDHash = hashesOld[all.getValue(d1Name).toHashKey()].require(d1Name)
         val oldBHash = hashesOld[all.getValue(b1Name).toHashKey()].require(b1Name)
         val oldCHash = hashesOld[all.getValue(c1Name).toHashKey()].require(c1Name)
-        assertTrue("旧哈希四项互异（夹具可区分性自检）", setOf(oldA, oldDHash, oldBHash, oldCHash).size == 4)
-        assertTrue(
-            "horizontal-vs-vertical dHash 必须超过拒绝阈值（>14，实测=${PerceptualHash.hammingDistance(oldA, oldDHash)}）",
-            PerceptualHash.hammingDistance(oldA, oldDHash) > 14
+        assertTrue("旧哈希四项互异（位型契约自检）", setOf(oldA, oldDHash, oldBHash, oldCHash).size == 4)
+        assertEquals(
+            "A vs B 互补距离必须 64（位型契约实证）",
+            64, PerceptualHash.hammingDistance(oldA, oldDHash)
         )
         Log.i(TAG, "step1 old hashes: a=$oldA d=$oldDHash b=$oldBHash c=$oldCHash")
 
         // ---- 2. 消费面负对照（旧哈希时代：同窗口、哈希拒绝 → 不成组）----
         val groupsOld = detector.detectSimilarGroups(listOf(all.getValue(a1Name), all.getValue(d1Name)))
         assertNull(
-            "负对照：旧哈希（水平 vs 垂直）在同窗口下不得成组",
+            "负对照：A vs B 距离 64 在同窗口下不得成组",
             groupPairingIdentity(groupsOld, all.getValue(a1Name), all.getValue(d1Name))
         )
         Log.i(TAG, "step2 pre-swap consumer negative: a1+d1 not grouped (hash-driven rejection)")
@@ -243,13 +266,11 @@ class HashRecomputeDeviceTest {
         engine.getNextBatch(albumId, members)
         engine.saveCheckpoint(listOf(originalGroupId), 1)
         val checkpointBefore = AlbumCleanupEngine(ctx).getCheckpointBatch(albumId, members)!!
-        val cooldownHitBefore = preferences.getPickCooldownIndex()
-            .byIdentityKey.containsKey(unrelatedRow.mediaIdentityKey())
-        assertTrue("种子自检：冷却记录必须命中", cooldownHitBefore)
+        assertTrue("种子自检：冷却记录必须命中", preferences.getPickCooldownIndex().byIdentityKey.containsKey(unrelatedRow.mediaIdentityKey()))
         Log.i(TAG, "step3 unrelated state seeded")
 
         // ---- 4. 内容变更（同身份，b1/d1 不动）----
-        swapContent(a1Row, Gradient.VERTICAL)   // a1 → 与 d1 相同内容
+        swapContent(a1Row, Pattern.STRIPES_B)   // a1 → 与 d1 相同内容（位型 B）
         swapContentCorrupt(c1Row)               // c1 → 损坏字节（真实解码失败）
 
         val all2 = awaitAllRows()
@@ -288,12 +309,14 @@ class HashRecomputeDeviceTest {
 
         // ---- 7. 消费面正对照（新哈希时代）----
         val groupsNew = detector.detectSimilarGroups(listOf(a1New, d1Same))
-        val group = groupPairingIdentity(groupsNew, a1New, d1Same)
-        assertNotNull("正对照：重算后同内容必须成组（消费端采纳新结果）", group)
+        assertNotNull(
+            "正对照：重算后同内容必须成组（消费端采纳新结果）",
+            groupPairingIdentity(groupsNew, a1New, d1Same)
+        )
         Log.i(TAG, "step7 consumer positive: a1+d1 grouped post-recompute")
 
         // ---- 8. 有界恢复（c1 一次临时读取失败 → 恢复）----
-        swapContent(c1Row, Gradient.VERTICAL) // 恢复有效新内容（再升版）
+        swapContent(c1Row, Pattern.MONO_DOWN) // 恢复有效新内容（再升版）
         val all3 = awaitAllRows()
         val c1Recovered = all3.getValue(c1Name)
         assertTrue("c1 恢复内容 dateModified 再升版", c1Recovered.dateModified > c1New.dateModified)
@@ -326,7 +349,6 @@ class HashRecomputeDeviceTest {
         for (name in allNames) {
             assertTrue("shell 面必须存在 $name", shellOut.contains(name))
         }
-        assertTrue("哨兵 s1 必须在库（shell 面）", shellOut.contains(s1Name))
         assertTrue("哨兵不得进入任何相似组", groupsNew.all { g -> g.images.none { it.displayName == s1Name } })
         Log.i(TAG, "step10 shell double-face verified (6 rows incl. sentinel)")
 
@@ -341,7 +363,7 @@ class HashRecomputeDeviceTest {
             runCatching { ctx.contentResolver.delete(row, null, null) }
         }
         createdUris.clear()
-        shell("rm -rf /storage/emulated/0/$dir 2>&1")
+        shell("rm -rf /sdcard/$dir 2>&1")
         runCatching { preferences.clearAllPickRecords() }
         runCatching { preferences.clearAllAlbumCleanupState() }
     }
