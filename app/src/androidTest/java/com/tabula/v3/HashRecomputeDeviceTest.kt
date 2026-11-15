@@ -178,30 +178,22 @@ class HashRecomputeDeviceTest {
     }
 
     /**
-     * 显式 mtime 控制 + 重扫（轮 10 细节修复，2026-11-16）：MediaStore 的
-     * dateModified 派生自文件 mtime 且为 **1 秒粒度**——同秒内的两次换装
-     * 产生相同 dateModified（轮 10 步骤 8 "再升版"断言红实证）。本助手按
-     * FPF ensureG3Fixture 同款机械解（touch -t + scan_file）把文件 mtime
-     * 显式推到指定秒并重扫，截止轮询到行 dateModified 精确等于目标值——
-     * 版本递增从"依赖墙钟运气"变为确定性。
+     * 秒边界对齐（轮 11 修复：touch -t+scan_file 对已存在行不重推导
+     * date_modified——FPF 的 touch 是首次入库前设置，重扫不改已有行）。
+     * dateModified=文件 mtime（1 秒粒度），在发布时由 provider 重推导——
+     * 因此确定性的做法=等墙钟**恰进入新秒的 ≤200ms 窗口**再执行换装
+     * （写入+发布 ≤800ms 完成，必然落在同一秒），两次换装必然跨秒。
+     * 条件轮询有界（5s），非固定 sleep。
      */
-    private fun touchAndRescan(name: String, mtimeSec: Long, timeoutMs: Long = 15000) {
-        val cal = java.util.Calendar.getInstance().apply { timeInMillis = mtimeSec * 1000 }
-        val spec = String.format(
-            "%04d%02d%02d%02d%02d.%02d",
-            cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1,
-            cal.get(java.util.Calendar.DAY_OF_MONTH), cal.get(java.util.Calendar.HOUR_OF_DAY),
-            cal.get(java.util.Calendar.MINUTE), cal.get(java.util.Calendar.SECOND)
-        )
-        shell("touch -t $spec /sdcard/$dir$name 2>&1")
-        shell("content call --uri content://media/ --method scan_file --arg /storage/emulated/0/$dir$name 2>&1")
-        val deadline = System.currentTimeMillis() + timeoutMs
+    private fun awaitSecondBoundary(minSec: Long): Long {
+        val deadline = System.currentTimeMillis() + 5000
         while (System.currentTimeMillis() < deadline) {
-            val row = runBlocking { loadAll()[name] }
-            if (row != null && row.dateModified == mtimeSec * 1000) return
-            Thread.sleep(200)
+            val now = System.currentTimeMillis()
+            val sec = now / 1000
+            if (sec >= minSec && now % 1000 <= 200) return sec
+            Thread.sleep(20)
         }
-        error("mtime 未生效（截止轮询耗尽）name=$name 期望=${mtimeSec * 1000}")
+        error("秒边界等待超时（minSec=$minSec）")
     }
 
     private suspend fun loadAll(): Map<String, ImageFile> =
@@ -348,12 +340,10 @@ class HashRecomputeDeviceTest {
         assertTrue("种子自检：冷却记录必须命中", preferences.getPickCooldownIndex().byIdentityKey.containsKey(unrelatedRow.mediaIdentityKey()))
         Log.i(TAG, "step3 unrelated state seeded")
 
-        // ---- 4. 内容变更（同身份，b1/d1 不动；mtime 显式控制=版本递增确定性）----
-        val corruptMtimeSec = System.currentTimeMillis() / 1000 + 1
+        // ---- 4. 内容变更（同身份，b1/d1 不动；秒边界对齐=版本递增确定性）----
+        val corruptSec = awaitSecondBoundary(System.currentTimeMillis() / 1000)
         swapContent(a1Row, Pattern.STRIPES_B)   // a1 → 与 d1 相同内容（位型 B）
         swapContentCorrupt(c1Row)               // c1 → 损坏字节（真实解码失败）
-        touchAndRescan(a1Name, corruptMtimeSec)
-        touchAndRescan(c1Name, corruptMtimeSec)
 
         val all2 = awaitAllRows()
         val a1New = all2.getValue(a1Name)
@@ -361,12 +351,12 @@ class HashRecomputeDeviceTest {
         val b1Same = all2.getValue(b1Name)
         val d1Same = all2.getValue(d1Name)
         assertEquals(
-            "a1 dateModified 必须=受控 mtime（轮 10 教训：1 秒粒度下同秒双写同值）",
-            corruptMtimeSec * 1000, a1New.dateModified
+            "a1 dateModified 必须落在对齐秒（1 秒粒度=秒值精确相等）",
+            corruptSec, a1New.dateModified / 1000
         )
         assertEquals(
-            "c1 dateModified 必须=受控 mtime",
-            corruptMtimeSec * 1000, c1New.dateModified
+            "c1 dateModified 必须落在对齐秒",
+            corruptSec, c1New.dateModified / 1000
         )
         assertEquals("b1 未修改：dateModified 不变", all.getValue(b1Name).dateModified, b1Same.dateModified)
         assertEquals("d1 未修改：dateModified 不变", all.getValue(d1Name).dateModified, d1Same.dateModified)
@@ -409,15 +399,14 @@ class HashRecomputeDeviceTest {
         )
         Log.i(TAG, "step7 consumer positive: a1+d1 grouped post-recompute")
 
-        // ---- 8. 有界恢复（c1 一次临时读取失败 → 恢复；mtime 严格晚于 corrupt）----
-        val recoverMtimeSec = corruptMtimeSec + 2
+        // ---- 8. 有界恢复（c1 一次临时读取失败 → 恢复；对齐新秒=严格晚于 corrupt）----
+        val recoverSec = awaitSecondBoundary(corruptSec + 1)
         swapContent(c1Row, Pattern.MONO_DOWN) // 恢复有效新内容
-        touchAndRescan(c1Name, recoverMtimeSec)
         val all3 = awaitAllRows()
         val c1Recovered = all3.getValue(c1Name)
         assertEquals(
-            "c1 恢复内容 dateModified 必须=受控 mtime（严格晚于 corrupt 版本）",
-            recoverMtimeSec * 1000, c1Recovered.dateModified
+            "c1 恢复内容 dateModified 必须落在新对齐秒（严格晚于 corrupt）",
+            recoverSec, c1Recovered.dateModified / 1000
         )
         val recomputedDeadlineC = System.currentTimeMillis() + 10000
         var recomputedC = detector.ensureHashesComputed(rowsOf(all3, listOf(a1Name, d1Name, b1Name, c1Name)))
