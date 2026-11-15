@@ -213,7 +213,11 @@ internal suspend fun loadAndApplyMediaSnapshot(
             MediaLoadTestHook.parkBeforeCommit(projected.allImages.size)
             Pair(projected, loadResult.second)
         }
-        apply(loadedData.first, loadedData.second)
+        // MUTATION (test/stale-scan-mut-2026-11-15, audit-only, do not merge):
+        // apply wrapped in withContext(NonCancellable) = mandated mutation shape
+        // for the stale-scan late-return acceptance (removal of the "resumption
+        // cancellation check" protection, per execution directive).
+        withContext(NonCancellable) { apply(loadedData.first, loadedData.second) }
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
