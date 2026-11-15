@@ -155,11 +155,15 @@ class PartialSelectionPhaseBTest {
         // Select photos → 选择器（当前选中集预勾选）→ 像素驱动改选 → 确认。
         ui.launchSettingsPhotosPage()
         // R13/R-final 实证：AppInfo 行点击可能被吞没、条目可能在折叠区下方
-        // （R-final API36 dump：页面滚动后条目不可见）——导航核验 + 滚动重试
+        // （R-final API36 dump：页面滚动后条目不可见）——导航核验 + 滚动重试。
+        // run 43490249343 API36 实证：渲染中段的 a11y bounds 坐标回退点击命中
+        // 相邻 Notifications 行，仅凭 goneMarkers 消失会误判已导航——加正向
+        // 权限页包名核验（错误页面 BACK 回原页重试）。
         ui.tapWithNavigationVerify(
             listOf("Permissions", "权限"),
             goneMarkers = listOf("Force stop", "Storage & cache"),
-            tag = "app-permissions-entry"
+            tag = "app-permissions-entry",
+            verifyPkgs = ui.PERMISSIONS_PAGE_PKGS
         )
         val reached = ui.tapAnyScrollableToMarker(
             ui.SETTINGS_PHOTOS_ENTRY_CANDIDATES,
