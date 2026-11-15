@@ -251,8 +251,35 @@ class HashRecomputeDeviceTest {
         }
         val lsOut = shell("ls -l /sdcard/$dir 2>&1")
         Log.i(TAG, "fixture files: $lsOut")
+        // 多角度归因诊断（轮 8 后：null 持久 10s，瞬态理论被推翻）
+        val diagUri = all.getValue(a1Name).uri
+        // (1) 主线程 open（awaitReadable 已证可行——复核采样）
+        val mainOpen = runCatching {
+            ctx.contentResolver.openInputStream(diagUri)?.use { it.readBytes().size } ?: -1
+        }.getOrElse { -2 }
+        Log.i(TAG, "diag main-thread openInputStream: $mainOpen bytes")
+        // (2) Default 线程 open（与 computeDHash 同线程面）
+        val defaultOpen = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            runCatching { ctx.contentResolver.openInputStream(diagUri)?.use { it.readBytes().size } ?: -1 }.getOrElse { -2 }
+        }
+        Log.i(TAG, "diag default-thread openInputStream: $defaultOpen bytes")
+        // (3) openFileDescriptor 精确异常面
+        val fdState = runCatching {
+            val fd = ctx.contentResolver.openFileDescriptor(diagUri, "r")
+            val s = if (fd != null) "ok" else "NULL"
+            fd?.close()
+            s
+        }.getOrElse { "threw ${it.javaClass.simpleName}: ${it.message}" }
+        Log.i(TAG, "diag openFileDescriptor: $fdState")
+        // (4) 直接文件路径读（绕过 provider）
+        val fileRead = runCatching { java.io.File("/sdcard/$dir$a1Name").readBytes().size }.getOrElse { -1 }
+        Log.i(TAG, "diag direct file read: $fileRead bytes")
+        // (5) 行状态（is_pending/_data）+ appops + 权限面
+        Log.i(TAG, "diag row state: ${shell("content query --uri content://media/external/images/media --where \"_display_name='$a1Name'\" --projection _display_name,is_pending,_data 2>&1")}")
+        Log.i(TAG, "diag appops: ${shell("cmd appops get com.tabula.v3.recyclebin.test READ_MEDIA_IMAGES 2>&1")}")
+        Log.i(TAG, "diag perm: ${shell("dumpsys package com.tabula.v3.recyclebin.test 2>&1 | grep -A1 'READ_MEDIA_IMAGES'")}")
         // 建立面（瞬态容错 + 原因可见）：对生产入口截止轮询；首击结果留证日志
-        val firstHit = PerceptualHash.computeDHash(ctx, all.getValue(a1Name).uri)
+        val firstHit = PerceptualHash.computeDHash(ctx, diagUri)
         Log.i(TAG, "direct first hit a1: $firstHit")
         val established = establishHashesWithTolerance(all, listOf(a1Name, d1Name, b1Name, c1Name))
         val oldA = established.getValue(a1Name)
