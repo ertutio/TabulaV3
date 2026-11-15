@@ -181,7 +181,7 @@ class HashRecomputeDeviceTest {
 
     // ---------- 用例 ----------
     @Test
-    fun contentEditInvalidatesHashAndConsumersAdoptRecomputedResults() = runBlocking {
+    fun contentEditInvalidatesHashAndConsumersAdoptRecomputedResults() = runBlocking<Unit> {
         // ---- 1. 夹具与旧版本结果 ----
         val a1Row = insertFixture(a1Name, Gradient.HORIZONTAL)
         insertFixture(d1Name, Gradient.VERTICAL)
@@ -319,6 +319,7 @@ class HashRecomputeDeviceTest {
         // ---- 11. 清理 ----
         cleanupAll()
         Log.i(TAG, "complete: production-chain recompute verified (invalidate/recompute/consume/recover/preserve)")
+        Unit
     }
 
     private fun cleanupAll() {
