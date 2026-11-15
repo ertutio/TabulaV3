@@ -249,7 +249,14 @@ def main():
     # 建立 PARTIAL + 47 行池断言，段预算 480s）→ 1200s→1500s（段位增长同步上调，
     # e95f705/2be08ad 同款口径；全脚本基线 ≈17 分钟（run 43597856253 API36 实测
     # + T06Remaining 3 例）+ 新段预算余量 < 25 分钟；device job timeout 30→40 分钟同步）。
-    subprocess.run(["bash", "tools/run-cloud-ui-probe.sh"], check=True, timeout=1500)
+    # 2026-11-15 StaleScanLateReturn 段新增（Unit B 旧扫描晚返回设备验收，真实接线级
+    # 竞态构造 + 五步握手，段预算 600s）→ 1500s→1800s（段位增长同步上调，同款口径）。
+    # 登记数字：run 43609384927 probe 子进程实测墙钟 API36=1150.4s / API37=1174.2s
+    # （其中 b2mr 段 ≈150s）；本段预估 ≈200-290s（PARTIAL 选择器建立 ≈ B2MR 量级 +
+    # park/release/观察窗轮询）→ API37 投影 ≈1380-1470s，对 1500s 预算余量 <120s，
+    # 逼近预算 → 上调 1800s（余量 ≈330s+）；device job timeout 40→50 分钟同步
+    # （run 43609384927 device job 墙钟 ≈21.6 分钟 + 本段 ≈5 分钟 ≈ 27 分钟 < 50）。
+    subprocess.run(["bash", "tools/run-cloud-ui-probe.sh"], check=True, timeout=1800)
 
 if len(sys.argv) > 1:
     if sys.argv[1:] == ["metadata"]:

@@ -210,6 +210,7 @@ internal suspend fun loadAndApplyMediaSnapshot(
             // 浏览/推荐由"快照 − 软删除集合"派生，相册计数与封面同步重算。
             val projected = projectSnapshot(loadResult.first, loadResult.second)
             albumManager.initialize(preloadedBuckets = projected.systemBuckets)
+            MediaLoadTestHook.parkBeforeCommit(projected.allImages.size)
             Pair(projected, loadResult.second)
         }
         apply(loadedData.first, loadedData.second)
