@@ -384,7 +384,6 @@ class B2MediaAccessRevisionDeviceTest {
         )
     }
 
-    /** 最新生产批次日志行（logcat -d -s DeckScreen 全缓冲尾行；无则 null）。 */
     /**
      * 动作边界后最新批次日志行。同时 dump 测试自身 TAG 与 DeckScreen，按缓冲
      * 行序取最后一次边界标记之后的批次行；无边界标记（被环淘汰/未写入）或
