@@ -67,16 +67,20 @@ import org.junit.runner.RunWith
  *     （B2MR 步骤5c 同款）→ STALE_BOUNDARY_MARKER 在 tap 前写入 → 边界后
  *     batch-site-4 批次日志行 id 集 == 47 池集（边界后无新事件/仅动作前日志
  *     = 红灯，fail-closed）。
- *  4. **释放旧扫描，确认旧读取确实返回**：MediaLoadTestHook.release() → 轮询
- *     断言 isReleased() 且 logcat（MediaLoadTestHook tag）出现 "resumed rows=2"
- *     ——旧读取结果确实浮出（rows=2 即旧选择集合投影），提交与否归生产链
- *     恢复期取消检查。
- *  5. **旧集合不覆盖 + 取消不误报失败**：继续观察窗（≥5s）：集合面仍 47 名；
- *     deck 标记在窗；释放标记后批次日志行 id 集仍 == 47 池集（释放后无 2 行
- *     批次事件 = 旧投影未提交未覆盖）；logcat 无 TabulaApp
- *     "Could not load/reconcile recycle bin" 错误行且界面无"回收站记录未能
- *     读取"对话框（CancellationException 原样重抛不落 onError——PR50 语义的
- *     设备面）；无权限门控（hasPermission 保持）；全程 pidof 恒等。
+ *  4. **释放旧扫描，确认旧读取确实返回**：BACK 回 deck（SETTINGS→DECK 生产回退；
+ *     释放与观察窗在 deck 前景执行——Settings 前景下 deck 为 backgroundContent，
+ *     标记不在活动窗树内）→ MediaLoadTestHook.release() → 轮询断言 isReleased()
+ *     且 logcat（MediaLoadTestHook tag）出现 "resumed rows=2"——旧读取结果确实
+ *     浮出（rows=2 即旧选择集合投影），提交与否归生产链恢复期取消检查。
+ *  5. **旧集合不覆盖 + 取消不误报失败**：≥5s 观察窗（deck 前景）：deck 标记在窗；
+ *     无门控（hasPermission 保持）；无"回收站记录未能读取"对话框；MediaStore
+ *     可见面 47（可见性不变量——旧投影 apply 只改应用内存 allImages，不动
+ *     MediaStore）。**覆盖检测器（确定性重取批）**：第二次真实 Settings 推荐
+ *     模式现值重选触发 deck 从当前已提交池重取——释放标记后全部 DeckScreen
+ *     批次行 id 集 == 47 池集且至少一条存在（若旧扫描释放后曾提交 2 行覆盖，
+ *     重取批/同步批次出现 2 行事件即红灯；池 ≤ batchSize 50 → 整池重取确定
+ *     性成立）；logcat 无 TabulaApp "Could not load/reconcile recycle bin"
+ *     错误行（CancellationException 原样重抛不落 onError——PR50 语义的设备面）。
  *     **清理状态面**：暂停前已经真实生产写入口建立 组{g1,g2}+断点+已处理
  *     （FPF Phase1 建组模式复制，见下方"建组模式登记"），步骤5 以新
  *     AlbumManager 实例 + AppPreferences 读回断言 组键/断点/已处理 原样
@@ -720,7 +724,16 @@ class StaleScanLateReturnDeviceTest {
         }
         Log.i(TAG, "step3c post-boundary batch-site-4 pool equality: ${batchIds.size} ids == full 47 pool")
 
-        // ---- 步骤4：释放旧扫描，确认旧读取确实返回（结果在手上）----
+        // ---- 返回 deck：BACK（SETTINGS→DECK 生产回退）——释放与观察窗在 deck 前景执行 ----
+        // （Settings 前景下 deck 为 backgroundContent，标记不在活动窗树内——观察窗的
+        // deck 树断言必须在 deck 前景执行；B2MR 步骤5 同款 BACK 回退。）
+        ui.shell("input keyevent KEYCODE_BACK")
+        ui.waitFor(ui.DECK_MARKER, timeoutMs = 30000)
+        awaitAnyNode(NAMED_NAMES + FILLER_NAMES, timeoutMs = 15000, tag = "stale-deck-full-pool")
+        assertEquals("步骤3→4 之间必须同进程", pid0, appPid())
+        Log.i(TAG, "back on deck consuming full pool before release (pid=$pid0)")
+
+        // ---- 步骤4：释放旧扫描，确认旧读取确实返回（结果在手上；deck 前景执行）----
         Log.i(TAG, "$STALE_RELEASE_MARKER before release")
         MediaLoadTestHook.release()
         val released = awaitDeadline("stale-release", timeoutMs = 20000) {
@@ -736,10 +749,11 @@ class StaleScanLateReturnDeviceTest {
         assertEquals("释放不产生新的 revision/扫描（无 Home/am start 动作）", pid0, appPid())
         Log.i(TAG, "step4 old read surfaced: isReleased=true, logcat 'resumed rows=2' confirmed")
 
-        // ---- 步骤5a：观察窗（≥5s）：旧集合不覆盖 + 取消不误报失败 ----
-        // 集合面仍 47（释放后旧投影 {b1,b2} 若曾提交，allImages → 2 行，面查询即红）；
-        // deck 标记在窗；无门控；无"回收站记录未能读取"对话框（onError 呈现面）；
-        // 无权限门控（hasPermission 保持）。
+        // ---- 步骤5a：观察窗（≥5s，deck 前景）：取消不误报失败 + 可见性不变量 ----
+        // deck 标记在窗；无门控（hasPermission 保持）；无"回收站记录未能读取"对话框
+        // （onError 呈现面）。集合面（MediaStore 原始查询）在此窗为**可见性不变量**
+        // （旧投影 apply 只改应用内存 allImages，不动 MediaStore——覆盖检测器是
+        // 步骤5b 的确定性重取批，见下）。
         val staleObserveEnd = SystemClock.uptimeMillis() + 5000
         var staleWindowOk = 0
         var lastFace: List<String>? = null
@@ -765,10 +779,10 @@ class StaleScanLateReturnDeviceTest {
                 if (face != null) {
                     lastFace = face
                     if (face.toSet() != FULL_EXPECTED_NAMES || face.size != FULL_EXPECTED_NAMES.size) {
-                        ui.dumpTree("stale-overwrite-detected")
-                        ui.saveScreenshot("stale-overwrite-detected")
+                        ui.dumpTree("unexpected-store-face-after-release")
+                        ui.saveScreenshot("unexpected-store-face-after-release")
                         error(
-                            "释放后集合面被旧投影覆盖（旧扫描晚返回不得覆盖新集合）：" +
+                            "释放后 MediaStore 可见面变化（应用动作不得增删媒体行）：" +
                                 "expected=47 行 actual=${face.size} 行 actualSet=${face.toSet()}"
                         )
                     }
@@ -781,31 +795,71 @@ class StaleScanLateReturnDeviceTest {
             "释放后观察窗必须存在被测应用窗口（有效性门，staleWindowOk=$staleWindowOk）",
             staleWindowOk > 0
         )
-        Log.i(TAG, "step5a stale observe window ok: face=47 kept, deck kept, no gate, no error dialog ($staleWindowOk polls, lastFace=${lastFace?.size})")
+        Log.i(TAG, "step5a stale observe window ok: deck kept, no gate, no error dialog, store face 47 ($staleWindowOk polls, lastFace=${lastFace?.size})")
 
-        // ---- 步骤5b：释放标记后缓冲核对——无 2 行批次事件 + 取消不落 error 日志 ----
-        // 批次：释放标记后的 DeckScreen 批次行 id 集全部 == 47 池集（旧投影若曾
-        // 提交，deck 同步/重取批将出现 2 行批次事件）；错误：TabulaApp
-        // "Could not load/reconcile recycle bin" 必须缺席（CancellationException
-        // 原样重抛不落 onError——PR50 语义的设备面）。标记缺席 = fail-closed。
+        // ---- 步骤5b：旧集合不覆盖（确定性重取批）+ 取消不落 error 日志 ----
+        // **覆盖检测器**：旧投影 apply 只改应用内存 allImages（MediaStore 面不变），
+        // 故经真实 Settings 推荐模式现值重选（第二次）触发 deck 从**当前已提交池**
+        // 重取批——若旧扫描释放后曾提交 2 行覆盖（allImages→{b1,b2}），重取批/
+        // 同步批次将出现 2 行批次事件（红灯）；池完好则重取批 = 47 池（池 ≤
+        // batchSize 50 → 整池，随机漫步自清冷却，重取确定性成立）。断言：释放标记
+        // 后**全部** DeckScreen 批次行 id 集 == 47 池集，且**至少存在一条**（重取
+        // 动作保证新事件；无事件/仅动作前日志 = 红灯 fail-closed）。错误面：
+        // TabulaApp "Could not load/reconcile recycle bin" 必须缺席（
+        // CancellationException 原样重抛不落 onError——PR50 语义的设备面）。
+        openSettingsFromDeck()
+        assertTrue(
+            "推荐模式行（第二次重取批，滚动定位 + sheet 打开核验）失败",
+            ui.tapAnyScrollableToMarker(
+                candidates = listOf("推荐模式"),
+                verifyMarker = "真正随机抽取",
+                tag = "stale-recommend-row-2",
+                maxScrolls = 4
+            )
+        )
+        val option2 = ui.waitFor("真正随机抽取")
+        Log.i(TAG, "stale-post-release-refetch-boundary: before second reselect tap")
+        ui.clickNode(option2, "stale-option-random-walk-2")
+        FullPartialFullUi.awaitDismissed("真正随机抽取", tag = "stale-sheet-dismissed-2", timeoutMs = 10000)
+
         val afterRelease = bufferLinesAfterMarker(STALE_RELEASE_MARKER)
             ?: error("释放边界标记未在 logcat 缓冲中找到（被环淘汰或未写入）——fail-closed")
         val postReleaseBatchLines = afterRelease.filter { it.contains(BATCH_LOG_ANCHOR) }
-        for (line in postReleaseBatchLines) {
-            val ids = parseBatchIds(line)
-            assertEquals(
-                "释放后不得出现非 47 池批次事件（旧扫描释放后提交 2 行覆盖 = 本断言红灯）：" +
-                    "line=$line ids=$ids",
-                expectedPoolIds, ids
+        val refetchDeadline = SystemClock.uptimeMillis() + 30000
+        var latestPostIds: Set<String> = emptySet()
+        while (SystemClock.uptimeMillis() < refetchDeadline) {
+            val lines = bufferLinesAfterMarker(STALE_RELEASE_MARKER) ?: emptyList()
+            val batchLines = lines.filter { it.contains(BATCH_LOG_ANCHOR) }
+            latestPostIds = batchLines.lastOrNull()?.let { parseBatchIds(it) } ?: emptySet()
+            if (latestPostIds == expectedPoolIds &&
+                batchLines.all { parseBatchIds(it) == expectedPoolIds }
+            ) break
+            SystemClock.sleep(300)
+        }
+        if (latestPostIds != expectedPoolIds ||
+            bufferLinesAfterMarker(STALE_RELEASE_MARKER)!!
+                .filter { it.contains(BATCH_LOG_ANCHOR) }
+                .any { parseBatchIds(it) != expectedPoolIds }
+        ) {
+            ui.dumpTree("stale-overwrite-or-no-refetch")
+            ui.saveScreenshot("stale-overwrite-or-no-refetch")
+            val lines = bufferLinesAfterMarker(STALE_RELEASE_MARKER)!!.filter { it.contains(BATCH_LOG_ANCHOR) }
+            error(
+                "释放后批次池断言失败（旧扫描释放后提交 2 行覆盖 / 或重取批未承接 47 池 / " +
+                    "或释放后无新批次事件）：\n" +
+                    "postReleaseBatchLines(${lines.size})=${lines.joinToString("\n")}\n" +
+                    "expectedIds(${expectedPoolIds.size})"
             )
         }
-        val errorLines = afterRelease.filter { it.contains(LOAD_ERROR_LOG) }
+        Log.i(TAG, "step5b post-release refetch = full 47 pool, no 2-row batch event (stale projection never applied)")
+        val errorLines = afterRelease.filter { it.contains(LOAD_ERROR_LOG) } +
+            bufferLinesAfterMarker(STALE_RELEASE_MARKER)!!.filter { it.contains(LOAD_ERROR_LOG) }
         assertTrue(
             "取消不得落 error 态（TabulaApp '$LOAD_ERROR_LOG' 必须缺席；" +
                 "found=${errorLines.joinToString(" || ")}）",
             errorLines.isEmpty()
         )
-        Log.i(TAG, "step5b post-release buffer clean: batchLines=${postReleaseBatchLines.size} all=47-pool, no TabulaApp load error line")
+        Log.i(TAG, "step5b post-release buffer clean: no TabulaApp load error line (cancellation rethrown as-is)")
 
         // ---- 步骤5c：清理状态面读回（新 AlbumManager 实例 + AppPreferences 持久层）----
         // 旧扫描在暂停前已执行过 albumManager.initialize(旧投影)（接缝位于
