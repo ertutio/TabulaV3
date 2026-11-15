@@ -6,7 +6,6 @@ import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.repository.AlbumCleanupEngine
 import com.tabula.v3.data.repository.PerceptualHash
-import com.tabula.v3.data.repository.RecycleBinManager
 import com.tabula.v3.data.repository.SimilarGroup
 import com.tabula.v3.data.repository.mediaIdentityKey
 import kotlinx.coroutines.runBlocking
@@ -34,13 +33,21 @@ import org.robolectric.annotation.Config
  * 夹具：真实 AppPreferences + 真实 AlbumCleanupEngine（组经 analyzeAlbum
  * 同一组写入口种子——AlbumCleanupForegroundRefreshTest 同款）+ 真实
  * ImageHashCache。Robolectric 本地；CI 门禁随 build job 单测轮执行。
+ * 隔离纪律：不触碰 AppPreferences/RecycleBinManager 的 getInstance 单例
+ * （本用例不需要回收站面；每用例 AppPreferences 新实例——见字段注释，
+ * PR80 轮 1 的跨类单例顺序污染实证）。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], manifest = Config.NONE)
 class Tc58HashRecoveryTest {
     private val context: Context get() = RuntimeEnvironment.getApplication()
     private val cache get() = ImageHashCache(context)
-    private val preferences: AppPreferences get() = AppPreferences.getInstance(context)
+    // 每用例新实例（PickCooldownIdentityTest 同款）：不触碰跨类共享的
+    // AppPreferences/RecycleBinManager 单例——Robolectric 沙箱复用下静态存活，
+    // 多类共 JVM 时首个调用者捕获的 context 会使共享单例指向陈旧 filesDir
+    // （PR80 轮 1 CI 实证：本类在 @Before 触碰 getInstance 后，后跑的
+    // AlbumCleanupForegroundRefreshTest :177 断言读到空——单例写落陈旧目录）。
+    private val preferences: AppPreferences get() = AppPreferences(context)
     private val albumId = "tc58-hash-recovery"
 
     private fun key(imageId: Long) = ImageHashCache.HashKey("external_primary", imageId)
@@ -63,7 +70,6 @@ class Tc58HashRecoveryTest {
         cache.clearAll()
         preferences.clearAllPickRecords()
         preferences.clearAllAlbumCleanupState()
-        runBlocking { RecycleBinManager.getInstance(context).clearRecycleBin() }
     }
 
     @Test
