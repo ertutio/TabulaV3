@@ -191,12 +191,26 @@ class HashRecomputeDeviceTest {
         insertFixture(s1Name, Gradient.DIAGONAL)
 
         val all = awaitAllRows()
+        // 夹具落盘核对（字节面）：文件大小 >0 + MIME 有效（诊断：decode 失败的第一嫌疑=字节未落/损坏）
+        val lsOut = shell("ls -l /sdcard/$dir 2>&1")
+        Log.i(TAG, "fixture files: $lsOut")
+        // 直算面（原因可见）：逐行 computeDHash，Failed 时断言消息携带确切 reason
+        for (row in rowsOf(all, listOf(a1Name, d1Name, b1Name, c1Name))) {
+            val r = PerceptualHash.computeDHash(ctx, row.uri)
+            assertTrue(
+                "直算必须成功 name=${row.displayName} size=${row.size} dm=${row.dateModified} uri=${row.uri} result=$r",
+                r is PerceptualHash.HashResult.Success
+            )
+        }
         val rowsOld = rowsOf(all, listOf(a1Name, d1Name, b1Name, c1Name))
         val hashesOld = detector.ensureHashesComputed(rowsOld)
-        val oldA = hashesOld[all.getValue(a1Name).toHashKey()]!!
-        val oldDHash = hashesOld[all.getValue(d1Name).toHashKey()]!!
-        val oldBHash = hashesOld[all.getValue(b1Name).toHashKey()]!!
-        val oldCHash = hashesOld[all.getValue(c1Name).toHashKey()]!!
+        fun Long?.require(name: String): Long = this ?: error(
+            "ensureHashesComputed 缺失/失败 name=$name keysInMap=${hashesOld.keys.size} map=${hashesOld.map { (k, v) -> k.storageKey to v }}"
+        )
+        val oldA = hashesOld[all.getValue(a1Name).toHashKey()].require(a1Name)
+        val oldDHash = hashesOld[all.getValue(d1Name).toHashKey()].require(d1Name)
+        val oldBHash = hashesOld[all.getValue(b1Name).toHashKey()].require(b1Name)
+        val oldCHash = hashesOld[all.getValue(c1Name).toHashKey()].require(c1Name)
         assertTrue("旧哈希四项互异（夹具可区分性自检）", setOf(oldA, oldDHash, oldBHash, oldCHash).size == 4)
         assertTrue(
             "horizontal-vs-vertical dHash 必须超过拒绝阈值（>14，实测=${PerceptualHash.hammingDistance(oldA, oldDHash)}）",
