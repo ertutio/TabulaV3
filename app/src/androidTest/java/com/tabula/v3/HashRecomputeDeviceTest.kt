@@ -437,8 +437,11 @@ class HashRecomputeDeviceTest {
         Log.i(TAG, "step9 unrelated state preserved")
 
         // ---- 10. 双面核对（shell 行面+哨兵）----
+        // 无 where 全量查询（B2MR gallery_rows 已证形态；executeShellCommand 层
+        // 嵌套引号解析破损——轮 12 步骤 10/diag row state 的 usage 输出实证）；
+        // 本段段首 gallery-clean 门已保证查询时库内仅本夹具 6 行。
         val shellOut = shell(
-            "content query --uri content://media/external/images/media --where \"relative_path='$dir'\" --projection _display_name 2>&1"
+            "content query --uri content://media/external/images/media --projection _display_name 2>&1"
         )
         for (name in allNames) {
             assertTrue("shell 面必须存在 $name", shellOut.contains(name))
