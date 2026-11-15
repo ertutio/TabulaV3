@@ -77,14 +77,14 @@
 | T09 / TC43–TC44 | 已覆盖 | **兼容矩阵文档已在 master**（toolchain-compat）；覆盖安装自动化子集已闭环（#73/75/76） |
 | T10 / TC45–TC47 | 已关闭（实现+正确性夹具）；收益数字=性能阶段 | **#59/#60/#55/#56 已合并**——A1"缺实现"过期；StorageStatsManager.performScan 全量重扫为相邻登记观察（非 T10 归档链面，映射问题登记） |
 | T11 / TC48–TC51 | T11a/b 已关闭（实现+夹具）；收益=性能阶段 | ImageFeatureCacheStore single-flight+Lru 实树核对 |
-| T12 / TC52–TC53 | EXIF/取消已关闭；**media3 实况/动画生命周期定点回归仍缺** | 唯一可实施剩余（见就绪清单） |
+| T12 / TC52–TC53 | **已关闭**（EXIF+取消/并发=「或」口径全命中；media3 未使用=F1 已登记 P4 清理候选；平台 MediaPlayer 生命周期=无 Compose 单测基建审读口径） | ~~唯一可实施剩余~~ 已并入上面 R1 解散结论 |
 | T13 / TC54–TC55 | 自动化子集已关闭；人工清单/发布/签名=awaiting_human | 见 D 节 |
 
 ## 三、就绪可实施清单（性能前，按价值排序）
 
 | # | 工作项 | 断言 | 依据 | 规模 |
 | --- | --- | --- | --- | --- |
-| R1 | **T12-MEDIA3 定点回归**：MotionPhotoPlayer/SwipeableViewerOverlay 实况播放生命周期（TC52/53 "动画生命周期"半边） | 播放器释放/复用/前台切换不泄漏不误释放 | acceptance.md T12 行；master 无 media3 命中测试 | 中（media3 在 Robolectric 支持有限——先探针评估，不可行则降级设备侧小用例或如实登记 blocked-技术） |
+| R1 | ~~T12-MEDIA3 定点回归~~ **已解散（2026-11-15 02:40 实核）**：media3 1.5.1 仅 catalog 声明、build.gradle.kts 无引用、main 零 import（F1 报告既已登记"未使用 P4 清理候选"）；实际播放依赖=平台 android.media.MediaPlayer（MotionPhotoPlayer.kt:36）；其 DisposableEffect 释放语义无 Compose 单测基建（PR34/35 同款审读边界），无缺陷证据不造接缝 | T12 按"或"口径闭合：EXIF（#63）✓ + 协程取消/并发（PR40/PR50/PR63）✓；动画生命周期=审读口径登记 | 无可实施项（media3 清理=依赖面暂停期不动，登记 P4） | — |
 | R2 | TC58 补面：临时读取失败→恢复后旧哈希失效按有界策略重算+无关冷却/进度保留 | 失败注入→恢复→重算正确 | TC58 规格；PR27 版本键+#60 失效已有部分证据，缺"临时读取失败恢复"半边 | 小-中（PR27 测试基建复用） |
 | R3 | Unit B 收尾（在飞） | 见 A 节 | wg-Stale | 在飞 |
 | R4 | #79 合并后 master CI 复核登记 | 合并态三 job 绿 | 维护者合并动作后 | 小 |
