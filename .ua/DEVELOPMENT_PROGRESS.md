@@ -2,7 +2,22 @@
 
 本文件维护当前状态、队列和唯一 `next_action`。执行循环与升级条件见[总计划](DEVELOPMENT_ROADMAP.md)，T/TC 规格见[验收约定](../docs/acceptance.md)，启动文本见[智谱续接说明](ZHIPU_HANDOFF.md)。下方“历史交付登记”起均为历史，只供证据追溯。
 
-## 当前游标：北京时间 2026-11-08（夜间集中开发会话，截止 2026-11-09 09:00，功能冻结 06:30）
+## 当前游标：北京时间 2026-11-15 00:30（性能前收口阶段，性能测量暂停）
+
+| 字段 | 当前值 |
+| --- | --- |
+| 总任务状态 | `in_progress`——**性能前正确性/恢复/设备验收收口阶段**（用户 2026-11-15 指令：性能测量、基线采集、优化实现、依赖升级全部暂停；PR77 作为既有证据保留；性能阶段启动需用户确认）。 |
+| master 基线 | **`master@60aa6e03a0ad2d862c3bf198ca13d7f8a11849ad`**（已含 PR78=158a368 T06-fixes；merge-base 实证 2026-11-15 00:20）。master CI run 43521426417 绿（P2-① 73943f8 释放判定同快照复合闭合）。 |
+| 实际 PR 状态 | **PR79** OPEN，head `83e3ccfa970496dad1ec3022aae9f7d7ca2ab86d`（test/b2-to-master-2026-11-14）；run 43609384927 对该 head 三 job success——双设备实际执行 T06Remaining 3 例 + FPF 三阶段 + B2MediaAccessRevision 1 例 + B2PermissionRefresh 3 例（工件实核）。集成面核验：14 文件零生产面、master 是 head 祖先（零丢失）。**PR77** OPEN，head `4e00669bf4a875396af885b82e40dc47f5345726`（perf/aa-2026-11-12，A/A 参考保存；热启动两轮差异 42.3% 来源未归因——性能阶段再归因）。**PR12** OPEN，head `e3420e44`（本计划分支，仅计划参考，不能整体合并）。**#68–#78 全部已合并**（#78 merge 2026-11-14T10:35Z）。 |
+| 已审计证据 | audit-B2MR.md（B2MediaAccessRevision 修复 83e3ccf 已交付+CI 绿）；audit-RA-pr75.md / audit-RB-pr76.md（#75/#76 合并后审计 PASS）；audit-T06-fixes.md（#78 PASS）；audit-B2-followup.md（B2PermissionRefresh PASS）；全部落 .ua/night-2026-11-08/ 与 coord/。FPF Phase3 API36 flake（43597856253 红/43604993882 绿=间歇，dialog LazyColumn 语义更新丢失，框架层）监控中。 |
+| 剩余断言 | 见唯一队列（next_action）；完整 T01–T13/TC01–TC58 差额盘点=本阶段 Unit 4 交付（coord/pre-perf-inventory.md）。 |
+| next_action | **唯一执行队列（2026-11-15，用户指令）**：①Unit A——PR79 收口：修正 B2MediaAccessRevisionDeviceTest 验收表述（"stale result refused"/"取消真实触发"等超证据表述→实际行为：真实 PARTIAL→FULL 刷新链同进程最终向推荐批次提供完整 47 项集合）+ 批次日志观测加本次动作边界（latestBatchLogLine 只认动作后新事件，拒绝"仅有动作前正确日志"）→ 冻结源码+回归+独立只读复审。②Unit B——旧扫描晚返回独立设备验收单元：显式握手（旧扫描停可控位→真实权限变化触发新 revision/扫描→新集合提交→释放旧扫描确认返回→旧集合不覆盖+取消不误报失败）；最小 debug 接缝需独立审计；核心保护定向变异验证。③Unit C——性能前剩余验收盘点（T01–T13/TC01–TC58 逐项差额→可执行下一步；能合成的实施，需真机/签名/人工的登记 awaiting_human/blocked+解除条件）。④Unit D——"性能前收口报告"交用户确认后启动性能阶段。合并/发布均交用户。 |
+| 环境事实 | 本机时钟=北京(+0800)，勿用 TZ=Asia/Shanghai；upload-artifact 禁 `|`；bash 文件必须 LF 写入；Gradle 全量门禁 `--no-build-cache`；平台并发限额=同时 2 子代理（主代理+2）。 |
+
+---
+
+## 历史游标：2026-11-08 夜间集中开发会话（已归档，证据仅供追溯）
+
 
 | 字段 | 当前值 |
 | --- | --- |
