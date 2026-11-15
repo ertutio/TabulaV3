@@ -22,6 +22,11 @@
 - **R2（TC58 补面）已交付→PR #80**：618112d（test/tc58-hash-recovery-2026-11-15，仅测试单文件，零生产改动）——临时读取失败恢复（FAILED→版本推进不服务→重算成功→版本键单向）+ 无关面保留（冷却/组键/断点/永久完成经生产入口种子+全循环读回）。本地 2/2 绿+相邻 8/8 零回归；CI 43691596178 运行中；审计待派。
 - **Unit B 在飞**：wg-Stale（基于 d03dc08 堆叠），实现者执行握手五步+MediaLoadTestHook 接缝+变异分支（设计由协调者读码定型：park 必须在 withContext(IO) 块内 NonCancellable 承载——块外无取消检查点会绕过守卫）。
 
+## 收口阶段执行登记二（2026-11-15 03:00 增补）
+- **Unit A 全链闭环**：d03dc08（表述+边界）→ 独立复审 PASS（coord/review-B2MR-closure.md：grep 零超证据残留、marker 位置/fail-closed/47 相等未削弱、CI 43690226527 双 API 工件实核 OK(1)+时序链 marker→batch-site-4→47 ids→complete 校正行）→ 非阻塞 3 条处置（孤儿 KDoc 删除+notes §11 run 链登记=52c9de6；PR79 head 52c9de6，可执行代码与 43690226527 绑定行为逐字节同——#74 docs 尾随口径）。
+- **R2/TC58（PR #80）轮 1 CI 失败→根因→修复→审计闭环**：轮 1 43691596178 红——唯一失败=相邻既有用例 directRecycleClear…（:177 expected [external_primary|1] was []），Tc58 本身 2/2 绿（工件实核）。归因（审计与协调者独立一致）：本类 setUp 曾为 JVM 首个 RecycleBinManager.getInstance 调用方，生产单例首次创建绑定 context 且未纳入 resetSingleton 测试纪律，插入位置改变绑定环境、确定性暴露先存隔离缺口。决定性证据=master CI 43692861712（同生产字节、无本类）build job 绿 + 本地双变体绿。**修复 2bea13b**：本类完全移除单例触碰（不需要回收站面+每用例新 AppPreferences 实例，PickCooldownIdentityTest 同款）；先存缺口登记为测试纪律后续候选（不在本 PR 生产侧改动）。**审计**：coord/audit-TC58-pr80.md 需修复 2 项均已落实（①单例隔离修复 ②PR 正文 #59 错引更正→U9/GroupIdentityCleanupPersistenceTest）；轮 2 CI 43693504295 运行中（合并判据=build job 全绿）。
+- **R1 解散**：media3 1.5.1 仅 catalog 声明、main 零 import（F1 已登记 P4 清理候选）；实际播放依赖=平台 MediaPlayer（MotionPhotoPlayer.kt:36）；DisposableEffect 释放语义无 Compose 单测基建（PR34/35 同款审读边界）→ T12 按"或"口径闭合。盘点文件已更新（a943e03）。
+
 ## 历史游标：2026-11-08 夜间集中开发会话（已归档，证据仅供追溯）
 
 
