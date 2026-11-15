@@ -40,8 +40,11 @@
 ## 收口第二轮执行登记（2026-11-15 05:10）
 - **合并执行（用户 §一 授权，预期 head 校验）**：#77（4e00669b，20 文件零生产面、workflow push 触发仅限 perf/emulator-baseline-v1 分支=master 无自动测量、绿 run 43387329019@55b8edf6 与 head 增量仅结果文件、正文结果边界逐字保留）→ master b787aca；#79（52c9de60，增量全在已审范围：d03dc08=复审 PASS+CI 43690226527 绑定、52c9de6=KDoc/notes 尾随；与 #77 触碰面零叠合）→ master merge commit 52c9de60c3。**master 树核验**：13 个预期 androidTest 文件+benchmark/ 全在。组合 CI run 43713220665 运行中。依赖分支：#81 变基 master（MERGEABLE，diff 恰 7 文件）；#80 并入 master（aff9568）。
 - **§二 交付（4046245b，#80 分支）**：HashRecomputeDeviceTest（真实生产链重算：失效/重算/消费面正负对照/失败恢复/无关面保留/shell 双面哨兵）+ 插件 fail-explicit 加固（清单漂移显式失败，守卫 4 例含 c1→c2 生命周期探针=方法间复位实证）+ probe 新段+预算 1800s/50min（登记）+ probe 全文件 LF 规范化。本地 872/872 双变体。CI 43714628520 运行中。
-- **教训登记**：bash heredoc（<<'EOF' 引号形态）传输层会破坏  字节模式——连续两次字面 CR 修复经 heredoc 失效；改用 Write 工具写脚本文件执行成功。probe 全文件 CRLF 已规范化 LF（历史教训复演拦截）。
+- **教训登记**：bash heredoc（<<'EOF' 引号形态）传输层会破坏 
+ 字节模式——连续两次字面 CR 修复经 heredoc 失效；改用 Write 工具写脚本文件执行成功。probe 全文件 CRLF 已规范化 LF（历史教训复演拦截）。
 - **§三 在飞**：原执行者（wg-Stale）执行目标变异证据补齐（测试路径 a11y 失联恢复修正+隔离变异落在目标断言+时间线登记）。
+
+- **master 组合 CI 绿（43713220665 @ 5fbb70cca9）**：#77+#79 合并树三 job 全绿——合并后基线验证完成（2026-11-15 05:40）。
 
 ## 历史游标：2026-11-08 夜间集中开发会话（已归档，证据仅供追溯）
 
