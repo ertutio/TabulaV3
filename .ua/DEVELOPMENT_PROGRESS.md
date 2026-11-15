@@ -32,6 +32,11 @@
 - **master CI 43692861712 全绿**（60aa6e03 三 job）——master 基线健康实证。
 - **R2/TC58（PR #80）卡点升级→独立咨询**：轮 2（43693504295）同相邻用例同断言再红（修复后仍红）。本地复现路径打通：全量 testReleaseUnitTest 本地红（此前仅 CI 红）→ 二分锁定**最小三元组 {AlbumCleanupImageResolverTest（纯逻辑无状态）, Tc58HashRecoveryTest, AlbumCleanupForegroundRefreshTest}** 决定性红；**空壳 sdk34 桩类不触发**（非"任意新类移序"）、无 Tc58 对子绿（我的类行为是必要条件）、{Tc58+AlbumCleanupForeground+PickCooldown} 绿（PickCooldown 在场=绿）。两次针对性修正（单例触碰移除）未解 → 按两次修正规则转独立咨询（嫌疑=Tc58 经 AlbumCleanupEngine 的异步/状态面在特定类序窗口落进相邻用例断言期）。变体注记：testReleaseUnitTest（CI 同款）复现，testDebugUnitTest 组合轮未见红。
 
+## 收口阶段执行登记四（2026-11-15 04:05 增补）
+- **TC58 卡点根因定案（独立咨询，证据链完整）**：Robolectric 4.12.2 每测试方法新建 filesDir（TempDirectory 名含 Class_method）但 sandbox classloader 按 (sdk,config) 缓存复用 → 应用类 static 跨方法跨类存活；首个 getInstance 调用者固化 context 进 static（**Tc58 的必要行为=被测生产入口 AlbumCleanupEngine 构造器内部调 getInstance——测试侧不可绕过，绕过即丢失真实路径覆盖，故轮 1/2 修正无效**）；失败链路用探针测试完整复刻（seedGroups 经陈旧单例落陈旧目录 → 回填在当前目录扫描无 groups_* → hasConfirmedMembers=false → 任何目录都没写 → :177 读空）。"最小三元组"系本地枚举序巧合（AlbumCleanupImageResolverTest 无 @Config=独立 sandbox 隔离 statics，与触发无关）；充分条件=任意先行类调一次 getInstance（1 行探针实证）。
+- **定向修正 5d6331b（采纳咨询推荐 C，基建层）**：新增 ResetAppSingletonsPlugin（TestEnvironmentLifecyclePlugin.onSetupApplicationState——字节码序实证在 clearEnvironment 前被调，经上一方法 Application 的 sandbox loader 反射置空 7 个应用单例 static；Kotlin companion @Volatile 编译为外层类静态字段）+ META-INF/services 注册；shadow @Resetter 路线实验否定（4.12.2 对自定义 app-class shadow 不触发）。**验证：本地双变体全量 864/864 绿（含原 :177 类 16/16）**；轮 3 CI run 43703642885 运行中（合并判据=build job 全绿）。PR80 正文已更新完整因果链。
+- Unit B 遗留登记更新：变异-1 的 no-op 机理与 PR50 KDoc 引用经审计者独立字节码验证一致；先存隔离缺口由本插件正面闭合。
+
 ## 历史游标：2026-11-08 夜间集中开发会话（已归档，证据仅供追溯）
 
 
