@@ -205,25 +205,30 @@ internal suspend fun loadAndApplyMediaSnapshot(
                 onRecycleUnknown()
             }
         }
-        // MUTATION-2 (diagnostic, audit-only, do not merge): load-commit block
-        // switched Dispatchers.IO -> NonCancellable = the effective mutation shape
-        // documented by MediaSnapshotLoadRaceTest's own KDoc ("将提交链的
-        // withContext 换成 NonCancellable"): same-interceptor path ->
-        // UndispatchedCoroutine (no cancellable-resumption job check) AND the
-        // block detaches from the cancelled caller's job, so the stale scan's
-        // apply executes after release. Mutation-1 (wrapping apply downstream of
-        // the withContext(Dispatchers.IO) boundary) is a no-op: the boundary
-        // check discards the result and throws CancellationException before any
-        // downstream code runs.
-        val loadedData = withContext(NonCancellable) {
+        // MUTATION-3 (diagnostic, audit-only, do not merge; supersedes MUTATION-2
+        // in this branch's history): apply moved INSIDE the
+        // withContext(Dispatchers.IO) block, right after the seam. Mechanism:
+        // a cancelled scan parked at the seam resumes on the IO worker after
+        // release and reaches apply with NO intermediate cancellation checkpoint
+        // (the commit-protection boundary sits at the BLOCK's completion, after
+        // apply), so the stale projection commits while the main thread stays
+        // alive - the NonCancellable park's blocking latch.await blocks only an
+        // IO worker, unlike MUTATION-2 (load block NonCancellable) whose
+        // same-interceptor UndispatchedCoroutine ran the whole block on MAIN and
+        // froze the app at the parked gate (THREAD_STATE main=CountDownLatch.await,
+        // runs 43695988574/43696079300 archived in notes). The handshake therefore
+        // reaches the step-5 target assertion ("old result overwrites new state").
+        // PR50 late-return reds at unit level first (the two race tests are
+        // @Ignore-routed in this branch); cooperative-cancel stays green here.
+        val loadedData = withContext(Dispatchers.IO) {
             val loadResult = load()
             // 浏览/推荐由"快照 − 软删除集合"派生，相册计数与封面同步重算。
             val projected = projectSnapshot(loadResult.first, loadResult.second)
             albumManager.initialize(preloadedBuckets = projected.systemBuckets)
             MediaLoadTestHook.parkBeforeCommit(projected.allImages.size)
+            apply(projected, loadResult.second)
             Pair(projected, loadResult.second)
         }
-        apply(loadedData.first, loadedData.second)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
