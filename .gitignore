@@ -21,3 +21,5 @@ build/
 
 .worktrees/
 .kotlin/
+__pycache__/
+*.pyc
