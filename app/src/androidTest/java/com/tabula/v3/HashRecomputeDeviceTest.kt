@@ -177,6 +177,33 @@ class HashRecomputeDeviceTest {
         error("夹具回读解码未就绪（截止轮询耗尽）name=$name reason=$lastReason")
     }
 
+    /**
+     * 显式 mtime 控制 + 重扫（轮 10 细节修复，2026-11-16）：MediaStore 的
+     * dateModified 派生自文件 mtime 且为 **1 秒粒度**——同秒内的两次换装
+     * 产生相同 dateModified（轮 10 步骤 8 "再升版"断言红实证）。本助手按
+     * FPF ensureG3Fixture 同款机械解（touch -t + scan_file）把文件 mtime
+     * 显式推到指定秒并重扫，截止轮询到行 dateModified 精确等于目标值——
+     * 版本递增从"依赖墙钟运气"变为确定性。
+     */
+    private fun touchAndRescan(name: String, mtimeSec: Long, timeoutMs: Long = 15000) {
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = mtimeSec * 1000 }
+        val spec = String.format(
+            "%04d%02d%02d%02d%02d.%02d",
+            cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1,
+            cal.get(java.util.Calendar.DAY_OF_MONTH), cal.get(java.util.Calendar.HOUR_OF_DAY),
+            cal.get(java.util.Calendar.MINUTE), cal.get(java.util.Calendar.SECOND)
+        )
+        shell("touch -t $spec /sdcard/$dir$name 2>&1")
+        shell("content call --uri content://media/ --method scan_file --arg /storage/emulated/0/$dir$name 2>&1")
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            val row = runBlocking { loadAll()[name] }
+            if (row != null && row.dateModified == mtimeSec * 1000) return
+            Thread.sleep(200)
+        }
+        error("mtime 未生效（截止轮询耗尽）name=$name 期望=${mtimeSec * 1000}")
+    }
+
     private suspend fun loadAll(): Map<String, ImageFile> =
         LocalImageRepository(ctx).loadAllData().allImages.associateBy { it.displayName }
 
@@ -321,17 +348,26 @@ class HashRecomputeDeviceTest {
         assertTrue("种子自检：冷却记录必须命中", preferences.getPickCooldownIndex().byIdentityKey.containsKey(unrelatedRow.mediaIdentityKey()))
         Log.i(TAG, "step3 unrelated state seeded")
 
-        // ---- 4. 内容变更（同身份，b1/d1 不动）----
+        // ---- 4. 内容变更（同身份，b1/d1 不动；mtime 显式控制=版本递增确定性）----
+        val corruptMtimeSec = System.currentTimeMillis() / 1000 + 1
         swapContent(a1Row, Pattern.STRIPES_B)   // a1 → 与 d1 相同内容（位型 B）
         swapContentCorrupt(c1Row)               // c1 → 损坏字节（真实解码失败）
+        touchAndRescan(a1Name, corruptMtimeSec)
+        touchAndRescan(c1Name, corruptMtimeSec)
 
         val all2 = awaitAllRows()
         val a1New = all2.getValue(a1Name)
         val c1New = all2.getValue(c1Name)
         val b1Same = all2.getValue(b1Name)
         val d1Same = all2.getValue(d1Name)
-        assertTrue("a1 dateModified 必须升版", a1New.dateModified > all.getValue(a1Name).dateModified)
-        assertTrue("c1 dateModified 必须升版", c1New.dateModified > all.getValue(c1Name).dateModified)
+        assertEquals(
+            "a1 dateModified 必须=受控 mtime（轮 10 教训：1 秒粒度下同秒双写同值）",
+            corruptMtimeSec * 1000, a1New.dateModified
+        )
+        assertEquals(
+            "c1 dateModified 必须=受控 mtime",
+            corruptMtimeSec * 1000, c1New.dateModified
+        )
         assertEquals("b1 未修改：dateModified 不变", all.getValue(b1Name).dateModified, b1Same.dateModified)
         assertEquals("d1 未修改：dateModified 不变", all.getValue(d1Name).dateModified, d1Same.dateModified)
 
@@ -373,11 +409,16 @@ class HashRecomputeDeviceTest {
         )
         Log.i(TAG, "step7 consumer positive: a1+d1 grouped post-recompute")
 
-        // ---- 8. 有界恢复（c1 一次临时读取失败 → 恢复）----
-        swapContent(c1Row, Pattern.MONO_DOWN) // 恢复有效新内容（再升版）
+        // ---- 8. 有界恢复（c1 一次临时读取失败 → 恢复；mtime 严格晚于 corrupt）----
+        val recoverMtimeSec = corruptMtimeSec + 2
+        swapContent(c1Row, Pattern.MONO_DOWN) // 恢复有效新内容
+        touchAndRescan(c1Name, recoverMtimeSec)
         val all3 = awaitAllRows()
         val c1Recovered = all3.getValue(c1Name)
-        assertTrue("c1 恢复内容 dateModified 再升版", c1Recovered.dateModified > c1New.dateModified)
+        assertEquals(
+            "c1 恢复内容 dateModified 必须=受控 mtime（严格晚于 corrupt 版本）",
+            recoverMtimeSec * 1000, c1Recovered.dateModified
+        )
         val recomputedDeadlineC = System.currentTimeMillis() + 10000
         var recomputedC = detector.ensureHashesComputed(rowsOf(all3, listOf(a1Name, d1Name, b1Name, c1Name)))
         var newC: Long? = recomputedC[c1Recovered.toHashKey()]
