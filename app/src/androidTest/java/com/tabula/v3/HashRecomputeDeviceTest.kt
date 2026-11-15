@@ -194,6 +194,40 @@ class HashRecomputeDeviceTest {
     private fun rowsOf(all: Map<String, ImageFile>, names: List<String>): List<ImageFile> =
         names.map { all.getValue(it) }
 
+    /**
+     * 瞬态容错的哈希建立（轮 7 根因修复，2026-11-15）：MediaProvider 对刚发布
+     * 行的 openInputStream 可瞬态返回 null 描述符（轮 7 实证：awaitReadable
+     * 同路径 49.071 成功 → compute 两次 open 49.117/49.124 已达 provider
+     * （"Open with lower FS" 日志）→ 49.190 仍 null=瞬态非系统性；轮 5=发布
+     * 后 90ms 内 4/4 全中）。生产检测器自身设计支持重复调用（Failed 条目
+     * "有界重试：每轮一次"语义，SimilarGroupDetector.kt:271-274）——本助手
+     * 对**同一生产入口**做截止轮询重试，不注入不改生产；失败原因随轮捕获
+     * 入最终消息。
+     */
+    private suspend fun establishHashesWithTolerance(
+        all: Map<String, ImageFile>,
+        targetNames: List<String>,
+        timeoutMs: Long = 10000
+    ): Map<String, Long> {
+        val rows = rowsOf(all, targetNames)
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var lastReason = ""
+        while (System.currentTimeMillis() < deadline) {
+            val direct = rows.associate { it.displayName to PerceptualHash.computeDHash(ctx, it.uri) }
+            val failedDirect = direct.filterValues { it !is PerceptualHash.HashResult.Success }
+            if (failedDirect.isEmpty()) {
+                val m = detector.ensureHashesComputed(rows)
+                val vals = targetNames.associate { it to m[all.getValue(it).toHashKey()] }
+                if (vals.values.all { it != null }) return vals.mapValues { it.value!! }
+                lastReason = "map 空值: ${vals.filterValues { it == null }.keys} mapSize=${m.size}"
+            } else {
+                lastReason = "直算失败: " + failedDirect.map { (n, r) -> "$n=${(r as PerceptualHash.HashResult.Failed).reason}" }
+            }
+            Thread.sleep(400)
+        }
+        error("夹具哈希建立未收敛（截止轮询耗尽）names=$targetNames lastReason=$lastReason")
+    }
+
     private fun groupPairingIdentity(groups: List<SimilarGroup>, row1: ImageFile, row2: ImageFile) =
         groups.firstOrNull { g ->
             val ids = g.images.map { it.mediaIdentityKey() }
@@ -217,23 +251,14 @@ class HashRecomputeDeviceTest {
         }
         val lsOut = shell("ls -l /sdcard/$dir 2>&1")
         Log.i(TAG, "fixture files: $lsOut")
-        // 直算面（原因可见）：逐行 computeDHash，Failed 时断言消息携带确切 reason
-        for (row in rowsOf(all, listOf(a1Name, d1Name, b1Name, c1Name))) {
-            val r = PerceptualHash.computeDHash(ctx, row.uri)
-            assertTrue(
-                "直算必须成功 name=${row.displayName} size=${row.size} dm=${row.dateModified} uri=${row.uri} result=$r",
-                r is PerceptualHash.HashResult.Success
-            )
-        }
-        val rowsOld = rowsOf(all, listOf(a1Name, d1Name, b1Name, c1Name))
-        val hashesOld = detector.ensureHashesComputed(rowsOld)
-        fun Long?.require(name: String): Long = this ?: error(
-            "ensureHashesComputed 缺失/失败 name=$name keysInMap=${hashesOld.keys.size} map=${hashesOld.map { (k, v) -> k.storageKey to v }}"
-        )
-        val oldA = hashesOld[all.getValue(a1Name).toHashKey()].require(a1Name)
-        val oldDHash = hashesOld[all.getValue(d1Name).toHashKey()].require(d1Name)
-        val oldBHash = hashesOld[all.getValue(b1Name).toHashKey()].require(b1Name)
-        val oldCHash = hashesOld[all.getValue(c1Name).toHashKey()].require(c1Name)
+        // 建立面（瞬态容错 + 原因可见）：对生产入口截止轮询；首击结果留证日志
+        val firstHit = PerceptualHash.computeDHash(ctx, all.getValue(a1Name).uri)
+        Log.i(TAG, "direct first hit a1: $firstHit")
+        val established = establishHashesWithTolerance(all, listOf(a1Name, d1Name, b1Name, c1Name))
+        val oldA = established.getValue(a1Name)
+        val oldDHash = established.getValue(d1Name)
+        val oldBHash = established.getValue(b1Name)
+        val oldCHash = established.getValue(c1Name)
         assertTrue("旧哈希四项互异（位型契约自检）", setOf(oldA, oldDHash, oldBHash, oldCHash).size == 4)
         assertEquals(
             "A vs B 互补距离必须 64（位型契约实证）",
@@ -295,10 +320,16 @@ class HashRecomputeDeviceTest {
         assertEquals("d1 未修改必须命中且值不变", oldDHash, batch2[d1Same.toHashKey()]!!.hash)
         Log.i(TAG, "step5 invalidation: a1/c1 miss at new version; b1/d1 hit unchanged")
 
-        // ---- 6. 重算面 ----
-        val recomputed = detector.ensureHashesComputed(rows2)
-        val newA = recomputed[a1New.toHashKey()]
-        assertNotNull("a1 必须完成重算", newA)
+        // ---- 6. 重算面（瞬态容错：a1 截止轮询至非 null；c1 null 为期望 Failed 态）----
+        val recomputedDeadline = System.currentTimeMillis() + 10000
+        var recomputed = detector.ensureHashesComputed(rows2)
+        var newA: Long? = recomputed[a1New.toHashKey()]
+        while (newA == null && System.currentTimeMillis() < recomputedDeadline) {
+            Thread.sleep(400)
+            recomputed = detector.ensureHashesComputed(rows2)
+            newA = recomputed[a1New.toHashKey()]
+        }
+        assertNotNull("a1 必须完成重算（瞬态容错后仍 null）", newA)
         assertTrue("a1 新哈希≠旧哈希（新内容确实重算）", newA!! != oldA)
         assertEquals("a1 新哈希==d1 哈希（同内容同解码）", newA, oldDHash)
         assertNull("c1 损坏内容计算结果为失败（null）", recomputed[c1New.toHashKey()])
@@ -320,9 +351,15 @@ class HashRecomputeDeviceTest {
         val all3 = awaitAllRows()
         val c1Recovered = all3.getValue(c1Name)
         assertTrue("c1 恢复内容 dateModified 再升版", c1Recovered.dateModified > c1New.dateModified)
-        val recomputedC = detector.ensureHashesComputed(rowsOf(all3, listOf(a1Name, d1Name, b1Name, c1Name)))
-        val newC = recomputedC[c1Recovered.toHashKey()]
-        assertNotNull("恢复后必须完成重算（此前失败条目不阻断新版本）", newC)
+        val recomputedDeadlineC = System.currentTimeMillis() + 10000
+        var recomputedC = detector.ensureHashesComputed(rowsOf(all3, listOf(a1Name, d1Name, b1Name, c1Name)))
+        var newC: Long? = recomputedC[c1Recovered.toHashKey()]
+        while (newC == null && System.currentTimeMillis() < recomputedDeadlineC) {
+            Thread.sleep(400)
+            recomputedC = detector.ensureHashesComputed(rowsOf(all3, listOf(a1Name, d1Name, b1Name, c1Name)))
+            newC = recomputedC[c1Recovered.toHashKey()]
+        }
+        assertNotNull("恢复后必须完成重算（瞬态容错后仍 null=此前失败条目阻断了新版本重算）", newC)
         assertTrue("c1 新哈希≠旧哈希", newC!! != oldCHash)
         Log.i(TAG, "step8 bounded recovery: c1 recomputed after temporary read failure")
 
