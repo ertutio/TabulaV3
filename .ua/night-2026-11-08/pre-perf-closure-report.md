@@ -1,0 +1,56 @@
+# 性能前收口报告（Unit D 交付，2026-11-15）
+
+交付对象：用户。用途：确认正确性/恢复/设备验收收口结果，**性能阶段启动由用户确认**。
+基线：master `60aa6e03`（CI run 43692861712 三 job 全绿实证）。执行依据：2026-11-15 收口指令（§一状态核对 → §二 PR79 收口 → §三旧扫描晚返回 → §四盘点 → §五纪律）。
+
+## 一、已关闭断言（本轮收口新增）
+
+| 单元 | 断言 | 证据 |
+| --- | --- | --- |
+| §二 Unit A：B2MR 表述收口 | 测试名/注释/日志/PR 正文全部收敛到实际已验证行为（终态口径：真实 PARTIAL→FULL 刷新链同进程最终向推荐批次提供完整 47 项集合）；超证据表述零残留（复审 grep 实证） | d03dc08+52c9de6；review-B2MR-closure.md **PASS**；CI 43690226527 双 API 绿+工件时序链实核 |
+| §二 Unit A：批次日志动作边界 | 消费池断言只认动作边界后新事件；"仅有动作前正确日志"红灯；fail-closed；47 集合相等保留 | REFETCH_BOUNDARY_MARKER（边界前写入+append 序单调+墙钟/pid 过滤否决理由登记） |
+| §三 Unit B：旧扫描晚返回真实接线级 | 五步显式握手：旧扫描停在可控位（parked rows=2）→真实权限变化触发新扫描→新集合提交+消费池承接（边界后 47 池集）→释放旧扫描确认返回（resumed rows=2）→旧集合不覆盖+取消不误报失败+清理状态面读回原样；全程 pid 恒等 | PR #81 61a26f0；CI 43694969019 三 job 绿双 API OK(1)；audit-stale-scan-pr81.md **PASS**（含审计者反编译 coroutines 1.10.2 独立验证） |
+| §三 Unit B：接缝隔离 | 生产接缝恰 2 处（MediaLoadTestHook DEBUG 门 + MainActivity 单行位于 withContext(IO) 块内 initialize 后）；release 恒 no-op；app/src/test 零 diff | 同上审计逐行核实 |
+| §三 Unit B：变异验证 | 变异-1（apply 包 NonCancellable）=no-op（协程 1.10.2 取消检查在 withContext(IO) 完成边界——变异后双 API 绿=no-op 预期，字节码三层证据）；**变异-2（有效形态）双 API 红=检出**，红灯位于早期 a11y 等待（非步骤5 目标断言，因果性如实登记"未证实"）；单测级检出实证（PR50 用例 FAILED，stale apply 确实执行） | run 43696079300（no-op 绿）/43695988574（检出红）；变异分支 mut/mut1 远端保留 |
+| §四 R2：TC58 补面 | 临时读取失败→版本推进不服务→重算成功→版本键单向；失效/重算/清理循环不触碰冷却/组键/断点/永久完成面 | PR #80；本地 2/2 绿+相邻 8/8；审计 audit-TC58-pr80.md 两项最小修复已落实（单例隔离+错引更正） |
+| §四 盘点更正 | T08 工具链 PR45/42/6 已 CLOSED 未合并（master 无测量实现）；T09 兼容矩阵文档在 master（A1 过期）；T03-DRAGSELECT/T06 设备面/T10/T11b 实现已关闭；T12 按"或"口径闭合（media3 声明未使用=R1 解散） | pre-perf-inventory.md（实树核对） |
+
+## 二、待复核项（开放，含阻塞详情）
+
+### TC58 相邻用例类间顺序敏感（PR #80 合并判据卡点）【独立咨询中】
+- 现象：master+Tc58 全量 run 下既有用例 directRecycleClear… :177 红（Tc58 自身绿）；master 全绿；两次修正（单例触碰移除）未解。
+- 已定位最小三元组 {AlbumCleanupImageResolverTest（纯类）, Tc58HashRecoveryTest, AlbumCleanupForegroundRefreshTest} 本地确定性红；空壳 sdk34 桩类不触发（非泛移序）；无 Tc58 对子绿（Tc58 行为是必要条件）；{Tc58+失败类+PickCooldown} 绿。
+- 两次有效针对性修正失败 → 按规则转独立咨询（根因+分层修复建议）。
+- **咨询采纳后一次定向修正仍失败 → 保存证据交用户决策**（规则约定）。
+
+### 监控中（既有间歇，非本轮新增）
+- FPF Phase3 API36 flake（43597856253 红/43609384927 绿同代码=间歇；框架层 dialog LazyColumn 语义丢失，留证 notes-B2.md:211）
+- CloudCleanupUiTest API37 间歇（U18 夹具归属竞态，环境层）
+- Robolectric 构件 CI 下载偶发即红（无缓存护城河，Unit B 登记）
+
+## 三、awaiting_human（步骤+解除条件）
+
+| 项 | 步骤 | 解除条件 |
+| --- | --- | --- |
+| T07 PARTIAL 真机人工 | 真机 revoke→重开→人工核对清理组/月列表/断点续接+录屏 | 真机在手 |
+| 覆盖安装清单 A.4–A.5+B | 按 docs/upgrade-verification-checklist.md（plan 分支）人工执行 | 真机+签名材料 |
+| fork 签名 secrets ×4 | 配置 TABULA_KEYSTORE_FILE/别名/密码 | 维护者配置 |
+| T13 发布 | publish-release.yml | 用户授权 |
+| 合并决策 | #79（52c9de6 审计闭环+CI 绿）、#81（audit PASS+CI 绿）、#80（咨询后定）、#77（A/A 参考） | 用户逐 PR 决定 |
+
+## 四、blocked（解除条件）
+
+真跨卷热拔插（多卷设备）｜真他人媒体-非 shell（多应用环境）｜断电注入（真机人工口径）｜OS 级进程死亡/OOM（真机专项）｜身份键迁移真实 kill（同上）——全部为 CI 合成设施不可注入的 OS/硬件条件，维持既有 blocked 簇登记。
+
+## 五、性能阶段前置（启动需用户确认）
+
+- **暂停项（按指令）**：测量/基线采集/优化实现/依赖升级（含 A/A 42.3% 归因）。
+- **T08 工具链决策**：PR45/42/6 已 CLOSED（未合并）；#77 分支持有 A/A 参考与工具。性能阶段启动时需决定：重开工具链 PR 或以 #77 分支为测量基线。
+- **本轮新增的可测量面**（性能阶段用）：B2MR 边界断言与 Unit B 握手为刷新链提供了确定性时序锚点；probe 预算实测余量登记。
+
+## 六、证据索引
+
+- 审计：audit-stale-scan-pr81.md（PASS）/ review-B2MR-closure.md（PASS）/ audit-TC58-pr80.md（需修复→两项落实）/ +20 份历史 audit-*.md
+- 笔记：wg-Stale/docs/notes-stale-scan-2026-11-15.md（五步+run 总表+变异判定+遗留 5 条）；wg-B2/docs/notes-B2MR-2026-11-14.md §7–§11
+- 盘点：coord/pre-perf-inventory.md；进度：plan 分支 .ua/DEVELOPMENT_PROGRESS.md（唯一游标+三轮执行登记）
+- CI：43690226527（A）/43694969019（B 主）/43696079300+43695988574（B 变异）/43691596178+43693504295（TC58 轮1/2）/43692861712（master 全绿）
