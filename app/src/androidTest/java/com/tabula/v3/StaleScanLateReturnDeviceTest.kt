@@ -87,6 +87,23 @@ import org.junit.runner.RunWith
  *     （FPF Phase3 Continuation 读回模式）——旧扫描在暂停前已执行过
  *     albumManager.initialize(旧投影)，此断言验证 stale initialize 无持久污染。
  *
+ * 三事件登记（接缝/日志面，可区分判读）：
+ * - **接缝恢复** = MediaLoadTestHook tag "resumed rows=N"（park 返回 = 接缝暂停
+ *   结束——释放后旧扫描的执行恢复点）；
+ * - **读取返回** = 同一 "resumed rows=N" 行（rows=N 即旧读取返回的投影规模——
+ *   轮 1 实证 rows=2 = PARTIAL 选中集合；两事件共用一行，判读时不可拆分）；
+ * - **提交处理** = 对被取消扫描为**缺席面**（不可注入约束：设备层 apply 无观测
+ *   点，无法直接断言"未提交"）——以三重证据承载：释放标记后无新 2 行批次事件
+ *   （DeckScreen 存活行同步 batch-site-7/8 指纹，zombie apply 一旦落盘必现）+
+ *   无 TabulaApp error 行（取消不落 onError）+ 步骤5 终态断言（重取批 47 池/
+ *   状态面原样）。
+ *
+ * a11y 失联恢复（轮 2 定向修正，run 43695988574 轮 1 提前失败的对症点）：
+ * deck 标记等待/节点等待/步骤5 观察窗在 rootInActiveWindow 空/非应用包/全树无
+ * 可见节点时做**有界** am start 重附窗（每标签 ≤4 次，逐轮留证），恢复后继续
+ * 原断言——等待目标与截止时间不变（不弱化断言），步骤5 判别对恢复副作用免疫
+ * （2 行指纹先于恢复落入释放标记后缓冲，见 recoverA11yWindowIfLost KDoc）。
+ *
  * 建组模式登记（解读口径，与指令"FPF Phase1 建组模式复制：读该测试文件提取
  * 最小调用序列"的取舍如实说明）：
  * - 组状态经**真实生产写入口**建立（与 FPF Phase1 的建组入口同源）：
@@ -233,11 +250,77 @@ class StaleScanLateReturnDeviceTest {
             for (label in labels) {
                 if (ui.find(root, label) != null) return label
             }
+            recoverA11yWindowIfLost(root, tag, deadline)
             SystemClock.sleep(150)
         }
         ui.dumpTree("timeout-$tag")
         ui.saveScreenshot("timeout-$tag")
         error("no node visible for ${labels.size} candidates ($tag)")
+    }
+
+    // ==================== a11y 失联恢复（轮 2 定向修正，run 43695988574 对症点） ====================
+
+    /** 每等待标签的有界恢复计数（单测试线程访问）。 */
+    private val a11yRecoveryCounts = mutableMapOf<String, Int>()
+
+    /** 有界恢复上限（每标签独立计数；节流由轮询间隔天然承担）。 */
+    private val A11Y_RECOVERY_LIMIT = 4
+
+    /** 树内是否存在任何可见节点（深度有界；轮 1 实证失联形态 = 全树 0 可见节点）。 */
+    private fun treeHasVisibleNode(node: AccessibilityNodeInfo?, depth: Int = 0): Boolean {
+        if (node == null || depth > 30) return false
+        if (node.isVisibleToUser) return true
+        for (i in 0 until node.childCount) {
+            if (treeHasVisibleNode(node.getChild(i), depth + 1)) return true
+        }
+        return false
+    }
+
+    /**
+     * a11y 树失联判定与有界恢复（轮 1 提前失败的对症点，见 notes 专项存档）：
+     * rootInActiveWindow 为 null / 活动窗非应用包 / 全树无可见节点 = 失联（轮 1
+     * 实证：截屏界面完全正常而树全空 >10-30s——instrumentation a11y 服务失联，
+     * 非应用状态异常）。恢复动作 = ui.launch()（am start 重附窗）：
+     * - activity 已在前台时 am start 不改应用状态；即便触发 onResume 重查
+     *   （revision++），新扫描不带武装态直通接缝，且 PARTIAL 选择集过滤语义保证
+     *   其提交面 = 当前选中集合——握手状态（parkedRows）与清理状态面不受扰；
+     * - 步骤5 判别对恢复副作用免疫：即便恢复重扫"治愈"了变异的 stale apply，
+     *   覆盖发生瞬间的 DeckScreen 存活行同步（batch-site-7/8）已把 2 行批次指纹
+     *   落入释放标记之后缓冲，步骤5b 的"全部批次行 == 47 池集"仍然红灯。
+     * 恢复不改等待目标与截止时间（不弱化断言）；每轮恢复留证（树 dump + 截屏，
+     * 文件名无 `|`）；有界 = 每等待标签至多 [A11Y_RECOVERY_LIMIT] 次。
+     */
+    private fun recoverA11yWindowIfLost(root: AccessibilityNodeInfo?, tag: String, deadline: Long) {
+        val appTreeOk = root != null &&
+            root.packageName?.toString() == ctx.packageName &&
+            treeHasVisibleNode(root)
+        if (appTreeOk) return
+        if (SystemClock.uptimeMillis() >= deadline) return
+        val count = a11yRecoveryCounts[tag] ?: 0
+        if (count >= A11Y_RECOVERY_LIMIT) return
+        a11yRecoveryCounts[tag] = count + 1
+        Log.w(TAG, "$tag a11y window unavailable (root=${root?.packageName ?: "null"}, children=${root?.childCount ?: -1}), recovery #${count + 1}: am start re-attach")
+        ui.dumpTree("a11y-lost-$tag-${count + 1}")
+        ui.saveScreenshot("a11y-lost-$tag-${count + 1}")
+        ui.launch()
+    }
+
+    /**
+     * 带 a11y 失联恢复的 deck 标记等待（轮 2 定向修正；替代裸 ui.waitFor 对
+     * DECK_MARKER 的等待——恢复语义见 [recoverA11yWindowIfLost]）。等待目标与
+     * 截止时间与原 ui.waitFor 完全一致（不弱化）；截止仍不到 = 留证报错。
+     */
+    private fun awaitDeckMarkerWithRecovery(timeoutMs: Long, tag: String) {
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        while (SystemClock.uptimeMillis() < deadline) {
+            val root = ui.ins.uiAutomation.rootInActiveWindow
+            if (root != null && ui.find(root, ui.DECK_MARKER) != null) return
+            recoverA11yWindowIfLost(root, tag, deadline)
+            SystemClock.sleep(200)
+        }
+        ui.dumpTree("timeout-$tag")
+        ui.saveScreenshot("timeout-$tag")
+        error("deck marker not visible within ${timeoutMs}ms ($tag; a11y recoveries=${a11yRecoveryCounts[tag] ?: 0})")
     }
 
     /**
@@ -574,7 +657,7 @@ class StaleScanLateReturnDeviceTest {
         // 地面真值：应用可见恰 = {b1,b2}（选择集过滤语义）
         awaitCollectionFace(B_NAMES.toSet(), timeoutMs = 20000, tag = "partial-B")
         // deck 渲染（PARTIAL 时代批次 = B；初始加载已过接缝——门未武装不暂停）
-        ui.waitFor(ui.DECK_MARKER, timeoutMs = 30000)
+        awaitDeckMarkerWithRecovery(timeoutMs = 30000, tag = "marker-step1a")
         awaitAnyNode(B_NAMES, timeoutMs = 30000, tag = "stale-deck-partial")
         val pid0 = android.os.Process.myPid()
         assertEquals("应用必须运行在 instrumentation 同进程（pidof 恒等）", pid0, appPid())
@@ -586,7 +669,7 @@ class StaleScanLateReturnDeviceTest {
         ui.shell("input keyevent KEYCODE_HOME")
         SystemClock.sleep(2000)
         ui.launch()
-        ui.waitFor(ui.DECK_MARKER, timeoutMs = 30000)
+        awaitDeckMarkerWithRecovery(timeoutMs = 30000, tag = "marker-step1b")
         assertEquals("回前台必须同进程", pid0, appPid())
         val parked = awaitDeadline("stale-park", timeoutMs = 30000) {
             MediaLoadTestHook.parkedRows() == 2
@@ -619,7 +702,7 @@ class StaleScanLateReturnDeviceTest {
         // deck 界面面：填充媒体不得出现（5s 不变量窗）+ deck 标记保持
         ui.awaitGone(fillerName(1), timeoutMs = 5000)
         ui.awaitGone(fillerName(FILLER_COUNT), timeoutMs = 5000)
-        ui.waitFor(ui.DECK_MARKER, timeoutMs = 10000)
+        awaitDeckMarkerWithRecovery(timeoutMs = 10000, tag = "marker-step2")
         // 会话内授权升级（grant 不杀进程 #52 口径；应用前台持 deck）
         ui.shellScript("pm grant ${ctx.packageName} ${Manifest.permission.READ_MEDIA_IMAGES} 2>&1")
         assertEquals(
@@ -640,7 +723,7 @@ class StaleScanLateReturnDeviceTest {
         ui.shell("input keyevent KEYCODE_HOME")
         SystemClock.sleep(2000)
         ui.launch()
-        ui.waitFor(ui.DECK_MARKER, timeoutMs = 30000)
+        awaitDeckMarkerWithRecovery(timeoutMs = 30000, tag = "marker-step2-upgrade")
         assertEquals("升级重启必须同进程（无进程死亡）", pid0, appPid())
 
         // ---- 步骤3a：新扫描提交 → 集合面终态 = 47 名全集（哨兵存在性；无重复无缺失）----
@@ -728,7 +811,7 @@ class StaleScanLateReturnDeviceTest {
         // （Settings 前景下 deck 为 backgroundContent，标记不在活动窗树内——观察窗的
         // deck 树断言必须在 deck 前景执行；B2MR 步骤5 同款 BACK 回退。）
         ui.shell("input keyevent KEYCODE_BACK")
-        ui.waitFor(ui.DECK_MARKER, timeoutMs = 30000)
+        awaitDeckMarkerWithRecovery(timeoutMs = 30000, tag = "marker-back-to-deck")
         awaitAnyNode(NAMED_NAMES + FILLER_NAMES, timeoutMs = 15000, tag = "stale-deck-full-pool")
         assertEquals("步骤3→4 之间必须同进程", pid0, appPid())
         Log.i(TAG, "back on deck consuming full pool before release (pid=$pid0)")
@@ -788,6 +871,11 @@ class StaleScanLateReturnDeviceTest {
                     }
                 }
                 staleWindowOk++
+            } else {
+                // a11y 树失联（树空/非应用包）：有界恢复后继续观察（判定语义不变；
+                // 恢复重扫的提交面 = 当前真实池 47，判别免疫论证见
+                // recoverA11yWindowIfLost KDoc）
+                recoverA11yWindowIfLost(root, "step5a-window", staleObserveEnd)
             }
             SystemClock.sleep(200)
         }

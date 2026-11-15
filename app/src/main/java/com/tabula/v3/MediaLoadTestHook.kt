@@ -34,6 +34,15 @@ import java.util.concurrent.CountDownLatch
  * Release 构建：armOnce/release/parkBeforeCommit/parkedRows/isReleased 全部
  * BuildConfig.DEBUG 门，Release 直接返回（park 不挂起、查询返回 -1/false），
  * 生产行为零变化。
+ *
+ * 事件面语义（三事件登记，与 StaleScanLateReturnDeviceTest KDoc 映射一致）：
+ * - "parked rows=N" = 暂停事件（读取已返回、投影规模 N 的扫描停在接缝）；
+ * - "resumed rows=N" = **接缝恢复 + 读取返回双事件**（同一行：park 返回 = 接缝
+ *   暂停结束；rows=N 即旧读取返回的投影规模——释放后旧读取确实浮出的唯一
+ *   日志面证据，判读时两事件不可拆分）；
+ * - 提交处理事件对被取消扫描为**缺席面**（不可注入约束：设备层 apply 无观测
+ *   点）——由消费测试以"释放标记后无新 2 行批次事件 + 无 error 行 + 终态断言"
+ *   承载，不在本钩子日志面呈现。
  */
 object MediaLoadTestHook {
     private const val TAG = "MediaLoadTestHook"
