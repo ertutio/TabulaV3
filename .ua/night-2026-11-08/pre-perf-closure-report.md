@@ -20,7 +20,8 @@
 ### TC58 相邻用例隔离缺口（PR #80）——**已按咨询定向修正闭合，轮 3 CI 绿**
 - 轮 1/2 红（仅相邻既有用例 :177，Tc58 自身绿）→ 两次修正无效 → 独立咨询定案：Robolectric 4.12.2 filesDir 每方法新建+sandbox classloader 复用=static 跨类存活；Tc58 必要行为=被测生产入口 AlbumCleanupEngine 构造器内部 getInstance（测试侧不可绕过）；失败链路探针完整复刻；"最小三元组"系本地枚举序巧合。
 - **定向修正 5d6331b（采纳咨询推荐 C，基建层）**：ResetAppSingletonsPlugin（TestEnvironmentLifecyclePlugin）+ META-INF/services 注册；本地双变体全量 864/864 绿（含原 :177 类 16/16）；**轮 3 CI run 43703642885 = success**（工件实核 Tc58 2/2 + :177 类 16/16）；shadow @Resetter 路线实验否定（登记勿回头）。
-- 差分复审（插件 delta）执行中；先存隔离缺口对生产进程无影响（application 终身单实例）。
+- **差分复审 PASS**（coord/review-TC58-plugin-delta.md：恰 2 新文件纯插入；KDoc 两点声明经 javap/反编译实证——AppPreferences 外层类含 private static volatile instance、onSetupApplicationState(offset 59) 先于 clearEnvironment(offset 71)；范围纪律仅 test 面；CI 43703642885 headSha 绑定 success）。
+- 非阻塞跟进项（登记）：7 单例清单完整性守卫测试（fail-fast 防字段改名静默跳过）。
 
 ### 监控中（既有间歇，非本轮新增）
 - FPF Phase3 API36 flake（43597856253 红/43609384927 绿同代码=间歇；框架层 dialog LazyColumn 语义丢失，留证 notes-B2.md:211）
@@ -52,4 +53,5 @@
 - 审计：audit-stale-scan-pr81.md（PASS）/ review-B2MR-closure.md（PASS）/ audit-TC58-pr80.md（需修复→两项落实）/ +20 份历史 audit-*.md
 - 笔记：wg-Stale/docs/notes-stale-scan-2026-11-15.md（五步+run 总表+变异判定+遗留 5 条）；wg-B2/docs/notes-B2MR-2026-11-14.md §7–§11
 - 盘点：coord/pre-perf-inventory.md；进度：plan 分支 .ua/DEVELOPMENT_PROGRESS.md（唯一游标+三轮执行登记）
-- CI：43690226527（A）/43694969019（B 主）/43696079300+43695988574（B 变异）/43691596178+43693504295（TC58 轮1/2）/43692861712（master 全绿）
+- CI：43690226527（A）/43694969019（B 主）/43696079300+43695988574（B 变异）/43691596178+43693504295（TC58 轮1/2）/43703642885（TC58 轮3 绿=判据）/43692861712（master 全绿）
+- 复审：review-B2MR-closure.md（A）/audit-stale-scan-pr81.md（B）/audit-TC58-pr80.md+review-TC58-plugin-delta.md（R2）——**本轮全部交付均经未参与实现的独立只读审计/复审**
