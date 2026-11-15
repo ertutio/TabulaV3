@@ -55,3 +55,27 @@
 - 盘点：coord/pre-perf-inventory.md；进度：plan 分支 .ua/DEVELOPMENT_PROGRESS.md（唯一游标+三轮执行登记）
 - CI：43690226527（A）/43694969019（B 主）/43696079300+43695988574（B 变异）/43691596178+43693504295（TC58 轮1/2）/43703642885（TC58 轮3 绿=判据）/43692861712（master 全绿）
 - 复审：review-B2MR-closure.md（A）/audit-stale-scan-pr81.md（B）/audit-TC58-pr80.md+review-TC58-plugin-delta.md（R2）——**本轮全部交付均经未参与实现的独立只读审计/复审**
+
+---
+
+# 收口第二轮增量（2026-11-15，用户指令执行记录）
+
+## 合并（§一 授权，预期 head 校验）
+- **#77 → master b787aca**（4e00669b 六项门：零生产面/触发面安全/绿 run 绑定/结果边界逐字保留）
+- **#79 → master merge commit 52c9de60c3**（52c9de60 精确匹配；增量全在已审范围）
+- **master 组合 CI 43713220665 三 job 全绿**；依赖分支更新（#81 变基 master MERGEABLE；#80 并 master aff9568）
+
+## §二（PR #80）真实重算验收+插件加固
+- 交付：4046245b（HashRecomputeDeviceTest+插件加固+守卫 4 例+probe 段）→ 轮 4 InvalidTestClassError（runBlocking 非 void）→ cf930d5 修复 → 轮 5 NPE（4 dHash 静默 Failed）→ 审计**需修复**两项 → aa2ee8f 插桩原因捕获 → **d64633a 位型夹具重设计**（A=0xAA/B=0x55/C=0xFF/D=0x00 按字节重复，两两距离∈{32,64}；契约测试 HashRecomputeFixtureContractTest 3/3 钉住；compress check+回读解码验证）→ 轮 7 run 43729643127 运行中
+- 审计：coord/audit-recompute-pr80.md（缺陷 A/B 全部由修复落实）；runner 完整性 PASS（两分支 9 类共享 runner+依赖门+失败传播）
+
+## §三（PR #81）目标变异证据——**完整交付**
+- 差分复审 **PASS**（coord/review-stalescan-mutation-delta.md）
+- 变异-3 run 43717346095 @ c3c813f：**双 API 红灯准确落在步骤 5b 目标断言 :939**（"旧结果覆盖新状态"），五步握手全程走完（armed→parked rows=2→47 池提交→released→size=2 覆盖→重取 2 行→:939 红），时间线逐锚核实
+- **轮 D 43724140820 @ 69a9611 三 job 全绿——PR #81 合并判据达成**；StaleScan 段 4 轮 8/8 绿
+- 三连红诊断：上游既有间歇段下午爆发（FPF Phase3 API36+API37 + CardLifecycle），非本轮引入；diag-closure2-burst-2026-11-15.md（门禁政策裁决项呈用户）
+
+## 待用户裁决/确认
+- 合并：#80（轮 7 绿后）、#81（判据已达成）、#77 已合并、#79 已合并
+- 门禁政策：既有登记间歇段（FPF Phase3/CardLifecycle）probe 级有界重试——呈裁决
+- 性能阶段启动确认
