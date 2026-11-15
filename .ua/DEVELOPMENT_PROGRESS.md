@@ -46,6 +46,9 @@
 
 - **master 组合 CI 绿（43713220665 @ 5fbb70cca9）**：#77+#79 合并树三 job 全绿——合并后基线验证完成（2026-11-15 05:40）。
 
+- **三连红核查完成（用户指令，diag-closure2-burst-2026-11-15.md）**：目标段全健康（StaleScan 轮 C 工件 OK(1) 148s=a11y 失联恢复修复生效；HashRecompute 轮 4 红系我的 InvalidTestClassError 缺陷已修 cf930d5 轮 5 派 43725368781）；三连红=上游既有间歇段下午爆发（FPF Phase3 API36+API37 "timed out waiting for 全局" + CardLifecycle API36），非本轮引入（master 晨 2/2 绿+69a9611 未触碰相关面）。门禁政策裁决项（段级有界重试）已呈用户（诊断文件"建议"节）。
+- **教训二**：bash heredoc 破坏  字节——两轮修复未生效；Write 工具写脚本执行成功（已登记）。
+
 ## 历史游标：2026-11-08 夜间集中开发会话（已归档，证据仅供追溯）
 
 
