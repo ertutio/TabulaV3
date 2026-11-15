@@ -75,7 +75,13 @@ class MediaSnapshotLoadRaceTest {
         val appliedImages = AtomicReference<List<Long>>(emptyList())
     }
 
+    // MUTATION-2 diagnostic routing (audit-only): the effective mutation makes
+    // these two race tests red at unit level first, which would fail the build
+    // job and skip the device job entirely; they are ignored HERE ONLY so the
+    // device-level red (StaleScanLateReturnDeviceTest step 5) can be
+    // demonstrated through this workflow. Never merge.
     @Test
+    @org.junit.Ignore("MUTATION-2 diagnostic routing: effective mutation reds this at unit level; routing red to device job")
     fun oldScanCooperativelyCancelledAtBlockingPointNeverCommits() = runBlocking {
         val recycleBinManager = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
         val albumManager = AlbumManager(context)
@@ -139,6 +145,7 @@ class MediaSnapshotLoadRaceTest {
     }
 
     @Test
+    @org.junit.Ignore("MUTATION-2 diagnostic routing: effective mutation reds this at unit level; routing red to device job")
     fun lateReturningOldReadReturnsButNeverCommits() = runBlocking {
         val recycleBinManager = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
         val albumManager = AlbumManager(context)

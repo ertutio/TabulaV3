@@ -205,7 +205,17 @@ internal suspend fun loadAndApplyMediaSnapshot(
                 onRecycleUnknown()
             }
         }
-        val loadedData = withContext(Dispatchers.IO) {
+        // MUTATION-2 (diagnostic, audit-only, do not merge): load-commit block
+        // switched Dispatchers.IO -> NonCancellable = the effective mutation shape
+        // documented by MediaSnapshotLoadRaceTest's own KDoc ("将提交链的
+        // withContext 换成 NonCancellable"): same-interceptor path ->
+        // UndispatchedCoroutine (no cancellable-resumption job check) AND the
+        // block detaches from the cancelled caller's job, so the stale scan's
+        // apply executes after release. Mutation-1 (wrapping apply downstream of
+        // the withContext(Dispatchers.IO) boundary) is a no-op: the boundary
+        // check discards the result and throws CancellationException before any
+        // downstream code runs.
+        val loadedData = withContext(NonCancellable) {
             val loadResult = load()
             // 浏览/推荐由"快照 − 软删除集合"派生，相册计数与封面同步重算。
             val projected = projectSnapshot(loadResult.first, loadResult.second)
@@ -213,11 +223,7 @@ internal suspend fun loadAndApplyMediaSnapshot(
             MediaLoadTestHook.parkBeforeCommit(projected.allImages.size)
             Pair(projected, loadResult.second)
         }
-        // MUTATION (test/stale-scan-mut-2026-11-15, audit-only, do not merge):
-        // apply wrapped in withContext(NonCancellable) = mandated mutation shape
-        // for the stale-scan late-return acceptance (removal of the "resumption
-        // cancellation check" protection, per execution directive).
-        withContext(NonCancellable) { apply(loadedData.first, loadedData.second) }
+        apply(loadedData.first, loadedData.second)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
