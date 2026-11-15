@@ -148,6 +148,37 @@
   步骤5 目标断言（早期 a11y 树等待），zombie apply 的状态churn 与 a11y 失联的因果链
   未证实——如实在上表登记，不粉饰为"目标断言红灯"。
 
+## 轮 1 变异-2 提前失败专项存档（2026-11-15 收口第二轮 §三-1，run 43695988574）
+
+**失败位置（61a26f0 版行号）**：
+- API37：`StaleScanLateReturnDeviceTest.kt:589` = 步骤1b `ui.waitFor(ui.DECK_MARKER,
+  timeoutMs = 30000)`（armOnce + Home→am start 之后）——
+  `IllegalStateException: timed out waiting for 张待整理`；
+- API36：`StaleScanLateReturnDeviceTest.kt:622` = 步骤2 `ui.waitFor(ui.DECK_MARKER,
+  timeoutMs = 10000)`（40 填充注入 + awaitGone×2 之后）——同款超时。
+
+**形态**：两 API 失败点留证截屏均显示**界面完全正常**（deck 渲染、月份头、卡片栈、
+"1 张待整理"稳态文本 = `currentBatch.size - currentIndex - 1` 的正常读数、卡片/图库
+切换器在位）而 `rootInActiveWindow` 树**全空**（dumpTree 0 字节 = 无可见节点；
+waitFor 全程 10-30s 轮询无一帧恢复）——instrumentation a11y 服务失联形态（同族先例：
+FPF Phase3 startMonth 的"渲染在屏而 a11y 语义不可达"登记）。与变异-2 的 zombie 扫描
+（NonCancellable 块脱离取消传播）状态churn 的**因果性未证实、相关性如实登记**。
+
+**当时握手阶段（从 artifact logcat 的 MediaLoadTestHook/StaleScanLateReturn 行提取）**：
+- API37：`armed` → `parked rows=2` 已发生（旧扫描已停在生产接缝、读取已返回）→
+  a11y 失联打断在步骤1b 的 deck 标记等待——**release 未发生、旧扫描未释放、新扫描
+  未提交**（grant 未执行）；
+- API36：同阶段更晚（步骤1b 整体已过——deck 标记等待/park 轮询/40 填充注入/
+  after-fill-still-B 集合面核对均通过）→ 失联打断在步骤2 的 deck 标记等待——
+  **旧扫描仍 parked 未释放、grant 未执行、新扫描未提交**。
+- 两 API 均未进入步骤3/4/5：**未达"旧结果覆盖新状态"目标断言（步骤5 集合面/池集）**，
+  定性 = 变异 job 级红成立但**证据未落在目标断言**（与"旧结果覆盖"无判别关系）。
+
+**轮 2 对策**：早期 a11y 失联恢复（等待辅助在树空/非应用包时有界 am start 重附窗，
+恢复后继续原断言，不弱化等待目标/不放宽判别；步骤5 判别对恢复副作用免疫的论证：
+zombie apply 的 2 行指纹经 DeckScreen 存活行同步 batch-site-7/8 落入释放标记后缓冲，
+与恢复重扫的 47 行提交可区分）→ 见轮 2 修正提交与重跑记录。
+
 ## 变异验证记录（用户 §三 硬要求）
 
 scratch worktree **wg-Stale-mut**（基于 test/stale-scan-2026-11-15），审计分支
