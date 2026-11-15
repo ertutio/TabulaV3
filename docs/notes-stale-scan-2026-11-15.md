@@ -141,7 +141,7 @@
 | 43714036923 | test/stale-scan-2026-11-15 @ 69a9611 | 轮 A（正常分支 dispatch 1） | API37 job **全绿**；API36 job 红 = **无关遗留 flake**（FPFPhase3Test "timed out waiting for 全局"）；本段双 API OK(1)（API36 complete 锚 12:57:39） |
 | 43717360920 | test/stale-scan-2026-11-15 @ 69a9611 | 轮 B（正常分支 dispatch 2） | API37 job **全绿**；API36 job 红 = **无关遗留 flake**（CardLifecycleDeviceTest scenario1DrawCancel…）；本段双 API OK(1)（API36 complete 锚 13:37:16） |
 | 43720733892 | test/stale-scan-2026-11-15 @ 69a9611 | 轮 C（正常分支 dispatch 3，合并判据门） | API36 job **全绿**；API37 job 红 = **无关遗留 flake**（FPFPhase3Test "timed out waiting for 全局"，同轮 A 签名）；**本段 API37 OK(1) 148.13s + API36 OK(1)**（工件实测，详见补记三与时间线小节） |
-| 43724140820 | test/stale-scan-2026-11-15 @ 69a9611 | 轮 D（正常分支 dispatch 4，前任被终止时在跑） | 运行中（结论回填于补记四） |
+| 43724140820 | test/stale-scan-2026-11-15 @ 69a9611 | 轮 D（正常分支 dispatch 4，前任被终止时在跑） | **三 job 全绿（合并判据达成）**：build ✅ + device API36 ✅ + device API37 ✅ @ 69a9611；本段双 API OK(1)（API36 144.47s complete 锚 14:52:21 / API37 147.70s complete 锚 14:52:56，均 residual=[]，见补记四） |
 
 ### 补记（run 完成后回填）
 
@@ -160,7 +160,14 @@
   complete 锚 14:15:46.756、residual=[]。69a9611 的 a11y 恢复在本绿样本中两次触发并
   成功（marker-step1b / marker-step2-upgrade 各 recovery #1，见时间线小节）。
   ui-failures 采集 rc=1（COLLECTION FAILED，非门控）沿用轮 C 诊断口径。
-- **补记四（轮 D 43724140820）**：（运行中，完成后回填）
+- **补记四（轮 D 43724140820，接管者跟进至完成）**：**三 job 全绿 @ 69a9611**（14:23:58Z
+  派发，14:53:10Z completed/success）——build ✅、device API36 ✅、device API37 ✅。
+  双 API 全部段组 OK（矩阵 D 列 17 行全绿）：目标段 StaleScanLateReturn 双 API OK(1)
+  （API36 Time 144.468s、complete 锚 14:52:21.208、residual=[]；API37 Time 147.701s、
+  complete 锚 14:52:56.219、residual=[]）。**合并判据 = "至少一次全绿 run 绑定最终
+  head"达成**：43724140820 绑定 69a9611（代码 SHA；随后的 docs 提交不影响该口径，
+  #74 docs 尾随惯例）。上游 flake 爆发窗（12:36-14:08 三轮各一处）在 14:23 派发
+  自行平息，无需重派与段级重试。
 
 ## 轮 1 变异-2 提前失败专项存档（2026-11-15 收口第二轮 §三-1，run 43695988574）
 
@@ -362,7 +369,7 @@ API36 同构（13:39:51 同断言红灯；双 API 均先走完全部五步再红
   API37 job 红 = **无关遗留 flake**（FPFPhase3Test 同轮 A 签名）；**本段双 API OK(1)
   （API37 148.13s 工件实测）**——目标段在三轮 6 个 job 执行中全部绿（详见矩阵）。
 - run **43724140820**（69a9611，第四次 dispatch，前任被终止时在跑，接管者跟进）：
-  结论见补记四。
+  **三 job 全绿**（补记四）——合并判据达成，无需进一步重派。
 
 ### 分段结果矩阵（轮 A-D @ 69a9611，从 --log 提取的段门 + OK 锚）
 
@@ -374,23 +381,23 @@ FPF Phase1/2/3 → FullRecovery 四件 → b2pr step1/2/3 → b2mr → **StaleSc
 
 | 段 | A36 | A37 | B36 | B37 | C36 | C37 | D36 | D37 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| VolumeDeletion（probe 前置 3 例） | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| CloudCleanupUiTest(8) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| CloudRestoreUiTest(3) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| CreateAlbumDiagnostic(2) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| ForegroundPermissionUiTest(2) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| PixelRefreshUiTest(2) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| OtherAppMediaAuth(4) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| ProdAuthCallback(2) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| **CardLifecycleDeviceTest(3)** | OK | OK | **红** | OK | OK | OK | 待回填 | 待回填 |
-| T06RemainingDeviceTest(3) | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| PartialSelection PhaseA/B | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| FPF Phase1 / Phase2 | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| **FPF Phase3** | **红** | OK | OK | OK | OK | **红** | 待回填 | 待回填 |
-| FullRecovery 四件（phase1/absence/cont/readback） | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| B2PermissionRefresh step1/2/3 | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| B2MediaAccessRevision | OK | OK | OK | OK | OK | OK | 待回填 | 待回填 |
-| **StaleScanLateReturn（目标段）** | **OK** | **OK** | **OK** | **OK** | **OK** | **OK** | 待回填 | 待回填 |
+| VolumeDeletion（probe 前置 3 例） | OK | OK | OK | OK | OK | OK | OK | OK |
+| CloudCleanupUiTest(8) | OK | OK | OK | OK | OK | OK | OK | OK |
+| CloudRestoreUiTest(3) | OK | OK | OK | OK | OK | OK | OK | OK |
+| CreateAlbumDiagnostic(2) | OK | OK | OK | OK | OK | OK | OK | OK |
+| ForegroundPermissionUiTest(2) | OK | OK | OK | OK | OK | OK | OK | OK |
+| PixelRefreshUiTest(2) | OK | OK | OK | OK | OK | OK | OK | OK |
+| OtherAppMediaAuth(4) | OK | OK | OK | OK | OK | OK | OK | OK |
+| ProdAuthCallback(2) | OK | OK | OK | OK | OK | OK | OK | OK |
+| **CardLifecycleDeviceTest(3)** | OK | OK | **红** | OK | OK | OK | OK | OK |
+| T06RemainingDeviceTest(3) | OK | OK | OK | OK | OK | OK | OK | OK |
+| PartialSelection PhaseA/B | OK | OK | OK | OK | OK | OK | OK | OK |
+| FPF Phase1 / Phase2 | OK | OK | OK | OK | OK | OK | OK | OK |
+| **FPF Phase3** | **红** | OK | OK | OK | OK | **红** | OK | OK |
+| FullRecovery 四件（phase1/absence/cont/readback） | OK | OK | OK | OK | OK | OK | OK | OK |
+| B2PermissionRefresh step1/2/3 | OK | OK | OK | OK | OK | OK | OK | OK |
+| B2MediaAccessRevision | OK | OK | OK | OK | OK | OK | OK | OK |
+| **StaleScanLateReturn（目标段）** | **OK** | **OK** | **OK** | **OK** | **OK** | **OK** | **OK** | **OK** |
 
 红格定位：A36 FPF Phase3 = `FPFPhase3Test onSwitchToGlobal` 全局批次等待超时
 （12:50:38，"timed out waiting for 全局"）；B36 CardLifecycle = 13:22:43
@@ -455,9 +462,9 @@ park→release 由同一 IO worker（tid 20247）承载；a11y 恢复两次触�
    A/B/C 三轮目标段 6 job 执行全部 OK(1)，三轮各自恰有一个上游遗留段红——A36/C37
    FPF Phase3、B36 CardLifecycle——时序隔离，见矩阵）；指定变异 no-op 诊断闭环；
    **目标变异证据达成**（变异-3 双 API :939 红灯 + 直接指纹）；变异-2 形态的额外发现
-   （主线程冻结）作为该缺陷族的另一表现如实入档。**三 job 全绿判据**：待轮 D
-   （43724140820）结论——若 D 仍遇上游段红而本段 OK(1)，按既有裁决登记、不盲目
-   重派，合并判据以"至少一次全绿 run 绑定最终 head 69a9611"为目标继续视环境窗。
+   （主线程冻结）作为该缺陷族的另一表现如实入档。**三 job 全绿判据达成**：轮 D
+   （43724140820）双 device job 全绿绑定 head 69a9611（合并判据 = "至少一次全绿
+   run 绑定最终 head"满足）。
 
 ## 遗留登记（轮 2 收口更新）
 
@@ -472,7 +479,8 @@ park→release 由同一 IO worker（tid 20247）承载；a11y 恢复两次触�
    CardLifecycle scenario1DrawCancel…（B=43717360920 API36）——三处落在两个不同
    遗留套件、**目标段 6 job 全绿**、时序隔离 = 共享 runner 资源压力型 flake（下午窗
    爆发，diag-closure2-burst-2026-11-15.md）；与 master 基线 43713220665 当晨三 job
-   全绿对照。三 job 全绿待轮 D（43724140820）结论回填。
+   全绿对照。**轮 D（43724140820）三 job 全绿**（14:53 完成）——上游爆发窗自行平息，
+   未重派、未动段级重试。
 4. **Robolectric 构件下载瞬时故障**（run 43692855424 build 红）：CI runner 对 Maven
    Central 的下载无缓存护城河，偶发即红——既有基础设施口径，未改动。
 5. **probe 预算**：轮 2 实测本段墙钟 ≈150-160s（API36）/≈165s（API37 变异含红灯
