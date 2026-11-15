@@ -27,6 +27,11 @@
 - **R2/TC58（PR #80）轮 1 CI 失败→根因→修复→审计闭环**：轮 1 43691596178 红——唯一失败=相邻既有用例 directRecycleClear…（:177 expected [external_primary|1] was []），Tc58 本身 2/2 绿（工件实核）。归因（审计与协调者独立一致）：本类 setUp 曾为 JVM 首个 RecycleBinManager.getInstance 调用方，生产单例首次创建绑定 context 且未纳入 resetSingleton 测试纪律，插入位置改变绑定环境、确定性暴露先存隔离缺口。决定性证据=master CI 43692861712（同生产字节、无本类）build job 绿 + 本地双变体绿。**修复 2bea13b**：本类完全移除单例触碰（不需要回收站面+每用例新 AppPreferences 实例，PickCooldownIdentityTest 同款）；先存缺口登记为测试纪律后续候选（不在本 PR 生产侧改动）。**审计**：coord/audit-TC58-pr80.md 需修复 2 项均已落实（①单例隔离修复 ②PR 正文 #59 错引更正→U9/GroupIdentityCleanupPersistenceTest）；轮 2 CI 43693504295 运行中（合并判据=build job 全绿）。
 - **R1 解散**：media3 1.5.1 仅 catalog 声明、main 零 import（F1 已登记 P4 清理候选）；实际播放依赖=平台 MediaPlayer（MotionPhotoPlayer.kt:36）；DisposableEffect 释放语义无 Compose 单测基建（PR34/35 同款审读边界）→ T12 按"或"口径闭合。盘点文件已更新（a943e03）。
 
+## 收口阶段执行登记三（2026-11-15 03:40 增补）
+- **Unit B 全链闭环（PR #81）**：69eb962（CI 代码=61a26f0，仅 notes 尾随）；主 CI run 43694969019 三 job 绿（StaleScanLateReturn 双 API OK(1)，段≈150-160s）；**独立审计 PASS**（coord/audit-stale-scan-pr81.md：接缝恰 2 处且位置正确（IO 块内 initialize 后）、5 入口 DEBUG 门、**审计者独立反编译 coroutines-core-jvm 1.10.2 实证变异-1 no-op 结论与已知语义一致**、变异-2 权重判定=检出但断言位置不符预期（非未检出）、五步握手工件逐行核实、覆盖层级如实）；变异分支 mut/mut1 远端保留；遗留 5 条登记（变异红灯未达目标断言=测试侧 a11y 失联恢复候选、Robolectric 构件下载偶发即红等）。
+- **master CI 43692861712 全绿**（60aa6e03 三 job）——master 基线健康实证。
+- **R2/TC58（PR #80）卡点升级→独立咨询**：轮 2（43693504295）同相邻用例同断言再红（修复后仍红）。本地复现路径打通：全量 testReleaseUnitTest 本地红（此前仅 CI 红）→ 二分锁定**最小三元组 {AlbumCleanupImageResolverTest（纯逻辑无状态）, Tc58HashRecoveryTest, AlbumCleanupForegroundRefreshTest}** 决定性红；**空壳 sdk34 桩类不触发**（非"任意新类移序"）、无 Tc58 对子绿（我的类行为是必要条件）、{Tc58+AlbumCleanupForeground+PickCooldown} 绿（PickCooldown 在场=绿）。两次针对性修正（单例触碰移除）未解 → 按两次修正规则转独立咨询（嫌疑=Tc58 经 AlbumCleanupEngine 的异步/状态面在特定类序窗口落进相邻用例断言期）。变体注记：testReleaseUnitTest（CI 同款）复现，testDebugUnitTest 组合轮未见红。
+
 ## 历史游标：2026-11-08 夜间集中开发会话（已归档，证据仅供追溯）
 
 
