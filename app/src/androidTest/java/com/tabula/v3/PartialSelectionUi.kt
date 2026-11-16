@@ -682,9 +682,10 @@ internal object PartialSelectionUi {
      * 点击实际生效，传感器失真）。截屏后采样各格左上角标区域，以**白色勾选
      * 笔画**为勾选判据（run 42484538892 修正：轮9 的瓷片色比对模型在 API36
      * 失效——未勾选格的渲染为内嵌圆角+背景填充，角部像素=网格背景而非瓷片
-     * 色，且背景色恰好接近灰色哨兵；唯一跨 API 稳定的勾选标志=角标中的白色
-     * 笔画，五种瓷片色/网格背景均无白色像素）。格位置取自辅助树边界（跨轮
-     * 实证位置稳定准确），勾选态取自像素（实时无滞后）。
+     * 色，且背景色恰好接近灰色哨兵）。API36/37未选角标还可能有空心白圈，
+     * 原31×31方窗角部会采到白环；只采半径12px的圆形内核，保留白勾阈值15。
+     * run 43817556543 API36真实图回放：真勾内核85白像素，空圈0；API37空圈图亦为0。
+     * 格位置取自辅助树边界，勾选态取自像素，后续真实授权及集合回读继续裁决。
      */
     fun readCheckedStateByPixel(
         cells: List<AccessibilityNodeInfo>,
@@ -701,15 +702,19 @@ internal object PartialSelectionUi {
                 val inset = (minOf(rect.width(), rect.height()) * 0.12f).toInt().coerceAtLeast(20)
                 val cx = (rect.left + inset).coerceIn(0, bitmap.width - 1)
                 val cy = (rect.top + inset).coerceIn(0, bitmap.height - 1)
+                val coreRadius = 12
                 var white = 0
-                for (x in (cx - 15).coerceAtLeast(0)..(cx + 15).coerceAtMost(bitmap.width - 1)) {
-                    for (y in (cy - 15).coerceAtLeast(0)..(cy + 15).coerceAtMost(bitmap.height - 1)) {
+                for (x in (cx - coreRadius).coerceAtLeast(0)..(cx + coreRadius).coerceAtMost(bitmap.width - 1)) {
+                    for (y in (cy - coreRadius).coerceAtLeast(0)..(cy + coreRadius).coerceAtMost(bitmap.height - 1)) {
+                        val dx = x - cx
+                        val dy = y - cy
+                        if (dx * dx + dy * dy > coreRadius * coreRadius) continue
                         val p = bitmap.getPixel(x, y)
                         val r = (p shr 16) and 0xFF; val g = (p shr 8) and 0xFF; val b = p and 0xFF
                         if (r > 210 && g > 210 && b > 210) white++
                     }
                 }
-                Log.i(TAG, "pixelCell[$index] whiteIn31x31=$white at=($cx,$cy)")
+                Log.i(TAG, "pixelCell[$index] whiteInCore(radius=$coreRadius)=$white at=($cx,$cy)")
                 if (white >= 15) checked += index
             }
             return checked.toSet()
