@@ -228,19 +228,32 @@ internal object PartialSelectionUi {
         error("no candidate visible for $tag: $candidates")
     }
 
+    /** 权限动作采用完整文案匹配，避免将选择器标题的相同前缀识为旧按钮。 */
+    private fun findDialogAction(
+        node: AccessibilityNodeInfo?, candidates: List<String>
+    ): AccessibilityNodeInfo? {
+        if (node == null) return null
+        if (node.isVisibleToUser && (node.text?.toString() in candidates ||
+                    node.contentDescription?.toString() in candidates)) return node
+        for (i in 0 until node.childCount) {
+            findDialogAction(node.getChild(i), candidates)?.let { return it }
+        }
+        return null
+    }
+
     /**
      * 系统权限对话框动作点击 + 推进核验（CI 实证单次 tap 可能被吞没）：
-     * 点击后等待对话框候选文案消失（已推进到照片选择器），未消失则重试，
-     * 至多 4 次；全部失败留证报错。
+     * 点击后等待完整匹配的旧动作消失，未消失则重试，至多 4 次；全部失败留证报错。
+     * 返回后由调用者的网格、像素选择和授权回读继续核验实际推进及授权结果。
      */
     fun tapDialogActionAndAwaitPicker(candidates: List<String>, tag: String) {
         repeat(4) { attempt ->
-            val node = findAny(ins.uiAutomation.rootInActiveWindow, candidates)
+            val node = findDialogAction(ins.uiAutomation.rootInActiveWindow, candidates)
                 ?: error("$tag: dialog action candidate vanished before click")
             clickNode(node, "$tag-attempt$attempt")
             val deadline = SystemClock.uptimeMillis() + 8000
             while (SystemClock.uptimeMillis() < deadline) {
-                if (findAny(ins.uiAutomation.rootInActiveWindow, candidates) == null) {
+                if (findDialogAction(ins.uiAutomation.rootInActiveWindow, candidates) == null) {
                     Log.i(TAG, "$tag advanced after attempt $attempt")
                     return
                 }
