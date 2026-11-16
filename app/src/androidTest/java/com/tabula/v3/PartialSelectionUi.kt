@@ -350,7 +350,7 @@ internal object PartialSelectionUi {
      * 抛出（选择器大概率已关——树滞后/窗口已切，不盲点）。
      */
     private fun locateAndTapConfirm(): String {
-        val regex = Regex("^(Add|添加|完成|Done|Confirm|确认)([ ]?[（(]?\\d+[)）]?)?$")
+        val regex = Regex("^(Add|添加|完成|Done|Confirm|确认|Allow)([ ]?[（(]?\\d+[)）]?)?$")
         val a11yDeadline = SystemClock.uptimeMillis() + 8000
         while (SystemClock.uptimeMillis() < a11yDeadline) {
             val matches = mutableListOf<AccessibilityNodeInfo>()
