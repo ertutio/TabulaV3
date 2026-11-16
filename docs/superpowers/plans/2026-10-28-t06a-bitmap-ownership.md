@@ -1,6 +1,6 @@
 # T06a Bitmap 所有权（缓存借用位图不回收）实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **历史设计参考：** 本文保留当时的拆分方案；实现/续接以[持续开发总计划](../../../.ua/DEVELOPMENT_ROADMAP.md)、[当前进度](../../../.ua/DEVELOPMENT_PROGRESS.md)和[验收约定](../../acceptance.md)为准。先核对已交付子项，旧复选框与历史失败记录不代表当前状态；完成本文片段后返回总任务执行循环。
 
 **Goal:** 两种 CardStack 模式的 Genie/删除预加载绝不持有并回收 Coil 缓存借用的共享位图：F15 同尺寸缩放别名（createScaledBitmap 目标尺寸等于源时返回源本身）发生时强制像素级拷贝。
 

@@ -124,3 +124,8 @@
 ---
 
 <p align="center"> 欢迎了解原项目并支持原开源作者 </p>
+
+## 持续开发入口
+
+实现与续接任务从 [AGENTS.md](AGENTS.md) 进入。[总计划](.ua/DEVELOPMENT_ROADMAP.md) 将 T01–T13 组织为一个持续任务，[进度](.ua/DEVELOPMENT_PROGRESS.md) 保存下一动作、PR 与证据，[验收约定](docs/acceptance.md) 定义实际通过条件。每个检查点保存提交和 PR 后继续下一项就绪工作。
+

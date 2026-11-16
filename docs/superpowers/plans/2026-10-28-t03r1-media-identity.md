@@ -1,6 +1,6 @@
 # T03r1 媒体身份契约实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **历史设计参考：** 本文保留当时的拆分方案；实现/续接以[持续开发总计划](../../../.ua/DEVELOPMENT_ROADMAP.md)、[当前进度](../../../.ua/DEVELOPMENT_PROGRESS.md)和[验收约定](../../acceptance.md)为准。先核对已交付子项，旧复选框与历史失败记录不代表当前状态；完成本文片段后返回总任务执行循环。
 
 **Goal:** 冻结媒体身份契约：MediaItemKey(volumeName, id) 为共享模型类型，提供 URI 解析；SystemAlbumSyncManager（首个消费者簇）迁移到该契约；与 T01 账本（URI 字符串键）兼容。
 
