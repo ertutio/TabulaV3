@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Android-green?style=flat-square" alt="Platform">
-  <img src="https://img.shields.io/badge/Version-3.3.5-blue?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/Version-3.4-blue?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/API-34%2B-orange?style=flat-square" alt="Min SDK">
 </p>
 
