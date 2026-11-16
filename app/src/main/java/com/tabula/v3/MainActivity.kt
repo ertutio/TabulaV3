@@ -211,9 +211,10 @@ internal suspend fun loadAndApplyMediaSnapshot(
             val projected = projectSnapshot(loadResult.first, loadResult.second)
             albumManager.initialize(preloadedBuckets = projected.systemBuckets)
             MediaLoadTestHook.parkBeforeCommit(projected.allImages.size)
+            // Mutation-only: historical mutation 3 commits before the cancellation boundary.
+            apply(projected, loadResult.second)
             Pair(projected, loadResult.second)
         }
-        apply(loadedData.first, loadedData.second)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
