@@ -84,10 +84,47 @@ internal object FullPartialFullUi {
      * 回归（生产退出完成核验）。
      */
     fun exitCleanupViaSheet() {
-        PartialSelectionUi.tap("选择图集")
+        openCleanupSheetForGlobal()
         tapAndAwaitDismissal("全局", "cleanup-exit-global")
         awaitDismissed("选择图集进行整理", "cleanup-sheet-dismissed", timeoutMs = 8000)
         PartialSelectionUi.waitFor(PartialSelectionUi.DECK_MARKER, timeoutMs = 15000)
+    }
+
+    /** 打开真实 sheet 并核对标题及全局项；输入被丢弃时重新定位后有限重试。 */
+    private fun openCleanupSheetForGlobal() {
+        repeat(3) { attempt ->
+            val root = ins.uiAutomation.rootInActiveWindow
+            val header = findExact(root, "选择图集进行整理")
+            val global = findExact(root, "全局")
+            if (header != null && global != null) {
+                Log.i(TAG, "cleanup sheet ready before attempt $attempt")
+                return
+            }
+            // 已出现任一 sheet 标识时只等待，避免再次点击底层图标关闭面板。
+            if (header == null && global == null) {
+                val open = findExact(root, "选择图集")
+                if (open != null) {
+                    PartialSelectionUi.clickNode(open, "cleanup-sheet-open-attempt$attempt")
+                } else {
+                    Log.w(TAG, "cleanup sheet open attempt $attempt: icon not visible")
+                }
+            } else {
+                Log.i(TAG, "cleanup sheet open attempt $attempt: partial sheet visible; waiting")
+            }
+            val deadline = SystemClock.uptimeMillis() + 3000
+            while (SystemClock.uptimeMillis() < deadline) {
+                val current = ins.uiAutomation.rootInActiveWindow
+                if (findExact(current, "选择图集进行整理") != null && findExact(current, "全局") != null) {
+                    Log.i(TAG, "cleanup sheet ready after attempt $attempt")
+                    return
+                }
+                SystemClock.sleep(100)
+            }
+            Log.w(TAG, "cleanup sheet not ready after attempt $attempt")
+        }
+        PartialSelectionUi.dumpTree("cleanup-sheet-open-timeout")
+        PartialSelectionUi.saveScreenshot("cleanup-sheet-open-timeout")
+        error("cleanup sheet header and global item not visible after 3 attempts")
     }
 
     /** 集合外/已处理媒体不得出现：截止时间内节点必须始终缺席（出现即失败留证）。 */
