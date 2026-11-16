@@ -34,7 +34,7 @@ import android.os.ParcelFileDescriptor
  * TC58/收口第二轮 §二（2026-11-15）：真实生产链的内容变更→旧结果失效→有界重算
  * →消费端采纳新结果——设备级（真实 MediaStore 读+真实解码+真实 dHash 计算）。
  *
- * 生产链（全部真实入口，零注入）：
+ * 生产链使用真实入口；同版本失败恢复场景单独注入缓存失败态：
  * 读=LocalImageRepository.loadAllData()（真实 MediaStore 全量查询）
  * 算=SimilarGroupDetector.ensureHashesComputed()（版本=dateModified 毫秒；
  *    过期即重算；此前失败有界重试——SimilarGroupDetector.kt:258-304）
@@ -399,7 +399,7 @@ class HashRecomputeDeviceTest {
         )
         Log.i(TAG, "step7 consumer positive: a1+d1 grouped post-recompute")
 
-        // ---- 8. 有界恢复（c1 一次临时读取失败 → 恢复；对齐新秒=严格晚于 corrupt）----
+        // ---- 8. 有界恢复（c1 损坏内容 → 有效新内容；版本严格推进）----
         val recoverSec = awaitSecondBoundary(corruptSec + 1)
         swapContent(c1Row, Pattern.MONO_DOWN) // 恢复有效新内容
         val all3 = awaitAllRows()
@@ -418,7 +418,28 @@ class HashRecomputeDeviceTest {
         }
         assertNotNull("恢复后必须完成重算（瞬态容错后仍 null=此前失败条目阻断了新版本重算）", newC)
         assertTrue("c1 新哈希≠旧哈希", newC!! != oldCHash)
-        Log.i(TAG, "step8 bounded recovery: c1 recomputed after temporary read failure")
+        Log.i(TAG, "step8 version-advanced recovery: c1 recomputed after corrupt content")
+
+        // 合成同版本失败缓存；图片内容仍有效，重试使用真实读取、解码和计算。
+        val recoveredKey = c1Recovered.toHashKey()
+        cache.saveHash(
+            recoveredKey,
+            PerceptualHash.HashResult.Failed("synthetic transient read failure"),
+            contentVersion = c1Recovered.dateModified
+        )
+        val seededFailure = cache.getHash(recoveredKey, c1Recovered.dateModified)
+        assertTrue("同版本合成失败态必须写入缓存", seededFailure?.isFailed == true)
+        val sameVersionDeadline = System.currentTimeMillis() + 10000
+        var sameVersionHash = detector.ensureHashesComputed(listOf(c1Recovered))[recoveredKey]
+        while (sameVersionHash == null && System.currentTimeMillis() < sameVersionDeadline) {
+            Thread.sleep(400)
+            sameVersionHash = detector.ensureHashesComputed(listOf(c1Recovered))[recoveredKey]
+        }
+        assertEquals("同版本失败态必须经生产重算恢复原有有效哈希", newC, sameVersionHash)
+        val recoveredCache = cache.getHash(recoveredKey, c1Recovered.dateModified)
+        assertTrue("同版本缓存必须恢复成功态", recoveredCache?.isSuccess == true)
+        assertEquals("同版本缓存值必须等于生产重算结果", newC, recoveredCache?.hash)
+        Log.i(TAG, "step8 same-version recovery: synthetic Failed seed recomputed through production")
 
         // ---- 9. 无关面保留 ----
         assertTrue(
@@ -437,14 +458,15 @@ class HashRecomputeDeviceTest {
         Log.i(TAG, "step9 unrelated state preserved")
 
         // ---- 10. 双面核对（shell 行面+哨兵）----
-        // 无 where 全量查询（B2MR gallery_rows 已证形态；executeShellCommand 层
-        // 嵌套引号解析破损——轮 12 步骤 10/diag row state 的 usage 输出实证）；
-        // 本段段首 gallery-clean 门已保证查询时库内仅本夹具 6 行。
-        val shellOut = shell(
+        // 复用 B2MR 的 shellScript 通道，使重定向由 shell 解释。
+        val shellOut = PartialSelectionUi.shellScript(
             "content query --uri content://media/external/images/media --projection _display_name 2>&1"
         )
+        val shellNames = shellOut.lineSequence().filter { it.startsWith("Row:") }
+            .mapNotNull { Regex("_display_name=([^,\\r\\n]+)").find(it)?.groupValues?.get(1)?.trim() }
+            .toSet()
         for (name in allNames) {
-            assertTrue("shell 面必须存在 $name", shellOut.contains(name))
+            assertTrue("shell 面必须存在准确名称 $name；shellOut=$shellOut", name in shellNames)
         }
         assertTrue("哨兵不得进入任何相似组", groupsNew.all { g -> g.images.none { it.displayName == s1Name } })
         Log.i(TAG, "step10 shell double-face verified (6 rows incl. sentinel)")

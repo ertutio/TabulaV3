@@ -70,8 +70,9 @@ jobs:
             sdk: '37.0'
             ram: 4096M
     runs-on: ubuntu-24.04
-    # device job: probe 子进程预算 1200s→1500s（B2MediaAccessRevision 段新增，
-    # 见 tools/run-volume-device-probe.py 同注）→ job 上限 30→40 分钟同步
+    # device job: probe budget 1200s→1500s for B2MediaAccessRevision, then
+    # 1500s→1800s for HashRecompute (480s) + StaleScanLateReturn (600s);
+    # job timeout 40→50 minutes covers the combined stages.
     timeout-minutes: 50
     env:
       API_LEVEL: ${{ matrix.api }}
