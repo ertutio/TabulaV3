@@ -249,7 +249,12 @@ def main():
     # 建立 PARTIAL + 47 行池断言，段预算 480s）→ 1200s→1500s（段位增长同步上调，
     # e95f705/2be08ad 同款口径；全脚本基线 ≈17 分钟（run 43597856253 API36 实测
     # + T06Remaining 3 例）+ 新段预算余量 < 25 分钟；device job timeout 30→40 分钟同步）。
-    subprocess.run(["bash", "tools/run-cloud-ui-probe.sh"], check=True, timeout=1500)
+    # Both added device stages are retained: HashRecompute uses a 480s hard
+    # limit (about 120-180s expected), and StaleScanLateReturn uses 600s
+    # (about 200-290s expected). Prior whole-probe estimates were about 22 min
+    # with HashRecompute and 21.6 min before StaleScanLateReturn; together the
+    # expected run remains below the 1800s probe cap and 50 min device-job limit.
+    subprocess.run(["bash", "tools/run-cloud-ui-probe.sh"], check=True, timeout=1800)
 
 if len(sys.argv) > 1:
     if sys.argv[1:] == ["metadata"]:

@@ -26,9 +26,9 @@ android {
         applicationId = "com.tabula.v3"
         minSdk = 31
         targetSdk = 36
-        versionCode = 5
-        versionName = "3.3.5"
-        buildConfigField("String", "RELEASE_DATE", "\"2026.10.13\"")
+        versionCode = 6
+        versionName = "3.4"
+        buildConfigField("String", "RELEASE_DATE", "\"2026.11.16\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

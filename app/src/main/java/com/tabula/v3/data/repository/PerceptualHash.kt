@@ -61,6 +61,11 @@ object PerceptualHash {
                 
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     BitmapFactory.decodeStream(input, null, options)
+                    // bounds-only 解码按 SDK 契约返回 null（维度写入 options）——
+                    // use 的返回值必须为 Unit，否则 elvis 恒触发，把成功的 open
+                    // 误判为失败（HashRecomputeDeviceTest 设备实证：修复前任何
+                    // 图片恒 Failed("Cannot open input stream")，哈希链从未成功）。
+                    Unit
                 } ?: return@withContext HashResult.Failed("Cannot open input stream")
                 
                 if (options.outWidth <= 0 || options.outHeight <= 0) {

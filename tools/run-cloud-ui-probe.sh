@@ -99,6 +99,10 @@ status=0
 # T06RemainingDeviceTest 3 例（T06 剩余场景设备级验收 2026-11-14：场景 a SHUFFLE 同索引
 # 换批请求身份同步+实际预载恢复+旧回调不回写 / 场景 c DRAW 删除动画中 BACK 退出+返回
 # 全量预载重建+后续可操作 / 修复二 旧回调晚到设备验证（失效后交付守卫拦截）；见套件 KDoc）。
+# StaleScanLateReturnDeviceTest 1 例（Unit B 旧扫描晚返回设备验收 2026-11-15：真实接线级
+# 竞态构造——MediaLoadTestHook debug 接缝（仅 DEBUG）在 loadAndApplyMediaSnapshot IO 块内
+# 可控暂停 + 五步显式握手，见套件 KDoc 与 docs/notes-stale-scan-2026-11-15.md；独立段驱动
+# （b2mr 段后追加），不入上方 class 循环）。
 for class in CloudCleanupUiTest CloudRestoreUiTest CreateAlbumDiagnosticDeviceTest ForegroundPermissionUiTest PixelRefreshUiTest OtherAppMediaAuthDeviceTest ProdAuthCallbackDeviceTest CardLifecycleDeviceTest T06RemainingDeviceTest; do
   case "$class" in
     CloudCleanupUiTest) expected_tests=8 ;;
@@ -674,6 +678,121 @@ adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_
 
 if [ "$b2mr_status" != "0" ]; then
   echo "B2 media-access-revision PARTIAL->FULL device verification failed" >&2
+  status=1
+fi
+
+# ===== 收口第二轮 §二（2026-11-15）：Hash recompute production-chain device verification =====
+# HashRecomputeDeviceTest 1 例 = 真实生产链（loadAllData 读 + ensureHashesComputed 算 +
+# detectSimilarGroups 消费）的新旧重算/失败恢复/消费面采纳/无关面保留。夹具 app 侧
+# IS_PENDING 舞蹈（PixelRefresh 同款）+ 同目录 shell 行面双核对；用例末自清 + @After
+# 兜底 + 本段失败按目录兜底清理。段预算 ≈120-180s（无选择器舞步）。
+echo "=== Hash recompute production-chain device verification ==="
+hashrecompute_status=0
+adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '\r' | grep -Fx Success || hashrecompute_status=1
+adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || hashrecompute_status=1
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED >/dev/null 2>&1 || true
+adb shell "content delete --uri content://media/external/images/media --where \"relative_path='Pictures/HashRecomputeFixtures/'\"" >/dev/null 2>&1 || true
+adb shell "rm -rf /sdcard/Pictures/HashRecomputeFixtures" >/dev/null 2>&1 || true
+hashrecompute_rows=$(adb shell "content query --uri content://media/external/images/media --projection _id" | grep -c "^Row:") || hashrecompute_rows=0
+if [ "$hashrecompute_rows" != "0" ]; then
+  adb shell "content query --uri content://media/external/images/media --projection _display_name" | head -20 >&2 || true
+  echo "Gallery not clean before HashRecompute suite: $hashrecompute_rows rows" >&2
+  hashrecompute_status=1
+fi
+mkdir -p device-results/HashRecompute
+hashrecompute_cleanup_fixtures() {
+  adb shell "content delete --uri content://media/external/images/media --where \"relative_path='Pictures/HashRecomputeFixtures/'\"" >/dev/null 2>&1 || true
+  adb shell "rm -rf /sdcard/Pictures/HashRecomputeFixtures" >/dev/null 2>&1 || true
+  echo "HashRecompute fallback: fixtures removed by dir"
+}
+if ! timeout 480s adb shell am instrument -w -r -e allowSyntheticMediaProbe true   -e class com.tabula.v3.HashRecomputeDeviceTest   com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner   | tee device-results/HashRecompute/test.txt; then
+  echo "HashRecompute instrumentation failed" >&2; hashrecompute_status=1
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/HashRecompute/test.txt || { echo "HashRecompute expected OK(1)" >&2; hashrecompute_status=1; }
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/HashRecompute/test.txt; then
+  echo "Failure or skip observed in HashRecompute" >&2; hashrecompute_status=1
+fi
+collect hashrecompute-logcat 2 device-results/HashRecompute/logcat.txt adb logcat -d -v threadtime || true
+grep -iE "HashRecompute|SimilarGroupDetector|Need to compute" device-results/HashRecompute/logcat.txt | tail -30 > device-results/HashRecompute/chain-grep.txt || true
+cat device-results/HashRecompute/chain-grep.txt || true
+if [ "$hashrecompute_status" != "0" ]; then
+  hashrecompute_cleanup_fixtures
+fi
+
+if [ "$hashrecompute_status" != "0" ]; then
+  echo "Hash recompute production-chain device verification failed" >&2
+  status=1
+fi
+
+# ===== Unit B（2026-11-15）：StaleScanLateReturn 旧扫描晚返回设备验收 =====
+# StaleScanLateReturnDeviceTest 1 例 = 1 次独立 instrumentation（单方法五步
+# 显式握手，全程同进程）。场景：真实系统机制建立 PARTIAL(B)（系统权限对话框
+# Select photos → 照片选择器 7 格像素驱动只选 {1,2}=b1,b2 + 哨兵 s1）→
+# MediaLoadTestHook.armOnce()（debug 接缝一次性门，仅 DEBUG 生效——
+# loadAndApplyMediaSnapshot IO 块内 parkBeforeCommit，恢复期取消检查归生产链）
+# → Home→am start（onResume 级别不变+foregroundRefresh → revision++）→ 旧扫描
+# 停在可控位（parkedRows()==2 = PARTIAL 选中集合规模，读取已返回投影在手上）→
+# 会话内 shell 注入 40 填充（MediaStore=47，应用可见仍={b1,b2}）→ pm grant 升级
+# FULL（grant 不杀进程 #52 口径）→ Home→am start（级别变化分支 revision++ →
+# 被暂停旧扫描被取消（NonCancellable 推迟）+ 新扫描全池提交）→ 断言：集合面
+# = 47 名全集（哨兵存在性、无重复）/ deck 存活行同步（无门控/白屏）/ 真实
+# Settings 推荐模式现值重选 → STALE_BOUNDARY_MARKER 边界后 batch-site-4 批次
+# 日志行 id 集 == 47 池集 → release() 释放（logcat "resumed rows=2" = 旧读取
+# 确实返回）→ 释放后观察窗（集合面仍 47 / 无门控 / 无"回收站记录未能读取"
+# 对话框 / 释放标记后无 2 行批次事件 / 无 TabulaApp "Could not load/reconcile
+# recycle bin" 错误行 = 取消不误报加载失败）→ 清理状态面读回（暂停前经生产写
+# 入口建立的 组{g1,g2}+断点([G],0)+已处理{g1} 原样 = stale initialize 无持久
+# 污染）→ 全程 pidof 恒等。
+# 覆盖层级：真实接线级（竞态构造点在生产链内 debug 接缝；单测级竞态语义由
+# PR50 MediaSnapshotLoadRaceTest 参数注入覆盖，两级口径各自保留）。
+# 夹具：全部 shell 身份测试侧注入（base64 文本模板复制通道，宿主不推）——
+# stale-s1/n1/g1/g2/g3/b1/b2 + stale-fill-01..40，Pictures/StaleScanLateReturnFixtures/；
+# 用例末自清 + @After 兜底 + 本段失败按目录兜底清理。
+echo "=== StaleScanLateReturn old-scan late-return device verification ==="
+stale_status=0
+adb shell pm clear com.tabula.v3.recyclebin.test | tr -d '\r' | grep -Fx Success || stale_status=1
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED >/dev/null 2>&1 || true
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES >/dev/null 2>&1 || true
+for fixture_dir in "Pictures/StaleScanLateReturnFixtures/" "Pictures/B2MediaAccessRevisionFixtures/" "Pictures/B2PermissionRefreshFixtures/" "Pictures/FullPartialFullFixtures/"; do
+  adb shell "content delete --uri content://media/external/images/media --where \"relative_path='$fixture_dir'\"" >/dev/null 2>&1 || true
+done
+adb shell "rm -rf /sdcard/Pictures/StaleScanLateReturnFixtures" >/dev/null 2>&1 || true
+stale_gallery_rows=$(adb shell "content query --uri content://media/external/images/media --projection _id" | grep -c "^Row:") || stale_gallery_rows=0
+if [ "$stale_gallery_rows" != "0" ]; then
+  adb shell "content query --uri content://media/external/images/media --projection _display_name" | head -20 >&2 || true
+  echo "Gallery not clean before StaleScanLateReturn suite: $stale_gallery_rows rows" >&2
+  stale_status=1
+fi
+mkdir -p device-results/StaleScanLateReturn
+stale_cleanup_fixtures() {
+  adb shell "content delete --uri content://media/external/images/media --where \"relative_path='Pictures/StaleScanLateReturnFixtures/'\"" >/dev/null 2>&1 || true
+  adb shell "rm -rf /sdcard/Pictures/StaleScanLateReturnFixtures" >/dev/null 2>&1 || true
+  echo "StaleScanLateReturn fallback: fixtures removed by dir"
+}
+if ! timeout 600s adb shell am instrument -w -r -e allowSyntheticMediaProbe true \
+  -e class com.tabula.v3.StaleScanLateReturnDeviceTest \
+  com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner \
+  | tee device-results/StaleScanLateReturn/test.txt; then
+  echo "StaleScanLateReturn instrumentation failed" >&2; stale_status=1
+fi
+grep -Eq "^OK \(1 tests?\)" device-results/StaleScanLateReturn/test.txt || { echo "StaleScanLateReturn expected OK(1)" >&2; stale_status=1; }
+if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|shortMsg=|INSTRUMENTATION_STATUS_CODE: -[34]' device-results/StaleScanLateReturn/test.txt; then
+  echo "Failure or skip observed in StaleScanLateReturn" >&2; stale_status=1
+fi
+if [ "$stale_status" != "0" ]; then
+  stale_cleanup_fixtures
+fi
+collect stale-logcat 2 device-results/StaleScanLateReturn/logcat.txt adb logcat -d -v threadtime || true
+# 裁决摘要：权限/批次/接缝证据行 cat 进 job log（套件 Log.i 锚 + 接缝 parked/resumed 行 + 生产批次行）
+grep -iE "StaleScanLateReturn|MediaLoadTestHook|currentBatch<-\[|MediaProvider|user.?select" device-results/StaleScanLateReturn/logcat.txt | tail -30 > device-results/StaleScanLateReturn/wiring-grep.txt || true
+cat device-results/StaleScanLateReturn/wiring-grep.txt || true
+collect stale-ui-failures 0 - adb pull /sdcard/Android/data/com.tabula.v3.recyclebin.test/files/cloud-ui-failures device-results/StaleScanLateReturn/ui-failures || true
+# 段末卫生：回收权限（probe 末段，revoke 强停无害）
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES >/dev/null 2>&1 || true
+adb shell pm revoke com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED >/dev/null 2>&1 || true
+
+if [ "$stale_status" != "0" ]; then
+  echo "StaleScanLateReturn old-scan late-return device verification failed" >&2
   status=1
 fi
 

@@ -2,9 +2,11 @@ package com.tabula.v3
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.os.Build
 import android.os.SystemClock
 import android.util.Log
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tabula.v3.data.preferences.AppPreferences
@@ -33,6 +35,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.math.abs
 
 /**
  * T07 FULL→PARTIAL→FULL 三阶段验证——Phase FULL 恢复（判据 8–10）。
@@ -71,7 +74,7 @@ import java.util.concurrent.atomic.AtomicReference
  *      Home→2s→am start（ON_RESUME→权限修订重查+重扫描，MainActivity 生产链）→
  *      退出清理（真实 sheet onSwitchToGlobal 清批+重取）→ 生产批次日志池集相等断言
  *      （新成员入池+既有无丢失+回收站行不入池）+ deck 窗口 displayName 节点截止
- *      轮询（洗牌位重试轮）→ 全集无重复 → 哨兵 s1 shell 面存活 → 用例末 shell 清理
+ *      轮询（同批次有界水平遍历）→ 全集无重复 → 哨兵 s1 shell 面存活 → 用例末 shell 清理
  *      n2/n3 行+文件。如实登记：旧读取"晚返回"的确定性构造设备层不可行（生产 load
  *      无注入点）——该语义由单测级 MediaSnapshotLoadRaceTest（PR50）覆盖，本段验证
  *      最终状态正确性；probe 对本类为类级驱动但有 OK(1) 精确计数门（run-cloud-ui-probe.sh
@@ -246,34 +249,99 @@ class FullPartialFullPhase3Test {
         error("边界2：回前台后应用界面未渲染（$tag）")
     }
 
+    private data class ForegroundDeckCard(val name: String, val bounds: Rect)
+
+    /** SHUFFLE 当前卡居中，prev/next 平移24dp；旋转后的peek面积可能比当前卡更大。 */
+    private fun foregroundDeckCard(names: Collection<String>): ForegroundDeckCard? {
+        val root = ui.ins.uiAutomation.rootInActiveWindow ?: return null
+        val rootBounds = Rect().also { root.getBoundsInScreen(it) }
+        val tolerance = 4 * ctx.resources.displayMetrics.density
+        val cards = names.flatMap { name ->
+            val matches = mutableListOf<AccessibilityNodeInfo>()
+            ui.findAll(root, name, matches)
+            matches.mapNotNull { node ->
+                val bounds = Rect().also { node.getBoundsInScreen(it) }
+                if (node.className?.toString() == "android.widget.ImageView" &&
+                    node.contentDescription?.toString() == name && !bounds.isEmpty &&
+                    abs(bounds.exactCenterX() - rootBounds.exactCenterX()) <= tolerance
+                ) ForegroundDeckCard(name, bounds) else null
+            }
+        }
+        return cards.singleOrNull()
+    }
+
+    /** 身份和真实bounds持续稳定300ms才认作前景卡，容许手势退场与进场动画。 */
+    private fun awaitForegroundDeckCard(
+        names: Collection<String>, expectedName: String?, deadline: Long
+    ): ForegroundDeckCard? {
+        var previous: ForegroundDeckCard? = null
+        var stableSince = SystemClock.uptimeMillis()
+        while (SystemClock.uptimeMillis() < deadline) {
+            val card = foregroundDeckCard(names)
+            if (card == null || card != previous ||
+                (expectedName != null && card.name != expectedName)
+            ) stableSince = SystemClock.uptimeMillis()
+            if (card != null && SystemClock.uptimeMillis() - stableSince >= 300) return card
+            previous = card
+            SystemClock.sleep(100)
+        }
+        return null
+    }
+
+    private fun advanceDeckCard(
+        current: ForegroundDeckCard, nextName: String, names: Collection<String>,
+        deadline: Long, tag: String
+    ): ForegroundDeckCard {
+        repeat(2) { attempt ->
+            // 前次输入若迟到，先确认下一卡，避免重试手势越过一张。
+            awaitForegroundDeckCard(names, nextName,
+                minOf(deadline, SystemClock.uptimeMillis() + 500))?.let { return it }
+            val origin = awaitForegroundDeckCard(names, current.name,
+                minOf(deadline, SystemClock.uptimeMillis() + 1500))
+            if (origin != null) {
+                val bounds = origin.bounds
+                val startX = bounds.centerX()
+                val endX = (startX - bounds.width() * 0.7f).toInt().coerceAtLeast(40)
+                ui.shell("input swipe $startX ${bounds.centerY()} $endX ${bounds.centerY()} 300")
+                awaitForegroundDeckCard(names, nextName,
+                    minOf(deadline, SystemClock.uptimeMillis() + 6000))?.let {
+                    Log.i(TAG, "b2 horizontal advance ${current.name}->$nextName attempt=$attempt ($tag)")
+                    return it
+                }
+            }
+            Log.w(TAG, "b2 horizontal advance unconfirmed ${current.name}->$nextName attempt=$attempt ($tag)")
+        }
+        ui.dumpTree("b2-horizontal-not-advanced-$tag")
+        ui.saveScreenshot("b2-horizontal-not-advanced-$tag")
+        error("边界2水平遍历未确认下一前景卡：${current.name}->$nextName ($tag)")
+    }
+
     /**
-     * 边界 2 消费观察（截止轮询，设计"截止轮询断言"形态；两断言同一轮询环）：
+     * 边界2每轮真实sheet切全局后，只接受本轮标记后的site-3有序批次。
+     * 池必须精确等于期望集合（含新成员、既有成员，排除g1/g2回收站行，无重复）。
+     * 池6/7小于默认batchSize15，批次即整池，作为Resume重扫已提交的确定性证据。
      *
-     * 每轮经真实 sheet 退出（"全局"段 = 生产 onSwitchToGlobal：保存断点[清理态首轮] +
-     * 清空全局批次 + needsInitialBatch=true，DeckScreen.kt:1744-1764）触发全局重取批
-     * → getRecommendedBatch(活投影)（DeckScreen.kt:537 LaunchedEffect）→ 生产批次日志
-     * currentBatch<-[batch-site-3]（DeckScreen 自有 Log，全批 uri:dateModified）：
-     * ①**池集相等断言（确定性投影证据）**：批次日志按行 id 与期望池集合相等——新成员
-     *   入池 = ON_RESUME 重扫描已提交（应用无 ContentObserver，会话内注入唯一重扫触发
-     *   即 ON_RESUME 修订重查链）；既有成员无丢失；g1/g2 回收站行不入池 = 修订重查后
-     *   集合保持正确。批次 = 整池（池 6/7 ≤ batchSize 默认 15，RANDOM_WALK 池≤batchSize
-     *   自清冷却，RecommendationEngine 实证）。
-     * ②**deck 窗口 displayName 节点可见**（设计"n2 节点可见"）：RANDOM_WALK 洗牌决定
-     *   卡位（当前+peek ≤3 槽，ImageCard contentDescription=displayName）——节点可见性
-     *   依赖洗牌位置，每轮重取批 = 重新洗牌，轮询至命中；洗牌位置不确定性如实登记
-     *   （coord/notes-B2.md §九），确定性投影证据由 ①承担。
+     * 同轮先等原1.5s真实displayName节点窗口，未见才从实际居中ImageView定位
+     * 当前索引，在该批次内水平左滑。每步仅在下一预期身份及bounds稳定后计推进，
+     * 最多两次手势尝试。最后张不再滑出，成功前再核对本轮批次没有被替换。
      */
     private fun pollDeckConsumption(name: String, expectedPoolIds: Set<String>, tag: String) {
         val deadline = SystemClock.uptimeMillis() + B2_CONSUME_DEADLINE_MS
+        val namesById = visibleDisplayNameList(ctx).associateBy { boundary2RowId(it) }
+            .filterKeys { it in expectedPoolIds }
         var cycles = 0
         var poolConfirmed = false
         var nodeSeen = false
         var lastBatchLine = ""
         while (SystemClock.uptimeMillis() < deadline) {
             cycles++
+            poolConfirmed = false
+            nodeSeen = false
+            val marker = "b2-global-refetch-$tag-$cycles-${SystemClock.uptimeMillis()}"
+            Log.i(TAG, marker)
             FullPartialFullUi.exitCleanupViaSheet()
-            val dump = ui.shell("logcat -d -s DeckScreen")
-            lastBatchLine = dump.lineSequence()
+            val dump = ui.shell("logcat -d -s DeckScreen $TAG")
+            lastBatchLine = dump.substringAfter(marker, "").lineSequence()
                 .lastOrNull { it.contains(B2_BATCH_LOG_ANCHOR) } ?: ""
             val batchIds = lastBatchLine.substringAfter(B2_BATCH_LOG_ANCHOR, "")
                 .split(",")
@@ -281,22 +349,53 @@ class FullPartialFullPhase3Test {
                     val id = entry.trim().substringBeforeLast(":").substringAfterLast("/", "")
                     if (id.matches(Regex("\\d+"))) id else null
                 }
-                .toSet()
-            if (batchIds == expectedPoolIds) {
-                if (!poolConfirmed) {
-                    Log.i(TAG, "b2 pool confirmed after $cycles cycle(s) ($tag): ids=$batchIds")
-                }
-                poolConfirmed = true
-            }
-            // 轮内短窗节点轮询（卡与状态文本同帧渲染，容小延迟）
-            val nodeDeadline = SystemClock.uptimeMillis() + 1500
-            while (SystemClock.uptimeMillis() < nodeDeadline && !nodeSeen) {
-                nodeSeen = ui.find(ui.ins.uiAutomation.rootInActiveWindow, name) != null
-                if (!nodeSeen) SystemClock.sleep(150)
-            }
-            if (poolConfirmed && nodeSeen) {
-                Log.i(TAG, "b2 $name consumed by deck after $cycles cycle(s): pool + node both confirmed ($tag)")
-                return
+            poolConfirmed = batchIds.toSet() == expectedPoolIds && batchIds.size == expectedPoolIds.size
+            if (poolConfirmed) {
+                Log.i(TAG, "b2 pool confirmed cycle=$cycles ($tag): orderedIds=$batchIds")
+                val orderedNames = batchIds.map { id -> namesById.getValue(id) }
+                var current: ForegroundDeckCard? = null
+                var currentIndex = -1
+                do {
+                    // 每个位置均保留原1.5s真实目标节点观察窗。
+                    val nodeDeadline = minOf(deadline, SystemClock.uptimeMillis() + 1500)
+                    while (SystemClock.uptimeMillis() < nodeDeadline && !nodeSeen) {
+                        nodeSeen = ui.find(ui.ins.uiAutomation.rootInActiveWindow, name) != null
+                        if (!nodeSeen) SystemClock.sleep(150)
+                    }
+                    if (nodeSeen) {
+                        val latestBatch = ui.shell("logcat -d -s DeckScreen").lineSequence()
+                            .lastOrNull { it.contains(B2_BATCH_LOG_ANCHOR) }
+                        if (latestBatch != lastBatchLine) {
+                            ui.dumpTree("b2-target-batch-changed-$tag")
+                            ui.saveScreenshot("b2-target-batch-changed-$tag")
+                            error("目标节点出现前批次已改变（$tag）")
+                        }
+                        Log.i(TAG, "b2 $name consumed by deck cycle=$cycles: pool + node confirmed ($tag)")
+                        return
+                    }
+                    if (current == null) {
+                        current = awaitForegroundDeckCard(orderedNames, null,
+                            minOf(deadline, SystemClock.uptimeMillis() + 3000))
+                        if (current == null) {
+                            ui.dumpTree("b2-foreground-unresolved-$tag")
+                            ui.saveScreenshot("b2-foreground-unresolved-$tag")
+                            error("边界2无法识别本轮批次的实际前景卡（$tag）")
+                        }
+                        currentIndex = orderedNames.indexOf(current.name)
+                        Log.i(TAG, "b2 traversal begins at actual index=$currentIndex name=${current.name} ($tag)")
+                    }
+                    if (currentIndex >= orderedNames.lastIndex || SystemClock.uptimeMillis() >= deadline) break
+                    val latestBatch = ui.shell("logcat -d -s DeckScreen").lineSequence()
+                        .lastOrNull { it.contains(B2_BATCH_LOG_ANCHOR) }
+                    if (latestBatch != lastBatchLine) {
+                        ui.dumpTree("b2-batch-changed-$tag")
+                        ui.saveScreenshot("b2-batch-changed-$tag")
+                        error("边界2水平遍历前批次已改变（$tag）")
+                    }
+                    current = advanceDeckCard(current, orderedNames[currentIndex + 1], orderedNames,
+                        deadline, "$tag-cycle$cycles-index$currentIndex")
+                    currentIndex++
+                } while (SystemClock.uptimeMillis() < deadline)
             }
             SystemClock.sleep(200)
         }
@@ -607,7 +706,7 @@ class FullPartialFullPhase3Test {
         awaitForegroundAfterResume("n2-resume")
 
         // ---- 消费观察（截止轮询）：批次日志池集相等（n2 入池 + 既有无丢失 + 回收站行
-        // 不入池）+ deck 窗口 n2 节点可见（洗牌位重试轮，确定性证据由批次日志承担）----
+        // 不入池）+ deck 窗口 n2 节点可见（同批次水平遍历，确定性证据由批次日志承担）----
         pollDeckConsumption(
             B2_N2_NAME,
             expectedPoolIds = b2SurvivorIds + n2RowId,
