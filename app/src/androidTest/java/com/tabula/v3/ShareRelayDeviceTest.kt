@@ -8,6 +8,8 @@ import android.provider.MediaStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -36,6 +38,37 @@ class ShareRelayDeviceTest {
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
+
+    /**
+     * 首次运行前先确保照片读权限。
+     *
+     * CI 上 APK 是 `adb install` 装的，没人点过系统授权弹窗，
+     * `READ_MEDIA_IMAGES` 默认拒绝——MediaStore 查询返回空。上一轮就是这样：
+     * MediaStore 里明明有 `relay-seed.png`（`Row: 0 _id=16`），测试却读不到，
+     * 于是所有"需要图库里有一张图"的断言集体失败。
+     *
+     * 用 UiAutomation 直接授权，等价于用户在系统弹窗点"允许"。
+     * 授权失败不抛错——依赖真实样本的用例会走 assumeTrue 跳过，
+     * 而不是把"环境没准备好"报成"代码有缺陷"。
+     */
+    @Before
+    fun grantMediaPermissions() {
+        val automation = instrumentation.uiAutomation
+        val packageName = context.packageName
+        listOf(
+            "android.permission.READ_MEDIA_IMAGES",
+            "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
+        ).forEach { permission ->
+            runCatching { automation.executeShellCommand("pm grant $packageName $permission").close() }
+        }
+    }
+
+    /** 图库里没有任何可读照片时跳过：这是环境缺失，不是缺陷。 */
+    private fun requireFixture(): Uri {
+        val uri = fixtureImage()
+        assumeTrue("模拟器里没有可读照片，跳过依赖真实样本的断言", uri != null)
+        return uri!!
+    }
 
     private fun fixtureImage(): Uri? {
         val projection = arrayOf(MediaStore.Images.Media._ID)
@@ -79,8 +112,7 @@ class ShareRelayDeviceTest {
     fun forwardIntentCarriesReadGrantAndClipData() {
         // 与 ShareRelayActivity.forwardToTarget 同构的构造，验证授权标志与
         // ClipData 确实被带上——这是"临时 URI 授权不丢"的可观测证据。
-        val uri = fixtureImage()
-        assertNotNull("需要图库里至少有一张图", uri)
+        val uri = requireFixture()
 
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "image/*"
@@ -105,7 +137,7 @@ class ShareRelayDeviceTest {
             target.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0
         )
         assertNotNull("ClipData must be present so targets can read the uri", target.clipData)
-        assertEquals(uri, target.clipData!!.getItemAt(0).uri)
+        assertEquals(uri, target.clipData?.getItemAt(0)?.uri)
 
         // 自循环防护：本包主 Activity 必须在排除列表里
         val excluded = chooser.getParcelableArrayExtra(Intent.EXTRA_EXCLUDE_COMPONENTS)
@@ -119,10 +151,9 @@ class ShareRelayDeviceTest {
 
     @Test
     fun existingMediaUriResolvesToConcreteVolumeIdentity() {
-        val uri = fixtureImage()
-        assertNotNull("需要图库里至少有一张图", uri)
+        val uri = requireFixture()
 
-        val key = com.tabula.v3.data.model.mediaItemKeyFromUri(uri!!)
+        val key = com.tabula.v3.data.model.mediaItemKeyFromUri(uri)
         assertNotNull("真 MediaStore URI 必须能解析出具体卷 + ID", key)
         assertFalse("聚合卷 external 不是身份", key!!.volumeName.equals("external", ignoreCase = true))
     }

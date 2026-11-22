@@ -90,7 +90,9 @@ jobs:
             mkdir -p device-results
             adb install -r device-apks/app-debug.apk
             adb install -r device-apks/app-debug-androidTest.apk
-            printf '\211PNG\r\n\032\n' > /tmp/seed.png
+            # 用真正的 1x1 PNG（70 字节），不是只有文件头的假图——MediaStore 会索引空壳，
+            # 但测试读流时会失败，反而把'环境没准备好'伪装成代码缺陷。
+            printf '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63fccfc0500f000485018084a98c210000000049454e44ae426082' | xxd -r -p > /tmp/seed.png
             adb push /tmp/seed.png /sdcard/Pictures/relay-seed.png
             adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/relay-seed.png || true
             adb shell content call --uri content://media/external/images/media --method scan_volume --arg external_primary || true
