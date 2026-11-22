@@ -84,18 +84,37 @@ class LiquidGlassBackdropState {
         contentLayer = layer
     }
 
+    private var planState by mutableStateOf(
+        BackdropSamplePlan.original(BackdropFallbackReason.NOT_DRAWN_YET)
+    )
+    private var effectState by mutableStateOf<BackdropEffectHealth>(BackdropEffectHealth.Unknown)
+
     /**
-     * 最近一次采样方案。故意用普通字段而非 Compose 状态：采样发生在绘制阶段，
-     * 在绘制里写状态会反过来触发重组，把"静止不刷新"这条验收前提破坏掉。
-     * 调试预览与测试按需读取这一份，不参与渲染决策。
+     * 最近一次采样方案（可被调试预览读取并显示）。
+     *
+     * 只在值真的变化时写一次：绘制阶段写状态会安排下一帧重组，写完即稳定，
+     * 不会持续刷新。静止场景的"不刷新"由 CI 的逐像素稳定性对照来守。
      */
-    @Volatile
-    var lastPlan: BackdropSamplePlan =
-        BackdropSamplePlan.original(BackdropFallbackReason.NO_COORDINATES)
-        private set
+    val lastPlan: BackdropSamplePlan get() = planState
+
+    /** 采样层的实际渲染健康度：用于区分"方案说采样了但效果没建起来"。 */
+    val effectHealth: BackdropEffectHealth get() = effectState
 
     internal fun reportPlan(plan: BackdropSamplePlan) {
-        lastPlan = plan
+        if (planState != plan) planState = plan
+    }
+
+    internal fun reportEffectHealth(health: BackdropEffectHealth) {
+        if (effectState != health) effectState = health
+    }
+
+    /** 最近一次效果构建失败的原因；仅用于诊断，不参与渲染。 */
+    var effectError: String? = null
+        private set
+
+    internal fun reportEffectError(message: String) {
+        effectError = message
+        reportEffectHealth(BackdropEffectHealth.Failed)
     }
 }
 
@@ -220,8 +239,15 @@ class LiquidGlassBackdropSampling internal constructor(
                     drawLayer(background)
                 }
             }
-            sampleLayer.renderEffect = createBackdropRenderEffect(plan, appearance, cornerRadiusPx)
-                ?.asComposeRenderEffect()
+            val effect = createBackdropRenderEffect(plan, appearance, cornerRadiusPx) { message ->
+                source.reportEffectError(message)
+            }
+            sampleLayer.renderEffect = effect?.asComposeRenderEffect()
+            // 采样方案成立但效果没建起来时，画面会退回"未折射的背景"，
+            // 必须显式暴露出来，否则验收会被误判成通过。
+            source.reportEffectHealth(
+                if (effect != null) BackdropEffectHealth.Ok else BackdropEffectHealth.Failed
+            )
             lastKey = key
         }
         clipPath(path) {

@@ -45,7 +45,17 @@ enum class BackdropFallbackReason {
     DEGENERATE_GEOMETRY,
 
     /** 采样范围（含外扩）超出背景来源，无法完整采样 */
-    OUT_OF_SOURCE_BOUNDS
+    OUT_OF_SOURCE_BOUNDS,
+
+    /** 还没画过一帧（调试预览首帧的初始值，不代表真实结论） */
+    NOT_DRAWN_YET
+}
+
+/** 采样层效果的运行状态；与"方案成立"分开报告，避免把未生效当成已生效。 */
+enum class BackdropEffectHealth {
+    Unknown,
+    Ok,
+    Failed
 }
 
 /**

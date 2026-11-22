@@ -353,3 +353,52 @@ class LiquidGlassBackdropRevisionTest {
         )
     }
 }
+
+/**
+ * 审计标记：CI 靠它判断"方案成立"与"效果真的建起来"两件事，格式不能悄悄变形。
+ */
+class LiquidGlassAuditMarkerTest {
+
+    @Test
+    fun `sampled plan exposes origin layer and padding`() {
+        val plan = planBackdropSample(
+            35, true, true,
+            androidx.compose.ui.unit.IntRect(120, 340, 620, 740),
+            androidx.compose.ui.unit.IntRect(0, 0, 1080, 2400),
+            12
+        )
+        val markers = plan.auditMarkers(BackdropEffectHealth.Ok)
+        assertTrue(markers.startsWith("AUDIT "))
+        assertTrue(markers.contains("sampled=true"))
+        assertTrue(markers.contains("glass=500x400"))
+        assertTrue(markers.contains("origin=(120,340)"))
+        assertTrue(markers.contains("layer=524x424"))
+        assertTrue(markers.contains("pad=12"))
+        assertTrue(markers.contains("effect=Ok"))
+    }
+
+    @Test
+    fun `fallback plan reports false and the reason`() {
+        val plan = BackdropSamplePlan.original(BackdropFallbackReason.OUT_OF_SOURCE_BOUNDS)
+        val markers = plan.auditMarkers(BackdropEffectHealth.Unknown)
+        assertTrue(markers.contains("sampled=false"))
+        assertTrue(markers.contains("reason=OUT_OF_SOURCE_BOUNDS"))
+        assertTrue(markers.contains("effect=Unknown"))
+    }
+
+    @Test
+    fun `audit markers stay single token space separated for regex parsing`() {
+        val plan = planBackdropSample(
+            35, true, true,
+            androidx.compose.ui.unit.IntRect(10, 20, 110, 220),
+            androidx.compose.ui.unit.IntRect(0, 0, 1080, 2400),
+            5
+        )
+        val markers = plan.auditMarkers(BackdropEffectHealth.Failed)
+        assertFalse("不能出现换行", markers.contains("\n"))
+        // origin/尺寸各自是单个 token，CI 用 split() 后按 = 取值
+        markers.removePrefix("AUDIT ").split(" ").forEach { token ->
+            assertTrue("token 必须含 =: $token", token.contains("="))
+        }
+    }
+}

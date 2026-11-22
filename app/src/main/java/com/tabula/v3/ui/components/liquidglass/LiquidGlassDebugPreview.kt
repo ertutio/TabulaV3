@@ -121,8 +121,10 @@ fun LiquidGlassDebugPreview(
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
+                            // 这里刻意不显示折射开关状态：玻璃内容必须在两种状态下
+                            // 逐像素一致，否则前后差异会混进文字变化，无法证明折射生效。
                             Text(
-                                text = if (refractionOn) "折射：开" else "折射：关",
+                                text = "AAA 123 · AAA 123",
                                 color = Color.White.copy(alpha = 0.75f),
                                 fontSize = 13.sp
                             )
@@ -135,6 +137,7 @@ fun LiquidGlassDebugPreview(
             SamplingAuditBadge(
                 samplingSpec = spec,
                 plan = state.lastPlan,
+                health = state.effectHealth,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(12.dp)
@@ -181,6 +184,7 @@ fun LiquidGlassDebugPreview(
 private fun SamplingAuditBadge(
     samplingSpec: LiquidGlassBackdropSpec,
     plan: BackdropSamplePlan,
+    health: BackdropEffectHealth,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -198,6 +202,20 @@ private fun SamplingAuditBadge(
             text = plan.auditLine(),
             color = Color.White,
             fontSize = 10.sp
+        )
+        Text(
+            text = "effect=$health",
+            color = when (health) {
+                BackdropEffectHealth.Ok -> Color(0xFF7CFF9B)
+                BackdropEffectHealth.Failed -> Color(0xFFFF6B6B)
+                BackdropEffectHealth.Unknown -> Color(0xFFFFD400)
+            },
+            fontSize = 10.sp
+        )
+        Text(
+            text = plan.auditMarkers(),
+            color = Color.White.copy(alpha = 0.6f),
+            fontSize = 9.sp
         )
         Text(
             text = if (samplingSpec.enabled) {
@@ -239,6 +257,18 @@ private fun LabeledSlider(
         Spacer(modifier = Modifier.height(2.dp))
         Spacer(modifier = Modifier.width(0.dp))
     }
+}
+
+/**
+ * 机器可读的审计标记，供 CI 从 uiautomator dump 里解析。
+ * 形如：`AUDIT sampled=true glass=500x400 origin=(100,300) layer=520x420 pad=10 effect=Ok`
+ */
+internal fun BackdropSamplePlan.auditMarkers(health: BackdropEffectHealth? = null): String {
+    val base = "AUDIT sampled=$useSampledBackdrop reason=$reason " +
+        "glass=${glassWidthPx}x${glassHeightPx} " +
+        "origin=(${glassOriginInSource.x},${glassOriginInSource.y}) " +
+        "layer=${layerWidthPx}x${layerHeightPx} pad=$paddingPx"
+    return if (health != null) "$base effect=$health" else base
 }
 
 /** 供预览/测试读取的方案摘要：一行可粘贴进 PR 的文本。 */

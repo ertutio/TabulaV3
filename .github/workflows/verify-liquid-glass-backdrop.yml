@@ -44,6 +44,7 @@ jobs:
           python3 - <<'PY'
           import glob, re, sys
           expected = {
+              "LiquidGlassAuditMarkerTest": 3,
               "LiquidGlassBackdropPlanTest": 17,
               "LiquidGlassBackdropRevisionTest": 3,
               "LiquidGlassBackdropShaderContractTest": 5,

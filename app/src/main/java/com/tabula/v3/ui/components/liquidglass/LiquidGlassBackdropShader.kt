@@ -115,7 +115,8 @@ internal const val LIQUID_GLASS_BACKDROP_SHADER: String = """
 internal fun createBackdropRenderEffect(
     plan: BackdropSamplePlan,
     appearance: LiquidGlassBackdropAppearance,
-    cornerRadiusPx: Float
+    cornerRadiusPx: Float,
+    onError: ((String) -> Unit)? = null
 ): RenderEffect? {
     if (!plan.useSampledBackdrop) return null
     return try {
@@ -153,9 +154,11 @@ internal fun createBackdropRenderEffect(
             refraction
         }
     } catch (e: IllegalArgumentException) {
-        // 着色器编译失败：静默回到原有材质，不抛到 UI 层
+        // 着色器编译失败：回到原有材质，但把原因报出去，避免被误判成"已生效"
+        onError?.invoke("${e.javaClass.simpleName}: ${e.message}")
         null
     } catch (e: RuntimeException) {
+        onError?.invoke("${e.javaClass.simpleName}: ${e.message}")
         null
     }
 }
