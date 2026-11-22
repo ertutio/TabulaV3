@@ -2,6 +2,10 @@ package com.tabula.v3.ui.components.liquidglass
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
@@ -184,38 +188,84 @@ class LiquidGlassBackdropSampling internal constructor(
     private val sampleLayer: GraphicsLayer
 ) {
     internal var glassBoundsState by mutableStateOf<IntRect?>(null)
-    private var lastKey: BackdropEffectKey? = null
 
     internal fun onGlassPositioned(bounds: IntRect) {
         glassBoundsState = bounds
     }
 
     /**
-     * 背景层修饰符：绘制在原有材质之前。方案不可采样时什么都不画，画面与
-     * 接入前完全一致。
+     * 背景层：绘制在原有材质之前。
+     *
+     * 效果通过 `graphicsLayer { renderEffect = ... }` 施加，而不是直接写在
+     * 手动创建的 GraphicsLayer 上——后者在本仓库的 Compose 版本里不会被采用
+     * （模拟器取证实测：几何对齐正确、贴图正确，但玻璃内像素零变化）。
+     * 这条写法与 `RealLiquidGlass` 一致，是已验证可用的路径。
+     *
+     * 方案不成立时返回 null，调用方不插入这一层，画面与接入前完全一致。
      */
-    internal fun backdropModifier(
+    @Composable
+    internal fun BackdropLayer(
         shape: Shape,
         density: Float,
         cornerRadiusPx: Float
-    ): Modifier = Modifier.drawWithContent {
+    ): Unit {
+        val sourceBounds = source.boundsOrNull()
         val plan = planBackdropSample(
             sdkInt = Build.VERSION.SDK_INT,
             hasBackdropSource = source.contentLayer != null,
             isRoundedRectShape = true,
             glassBoundsInWindow = glassBoundsState,
-            sourceBoundsInWindow = source.boundsOrNull(),
+            sourceBoundsInWindow = sourceBounds,
             paddingPx = paddingPx(density),
             enabled = spec.enabled
         )
-        source.reportPlan(plan)
-        if (plan.useSampledBackdrop) {
-            val path = Path().apply {
-                addOutline(shape.createOutline(size, layoutDirection, this@drawWithContent))
-            }
-            drawSampled(plan, path, density, cornerRadiusPx)
+        // 审计：方案在组合期算出，值变化时才写状态
+        SideEffect {
+            source.reportPlan(plan)
         }
-        drawContent()
+        if (!plan.useSampledBackdrop) return
+        val background = source.contentLayer ?: return
+        val appearance = spec.resolve(density)
+        val effect = remember(plan, appearance, cornerRadiusPx) {
+            createBackdropRenderEffect(plan, appearance, cornerRadiusPx) { message ->
+                source.reportEffectError(message)
+            }
+        }
+        SideEffect {
+            source.reportEffectHealth(
+                if (effect != null) BackdropEffectHealth.Ok else BackdropEffectHealth.Failed
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    renderEffect = effect?.asComposeRenderEffect()
+                }
+                .drawWithCache {
+                    val path = Path().apply {
+                        addOutline(shape.createOutline(size, layoutDirection, this@drawWithCache))
+                    }
+                    onDrawWithContent {
+                        // 只录背景；玻璃自身、前景文字与图标都不在这个图层里
+                        sampleLayer.record(
+                            this,
+                            layoutDirection,
+                            IntSize(plan.layerWidthPx, plan.layerHeightPx)
+                        ) {
+                            translate(plan.sourceTranslateX, plan.sourceTranslateY) {
+                                drawLayer(background)
+                            }
+                        }
+                        clipPath(path) {
+                            translate(-plan.paddingPx.toFloat(), -plan.paddingPx.toFloat()) {
+                                drawLayer(sampleLayer)
+                            }
+                        }
+                    }
+                }
+        )
     }
 
     private fun paddingPx(density: Float): Int {
@@ -224,38 +274,6 @@ class LiquidGlassBackdropSampling internal constructor(
         return (appearance.refractionAmountPx / 2f).toInt().coerceAtLeast(1)
     }
 
-    private fun DrawScope.drawSampled(
-        plan: BackdropSamplePlan,
-        path: Path,
-        density: Float,
-        cornerRadiusPx: Float
-    ) {
-        val background = source.contentLayer ?: return
-        val appearance = spec.resolve(density)
-        val key = backdropEffectKey(plan, appearance, cornerRadiusPx, source.revision) ?: return
-        if (key != lastKey) {
-            sampleLayer.record(this, layoutDirection, IntSize(plan.layerWidthPx, plan.layerHeightPx)) {
-                translate(plan.sourceTranslateX, plan.sourceTranslateY) {
-                    drawLayer(background)
-                }
-            }
-            val effect = createBackdropRenderEffect(plan, appearance, cornerRadiusPx) { message ->
-                source.reportEffectError(message)
-            }
-            sampleLayer.renderEffect = effect?.asComposeRenderEffect()
-            // 采样方案成立但效果没建起来时，画面会退回"未折射的背景"，
-            // 必须显式暴露出来，否则验收会被误判成通过。
-            source.reportEffectHealth(
-                if (effect != null) BackdropEffectHealth.Ok else BackdropEffectHealth.Failed
-            )
-            lastKey = key
-        }
-        clipPath(path) {
-            translate(-plan.paddingPx.toFloat(), -plan.paddingPx.toFloat()) {
-                drawLayer(sampleLayer)
-            }
-        }
-    }
 }
 
 /**
@@ -286,9 +304,5 @@ fun Modifier.liquidGlassBackdropPosition(sampling: LiquidGlassBackdropSampling?)
     }
 }
 
-/** 供 `PhysicalLiquidGlassBox` 取背景层修饰符；不可采样时返回 null。 */
-internal fun LiquidGlassBackdropSampling?.backdropLayerModifier(
-    shape: Shape,
-    density: Float,
-    cornerRadiusPx: Float
-): Modifier? = this?.backdropModifier(shape, density, cornerRadiusPx)
+/** 供 `PhysicalLiquidGlassBox` 判断是否插入背景层（只影响层序，不影响采样）。 */
+internal fun LiquidGlassBackdropSampling?.hasBackdropLayer(): Boolean = this != null

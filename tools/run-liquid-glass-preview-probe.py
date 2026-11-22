@@ -94,13 +94,30 @@ def parse_audit(xml_path: Path) -> dict | None:
     return parsed
 
 
-def screenshot(name: str) -> Path:
+def screenshot(name: str, attempts: int = 3) -> Path:
+    """截屏并拉回。
+
+    `adb shell screencap` 在模拟器上是已知不稳定点（偶发 `error: closed`），
+    与采样层无关。这里做有界重试，并在每次失败后短暂等待 adbd 恢复；
+    重试仍失败才真正抛出，避免把基础设施抖动误报成实现缺陷。
+    """
     remote = f"/sdcard/{name}.png"
     local = OUT / f"{name}.png"
-    adb("shell", "screencap", "-p", remote)
-    adb("pull", remote, str(local))
-    adb("shell", "rm", "-f", remote)
-    return local
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            adb("shell", "screencap", "-p", remote)
+            adb("pull", remote, str(local))
+            adb("shell", "rm", "-f", remote)
+            if local.exists() and local.stat().st_size > 0:
+                return local
+            last_error = RuntimeError(f"screencap produced empty file on attempt {attempt}")
+        except Exception as error:  # noqa: BLE001
+            last_error = error
+            print(f"[retry] screencap {name} attempt {attempt} failed: {error}", flush=True)
+            adb("wait-for-device", check=False)
+            time.sleep(2.0)
+    raise RuntimeError(f"screencap {name} failed after {attempts} attempts: {last_error}")
 
 
 def start_preview(

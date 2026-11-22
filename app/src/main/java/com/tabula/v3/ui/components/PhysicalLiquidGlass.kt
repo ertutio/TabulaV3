@@ -47,7 +47,7 @@ import androidx.compose.ui.unit.dp
 import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropSampling
 import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropSpec
 import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropState
-import com.tabula.v3.ui.components.liquidglass.backdropLayerModifier
+import com.tabula.v3.ui.components.liquidglass.hasBackdropLayer
 import com.tabula.v3.ui.components.liquidglass.glassContentLayerIndex
 import com.tabula.v3.ui.components.liquidglass.liquidGlassBackdropPosition
 import com.tabula.v3.ui.components.liquidglass.rememberLiquidGlassBackdropSampling
@@ -730,7 +730,6 @@ fun PhysicalLiquidGlassBox(
     // 可选的背景采样层：调用方未提供背景时返回 null，画面与接入前完全一致
     val sampling = rememberLiquidGlassBackdropSampling(backdropState, backdropSpec)
     val densityScale = if (density.density > 0f) density.density else 1f
-    val backdropLayer = sampling.backdropLayerModifier(actualShape, densityScale, cornerRadiusPx)
 
     if (shouldUseShader) {
         PhysicalLiquidGlassBoxImpl(
@@ -750,7 +749,6 @@ fun PhysicalLiquidGlassBox(
             borderGradient = borderGradient,
             noiseBrush = noiseBrush,
             scrollOffset = scrollOffset,
-            backdropModifier = backdropLayer,
             backdropSampling = sampling,
             contentAlignment = contentAlignment,
             content = content
@@ -802,7 +800,6 @@ private fun PhysicalLiquidGlassBoxImpl(
     borderGradient: Brush,
     noiseBrush: Brush,
     scrollOffset: Float,
-    backdropModifier: Modifier?,
     backdropSampling: LiquidGlassBackdropSampling?,
     contentAlignment: Alignment,
     content: @Composable BoxScope.() -> Unit
@@ -849,13 +846,18 @@ private fun PhysicalLiquidGlassBoxImpl(
     val cornerFadeAmount = config.cornerFadeAmount
     
     // 背景采样层（可选）插在最前，仍在原有高光/边缘/内阴影/噪点/形状之下
-    val contentIndex = glassContentLayerIndex(hasBackdropLayer = backdropModifier != null)
+    val contentIndex = glassContentLayerIndex(hasBackdropLayer = backdropSampling?.hasBackdropLayer() == true)
 
     Layout(
         content = {
-            if (backdropModifier != null) {
+            if (backdropSampling != null) {
                 // 层 0: 背景采样（只含背景，边缘折射不会采到玻璃自身）
-                Box(modifier = backdropModifier)
+                // 方案不成立时它什么都不画
+                backdropSampling.BackdropLayer(
+                    shape = shape,
+                    density = LocalDensity.current.density,
+                    cornerRadiusPx = cornerRadiusPx
+                )
             }
             
             // 层 0: 背景模糊
