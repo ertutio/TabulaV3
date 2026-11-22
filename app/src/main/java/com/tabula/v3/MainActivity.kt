@@ -72,6 +72,7 @@ import com.tabula.v3.data.repository.LocalImageRepository
 import com.tabula.v3.data.repository.copyImagesResultMessage
 import com.tabula.v3.data.repository.moveImagesResultMessage
 import com.tabula.v3.data.repository.matchesSameMediaIdentity
+import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.partitionByConfirmedIdentity
 import com.tabula.v3.data.repository.projectSnapshot
 import com.tabula.v3.data.repository.RecycleBinManager
@@ -131,6 +132,8 @@ import com.tabula.v3.data.repository.deleteMediaUrisBatch
 import com.tabula.v3.data.repository.BatchDeleteSummary
 import com.tabula.v3.data.repository.mediaDeletionMessage
 import com.tabula.v3.data.repository.resolveImagesByIdentitySelection
+import com.tabula.v3.data.duplicate.ContentDigestCalculator
+import com.tabula.v3.data.duplicate.DuplicateRules
 
 /**
  * T02b 恢复核验决策：未知保留在回收站，缺失清除死记录且不入图库，仅 PRESENT 继续恢复。
@@ -490,6 +493,13 @@ fun TabulaApp(
     var showHiddenAlbums by remember { mutableStateOf(false) }
     var otherAlbumsForNavigation by remember { mutableStateOf<List<Album>>(emptyList()) }
 
+    // ========== 副本提示状态（路线图第 5 项） ==========
+    // 只对「回收站里待永久删除的照片」算全文摘要——这是最需要"还剩一份吗"
+    // 这个信息的时刻。摘要放在后台算，算不出来就不提示（不猜）。
+    var duplicateCounts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var duplicateDetails by remember { mutableStateOf<Map<String, List<ImageFile>>>(emptyMap()) }
+    var duplicateScanRevision by remember { mutableIntStateOf(0) }
+
     // ========== 图片数据状态 ==========
     var allImages by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
     // 用于主界面卡片整理的图片列表（排除已归类到 Tabula 图集的照片）
@@ -571,6 +581,43 @@ fun TabulaApp(
         deletedImages = deletedImages.filterNot { it.uri in uris }
         allImages = allImages.filterNot { it.uri in uris }
         imagesForSorting = imagesForSorting.filterNot { it.uri in uris }
+    }
+
+    // ========== 副本检测（路线图第 5 项第一步：字节相同） ==========
+    //
+    // 时机：回收站里的照片变化时（进站/恢复/删除）重算一次。扫描**只对
+    // 回收站内的照片**做全文摘要——它们是最可能被永久删除的一批，也是
+    // "还剩哪个版本"最有价值的地方；对全库做摘要代价太大且没有必要。
+    //
+    // 失败即不提示：读不到的照片不进入结果，不猜、不弹错。
+    LaunchedEffect(deletedImages, duplicateScanRevision) {
+        if (deletedImages.isEmpty()) {
+            duplicateCounts = emptyMap()
+            duplicateDetails = emptyMap()
+            return@LaunchedEffect
+        }
+        val calculator = ContentDigestCalculator(context.contentResolver)
+        val digests = withContext(Dispatchers.IO) { calculator.digestAll(deletedImages) }
+        if (digests.isEmpty()) {
+            duplicateCounts = emptyMap()
+            duplicateDetails = emptyMap()
+            return@LaunchedEffect
+        }
+        val findings = withContext(Dispatchers.Default) {
+            DuplicateRules.findExactDuplicates(
+                candidates = digests,
+                // 回收站里**全部**照片都算"还在"吗？不——进站的这些本身
+                // 会不会被删还不确定，因此这里不排除任何一张，让提示如实
+                // 反映"站内还有同样的字节"。
+                recycledIdentityKeys = emptySet()
+            )
+        }
+        duplicateCounts = findings.associate {
+            it.image.mediaIdentityKey() to it.duplicates.size
+        }
+        duplicateDetails = findings.associate {
+            it.image.mediaIdentityKey() to it.duplicates
+        }
     }
 
     // A restored system request must finish before we classify its pending journal.
@@ -1103,6 +1150,10 @@ fun TabulaApp(
     val recycleBinContent: @Composable () -> Unit = {
         RecycleBinScreen(
             deletedImages = deletedImages,
+            // 路线图 #83 第 5 项：选中时提示"这些里还有几张留着相同副本"。
+            // 只做提示，不拦删除——用户仍可全部删掉。
+            duplicateCounts = duplicateCounts,
+            duplicateDetails = duplicateDetails,
             onRestore = { image ->
                 restoreImagesInOneTransaction(listOf(image))
             },
