@@ -81,21 +81,25 @@ jobs:
           emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -no-metrics
           disable-animations: true
           script: |
-            set -euxo pipefail
+            # 注意：android-emulator-runner 用 /bin/sh（dash）执行这段脚本，
+            # 不是 bash —— `set -o pipefail` 会直接报 "Illegal option" 并以
+            # exit 2 中止。上一轮 CI 就是卡在这里：模拟器已正常启动（52s），
+            # 但脚本第一行就炸了。只用 POSIX 兼容的 -eux。
+            set -eux
             mkdir -p device-results
             adb install -r device-apks/app-debug.apk
             adb install -r device-apks/app-debug-androidTest.apk
             # 给测试包一个可以读照片的环境：往模拟器的 Pictures 目录塞一张图，
             # 让 MediaStore 索引到它，CONFIRMED 路径才有真实样本。
-            printf '\x89PNG\r\n\x1a\n' > /tmp/seed.png
+            # dash 的 printf 不认 \xNN，必须用八进制 \NNN。
+            printf '\211PNG\r\n\032\n' > /tmp/seed.png
             adb push /tmp/seed.png /sdcard/Pictures/relay-seed.png
             adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE \
               -d file:///sdcard/Pictures/relay-seed.png || true
             adb shell content call --uri content://media/external/images/media \
               --method scan_volume --arg external_primary || true
             sleep 5
-            adb shell content query --uri content://media/external/images/media \
-              --projection _id:_display_name > device-results/mediastore.txt || true
+            adb shell "content query --uri content://media/external/images/media --projection _id:_display_name" > device-results/mediastore.txt || true
             cat device-results/mediastore.txt
             # 只跑本次新增的 share relay 用例，避免把既有设备套件的长尾时间算进来。
             timeout 600s adb shell am instrument -w -r \
