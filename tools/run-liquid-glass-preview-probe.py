@@ -319,9 +319,11 @@ def main() -> int:
     # 这一条把"renderEffect 渲染路径不生效"与"shader 逻辑写错"区分开：
     # 模糊也不出现，说明效果根本没被应用；只有折射不出现，说明 shader 的问题。
     if roi is not None:
+        # 诊断对照：同样自绘图案，一次带 48px 模糊、一次不带。
+        # 两次都走采样层（保证图案存在），只有 renderEffect 不同。
         start_preview(refraction=True, photo=False, diag_blur=True)
         diag_on = screenshot(f"api{api}-grid-diag-blur")
-        start_preview(refraction=False, photo=False)
+        start_preview(refraction=True, photo=False, diag_blur=False)
         diag_off = screenshot(f"api{api}-grid-diag-blur-off")
         diag_diff = pixel_diff(diag_on, diag_off, f"api{api}-grid-diag-blur-diff", roi)
         (OUT / f"api{api}-diag-blur.json").write_text(
@@ -333,7 +335,7 @@ def main() -> int:
             diag_ok,
             json.dumps(diag_diff),
             failure=None if diag_ok else
-            "连纯模糊都不生效：renderEffect 渲染路径本身没有作用到该图层",
+            "自绘图案上纯模糊也不生效：renderEffect 没有作用到该图层",
         )
 
     # 4. 静止场景两张截图必须逐像素一致（不持续刷新）

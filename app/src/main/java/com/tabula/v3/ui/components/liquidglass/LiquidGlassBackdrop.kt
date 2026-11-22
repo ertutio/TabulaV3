@@ -19,6 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.addOutline
@@ -261,6 +264,18 @@ class LiquidGlassBackdropSampling internal constructor(
                     this.shape = shape
                 }
                 .drawBehind {
+                    if (spec.diagnosticBlurOnly) {
+                        // 诊断：自绘图案（不引用外部图层），用于区分
+                        // "renderEffect 不作用于引用的图层" 与 "效果根本没应用"
+                        for (i in 0 until 24) {
+                            drawRect(
+                                color = if (i % 2 == 0) Color.White else Color.Black,
+                                topLeft = Offset(i * size.width / 24f, 0f),
+                                size = Size(size.width / 24f, size.height)
+                            )
+                        }
+                        return@drawBehind
+                    }
                     // 背景在窗口坐标系里的原点相对玻璃的位置，取整像素避免闪烁
                     val dx = -plan.glassOriginInSource.x.toFloat()
                     val dy = -plan.glassOriginInSource.y.toFloat()
