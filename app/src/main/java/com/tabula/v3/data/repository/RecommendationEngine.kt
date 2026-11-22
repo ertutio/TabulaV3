@@ -3,6 +3,7 @@ package com.tabula.v3.data.repository
 import android.content.Context
 import com.tabula.v3.data.cache.ImageHashCache
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.balance.RoundIntentRules
 import com.tabula.v3.data.balance.SourceBalanceRules
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.RecommendMode
@@ -201,6 +202,31 @@ class RecommendationEngine(
         }
     }
 
+    /**
+     * 本轮整理意图（路线图 #83 第 7 项 / 审计 #90）。
+     *
+     * 由 UI 在用户接受提示时写入，**会话级、不持久化**：
+     * 进程重启后归零，符合"只在当前整理会话内有效"的约束。
+     * 被消费一次后由 [onIntentConsumed] 清空，实现"只影响下一批"。
+     */
+    @Volatile
+    var roundIntent: RoundIntentRules.Intent = RoundIntentRules.clear()
+        private set
+
+    /** 消费回调：由持有方清空意图状态（保持单一写者）。 */
+    @Volatile
+    var onIntentConsumed: (() -> Unit)? = null
+
+    /** 接受意图：下一批优先该来源。 */
+    fun acceptRoundIntent(sourceKey: String, nowMillis: Long = System.currentTimeMillis()) {
+        roundIntent = RoundIntentRules.accept(sourceKey, nowMillis)
+    }
+
+    /** 清空意图（用户退出整理 / 会话结束）。 */
+    fun clearRoundIntent() {
+        roundIntent = RoundIntentRules.clear()
+    }
+
     private fun getRandomWalkBatch(
         allImages: List<ImageFile>,
         batchSize: Int
@@ -225,24 +251,32 @@ class RecommendationEngine(
         // 抽样策略由用户选择，默认 UNIFORM（改动前的行为）。
         // 两条路径共用同一套冷却判定、跨卷身份去重与冷却回填，只有
         // "从可用池里选哪几张"这一步不同。
-        val newlyPicked: List<ImageFile> = when (preferences.walkSamplingStrategy) {
-            com.tabula.v3.data.preferences.WalkSamplingStrategy.UNIFORM -> {
-                // 原随机：与改动前逐字一致
-                val shuffled = availableImages.shuffled()
-                val picked = mutableListOf<ImageFile>()
-                val seen = mutableSetOf<String>()
-                for (img in shuffled) {
-                    if (picked.size >= batchSize) break
-                    if (seen.add(img.mediaIdentityKey())) picked += img
-                }
-                picked
-            }
+        //
+        // 路线图 #83 第 7 项（审计 #90）：若有用户主动接受的本轮意图，
+        // **下一批**优先从该来源取；意图是一次性的，取完即失效。
+        val baseSampled: List<ImageFile> = when (preferences.walkSamplingStrategy) {
+            com.tabula.v3.data.preferences.WalkSamplingStrategy.UNIFORM ->
+                SourceBalanceRules.uniformSample(availableImages, batchSize, kotlin.random.Random.Default)
             com.tabula.v3.data.preferences.WalkSamplingStrategy.SOURCE_BALANCED ->
                 SourceBalanceRules.balancedSample(
                     available = availableImages,
                     batchSize = batchSize,
                     random = kotlin.random.Random.Default
                 )
+        }
+
+        val newlyPicked: List<ImageFile> = if (roundIntent.isActive) {
+            RoundIntentRules.sampleWithIntent(
+                available = availableImages,
+                batchSize = batchSize,
+                intent = roundIntent,
+                random = kotlin.random.Random.Default
+            ).also {
+                // 消费掉：接受只影响这一批
+                onIntentConsumed?.invoke()
+            }
+        } else {
+            baseSampled
         }
 
         val result = newlyPicked.toMutableList()
