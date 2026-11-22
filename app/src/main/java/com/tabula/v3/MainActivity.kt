@@ -131,6 +131,21 @@ import com.tabula.v3.data.repository.deleteMediaUrisBatch
 import com.tabula.v3.data.repository.BatchDeleteSummary
 import com.tabula.v3.data.repository.mediaDeletionMessage
 import com.tabula.v3.data.repository.resolveImagesByIdentitySelection
+import com.tabula.v3.data.cleanup.StagedCleanupRules
+import com.tabula.v3.data.cleanup.StagedCleanupSelection
+import com.tabula.v3.data.cleanup.StagedCleanupSource
+import com.tabula.v3.data.cleanup.StagedSourceKey
+import com.tabula.v3.data.cleanup.cleanupIdentityKey
+import com.tabula.v3.ui.screens.StagedCleanupCandidateContent
+import com.tabula.v3.ui.screens.StagedCleanupSourcePickerContent
+
+/**
+ * 首次进入暂存清理时预勾选的来源上限。
+ *
+ * 截图通常只有一两个目录，下载目录最多两三个；限制上限是为了避免某些设备
+ * 上铺开的聊天软件保存目录被一次性全选，把用户没打算动的照片带进候选。
+ */
+private const val MAX_DEFAULT_STAGED_SOURCES = 3
 
 /**
  * T02b 恢复核验决策：未知保留在回收站，缺失清除死记录且不入图库，仅 PRESENT 继续恢复。
@@ -490,6 +505,21 @@ fun TabulaApp(
     var showHiddenAlbums by remember { mutableStateOf(false) }
     var otherAlbumsForNavigation by remember { mutableStateOf<List<Album>>(emptyList()) }
 
+    // ========== 暂存清理状态（路线图第 1 项） ==========
+    // 只在进入暂存清理页时计算候选；离开不清空，返回时保留用户已勾选的选择。
+    var stagedCleanupSources by remember { mutableStateOf<List<StagedCleanupSource>>(emptyList()) }
+    var stagedCleanupSelection by remember { mutableStateOf<StagedCleanupSelection?>(null) }
+    var stagedCleanupSelectedKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var stagedCleanupLoading by remember { mutableStateOf(false) }
+    var stagedCleanupSaving by remember { mutableStateOf(false) }
+    // 本次会话内"跳过"与"长期保留"的身份键（保留跨重启，跳过只在内存）
+    var stagedCleanupRetainedKeys by remember {
+        mutableStateOf(preferences.stagedCleanupRetainedIdentityKeys)
+    }
+    var stagedCleanupSkippedKeys by remember {
+        mutableStateOf(preferences.stagedCleanupSkippedIdentityKeys)
+    }
+
     // ========== 图片数据状态 ==========
     var allImages by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
     // 用于主界面卡片整理的图片列表（排除已归类到 Tabula 图集的照片）
@@ -571,6 +601,63 @@ fun TabulaApp(
         deletedImages = deletedImages.filterNot { it.uri in uris }
         allImages = allImages.filterNot { it.uri in uris }
         imagesForSorting = imagesForSorting.filterNot { it.uri in uris }
+    }
+
+    // ========== 暂存清理动作（路线图第 1 项） ==========
+    //
+    // 候选来源 = 截图/下载目录 (StagedCleanupRules.availableSources)。
+    // 候选照片 = 在选定来源内、扣除「长期保留」「本次跳过」「已在回收站」三组
+    // 身份键后，按存入时间 (DATE_ADDED) 分旧/新/未知三段。纯规则在
+    // StagedCleanupRules 里，JVM 单测覆盖；这里只负责把状态接起来。
+
+    fun recomputeStagedCleanupSelection() {
+        stagedCleanupLoading = true
+        scope.launch {
+            try {
+                val sourceKeys = preferences.stagedCleanupSourceKeys
+                val selectedSources = sourceKeys.mapNotNull { raw ->
+                    val separator = raw.indexOf('|')
+                    if (separator < 0) return@mapNotNull null
+                    StagedSourceKey(
+                        volumeName = raw.substring(0, separator),
+                        relativePath = raw.substring(separator + 1)
+                    )
+                }
+                stagedCleanupSelection = StagedCleanupRules.select(
+                    allImages = allImages,
+                    sources = selectedSources,
+                    retainedIdentityKeys = stagedCleanupRetainedKeys,
+                    skippedIdentityKeys = stagedCleanupSkippedKeys,
+                    recycledIdentityKeys = deletedImages.map { cleanupIdentityKey(it) }.toSet(),
+                    nowMillis = System.currentTimeMillis()
+                )
+                // 勾选集合与候选求交：来源换过、照片被恢复或删除后不留下幽灵勾选。
+                val validKeys = stagedCleanupSelection?.allCandidateImages.orEmpty()
+                    .map { cleanupIdentityKey(it) }
+                    .toSet()
+                stagedCleanupSelectedKeys = stagedCleanupSelectedKeys.intersect(validKeys)
+            } finally {
+                stagedCleanupLoading = false
+            }
+        }
+    }
+
+    fun openStagedCleanup() {
+        stagedCleanupSources = StagedCleanupRules.availableSources(allImages)
+        stagedCleanupSelectedKeys = emptySet()
+        currentScreen = AppScreen.STAGED_CLEANUP
+        if (preferences.hasStagedCleanupSourceChoice) {
+            recomputeStagedCleanupSelection()
+        } else {
+            // 首次进入：先把三个"看起来像暂存"的来源预勾上，用户确认才写偏好。
+            val defaults = stagedCleanupSources
+                .filter { StagedCleanupRules.isStagedSourcePath(it.key.relativePath) }
+                .take(MAX_DEFAULT_STAGED_SOURCES)
+                .map { "${it.key.volumeName}|${it.key.relativePath}" }
+                .toSet()
+            stagedCleanupSelectedKeys = defaults
+            stagedCleanupSelection = null
+        }
     }
 
     // A restored system request must finish before we classify its pending journal.
@@ -1096,7 +1183,8 @@ fun TabulaApp(
                         }
                     }
                 }
-            }
+            },
+            onOpenStagedCleanup = { openStagedCleanup() }
         )
     }
 
@@ -1206,6 +1294,11 @@ fun TabulaApp(
             onNavigateToHiddenAlbums = { currentScreen = AppScreen.HIDDEN_ALBUMS },
             onNavigateToPrivacyPolicy = { currentScreen = AppScreen.PRIVACY_POLICY },
             onNavigateToTutorial = { currentScreen = AppScreen.TUTORIAL },
+            onNavigateToStagedCleanup = { openStagedCleanup() },
+            stagedCleanupSummary = if (preferences.hasStagedCleanupSourceChoice) {
+                if (preferences.stagedCleanupSourceKeys.isEmpty()) "" else
+                    "${preferences.stagedCleanupSourceKeys.size} 个来源"
+            } else "",
             scrollState = settingsScrollState
         )
     }
@@ -1567,6 +1660,119 @@ fun TabulaApp(
         )
     }
     
+    val stagedCleanupContent: @Composable () -> Unit = {
+        val selection = stagedCleanupSelection
+        if (selection == null && !preferences.hasStagedCleanupSourceChoice) {
+            StagedCleanupSourcePickerContent(
+                sources = stagedCleanupSources,
+                selectedSourceKeys = preferences.stagedCleanupSourceKeys.ifEmpty {
+                    stagedCleanupSelectedKeys
+                },
+                isLoading = stagedCleanupLoading,
+                onToggleSource = { key ->
+                    val current = preferences.stagedCleanupSourceKeys.ifEmpty {
+                        stagedCleanupSelectedKeys
+                    }
+                    val next = if (key in current) current - key else current + key
+                    preferences.stagedCleanupSourceKeys = next
+                    stagedCleanupSelectedKeys = next
+                },
+                onConfirm = {
+                    preferences.hasStagedCleanupSourceChoice = true
+                    stagedCleanupSelectedKeys = emptySet()
+                    recomputeStagedCleanupSelection()
+                },
+                onNavigateBack = { currentScreen = AppScreen.DECK }
+            )
+        } else {
+            StagedCleanupCandidateContent(
+                selection = selection ?: StagedCleanupRules.select(
+                    allImages = allImages,
+                    sources = emptyList(),
+                    nowMillis = System.currentTimeMillis()
+                ),
+                selectedIdentityKeys = stagedCleanupSelectedKeys,
+                isSaving = stagedCleanupSaving,
+                onToggleImage = { image ->
+                    val key = cleanupIdentityKey(image)
+                    stagedCleanupSelectedKeys = if (key in stagedCleanupSelectedKeys) {
+                        stagedCleanupSelectedKeys - key
+                    } else {
+                        stagedCleanupSelectedKeys + key
+                    }
+                },
+                onToggleGroup = { images, select ->
+                    val keys = images.map { cleanupIdentityKey(it) }
+                    stagedCleanupSelectedKeys = if (select) {
+                        stagedCleanupSelectedKeys + keys
+                    } else {
+                        stagedCleanupSelectedKeys - keys.toSet()
+                    }
+                },
+                onSelectAllOld = {
+                    stagedCleanupSelectedKeys = selection?.oldImages.orEmpty()
+                        .map { cleanupIdentityKey(it) }
+                        .toSet()
+                },
+                onClearSelection = { stagedCleanupSelectedKeys = emptySet() },
+                onSkip = {
+                    // 跳过 = 这次先不看：只压住进程内候选，重启后照片重新出现。
+                    val keys = selection?.allCandidateImages.orEmpty()
+                        .map { cleanupIdentityKey(it) }
+                    preferences.skipStagedCleanupImages(keys)
+                    stagedCleanupSkippedKeys = preferences.stagedCleanupSkippedIdentityKeys
+                    stagedCleanupSelectedKeys = emptySet()
+                    recomputeStagedCleanupSelection()
+                },
+                onConfirm = {
+                    val toMove = selection?.allCandidateImages.orEmpty()
+                        .filter { cleanupIdentityKey(it) in stagedCleanupSelectedKeys }
+                    if (toMove.isEmpty() || stagedCleanupSaving) return@StagedCleanupCandidateContent
+                    stagedCleanupSaving = true
+                    scope.launch {
+                        try {
+                            // 与卡片上滑删除同一条路径：写入现有回收站，可在回收站恢复。
+                            recycleBinManager.addAllToRecycleBin(toMove)
+                            val persisted = recycleBinManager.loadRecycleBin()
+                            val movedKeys = persisted.map { cleanupIdentityKey(it) }.toSet()
+                            allImages = allImages.filterNot { cleanupIdentityKey(it) in movedKeys }
+                            imagesForSorting = imagesForSorting.filterNot { cleanupIdentityKey(it) in movedKeys }
+                            deletedImages = persisted
+                            preferences.totalReviewedCount += toMove.size
+                            preferences.totalDeletedCount += toMove.size
+                            recommendationEngine.invalidateSimilarGroupCache()
+                            stagedCleanupSelectedKeys = emptySet()
+                            recomputeStagedCleanupSelection()
+                            Toast.makeText(
+                                context,
+                                "${toMove.size} 张照片已移入回收站",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Log.e("TabulaApp", "Staged cleanup could not reach the recycle bin", e)
+                            Toast.makeText(
+                                context,
+                                "未能保存回收站记录，照片未移入；请重试",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } finally {
+                            stagedCleanupSaving = false
+                        }
+                    }
+                },
+                onNavigateBack = { currentScreen = AppScreen.DECK },
+                onChangeSources = {
+                    preferences.stagedCleanupSourceKeys = emptySet()
+                    preferences.hasStagedCleanupSourceChoice = false
+                    stagedCleanupSelectedKeys = emptySet()
+                    stagedCleanupSelection = null
+                }
+            )
+        }
+    }
+
     val otherAlbumsContent: @Composable () -> Unit = {
         OtherAlbumsScreen(
             albums = otherAlbumsForNavigation,
@@ -1661,6 +1867,7 @@ fun TabulaApp(
         AppScreen.ALBUM_VIEW -> deckContent to albumViewContent
         AppScreen.SYSTEM_ALBUM_VIEW -> deckContent to systemAlbumViewContent
         AppScreen.OTHER_ALBUMS -> deckContent to otherAlbumsContent
+        AppScreen.STAGED_CLEANUP -> deckContent to stagedCleanupContent
         AppScreen.VIBRATION_SOUND -> settingsContent to vibrationSoundContent
         AppScreen.DISPLAY_SETTINGS -> settingsContent to displaySettingsContent
         AppScreen.LAB -> settingsContent to labContent
@@ -1688,6 +1895,7 @@ fun TabulaApp(
                     AppScreen.ALBUM_VIEW -> AppScreen.DECK
                     AppScreen.SYSTEM_ALBUM_VIEW -> AppScreen.DECK
                     AppScreen.OTHER_ALBUMS -> AppScreen.DECK
+                    AppScreen.STAGED_CLEANUP -> AppScreen.DECK
                     AppScreen.VIBRATION_SOUND -> AppScreen.SETTINGS
                     AppScreen.DISPLAY_SETTINGS -> AppScreen.SETTINGS
                     AppScreen.LAB -> AppScreen.SETTINGS
