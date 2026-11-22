@@ -70,8 +70,25 @@ class ShareRelayDeviceTest {
         return uri!!
     }
 
+    /**
+     * 从图库里取一张真实照片，返回**带具体卷**的 URI。
+     *
+     * 上一轮（45073345771）暴露的真问题：用
+     * `Uri.withAppendedPath(EXTERNAL_CONTENT_URI, id)` 拼出来的是
+     * `content://media/external/images/media/<id>` —— 卷是**聚合卷** `external`，
+     * 而 `mediaItemKeyFromUri` 按契约对它返回 null（聚合卷不是身份）。
+     * 于是"真 MediaStore URI 必须能解析出卷 + ID"这条断言必然失败。
+     *
+     * 这是**测试构造**的问题，不是产品缺陷；但它顺带确认了契约在真实设备上
+     * 确实按设计工作：聚合卷 URI 解析不出身份。产品侧的正确做法是查询
+     * `MediaStore.MediaColumns.VOLUME_NAME` 并用
+     * `MediaStore.Images.Media.getContentUri(volumeName)` 拼 URI。
+     */
     private fun fixtureImage(): Uri? {
-        val projection = arrayOf(MediaStore.Images.Media._ID)
+        val projection = arrayOf(
+            MediaStore.Images.Media._ID,
+            MediaStore.MediaColumns.VOLUME_NAME
+        )
         context.contentResolver.query(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
             projection,
@@ -81,9 +98,17 @@ class ShareRelayDeviceTest {
         )?.use { cursor ->
             if (cursor.moveToFirst()) {
                 val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID))
-                return Uri.withAppendedPath(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id.toString()
-                )
+                val volumeColumn = cursor.getColumnIndex(MediaStore.MediaColumns.VOLUME_NAME)
+                val volume = if (volumeColumn >= 0) {
+                    cursor.getString(volumeColumn)?.takeIf { it.isNotBlank() }
+                } else null
+                val collection = if (volume != null) {
+                    MediaStore.Images.Media.getContentUri(volume)
+                } else {
+                    // 没有卷信息时无法构造可解析的 URI，交给调用方跳过
+                    return null
+                }
+                return Uri.withAppendedPath(collection, id.toString())
             }
         }
         return null
