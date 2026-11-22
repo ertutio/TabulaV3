@@ -60,6 +60,51 @@ object SourceBalanceRules {
     }
 
     /**
+     * 按策略从可用池里选出一批（审计意见 #89）。
+     *
+     * 这是 RecommendationEngine 实际调用的分派点，抽成纯函数以便对
+     * "原随机 vs 均衡"做确定性对比测试。
+     *
+     * @param strategy UNIFORM = 原随机（改动前行为，默认）；SOURCE_BALANCED = 均衡
+     */
+    fun sampleByStrategy(
+        available: List<ImageFile>,
+        batchSize: Int,
+        strategy: Strategy,
+        random: Random
+    ): List<ImageFile> {
+        if (batchSize <= 0 || available.isEmpty()) return emptyList()
+        return when (strategy) {
+            Strategy.UNIFORM -> uniformSample(available, batchSize, random)
+            Strategy.SOURCE_BALANCED -> balancedSample(available, batchSize, random)
+        }
+    }
+
+    /** 抽样策略（与 AppPreferences.WalkSamplingStrategy 一一对应）。 */
+    enum class Strategy { UNIFORM, SOURCE_BALANCED }
+
+    /**
+     * 原随机：纯均匀随机，去重后取前 batchSize 张。
+     *
+     * 与改动前 `availableImages.shuffled().take(batchSize)` 同义，只是显式
+     * 去重（跨卷同数值 ID 不能在同一批里出现两次）。
+     */
+    fun uniformSample(
+        available: List<ImageFile>,
+        batchSize: Int,
+        random: Random
+    ): List<ImageFile> {
+        if (batchSize <= 0 || available.isEmpty()) return emptyList()
+        val picked = mutableListOf<ImageFile>()
+        val seen = mutableSetOf<String>()
+        for (image in available.shuffled(random)) {
+            if (picked.size >= batchSize) break
+            if (seen.add(image.mediaIdentityKey())) picked += image
+        }
+        return picked
+    }
+
+    /**
      * 按平方根权重无放回抽桶。
      *
      * @param buckets 候选桶

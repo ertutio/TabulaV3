@@ -221,15 +221,29 @@ class RecommendationEngine(
         // 分离可用照片和冷却中的照片
         val (cooldownImages, availableImages) = allImages.partition(::inCooldown)
 
-        // 路线图 #83 第 6 项：来源覆盖均衡。
-        // 纯均匀随机在相册大小悬殊时几乎只抽大相册；这里按"卷+相对路径"
-        // 分桶，桶权重取剩余张数的平方根，且第一轮保证每个来源至少一张。
-        // 冷却与跨卷身份去重仍由 SourceBalanceRules 内部维持。
-        val newlyPicked = SourceBalanceRules.balancedSample(
-            available = availableImages,
-            batchSize = batchSize,
-            random = kotlin.random.Random.Default
-        )
+        // 路线图 #83 第 6 项 + 审计意见（#89）：
+        // 抽样策略由用户选择，默认 UNIFORM（改动前的行为）。
+        // 两条路径共用同一套冷却判定、跨卷身份去重与冷却回填，只有
+        // "从可用池里选哪几张"这一步不同。
+        val newlyPicked: List<ImageFile> = when (preferences.walkSamplingStrategy) {
+            com.tabula.v3.data.preferences.WalkSamplingStrategy.UNIFORM -> {
+                // 原随机：与改动前逐字一致
+                val shuffled = availableImages.shuffled()
+                val picked = mutableListOf<ImageFile>()
+                val seen = mutableSetOf<String>()
+                for (img in shuffled) {
+                    if (picked.size >= batchSize) break
+                    if (seen.add(img.mediaIdentityKey())) picked += img
+                }
+                picked
+            }
+            com.tabula.v3.data.preferences.WalkSamplingStrategy.SOURCE_BALANCED ->
+                SourceBalanceRules.balancedSample(
+                    available = availableImages,
+                    batchSize = batchSize,
+                    random = kotlin.random.Random.Default
+                )
+        }
 
         val result = newlyPicked.toMutableList()
         val usedKeys = result.map { it.mediaIdentityKey() }.toMutableSet()
