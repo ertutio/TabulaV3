@@ -44,6 +44,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropSampling
+import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropSpec
+import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropState
+import com.tabula.v3.ui.components.liquidglass.backdropLayerModifier
+import com.tabula.v3.ui.components.liquidglass.glassContentLayerIndex
+import com.tabula.v3.ui.components.liquidglass.liquidGlassBackdropPosition
+import com.tabula.v3.ui.components.liquidglass.rememberLiquidGlassBackdropSampling
 import kotlin.math.min
 import kotlin.random.Random
 
@@ -678,6 +685,8 @@ fun PhysicalLiquidGlassBox(
     config: PhysicalLiquidGlassConfig = PhysicalLiquidGlassConfig.Default,
     enabled: Boolean = true,
     scrollOffset: Float = 0f,  // 滚动偏移量（像素）
+    backdropState: LiquidGlassBackdropState? = null,
+    backdropSpec: LiquidGlassBackdropSpec = LiquidGlassBackdropSpec.Default,
     contentAlignment: Alignment = Alignment.Center,
     content: @Composable BoxScope.() -> Unit
 ) {
@@ -717,7 +726,12 @@ fun PhysicalLiquidGlassBox(
     }
     
     val shouldUseShader = enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    
+
+    // 可选的背景采样层：调用方未提供背景时返回 null，画面与接入前完全一致
+    val sampling = rememberLiquidGlassBackdropSampling(backdropState, backdropSpec)
+    val densityScale = if (density.density > 0f) density.density else 1f
+    val backdropLayer = sampling.backdropLayerModifier(actualShape, densityScale, cornerRadiusPx)
+
     if (shouldUseShader) {
         PhysicalLiquidGlassBoxImpl(
             modifier = modifier,
@@ -736,6 +750,8 @@ fun PhysicalLiquidGlassBox(
             borderGradient = borderGradient,
             noiseBrush = noiseBrush,
             scrollOffset = scrollOffset,
+            backdropModifier = backdropLayer,
+            backdropSampling = sampling,
             contentAlignment = contentAlignment,
             content = content
         )
@@ -786,6 +802,8 @@ private fun PhysicalLiquidGlassBoxImpl(
     borderGradient: Brush,
     noiseBrush: Brush,
     scrollOffset: Float,
+    backdropModifier: Modifier?,
+    backdropSampling: LiquidGlassBackdropSampling?,
     contentAlignment: Alignment,
     content: @Composable BoxScope.() -> Unit
 ) {
@@ -830,8 +848,16 @@ private fun PhysicalLiquidGlassBoxImpl(
     val cornerFadeEnabled = config.cornerFadeEnabled
     val cornerFadeAmount = config.cornerFadeAmount
     
+    // 背景采样层（可选）插在最前，仍在原有高光/边缘/内阴影/噪点/形状之下
+    val contentIndex = glassContentLayerIndex(hasBackdropLayer = backdropModifier != null)
+
     Layout(
         content = {
+            if (backdropModifier != null) {
+                // 层 0: 背景采样（只含背景，边缘折射不会采到玻璃自身）
+                Box(modifier = backdropModifier)
+            }
+            
             // 层 0: 背景模糊
             Box(modifier = Modifier.blur(config.blurRadius, BlurredEdgeTreatment.Unbounded))
             
@@ -1028,6 +1054,7 @@ private fun PhysicalLiquidGlassBoxImpl(
             })
         },
         modifier = modifier
+            .liquidGlassBackdropPosition(backdropSampling)
             .shadow(
                 elevation = config.shadowElevation,
                 shape = shape,
@@ -1037,13 +1064,13 @@ private fun PhysicalLiquidGlassBoxImpl(
             .clip(shape)
             .border(0.5.dp, borderGradient, shape)
     ) { measurables, constraints ->
-        val contentPlaceable = measurables[4].measure(constraints)
+        val contentPlaceable = measurables[contentIndex].measure(constraints)
         val w = contentPlaceable.width
         val h = contentPlaceable.height
         val fixed = Constraints.fixed(w, h)
         
         val placeables = measurables.mapIndexed { i, m ->
-            if (i == 4) contentPlaceable else m.measure(fixed)
+            if (i == contentIndex) contentPlaceable else m.measure(fixed)
         }
         
         layout(w, h) { placeables.forEach { it.place(0, 0) } }

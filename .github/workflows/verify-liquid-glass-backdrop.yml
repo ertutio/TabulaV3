@@ -1,0 +1,170 @@
+name: Verify liquid glass backdrop prototype
+
+on:
+  push:
+    branches: [feature/liquid-glass-material-2026-11-23]
+  pull_request:
+    branches: [master]
+    paths:
+      - 'app/src/main/java/com/tabula/v3/ui/components/PhysicalLiquidGlass.kt'
+      - 'app/src/main/java/com/tabula/v3/ui/components/liquidglass/**'
+      - 'app/src/debug/**'
+      - 'app/src/test/java/com/tabula/v3/ui/components/liquidglass/**'
+      - '.github/workflows/verify-liquid-glass-backdrop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: liquid-glass-backdrop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install Android SDK packages
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+
+      - name: Run unit tests (debug + release)
+        run: bash ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:testReleaseUnitTest
+
+      - name: Assert backdrop prototype tests actually ran
+        run: |
+          python3 - <<'PY'
+          import glob, re, sys
+          expected = {
+              "LiquidGlassBackdropPlanTest": 17,
+              "LiquidGlassBackdropRevisionTest": 3,
+              "LiquidGlassBackdropShaderContractTest": 5,
+              "LiquidGlassLayerOrderTest": 3,
+          }
+          found = {}
+          for path in glob.glob("app/build/test-results/testDebugUnitTest/*liquidglass*.xml"):
+              text = open(path, encoding="utf-8").read()
+              name = re.search(r'name="([^"]+)"', text).group(1).split(".")[-1]
+              tests = int(re.search(r'tests="(\d+)"', text).group(1))
+              failures = int(re.search(r'failures="(\d+)"', text).group(1))
+              errors = int(re.search(r'errors="(\d+)"', text).group(1))
+              found[name] = (tests, failures + errors)
+          ok = True
+          for name, count in expected.items():
+              actual = found.get(name)
+              if actual is None:
+                  print(f"MISSING {name}")
+                  ok = False
+              elif actual[0] < count or actual[1] != 0:
+                  print(f"UNEXPECTED {name} tests={actual[0]} failed={actual[1]}")
+                  ok = False
+              else:
+                  print(f"OK {name} tests={actual[0]}")
+          sys.exit(0 if ok else 1)
+          PY
+
+      - name: Assemble debug and release
+        run: bash ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:assembleRelease
+
+      - name: Verify the debug preview entry exists only in debug
+        run: |
+          APK_DEBUG=app/build/outputs/apk/debug/app-debug.apk
+          APK_RELEASE=app/build/outputs/apk/release/app-release-unsigned.apk
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          "$AAPT" dump xmltree "$APK_DEBUG" AndroidManifest.xml > debug-manifest.txt
+          "$AAPT" dump xmltree "$APK_RELEASE" AndroidManifest.xml > release-manifest.txt
+          grep -F "LiquidGlassPreviewActivity" debug-manifest.txt
+          if grep -F "LiquidGlassPreviewActivity" release-manifest.txt; then
+            echo "debug preview leaked into release"
+            exit 1
+          fi
+          "$AAPT" dump badging "$APK_RELEASE" > release-badging.txt
+          grep -F "package: name='com.tabula.v3'" release-badging.txt
+          test -s app/build/outputs/mapping/release/mapping.txt
+          # 背景采样层是纯 Kotlin/AGSL，不引入新依赖，APK 体积不应明显增长
+          test "$(stat -c %s "$APK_RELEASE")" -lt 35000000
+
+      - name: Collect artifacts
+        if: always()
+        run: |
+          mkdir -p artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/TabulaV3-liquid-glass-debug.apk || true
+          cp app/build/outputs/apk/release/app-release-unsigned.apk artifacts/TabulaV3-liquid-glass-release-unsigned.apk || true
+          sha256sum artifacts/*.apk > artifacts/SHA256SUMS.txt || true
+
+      - name: Upload APKs and test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Tabula-liquid-glass-${{ github.sha }}
+          path: |
+            artifacts/
+            app/build/test-results/testDebugUnitTest/
+            app/build/test-results/testReleaseUnitTest/
+            app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: warn
+
+  # ===== 模拟器取证（明确标注为 EMULATOR 证据，不替代真机）=====
+  emulator-evidence:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        # 33 = 采样层最低门槛；35 = 生产入口实际生效的版本；31 = 应该仍走原有显示
+        api: [31, 33, 35]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: Tabula-liquid-glass-${{ github.sha }}
+          path: ci-artifacts/
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install probe dependencies
+        run: python -m pip install --disable-pip-version-check Pillow==10.4.0
+      - name: Place debug APK for the probe
+        run: |
+          set -euo pipefail
+          mkdir -p device-results
+          mkdir -p app/build/outputs/apk/debug
+          cp ci-artifacts/artifacts/TabulaV3-liquid-glass-debug.apk \
+             app/build/outputs/apk/debug/app-debug.apk
+          sha256sum app/build/outputs/apk/debug/app-debug.apk
+      - name: Capture preview evidence on the emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 3072M
+          disk-size: 8G
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
+          disable-animations: true
+          script: python tools/run-liquid-glass-preview-probe.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: Tabula-liquid-glass-emulator-API${{ matrix.api }}
+          path: device-results/
+          if-no-files-found: warn
