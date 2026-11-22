@@ -58,7 +58,9 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: roadmap-baseline-${{ github.ref_name }}
+          # 分支名含 '/'（feature/xxx）时 GitHub 拒绝 artifact 名里的斜杠，
+          # 用 head 提交短 SHA 代替分支名，天然唯一且不含非法字符。
+          name: roadmap-baseline-${{ github.sha }}
           path: |
             artifacts/
             app/build/test-results/testDebugUnitTest/
