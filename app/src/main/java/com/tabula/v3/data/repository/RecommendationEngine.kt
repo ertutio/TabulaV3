@@ -3,6 +3,7 @@ package com.tabula.v3.data.repository
 import android.content.Context
 import com.tabula.v3.data.cache.ImageHashCache
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.balance.SourceBalanceRules
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.RecommendMode
 import kotlinx.coroutines.CancellationException
@@ -220,32 +221,26 @@ class RecommendationEngine(
         // 分离可用照片和冷却中的照片
         val (cooldownImages, availableImages) = allImages.partition(::inCooldown)
 
-        val result = mutableListOf<ImageFile>()
-        val usedKeys = mutableSetOf<String>()  // 防止批次内重复（身份键：跨卷同 ID 不互斥）
+        // 路线图 #83 第 6 项：来源覆盖均衡。
+        // 纯均匀随机在相册大小悬殊时几乎只抽大相册；这里按"卷+相对路径"
+        // 分桶，桶权重取剩余张数的平方根，且第一轮保证每个来源至少一张。
+        // 冷却与跨卷身份去重仍由 SourceBalanceRules 内部维持。
+        val newlyPicked = SourceBalanceRules.balancedSample(
+            available = availableImages,
+            batchSize = batchSize,
+            random = kotlin.random.Random.Default
+        )
 
-        // 优先从可用照片中随机抽取
-        val shuffledAvailable = availableImages.shuffled()
-        val newlyPicked = shuffledAvailable.take(batchSize)
-        for (img in newlyPicked) {
-            val key = img.mediaIdentityKey()
-            if (key !in usedKeys) {
-                result.add(img)
-                usedKeys.add(key)
-            }
-        }
+        val result = newlyPicked.toMutableList()
+        val usedKeys = result.map { it.mediaIdentityKey() }.toMutableSet()
 
         // 如果可用照片不足，从冷却中的照片补充（优先选择冷却期即将结束的）
-        if (result.size < batchSize && cooldownImages.isNotEmpty()) {
-            val sortedCooldown = cooldownImages.sortedBy { img -> pickedAt(img) }
-            for (img in sortedCooldown) {
-                if (result.size >= batchSize) break
-                val key = img.mediaIdentityKey()
-                if (key !in usedKeys) {
-                    result.add(img)
-                    usedKeys.add(key)
-                }
-            }
-        }
+        result += SourceBalanceRules.backfillFromCooldown(
+            cooldownImages = cooldownImages,
+            alreadyPicked = result,
+            batchSize = batchSize,
+            pickedAt = ::pickedAt
+        )
 
         // 只记录新抽取的照片（不在冷却中的），避免重置从冷却中补充的照片的冷却期
         preferences.recordImagesPickedByIdentity(newlyPicked.map { it.mediaIdentityKey() })

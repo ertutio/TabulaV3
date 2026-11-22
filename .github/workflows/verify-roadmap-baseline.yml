@@ -1,0 +1,68 @@
+name: Verify roadmap baseline
+
+on:
+  push:
+    branches:
+      - feature/staged-cleanup-2026-11-23
+      - feature/recent-albums-2026-11-23
+      - feature/burst-selection-2026-11-23
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: roadmap-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install Android SDK packages
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+      - name: Unit regressions and debug build
+        run: |
+          bash ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
+      - name: Record test counts and APK identity
+        if: always()
+        run: |
+          mkdir -p artifacts
+          python3 - <<'PY' | tee artifacts/test-counts.txt
+          import glob, xml.etree.ElementTree as ET
+          files = sorted(glob.glob('app/build/test-results/testDebugUnitTest/*.xml'))
+          t = f = e = s = 0
+          for p in files:
+              r = ET.parse(p).getroot()
+              t += int(r.get('tests', 0)); f += int(r.get('failures', 0))
+              e += int(r.get('errors', 0)); s += int(r.get('skipped', 0))
+          print(f"classes={len(files)} tests={t} failures={f} errors={e} skipped={s}")
+          PY
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > artifacts/badging.txt || true
+          grep -E "^package:" artifacts/badging.txt || true
+          sha256sum "$APK" | tee artifacts/SHA256SUMS.txt
+      - name: Assert no failures
+        run: |
+          grep -q "failures=0 errors=0" artifacts/test-counts.txt
+          cat artifacts/test-counts.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          # 分支名含 '/'（feature/xxx）时 GitHub 拒绝 artifact 名里的斜杠，
+          # 用 head 提交短 SHA 代替分支名，天然唯一且不含非法字符。
+          name: roadmap-baseline-${{ github.sha }}
+          path: |
+            artifacts/
+            app/build/test-results/testDebugUnitTest/
+            app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: warn
