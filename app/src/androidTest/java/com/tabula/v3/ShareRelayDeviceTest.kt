@@ -185,14 +185,26 @@ class ShareRelayDeviceTest {
 
     @Test
     fun missingMediaIdDoesNotConfirm() {
-        // 一个几乎不可能存在的 ID：必须解析出身份但不应命中图库
+        // 一个几乎不可能存在的 ID，卷用**真实卷**（聚合卷 external 解析不出身份，
+        // 那样会让这条断言退化成在测"聚合卷不是身份"，与用例意图不符）。
+        val realVolume = context.contentResolver.query(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            arrayOf(MediaStore.MediaColumns.VOLUME_NAME),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0)?.takeIf { it.isNotBlank() } else null
+        }
+        assumeTrue("无法取得真实卷名，跳过", realVolume != null)
+
         val phantom = Uri.withAppendedPath(
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, Long.MAX_VALUE.toString()
+            MediaStore.Images.Media.getContentUri(realVolume!!), Long.MAX_VALUE.toString()
         )
         val key = com.tabula.v3.data.model.mediaItemKeyFromUri(phantom)
-        assertNotNull(key)
-        // 该身份不在图库中，实际判定由 ShareRelayRules 在单测里覆盖；
-        // 这里确认设备上这类 URI 不会被误判为可读。
+        assertNotNull("带真实卷的 URI 必须能解析出身份", key)
+
+        // 身份可解析，但这个 ID 在图库里不存在 → 不可读，不会误判成可定位
         val exists = runCatching {
             context.contentResolver.openAssetFileDescriptor(phantom, "r")?.use { true } ?: false
         }.getOrElse { false }
