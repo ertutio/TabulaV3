@@ -255,9 +255,11 @@ private fun RelayScreen(
  * 把收到的 URI 转交给下游应用。
  *
  * 关键点：
- * - 排除本包名，避免用户又把图发回 Tabula 形成循环（系统面板里用
- *   [Intent.EXTRA_EXCLUDE_COMPONENTS] 做不到按包排除，因此这里显式列出
- *   本包的主 Activity 组件）。
+ * - **自循环防护（审计修复）**：旧实现排除的是 `MainActivity`，但真正注册
+ *   `ACTION_SEND` / `ACTION_SEND_MULTIPLE` 的是 `ShareRelayActivity`——于是
+ *   二次面板里仍然能再次选中 Tabula，用户可以把图无限转发给自己。现在改为
+ *   用 PackageManager **动态查出本包实际声明了这两个 action 的组件**并全部
+ *   排除，不靠硬编码类名。
  * - 保留 `FLAG_GRANT_READ_URI_PERMISSION`，并把 URI 放进 ClipData，
  *   让下游拿到读授权。
  * - 单图走 ACTION_SEND，多图走 ACTION_SEND_MULTIPLE。
@@ -265,15 +267,16 @@ private fun RelayScreen(
 private fun forwardToTarget(context: android.content.Context, resolution: RelayResolution) {
     if (!resolution.hasForwardTargets) return
     val uris = resolution.forwardUris
+    val mime = resolution.mimeType
     val intent = if (uris.size == 1) {
         Intent(Intent.ACTION_SEND).apply {
-            type = "image/*"
+            type = mime
             putExtra(Intent.EXTRA_STREAM, uris.first())
             clipData = ClipData.newRawUri("image", uris.first())
         }
     } else {
         Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-            type = "image/*"
+            type = mime
             putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
             clipData = ClipData.newRawUri("image", uris.first()).apply {
                 uris.drop(1).forEach { addItem(ClipData.Item(it)) }
@@ -286,10 +289,9 @@ private fun forwardToTarget(context: android.content.Context, resolution: RelayR
     val chooser = Intent.createChooser(intent, "发送到").apply {
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        // 自循环防护：把 Tabula 自己从目标列表里去掉。
         putExtra(
             Intent.EXTRA_EXCLUDE_COMPONENTS,
-            arrayOf(android.content.ComponentName(context.packageName, MainActivity::class.java.name))
+            relayComponentsToExclude(context)
         )
     }
     runCatching { context.startActivity(chooser) }
@@ -297,4 +299,34 @@ private fun forwardToTarget(context: android.content.Context, resolution: RelayR
             Log.e("ShareRelay", "Could not hand the images to a target app", it)
             Toast.makeText(context, "没有可用的接收应用", Toast.LENGTH_LONG).show()
         }
+}
+
+/**
+ * 查出本包**实际**注册了分享接收能力的组件，用于二次面板的排除列表。
+ *
+ * 为什么不硬编码类名：审计发现旧实现排除的是 `MainActivity`，而真正声明
+ * `ACTION_SEND` / `ACTION_SEND_MULTIPLE` 的是 `ShareRelayActivity`，导致
+ * 二次面板里 Tabula 仍然可选，用户可以把图无限转发给自己。
+ *
+ * 这里同时查两个 action，任一命中的本包组件都排除——将来若新增别的接收
+ * Activity，也不需要再改这里。
+ *
+ * @return 本包所有分享接收组件；查不到时至少退回排除 ShareRelayActivity 本身
+ */
+internal fun relayComponentsToExclude(context: android.content.Context): Array<android.content.ComponentName> {
+    val packageName = context.packageName
+    val found = linkedSetOf<android.content.ComponentName>()
+    listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE).forEach { action ->
+        val probe = Intent(action).apply { type = "image/*" }
+        runCatching {
+            context.packageManager.queryIntentActivities(probe, 0).forEach { info ->
+                if (info.activityInfo.packageName == packageName) {
+                    found += android.content.ComponentName(packageName, info.activityInfo.name)
+                }
+            }
+        }
+    }
+    // 兜底：即使 PackageManager 查不到（部分 ROM 限制），也必须排除自己
+    found += android.content.ComponentName(packageName, ShareRelayActivity::class.java.name)
+    return found.toTypedArray()
 }

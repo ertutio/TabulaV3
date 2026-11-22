@@ -140,7 +140,7 @@ class ShareRelayDeviceTest {
         val uri = requireFixture()
 
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "image/*"
+            type = "image/png"
             putExtra(Intent.EXTRA_STREAM, uri)
             clipData = ClipData.newRawUri("image", uri)
         }
@@ -150,10 +150,7 @@ class ShareRelayDeviceTest {
         val chooser = Intent.createChooser(intent, "发送到").apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            putExtra(
-                Intent.EXTRA_EXCLUDE_COMPONENTS,
-                arrayOf(ComponentName(context.packageName, MainActivity::class.java.name))
-            )
+            putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, relayComponentsToExclude(context))
         }
 
         val target = chooser.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!
@@ -163,15 +160,78 @@ class ShareRelayDeviceTest {
         )
         assertNotNull("ClipData must be present so targets can read the uri", target.clipData)
         assertEquals(uri, target.clipData?.getItemAt(0)?.uri)
+    }
 
-        // 自循环防护：本包主 Activity 必须在排除列表里
-        val excluded = chooser.getParcelableArrayExtra(Intent.EXTRA_EXCLUDE_COMPONENTS)
-        assertTrue(excluded != null && excluded.isNotEmpty())
+    /**
+     * 审计意见（#85）：二次 chooser 必须排除**实际注册** ACTION_SEND /
+     * ACTION_SEND_MULTIPLE 的组件。
+     *
+     * 旧实现排除的是 MainActivity，而真正声明这两个 action 的是
+     * ShareRelayActivity —— 结果二次面板里 Tabula 仍然可选，用户能把图
+     * 无限转发给自己。这条用例直接点名 ShareRelayActivity 必须在排除列表里。
+     */
+    @Test
+    fun chooserExcludesTheActuallyRegisteredRelayActivity() {
+        val excluded = relayComponentsToExclude(context)
+
+        assertTrue("排除列表不能为空", excluded.isNotEmpty())
         assertTrue(
-            excluded!!.any {
-                (it as? ComponentName)?.packageName == context.packageName
+            "必须排除 ShareRelayActivity（真正注册 ACTION_SEND 的组件），" +
+                "实际排除：${excluded.joinToString { it.flattenToShortString() }}",
+            excluded.any {
+                it.packageName == context.packageName &&
+                    it.className.endsWith("ShareRelayActivity")
             }
         )
+        // 所有排除项都必须属于本包，不能误伤别人的应用
+        assertTrue(excluded.all { it.packageName == context.packageName })
+    }
+
+    /**
+     * 审计意见（#85）：验证二次面板里**不能再选中 Tabula**。
+     *
+     * 用 PackageManager 静态解析"排除本包组件后的分享面板"，
+     * 断言结果里不含本包任何 Activity。
+     */
+    @Test
+    fun shareSheetNoLongerOffersTabulaAfterExclusion() {
+        val probe = Intent(Intent.ACTION_SEND).apply { type = "image/png" }
+        val allTargets = context.packageManager.queryIntentActivities(probe, 0)
+            .map { ComponentName(it.activityInfo.packageName, it.activityInfo.name) }
+
+        // 前提：本包确实出现在未排除的候选里（否则这条断言没有意义）
+        assumeTrue(
+            "本包的分享接收组件未在候选中出现，无法验证排除效果",
+            allTargets.any { it.packageName == context.packageName }
+        )
+
+        val excluded = relayComponentsToExclude(context).toSet()
+        val remaining = allTargets.filterNot { it in excluded }
+
+        assertTrue(
+            "排除后仍能选到本包组件：${remaining.filter { it.packageName == context.packageName }}",
+            remaining.none { it.packageName == context.packageName }
+        )
+    }
+
+    /**
+     * 审计意见（#85）：分享授权在目标应用读取期间必须有效。
+     *
+     * 这里验证的是"拿到 URI 之后仍能真的读出字节"——授权标志只是声明，
+     * 能读出内容才是证据。覆盖单图路径。
+     */
+    @Test
+    fun grantedUriIsActuallyReadableByTheReceiver() {
+        val uri = requireFixture()
+
+        // 模拟接收方在授权有效期内读取
+        val bytes = context.contentResolver.openInputStream(uri)?.use { stream ->
+            val buffer = ByteArray(64)
+            stream.read(buffer).coerceAtLeast(0)
+        }
+
+        assertNotNull("接收方必须能在授权下打开流", bytes)
+        assertTrue("必须能读到实际字节，而不是空流", (bytes ?: 0) > 0)
     }
 
     @Test

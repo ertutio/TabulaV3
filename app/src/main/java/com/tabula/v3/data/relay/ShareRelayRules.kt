@@ -57,7 +57,15 @@ data class RelayResolution(
     /** 真正要转交给下游应用的 URI（已去重、已排除不合格项） */
     val forwardUris: List<Uri>,
     /** 被拒项的说明，用于日志/调试，不进界面主流程 */
-    val rejections: List<String>
+    val rejections: List<String>,
+    /**
+     * 转交时使用的 MIME 类型。
+     *
+     * 审计修复：旧实现硬编码通配图片类型，会让只接受具体类型的接收应用
+     * （部分 IM 只声明 image/jpeg）在面板里消失或被拒。这里用收到项的
+     * 共同类型；混合类型时退回通配图片类型。
+     */
+    val mimeType: String = "image/*"
 ) {
     val confirmedCount: Int get() = marks.count { it.state == RelayMarkState.CONFIRMED }
     val reviewCount: Int get() = marks.count { it.state == RelayMarkState.PENDING_REVIEW }
@@ -141,10 +149,17 @@ object ShareRelayRules {
             }
         }
 
+        // 转交类型：全部合格项同类型就用它，混合则退化为 image/*
+        val forwardTypes = items
+            .filter { it.uriString in forward.map(Uri::toString).toSet() }
+            .mapNotNull { it.mimeType?.takeIf { m -> m.startsWith("image/", true) } }
+            .toSet()
+
         return RelayResolution(
             marks = marks,
             forwardUris = forward,
-            rejections = rejections
+            rejections = rejections,
+            mimeType = forwardTypes.singleOrNull() ?: "image/*"
         )
     }
 
