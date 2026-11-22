@@ -498,6 +498,8 @@ fun TabulaApp(
     // 只在相似推荐批次"看起来是一个连拍组"时才进入；进入后本界面的决定
     // 不直接落库，确认才写回收站，取消/返回什么都不改。
     var burstSelectionGroup by remember { mutableStateOf<SimilarGroup?>(null) }
+    // 审计修复（#87）：推荐引擎这批实际用到的真实组。null = 这批不是相似组。
+    var activeSimilarGroup by remember { mutableStateOf<SimilarGroup?>(null) }
     var burstKeptKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
     var burstCommitting by remember { mutableStateOf(false) }
 
@@ -989,13 +991,18 @@ fun TabulaApp(
             },
             // 推荐算法回调 - 使用 RecommendationEngine
             getRecommendedBatch = { images, size ->
-                recommendationEngine.getRecommendedBatch(
+                // 审计修复（#87）：用带组身份的入口，把推荐引擎实际用到的
+                // SimilarGroup 记下来交给 DeckScreen；不再让 UI 猜组。
+                val result = recommendationEngine.getRecommendedBatchWithGroup(
                     images, size,
                     identityCandidates = allImages + deletedImages
                 )
+                activeSimilarGroup = result.group
+                result.images
             },
             // 推荐模式刷新触发器（切换算法时刷新批次）
             recommendModeRefreshKey = recommendModeRefreshKey,
+            activeSimilarGroup = activeSimilarGroup,
             // 路线图 #83 第 4 项：进入连拍选片。签名是「交给我一个组」，
             // DeckScreen 只在当前批次被判定为连拍时才会调用。
             onOpenBurstSelection = { group ->
@@ -1618,16 +1625,40 @@ fun TabulaApp(
                             recycleBinManager.addAllToRecycleBin(decision.discardCandidates)
                             val persisted = recycleBinManager.loadRecycleBin()
                             val movedKeys = persisted.map { it.mediaIdentityKey() }.toSet()
+                            val expectedKeys = decision.discardCandidates.map { it.mediaIdentityKey() }.toSet()
+
+                            // 审计意见（#87）：只有**真实组**的结果成功持久化且
+                            // 状态一致时才推进该组进度。这里先核验回收站确实收了
+                            // 每一张，任一张没落库就视为整组未完成：
+                            //   - 不推进 markSimilarGroupProcessed
+                            //   - 不改 allImages / imagesForSorting
+                            //   - 提示重试，用户可再次进入
+                            if (!movedKeys.containsAll(expectedKeys)) {
+                                val missing = (expectedKeys - movedKeys).size
+                                android.util.Log.e(
+                                    "TabulaApp",
+                                    "Burst commit incomplete: $missing of ${expectedKeys.size} not persisted"
+                                )
+                                Toast.makeText(
+                                    context,
+                                    "有 $missing 张未能移入回收站，这组未提交；可以重试",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                return@launch
+                            }
+
                             allImages = allImages.filterNot { it.mediaIdentityKey() in movedKeys }
                             imagesForSorting = imagesForSorting.filterNot { it.mediaIdentityKey() in movedKeys }
                             deletedImages = persisted
-                            preferences.totalReviewedCount += decision.discardCandidates.size
-                            preferences.totalDeletedCount += decision.discardCandidates.size
-                            // 只有提交成功才把该组记为已处理，避免失败也推进进度。
+                            // 只有核验通过才推进：标记 + 让缓存失效，保证下次
+                            // 检测看到的是删过之后的集合。
                             recommendationEngine.markSimilarGroupProcessed(group)
                             recommendationEngine.invalidateSimilarGroupCache()
+                            preferences.totalReviewedCount += decision.discardCandidates.size
+                            preferences.totalDeletedCount += decision.discardCandidates.size
                             burstSelectionGroup = null
                             burstKeptKeys = emptySet()
+                            activeSimilarGroup = null
                             currentScreen = AppScreen.DECK
                             Toast.makeText(
                                 context,

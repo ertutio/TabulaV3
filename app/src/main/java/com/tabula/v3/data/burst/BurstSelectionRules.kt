@@ -116,20 +116,17 @@ object BurstSelectionRules {
         keptIdentityKeys.sorted().joinToString(",")
 
     /**
-     * 判断当前这一批照片是否"恰好来自同一个相似组"，从而可以进入连拍选片。
+     * 判断当前这一批照片是否"恰好来自同一个相似组"。
      *
-     * 相似推荐模式返回的一批照片就是组内成员；但如果推荐引擎回退到了随机
-     * 模式（没有可用组时），这批照片彼此无关，此时不该弹选片界面。
+     * **审计意见（#87）：生产路径已不再使用这个启发式。** 推荐引擎返回的
+     * `SimilarGroup` 现在由 `DeckScreen` 直接接收（见 `activeSimilarGroup`
+     * 参数），组身份来自检测器的内容寻址摘要，不再按时间/相册重猜。
      *
-     * 判定口径：
-     * - 同一相似组内成员的**时间跨度**有限（检测器用 10 分钟窗口），因此
-     *   整批都落在这个跨度内才考虑；
-     * - 且成员数量 ≥ [MIN_BURST_SIZE]——两张也可能值得比，但一张没有意义；
-     * - 相册（bucket）一致：跨相册的"时间接近"多半是巧合。
+     * 本函数保留只为两件事：
+     * 1. 兼容既有单测（它们验证过这层判定的边界）
+     * 2. 给"只有一批照片、拿不到组对象"的外部调用点兜底
      *
-     * 这是一个保守的启发式：宁可不出选片入口，也不要让用户以为随机抽到
-     * 的几张是连拍。真正可靠的关系仍以 [SimilarGroup] 本身为准，调用方
-     * 能拿到组对象时应直接用它，不要走这个判断。
+     * 新代码不要用它替代真实组。
      */
     fun looksLikeOneBurst(
         images: List<ImageFile>,
@@ -141,6 +138,42 @@ object BurstSelectionRules {
         if (span > maxSpanMs) return false
         val buckets = images.mapNotNull { it.bucketDisplayName }.toSet()
         return buckets.size <= 1
+    }
+
+    /**
+     * 把推荐引擎返回的真实组裁剪到"当前仍然有效"的成员。
+     *
+     * 审计意见（#87）：选片入口必须用**真实组的身份与未处理成员**，
+     * 并排除已经滑过、归档、待删除或失效的成员。
+     *
+     * 排除口径：
+     * - 不在当前批次里（已滑过 / 已被移入回收站 / 已归档）→ 剔除
+     * - 身份重复 → 只留一条
+     * - 不在 [stillPresent] 里（调用方传入的"图库现存集合"）→ 剔除
+     *
+     * 返回 null 表示裁剪后不足两张——此时不该进入选片（没有"选"的意义）。
+     *
+     * @param group 推荐引擎给出的真实组
+     * @param currentBatch 当前批次（这批照片的此刻状态）
+     * @param stillPresent 仍然存在的身份键集合；默认不额外过滤
+     */
+    fun effectiveGroup(
+        group: SimilarGroup,
+        currentBatch: List<ImageFile>,
+        stillPresent: Set<String>? = null
+    ): SimilarGroup? {
+        val batchKeys = currentBatch.map { it.mediaIdentityKey() }.toSet()
+        val members = group.images
+            .filter { it.mediaIdentityKey() in batchKeys }
+            .filter { stillPresent == null || it.mediaIdentityKey() in stillPresent }
+            .distinctBy { it.mediaIdentityKey() }
+        if (members.size < MIN_BURST_SIZE) return null
+        // 身份沿用原组的 id（内容寻址），但成员顺序按时间稳定化
+        return group.copy(
+            images = members.sortedBy { it.dateModified },
+            startTime = members.minOf { it.dateModified },
+            endTime = members.maxOf { it.dateModified }
+        )
     }
 
     /** 与 SimilarGroupDetector.TIME_WINDOW_MS 对齐的默认时间跨度。 */

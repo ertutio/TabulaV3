@@ -3,6 +3,7 @@ package com.tabula.v3.data.burst
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.repository.SimilarGroup
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -227,5 +228,142 @@ class BurstSelectionRulesTest {
         assertEquals(first.id, second.id)
         assertEquals(100_000L, first.startTime)
         assertEquals(101_000L, first.endTime)
+    }
+}
+
+/**
+ * 审计意见（#87）：选片入口必须用推荐引擎返回的**真实组**，
+ * 不能按 currentBatch 的时间与相册重猜；并排除已滑过、归档、
+ * 待删除或失效的成员。
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], manifest = Config.NONE)
+class BurstEffectiveGroupTest {
+
+    private fun photo(id: Long, at: Long, volume: String = "external_primary") = ImageFile(
+        id = id,
+        uri = android.net.Uri.parse("content://media/$volume/images/media/$id"),
+        displayName = "b$id.jpg",
+        dateModified = at,
+        size = 1000L,
+        width = 1080,
+        height = 1440,
+        bucketDisplayName = "Camera",
+        volumeName = volume
+    )
+
+    private fun realGroup(vararg photos: ImageFile) = SimilarGroup(
+        images = photos.toList(),
+        startTime = photos.minOf { it.dateModified },
+        endTime = photos.maxOf { it.dateModified }
+    )
+
+    @Test
+    fun keepsOnlyMembersStillInTheCurrentBatch() {
+        val a = photo(1, 100)
+        val b = photo(2, 200)
+        val c = photo(3, 300)
+        val group = realGroup(a, b, c)
+        // 用户已经滑过 c（不在当前批次）
+        val batch = listOf(a, b)
+
+        val effective = BurstSelectionRules.effectiveGroup(group, batch)
+
+        assertEquals(setOf(1L, 2L), effective!!.images.map { it.id }.toSet())
+    }
+
+    @Test
+    fun groupIdentityComesFromTheRealGroupNotTheBatch() {
+        val a = photo(1, 100)
+        val b = photo(2, 200)
+        val group = realGroup(a, b)
+
+        val effective = BurstSelectionRules.effectiveGroup(group, listOf(a, b))!!
+
+        // 身份沿用内容寻址的组 id，与批次重新排序无关
+        assertEquals(group.id, effective.id)
+    }
+
+    @Test
+    fun reorderingTheBatchDoesNotChangeGroupIdentity() {
+        val a = photo(1, 100)
+        val b = photo(2, 200)
+        val group = realGroup(a, b)
+
+        val first = BurstSelectionRules.effectiveGroup(group, listOf(a, b))!!
+        val second = BurstSelectionRules.effectiveGroup(group, listOf(b, a))!!
+
+        assertEquals(first.id, second.id)
+    }
+
+    @Test
+    fun dropsMembersThatAreNoLongerPresentInTheLibrary() {
+        val a = photo(1, 100)
+        val b = photo(2, 200)
+        val group = realGroup(a, b)
+
+        // b 已被移入回收站 / 归档 → 不在 stillPresent
+        val effective = BurstSelectionRules.effectiveGroup(
+            group = group,
+            currentBatch = listOf(a, b),
+            stillPresent = setOf("external_primary|1")
+        )
+
+        assertNull("不足两张就不该进选片", effective)
+    }
+
+    @Test
+    fun returnsNullWhenFewerThanTwoMembersRemain() {
+        val a = photo(1, 100)
+        val b = photo(2, 200)
+        val group = realGroup(a, b)
+
+        // 只剩一张在批次里
+        assertNull(BurstSelectionRules.effectiveGroup(group, listOf(a)))
+    }
+
+    @Test
+    fun returnsNullForEmptyBatch() {
+        val group = realGroup(photo(1, 100), photo(2, 200))
+        assertNull(BurstSelectionRules.effectiveGroup(group, emptyList()))
+    }
+
+    @Test
+    fun duplicateMembersCollapse() {
+        val a = photo(1, 100)
+        val group = SimilarGroup(
+            images = listOf(a, a, photo(2, 200)),
+            startTime = 100,
+            endTime = 200
+        )
+
+        val effective = BurstSelectionRules.effectiveGroup(group, listOf(a, photo(2, 200)))!!
+        assertEquals(2, effective.images.size)
+    }
+
+    @Test
+    fun membersAreSortedByTimeForStableDisplay() {
+        val a = photo(1, 300)
+        val b = photo(2, 100)
+        val c = photo(3, 200)
+        val group = realGroup(a, b, c)
+
+        val effective = BurstSelectionRules.effectiveGroup(group, listOf(a, b, c))!!
+
+        assertEquals(listOf(2L, 3L, 1L), effective.images.map { it.id })
+        assertEquals(100L, effective.startTime)
+        assertEquals(300L, effective.endTime)
+    }
+
+    @Test
+    fun crossVolumeSameIdKeepsBothMembers() {
+        val a = photo(1, 100, volume = "external_primary")
+        val b = photo(1, 200, volume = "1234-5678")
+        val group = realGroup(a, b)
+
+        val effective = BurstSelectionRules.effectiveGroup(group, listOf(a, b))!!
+
+        assertEquals(2, effective.images.size)
+        assertEquals(setOf("external_primary", "1234-5678"), effective.images.map { it.volumeName }.toSet())
     }
 }

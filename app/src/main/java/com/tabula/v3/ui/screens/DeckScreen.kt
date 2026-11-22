@@ -266,8 +266,9 @@ fun DeckScreen(
     // 原图清理
     pendingCleanupCount: Int = 0,
     onCleanupSourceImages: () -> Unit = {},
-    // 连拍选片（路线图第 4 项）：参数非空且当前批次"看起来是一个连拍组"时，
-    // 顶部栏出现「连拍选片」按钮，点击进入对比页。传 null = 不提供入口。
+    // 连拍选片（路线图第 4 项 / 审计 #87）：推荐引擎返回的真实相似组。
+    // 非 null 才提供入口；组身份来自检测器的内容寻址摘要，不在这里重算。
+    activeSimilarGroup: SimilarGroup? = null,
     onOpenBurstSelection: ((SimilarGroup) -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -1025,20 +1026,22 @@ fun DeckScreen(
                     // 浏览模式
                     val currentImage = currentBatch.getOrNull(currentIndex)
                     
-                    // 路线图 #83 第 4 项：当前批次"看起来是一个连拍组"时，
-                    // 提供进入对比选片的入口。判定是保守启发式
-                    // （时间跨度 ≤10 分钟 且 同一相册 且 ≥2 张），宁可不出
-                    // 入口，也不要让用户以为随机抽到的几张是连拍。
+                    // 路线图 #83 第 4 项 + 审计意见（#87）：
+                    // 入口使用**推荐引擎返回的真实 SimilarGroup**，不再按
+                    // currentBatch 的时间/相册重猜组。
+                    // effectiveGroup 会把已滑过、已归档、待删除、已不在批次
+                    // 里的成员剔除；剔除后不足两张就不出入口。
                     val burstCandidate: SimilarGroup? = remember(
                         currentBatch,
-                        onOpenBurstSelection
+                        activeSimilarGroup
                     ) {
-                        if (onOpenBurstSelection == null) {
+                        if (onOpenBurstSelection == null || activeSimilarGroup == null) {
                             null
-                        } else if (BurstSelectionRules.looksLikeOneBurst(currentBatch)) {
-                            BurstSelectionRules.groupFromBatch(currentBatch)
                         } else {
-                            null
+                            BurstSelectionRules.effectiveGroup(
+                                group = activeSimilarGroup,
+                                currentBatch = currentBatch
+                            )
                         }
                     }
                     
