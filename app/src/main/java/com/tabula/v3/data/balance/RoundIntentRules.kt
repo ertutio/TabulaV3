@@ -140,3 +140,21 @@ object RoundIntentRules {
     /** 该来源在候选池里至少还剩这么多张，提示才有意义。 */
     const val MIN_REMAINING = 2
 }
+
+/**
+ * 来源身份键 → 界面显示名。
+ *
+ * 键形如 `卷|相对路径`（[SourceBalanceRules.sourceKeyOf] 产出）。
+ * 显示取路径末段；为空时回退卷名。**不做**任何大小写或语言转换，
+ * 保持用户设备上的原始目录名。
+ */
+object StagedSourceDisplayName {
+    fun of(sourceKey: String): String {
+        val separator = sourceKey.indexOf('|')
+        val volume = if (separator >= 0) sourceKey.substring(0, separator) else ""
+        val path = if (separator >= 0) sourceKey.substring(separator + 1) else sourceKey
+        val trimmed = path.trimEnd('/')
+        val last = trimmed.substringAfterLast('/').ifBlank { trimmed }
+        return last.ifBlank { volume }.ifBlank { "相册" }
+    }
+}

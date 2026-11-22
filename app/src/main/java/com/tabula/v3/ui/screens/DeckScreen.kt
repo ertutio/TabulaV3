@@ -262,7 +262,11 @@ fun DeckScreen(
     onNavigateToOtherAlbums: (List<Album>) -> Unit = {},
     // 原图清理
     pendingCleanupCount: Int = 0,
-    onCleanupSourceImages: () -> Unit = {}
+    onCleanupSourceImages: () -> Unit = {},
+    // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示
+    intentSourceName: String? = null,
+    onAcceptIntent: (() -> Unit)? = null,
+    onDismissIntent: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -1214,7 +1218,11 @@ fun DeckScreen(
                         // LIST_POPUP 模式：下滑触发图集选择弹层
                         onShowAlbumSelectionSheet = {
                             showAlbumSelectionSheet = true
-                        }
+                        },
+                        // 路线图 #83 第 7 项（审计 #90）：把意图提示透传到内容层
+                        intentSourceName = intentSourceName,
+                        onAcceptIntent = onAcceptIntent,
+                        onDismissIntent = onDismissIntent
                     )
                 }
             }
@@ -1823,6 +1831,12 @@ private fun DeckContent(
     onCardClick: (ImageFile, SourceRect) -> Unit,
     onTrashClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示。
+    // suggestSourceName 非空时显示「这轮再看几张这个相册？」；
+    // onAcceptIntent 接受后下一批优先该来源；onDismissIntent 忽略。
+    intentSourceName: String? = null,
+    onAcceptIntent: (() -> Unit)? = null,
+    onDismissIntent: (() -> Unit)? = null,
     onAlbumClick: (Album) -> Unit,
     onAddAlbumClick: (ImageFile?) -> Unit,  // 可选参数：待归档的图片
     onAlbumsClick: () -> Unit,
@@ -1907,6 +1921,50 @@ private fun DeckContent(
                 onAlbumCleanupDisplayModeToggle = onAlbumCleanupDisplayModeToggle,
                 onAlbumCleanupClick = onAlbumCleanupClick
             )
+
+            // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示。
+            // 只在用户确实在集中处理同一来源时出现；接受只影响下一批，
+            // 忽略则本次会话不再打扰。
+            if (intentSourceName != null && onAcceptIntent != null && onDismissIntent != null) {
+                val intentContext = LocalContext.current
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (LocalIsDarkTheme.current) Color(0xFF2C2C2E) else Color.White
+                        )
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = "这轮再看几张「$intentSourceName」？",
+                            color = if (LocalIsDarkTheme.current) Color.White else Color.Black,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "接受后下一批优先这个来源，只影响一批",
+                            color = Color(0xFF8E8E93),
+                            fontSize = 11.sp
+                        )
+                    }
+                    TextButton(onClick = {
+                        HapticFeedback.lightTap(intentContext)
+                        onDismissIntent()
+                    }) {
+                        Text("忽略", color = Color(0xFF8E8E93), fontSize = 13.sp)
+                    }
+                    TextButton(onClick = {
+                        HapticFeedback.lightTap(intentContext)
+                        onAcceptIntent()
+                    }) {
+                        Text("看这个", color = Color(0xFF007AFF), fontSize = 13.sp)
+                    }
+                }
+            }
 
             // 卡片堆叠区域
             // 固定标签模式下有双行标签，卡片位置较高；其他模式卡片可以更靠下

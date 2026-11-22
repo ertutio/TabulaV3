@@ -58,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.balance.RoundIntentRules
+import com.tabula.v3.data.balance.StagedSourceDisplayName
 import com.tabula.v3.BuildConfig
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.CardStyleMode
@@ -72,6 +74,7 @@ import com.tabula.v3.data.repository.LocalImageRepository
 import com.tabula.v3.data.repository.copyImagesResultMessage
 import com.tabula.v3.data.repository.moveImagesResultMessage
 import com.tabula.v3.data.repository.matchesSameMediaIdentity
+import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.partitionByConfirmedIdentity
 import com.tabula.v3.data.repository.projectSnapshot
 import com.tabula.v3.data.repository.RecycleBinManager
@@ -490,6 +493,12 @@ fun TabulaApp(
     var showHiddenAlbums by remember { mutableStateOf(false) }
     var otherAlbumsForNavigation by remember { mutableStateOf<List<Album>>(emptyList()) }
 
+    // ========== 本轮整理意图（路线图第 7 项 / 审计 #90） ==========
+    // 全部是会话级状态：进程重启即归零，符合"只在当前整理会话内有效"。
+    var intentSuggestion by remember { mutableStateOf<String?>(null) }
+    var intentDismissed by remember { mutableStateOf(false) }
+    var userHandledBatch by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
+
     // ========== 图片数据状态 ==========
     var allImages by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
     // 用于主界面卡片整理的图片列表（排除已归类到 Tabula 图集的照片）
@@ -508,6 +517,33 @@ fun TabulaApp(
     val albumManager = remember { AlbumManager.getInstance(context) }
     val recommendationEngine = remember { RecommendationEngine.getInstance(context) }
     val albumCleanupEngine = remember { AlbumCleanupEngine.getInstance(context) }
+
+    // 意图被消费后清空本地展示态（引擎是唯一写者，这里只做展示同步）
+    LaunchedEffect(Unit) {
+        recommendationEngine.onIntentConsumed = { intentSuggestion = null }
+    }
+
+    /**
+     * 按**用户实际处理行为**评估是否提示本轮整理意图（审计 #90）。
+     *
+     * 触发条件由 RoundIntentRules.shouldSuggest 给出：当前这批里 ≥60% 且
+     * ≥3 张来自同一来源、该来源还有剩余、用户没忽略过。
+     *
+     * 只在用户真的动过手（userHandledBatch 非空）之后才评估——一进卡片页
+     * 就弹提示会显得莫名其妙。
+     */
+    LaunchedEffect(userHandledBatch, intentDismissed, imagesForSorting) {
+        if (intentDismissed || userHandledBatch.isEmpty()) return@LaunchedEffect
+        val available = imagesForSorting.filterNot { image ->
+            deletedImages.any { it.mediaIdentityKey() == image.mediaIdentityKey() }
+        }
+        intentSuggestion = RoundIntentRules.shouldSuggest(
+            currentBatch = userHandledBatch,
+            available = available,
+            dismissed = intentDismissed
+        )
+    }
+
     val albums by albumManager.albums.collectAsState()
     val albumMappings by albumManager.mappings.collectAsState()
     val excludedAlbumCount by albumManager.excludedAlbumCount.collectAsState()
@@ -874,6 +910,9 @@ fun TabulaApp(
                 preferences.totalReviewedCount++
             },
             onRemove = { image ->
+                // 审计 #90：用户实际处理行为触发意图评估——
+                // 记录他正在处理的这批照片（含刚划走的这张）。
+                userHandledBatch = (userHandledBatch + image).distinctBy { it.mediaIdentityKey() }
                 scope.launch {
                     try {
                         recycleBinManager.addToRecycleBin(image)
@@ -985,6 +1024,29 @@ fun TabulaApp(
             },
             // 推荐模式刷新触发器（切换算法时刷新批次）
             recommendModeRefreshKey = recommendModeRefreshKey,
+            // 路线图 #83 第 7 项（审计 #90）：本轮整理意图。
+            // 提示在批次装载后由 userHandledBatch 计算——只有用户真的在处理
+            // 某个来源时才出现，而不是一进卡片页就弹。
+            intentSourceName = intentSuggestion?.let { key ->
+                StagedSourceDisplayName.of(key)
+            },
+            onAcceptIntent = {
+                intentSuggestion?.let { key ->
+                    recommendationEngine.acceptRoundIntent(key)
+                    intentSuggestion = null
+                    intentDismissed = false
+                    Toast.makeText(
+                        context,
+                        "下一批优先「${StagedSourceDisplayName.of(key)}」",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            onDismissIntent = {
+                // 忽略：本次会话不再提示（不写偏好，重启后重新评估）
+                intentDismissed = true
+                intentSuggestion = null
+            },
             // 从冷却池移除照片的回调（切换算法时移除未浏览的照片；
             // C1/T03-DECKCOOLDOWN：按完整媒体身份键移除）
             onRemoveFromCooldown = { unviewedImages ->
