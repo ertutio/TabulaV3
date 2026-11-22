@@ -20,6 +20,7 @@ enum class AppScreen {
     REMINDER_SETTINGS,   // 提醒设置
     HIDDEN_ALBUMS,       // 隐藏与屏蔽图集管理
     OTHER_ALBUMS,        // 其他图集（收纳的小图集）
+    BURST_SELECTION,     // 连拍选片（相似组内选留，路线图第 4 项）
     PRIVACY_POLICY,      // 隐私政策
     TUTORIAL             // 使用教程
 }

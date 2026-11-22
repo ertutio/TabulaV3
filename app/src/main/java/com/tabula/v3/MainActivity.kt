@@ -72,6 +72,7 @@ import com.tabula.v3.data.repository.LocalImageRepository
 import com.tabula.v3.data.repository.copyImagesResultMessage
 import com.tabula.v3.data.repository.moveImagesResultMessage
 import com.tabula.v3.data.repository.matchesSameMediaIdentity
+import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.partitionByConfirmedIdentity
 import com.tabula.v3.data.repository.projectSnapshot
 import com.tabula.v3.data.repository.RecycleBinManager
@@ -131,6 +132,9 @@ import com.tabula.v3.data.repository.deleteMediaUrisBatch
 import com.tabula.v3.data.repository.BatchDeleteSummary
 import com.tabula.v3.data.repository.mediaDeletionMessage
 import com.tabula.v3.data.repository.resolveImagesByIdentitySelection
+import com.tabula.v3.data.burst.BurstSelectionRules
+import com.tabula.v3.data.repository.SimilarGroup
+import com.tabula.v3.ui.screens.BurstSelectionScreen
 
 /**
  * T02b 恢复核验决策：未知保留在回收站，缺失清除死记录且不入图库，仅 PRESENT 继续恢复。
@@ -489,6 +493,13 @@ fun TabulaApp(
     var isAlbumMode by remember { mutableStateOf(false) }
     var showHiddenAlbums by remember { mutableStateOf(false) }
     var otherAlbumsForNavigation by remember { mutableStateOf<List<Album>>(emptyList()) }
+
+    // ========== 连拍选片状态（路线图第 4 项） ==========
+    // 只在相似推荐批次"看起来是一个连拍组"时才进入；进入后本界面的决定
+    // 不直接落库，确认才写回收站，取消/返回什么都不改。
+    var burstSelectionGroup by remember { mutableStateOf<SimilarGroup?>(null) }
+    var burstKeptKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var burstCommitting by remember { mutableStateOf(false) }
 
     // ========== 图片数据状态 ==========
     var allImages by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
@@ -985,6 +996,13 @@ fun TabulaApp(
             },
             // 推荐模式刷新触发器（切换算法时刷新批次）
             recommendModeRefreshKey = recommendModeRefreshKey,
+            // 路线图 #83 第 4 项：进入连拍选片。签名是「交给我一个组」，
+            // DeckScreen 只在当前批次被判定为连拍时才会调用。
+            onOpenBurstSelection = { group ->
+                burstSelectionGroup = group
+                burstKeptKeys = BurstSelectionRules.defaultKeptKeys(group)
+                currentScreen = AppScreen.BURST_SELECTION
+            },
             // 从冷却池移除照片的回调（切换算法时移除未浏览的照片；
             // C1/T03-DECKCOOLDOWN：按完整媒体身份键移除）
             onRemoveFromCooldown = { unviewedImages ->
@@ -1567,6 +1585,73 @@ fun TabulaApp(
         )
     }
     
+    val burstSelectionContent: @Composable () -> Unit = {
+        val group = burstSelectionGroup
+        if (group == null) {
+            // 没有有效组（例如进程被回收后恢复）——直接回卡片页，不留空白界面。
+            LaunchedEffect(Unit) { currentScreen = AppScreen.DECK }
+        } else {
+            BurstSelectionScreen(
+                group = group,
+                keptIdentityKeys = burstKeptKeys,
+                isCommitting = burstCommitting,
+                onToggleKeep = { image ->
+                    val key = image.mediaIdentityKey()
+                    burstKeptKeys = if (key in burstKeptKeys) burstKeptKeys - key else burstKeptKeys + key
+                },
+                onKeepAll = { burstKeptKeys = BurstSelectionRules.keepAllKeys(group) },
+                onCancel = {
+                    // 取消 = 什么都不提交；组进度保持原样，用户下次还能再进。
+                    burstSelectionGroup = null
+                    burstKeptKeys = emptySet()
+                    currentScreen = AppScreen.DECK
+                },
+                onConfirm = {
+                    if (burstCommitting) return@BurstSelectionScreen
+                    val resolved = BurstSelectionRules.resolve(group, burstKeptKeys)
+                    val decision = (resolved as? BurstSelectionRules.Result.Valid)?.decision
+                    if (decision == null || decision.discardCandidates.isEmpty()) return@BurstSelectionScreen
+                    burstCommitting = true
+                    scope.launch {
+                        try {
+                            // 与卡片上滑删除同一条路径：写现有回收站，可恢复。
+                            recycleBinManager.addAllToRecycleBin(decision.discardCandidates)
+                            val persisted = recycleBinManager.loadRecycleBin()
+                            val movedKeys = persisted.map { it.mediaIdentityKey() }.toSet()
+                            allImages = allImages.filterNot { it.mediaIdentityKey() in movedKeys }
+                            imagesForSorting = imagesForSorting.filterNot { it.mediaIdentityKey() in movedKeys }
+                            deletedImages = persisted
+                            preferences.totalReviewedCount += decision.discardCandidates.size
+                            preferences.totalDeletedCount += decision.discardCandidates.size
+                            // 只有提交成功才把该组记为已处理，避免失败也推进进度。
+                            recommendationEngine.markSimilarGroupProcessed(group)
+                            recommendationEngine.invalidateSimilarGroupCache()
+                            burstSelectionGroup = null
+                            burstKeptKeys = emptySet()
+                            currentScreen = AppScreen.DECK
+                            Toast.makeText(
+                                context,
+                                "保留 ${decision.keepCount} 张，${decision.discardCount} 张已移入回收站",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Log.e("TabulaApp", "Burst selection could not reach the recycle bin", e)
+                            Toast.makeText(
+                                context,
+                                "未能保存回收站记录，这组未提交；可以重试",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } finally {
+                            burstCommitting = false
+                        }
+                    }
+                }
+            )
+        }
+    }
+
     val otherAlbumsContent: @Composable () -> Unit = {
         OtherAlbumsScreen(
             albums = otherAlbumsForNavigation,
@@ -1661,6 +1746,7 @@ fun TabulaApp(
         AppScreen.ALBUM_VIEW -> deckContent to albumViewContent
         AppScreen.SYSTEM_ALBUM_VIEW -> deckContent to systemAlbumViewContent
         AppScreen.OTHER_ALBUMS -> deckContent to otherAlbumsContent
+        AppScreen.BURST_SELECTION -> deckContent to burstSelectionContent
         AppScreen.VIBRATION_SOUND -> settingsContent to vibrationSoundContent
         AppScreen.DISPLAY_SETTINGS -> settingsContent to displaySettingsContent
         AppScreen.LAB -> settingsContent to labContent
@@ -1688,6 +1774,7 @@ fun TabulaApp(
                     AppScreen.ALBUM_VIEW -> AppScreen.DECK
                     AppScreen.SYSTEM_ALBUM_VIEW -> AppScreen.DECK
                     AppScreen.OTHER_ALBUMS -> AppScreen.DECK
+                    AppScreen.BURST_SELECTION -> AppScreen.DECK
                     AppScreen.VIBRATION_SOUND -> AppScreen.SETTINGS
                     AppScreen.DISPLAY_SETTINGS -> AppScreen.SETTINGS
                     AppScreen.LAB -> AppScreen.SETTINGS

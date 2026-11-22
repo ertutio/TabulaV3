@@ -45,6 +45,7 @@ import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -109,6 +110,8 @@ import com.tabula.v3.data.preferences.SwipeStyle
 import com.tabula.v3.data.preferences.TagSelectionMode
 import com.tabula.v3.data.preferences.TopBarDisplayMode
 import com.tabula.v3.data.repository.LocalImageRepository
+import com.tabula.v3.data.repository.SimilarGroup
+import com.tabula.v3.data.burst.BurstSelectionRules
 import androidx.compose.ui.geometry.Offset
 import com.tabula.v3.ui.components.ActionIconButton
 import com.tabula.v3.ui.components.AlbumDropTarget
@@ -262,7 +265,10 @@ fun DeckScreen(
     onNavigateToOtherAlbums: (List<Album>) -> Unit = {},
     // 原图清理
     pendingCleanupCount: Int = 0,
-    onCleanupSourceImages: () -> Unit = {}
+    onCleanupSourceImages: () -> Unit = {},
+    // 连拍选片（路线图第 4 项）：参数非空且当前批次"看起来是一个连拍组"时，
+    // 顶部栏出现「连拍选片」按钮，点击进入对比页。传 null = 不提供入口。
+    onOpenBurstSelection: ((SimilarGroup) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -1019,6 +1025,23 @@ fun DeckScreen(
                     // 浏览模式
                     val currentImage = currentBatch.getOrNull(currentIndex)
                     
+                    // 路线图 #83 第 4 项：当前批次"看起来是一个连拍组"时，
+                    // 提供进入对比选片的入口。判定是保守启发式
+                    // （时间跨度 ≤10 分钟 且 同一相册 且 ≥2 张），宁可不出
+                    // 入口，也不要让用户以为随机抽到的几张是连拍。
+                    val burstCandidate: SimilarGroup? = remember(
+                        currentBatch,
+                        onOpenBurstSelection
+                    ) {
+                        if (onOpenBurstSelection == null) {
+                            null
+                        } else if (BurstSelectionRules.looksLikeOneBurst(currentBatch)) {
+                            BurstSelectionRules.groupFromBatch(currentBatch)
+                        } else {
+                            null
+                        }
+                    }
+                    
                     // 过滤掉隐藏的图集，用于下滑归类功能
                     DeckContent(
                         images = currentBatch,
@@ -1214,6 +1237,16 @@ fun DeckScreen(
                         // LIST_POPUP 模式：下滑触发图集选择弹层
                         onShowAlbumSelectionSheet = {
                             showAlbumSelectionSheet = true
+                        },
+                        // 路线图 #83 第 4 项：连拍选片入口（只有判定像连拍时才非空）
+                        onBurstSelectionClick = burstCandidate?.let { group ->
+                            {
+                                android.util.Log.d(
+                                    "DeckScreen",
+                                    "Opening burst selection: ${group.size} images, id=${group.id}"
+                                )
+                                onOpenBurstSelection?.invoke(group)
+                            }
                         }
                     )
                 }
@@ -1823,6 +1856,8 @@ private fun DeckContent(
     onCardClick: (ImageFile, SourceRect) -> Unit,
     onTrashClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    // 路线图 #83 第 4 项：非空时显示「连拍选片」入口；null = 当前批次不像连拍
+    onBurstSelectionClick: (() -> Unit)? = null,
     onAlbumClick: (Album) -> Unit,
     onAddAlbumClick: (ImageFile?) -> Unit,  // 可选参数：待归档的图片
     onAlbumsClick: () -> Unit,
@@ -1907,6 +1942,55 @@ private fun DeckContent(
                 onAlbumCleanupDisplayModeToggle = onAlbumCleanupDisplayModeToggle,
                 onAlbumCleanupClick = onAlbumCleanupClick
             )
+
+            // 路线图 #83 第 4 项：连拍选片入口。
+            // 只在当前批次被判定为一个连拍组时出现，不挤占 TopBar 的既有按钮；
+            // 点击进入对比页，那里才做保留/回收决定。
+            if (onBurstSelectionClick != null) {
+                val burstContext = LocalContext.current
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            (if (LocalIsDarkTheme.current) Color(0xFF2C2C2E) else Color.White)
+                        )
+                        .clickable {
+                            HapticFeedback.lightTap(burstContext)
+                            onBurstSelectionClick()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.PhotoLibrary,
+                        contentDescription = null,
+                        tint = Color(0xFF007AFF),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = "这批像连拍",
+                            color = if (LocalIsDarkTheme.current) Color.White else Color.Black,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "一起对比，留下想要的那几张",
+                            color = Color(0xFF8E8E93),
+                            fontSize = 11.sp
+                        )
+                    }
+                    Text(
+                        text = "去选片",
+                        color = Color(0xFF007AFF),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
 
             // 卡片堆叠区域
             // 固定标签模式下有双行标签，卡片位置较高；其他模式卡片可以更靠下
