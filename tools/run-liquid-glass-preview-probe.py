@@ -121,7 +121,11 @@ def screenshot(name: str, attempts: int = 3) -> Path:
 
 
 def start_preview(
-    refraction: bool, photo: bool, offset_y: int = 0, height_dp: int = 160
+    refraction: bool,
+    photo: bool,
+    offset_y: int = 0,
+    height_dp: int = 160,
+    diag_blur: bool = False,
 ) -> None:
     adb("shell", "am", "force-stop", PACKAGE)
     adb(
