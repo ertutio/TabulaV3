@@ -51,7 +51,8 @@ fun LiquidGlassDebugPreview(
     initialUsePhoto: Boolean = false,
     initialOffsetX: Float = 0f,
     initialOffsetY: Float = 0f,
-    initialGlassHeightDp: Float = 160f
+    initialGlassHeightDp: Float = 160f,
+    diagnosticBlurOnly: Boolean = false
 ) {
     val state = rememberLiquidGlassBackdropState()
     var refractionOn by remember { mutableStateOf(initialRefractionOn) }
@@ -60,8 +61,12 @@ fun LiquidGlassDebugPreview(
     var offsetY by remember { mutableFloatStateOf(initialOffsetY) }
     var glassHeightDp by remember { mutableFloatStateOf(initialGlassHeightDp) }
 
-    val spec = remember(refractionOn) {
-        if (refractionOn) LiquidGlassBackdropSpec.Default else LiquidGlassBackdropSpec.Off
+    val spec = remember(refractionOn, diagnosticBlurOnly) {
+        when {
+            !refractionOn -> LiquidGlassBackdropSpec.Off
+            diagnosticBlurOnly -> LiquidGlassBackdropSpec.Default.copy(diagnosticBlurOnly = true)
+            else -> LiquidGlassBackdropSpec.Default
+        }
     }
     val config = remember {
         PhysicalLiquidGlassConfig.iOSLiquidGlass.copy(

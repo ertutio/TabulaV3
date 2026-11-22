@@ -131,6 +131,7 @@ def start_preview(
         "--ez", "photo", "true" if photo else "false",
         "--ei", "offsetY", str(offset_y),
         "--ei", "glassHeightDp", str(height_dp),
+        *(["--ez", "diagBlur", "true"] if diag_blur else []),
     )
     # 等待首帧与采样层建立
     time.sleep(2.5)
@@ -308,6 +309,27 @@ def main() -> int:
             json.dumps(diff),
             failure=None if ok else
             f"玻璃区域内只有 {inside_changed} 个像素变化，折射未生效",
+        )
+
+    # 3b. 诊断：只用模糊时玻璃区域内必须有变化。
+    # 这一条把"renderEffect 渲染路径不生效"与"shader 逻辑写错"区分开：
+    # 模糊也不出现，说明效果根本没被应用；只有折射不出现，说明 shader 的问题。
+    if roi is not None:
+        start_preview(refraction=True, photo=False, diag_blur=True)
+        diag_on = screenshot(f"api{api}-grid-diag-blur")
+        start_preview(refraction=False, photo=False)
+        diag_off = screenshot(f"api{api}-grid-diag-blur-off")
+        diag_diff = pixel_diff(diag_on, diag_off, f"api{api}-grid-diag-blur-diff", roi)
+        (OUT / f"api{api}-diag-blur.json").write_text(
+            json.dumps(diag_diff, indent=2), encoding="utf-8")
+        diag_ok = diag_diff.get("changed_pixels", 0) >= 200
+        evidence["diagnostic_blur"] = diag_diff
+        record(
+            "diagnostic blur reaches the glass region",
+            diag_ok,
+            json.dumps(diag_diff),
+            failure=None if diag_ok else
+            "连纯模糊都不生效：renderEffect 渲染路径本身没有作用到该图层",
         )
 
     # 4. 静止场景两张截图必须逐像素一致（不持续刷新）

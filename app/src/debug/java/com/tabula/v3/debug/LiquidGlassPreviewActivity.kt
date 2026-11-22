@@ -36,6 +36,7 @@ class LiquidGlassPreviewActivity : ComponentActivity() {
         val offsetX = intent.getIntExtra(EXTRA_OFFSET_X, 0).toFloat()
         val offsetY = intent.getIntExtra(EXTRA_OFFSET_Y, 0).toFloat()
         val glassHeightDp = intent.getIntExtra(EXTRA_GLASS_HEIGHT_DP, 160).toFloat()
+        val diagnosticBlurOnly = intent.getBooleanExtra(EXTRA_DIAGNOSTIC_BLUR, false)
 
         setContent {
             if (Build.VERSION.SDK_INT < LIQUID_GLASS_BACKDROP_MIN_SDK) {
@@ -47,7 +48,8 @@ class LiquidGlassPreviewActivity : ComponentActivity() {
                     initialUsePhoto = photo,
                     initialOffsetX = offsetX,
                     initialOffsetY = offsetY,
-                    initialGlassHeightDp = glassHeightDp
+                    initialGlassHeightDp = glassHeightDp,
+                    diagnosticBlurOnly = diagnosticBlurOnly
                 )
             }
         }
@@ -59,6 +61,7 @@ class LiquidGlassPreviewActivity : ComponentActivity() {
         const val EXTRA_OFFSET_X = "offsetX"
         const val EXTRA_OFFSET_Y = "offsetY"
         const val EXTRA_GLASS_HEIGHT_DP = "glassHeightDp"
+        const val EXTRA_DIAGNOSTIC_BLUR = "diagBlur"
     }
 }
 

@@ -1,5 +1,7 @@
 package com.tabula.v3.ui.components.liquidglass
 
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.SideEffect
@@ -232,9 +234,16 @@ class LiquidGlassBackdropSampling internal constructor(
 
         val background = source.contentLayer ?: return
         val appearance = spec.resolve(density)
-        val effect = remember(plan, appearance, cornerRadiusPx) {
-            createBackdropRenderEffect(plan, appearance, cornerRadiusPx) { message ->
-                source.reportEffectError(message)
+        val effect = remember(plan, appearance, cornerRadiusPx, spec.diagnosticBlurOnly) {
+            if (spec.diagnosticBlurOnly) {
+                // 诊断：只用模糊，验证 renderEffect 这条路径本身是否生效
+                RenderEffect.createBlurEffect(
+                    48f, 48f, Shader.TileMode.CLAMP
+                )
+            } else {
+                createBackdropRenderEffect(plan, appearance, cornerRadiusPx) { message ->
+                    source.reportEffectError(message)
+                }
             }
         }
         SideEffect {

@@ -23,7 +23,14 @@ data class LiquidGlassBackdropSpec(
     val refractionAmountDp: Dp = 10.dp,
     val dispersion: Float = 0.12f,
     val blurRadiusDp: Dp = 20.dp,
-    val enabled: Boolean = true
+    val enabled: Boolean = true,
+    /**
+     * 诊断开关：把 renderEffect 换成一个大半径模糊。
+     *
+     * 用途是区分两类失败：模糊出现说明"renderEffect 渲染路径正常、问题在 shader
+     * 逻辑"，模糊不出现说明效果根本没被应用。只在调试预览里打开，不参与生产。
+     */
+    val diagnosticBlurOnly: Boolean = false
 ) {
     companion object {
         val Default = LiquidGlassBackdropSpec()
