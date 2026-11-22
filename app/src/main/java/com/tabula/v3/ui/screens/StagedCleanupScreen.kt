@@ -150,21 +150,52 @@ fun StagedCleanupSourcePickerContent(
                         .fillMaxWidth(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    items(sources, key = { "${it.key.volumeName}|${it.key.relativePath}" }) { source ->
-                        val key = "${source.key.volumeName}|${source.key.relativePath}"
-                        SourceRow(
-                            source = source,
-                            isSelected = key in selectedSourceKeys,
-                            cardColor = cardColor,
-                            textColor = textColor,
-                            secondaryTextColor = secondaryTextColor,
-                            accentColor = accentColor,
-                            onClick = {
-                                HapticFeedback.lightTap(context)
-                                onToggleSource(key)
-                            }
-                        )
-                        Spacer(Modifier.height(8.dp))
+                    // 审计修复（#84）：全部来源分组展示。
+                    // 「推荐」= 截图/下载，预勾；「其他」= 相机、聊天软件等，
+                    // 用户自己决定要不要清。两组都只是勾选项，不改变任何行为。
+                    val recommended = sources.filter { it.isRecommended }
+                    val others = sources.filterNot { it.isRecommended }
+
+                    if (recommended.isNotEmpty()) {
+                        item(key = "hdr_recommended") {
+                            SourceGroupHeader(
+                                title = "推荐清理",
+                                subtitle = "截图与下载目录，已为你勾选",
+                                secondaryTextColor = secondaryTextColor
+                            )
+                        }
+                        items(recommended, key = { "rec|${it.key.volumeName}|${it.key.relativePath}" }) { source ->
+                            SourceRowItem(
+                                source = source,
+                                selectedSourceKeys = selectedSourceKeys,
+                                cardColor = cardColor,
+                                textColor = textColor,
+                                secondaryTextColor = secondaryTextColor,
+                                accentColor = accentColor,
+                                onToggleSource = onToggleSource
+                            )
+                        }
+                    }
+
+                    if (others.isNotEmpty()) {
+                        item(key = "hdr_others") {
+                            SourceGroupHeader(
+                                title = "其他来源",
+                                subtitle = "相机、聊天软件等保存目录，需要你自己勾选",
+                                secondaryTextColor = secondaryTextColor
+                            )
+                        }
+                        items(others, key = { "oth|${it.key.volumeName}|${it.key.relativePath}" }) { source ->
+                            SourceRowItem(
+                                source = source,
+                                selectedSourceKeys = selectedSourceKeys,
+                                cardColor = cardColor,
+                                textColor = textColor,
+                                secondaryTextColor = secondaryTextColor,
+                                accentColor = accentColor,
+                                onToggleSource = onToggleSource
+                            )
+                        }
                     }
                 }
 
@@ -682,3 +713,49 @@ private val THUMBNAILS_PER_ROW = 3
 
 private fun formatDay(dayStartMillis: Long): String =
     SimpleDateFormat("M 月 d 日 EEEE", Locale.CHINA).format(Date(dayStartMillis))
+
+/** 来源分组的标题行（推荐 / 其他）。 */
+@Composable
+private fun SourceGroupHeader(
+    title: String,
+    subtitle: String,
+    secondaryTextColor: Color
+) {
+    Column(modifier = Modifier.padding(top = 12.dp, bottom = 6.dp)) {
+        Text(
+            text = title,
+            color = secondaryTextColor,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(text = subtitle, color = secondaryTextColor, fontSize = 11.sp)
+    }
+}
+
+/** 单个来源行（推荐与其他两组共用，行为完全一致）。 */
+@Composable
+private fun SourceRowItem(
+    source: StagedCleanupSource,
+    selectedSourceKeys: Set<String>,
+    cardColor: Color,
+    textColor: Color,
+    secondaryTextColor: Color,
+    accentColor: Color,
+    onToggleSource: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val key = "${source.key.volumeName}|${source.key.relativePath}"
+    SourceRow(
+        source = source,
+        isSelected = key in selectedSourceKeys,
+        cardColor = cardColor,
+        textColor = textColor,
+        secondaryTextColor = secondaryTextColor,
+        accentColor = accentColor,
+        onClick = {
+            HapticFeedback.lightTap(context)
+            onToggleSource(key)
+        }
+    )
+    Spacer(Modifier.height(8.dp))
+}

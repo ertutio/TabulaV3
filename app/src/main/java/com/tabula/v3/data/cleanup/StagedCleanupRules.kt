@@ -34,7 +34,14 @@ data class StagedCleanupSource(
     val key: StagedSourceKey,
     val displayName: String,
     val imageCount: Int,
-    val oldestAddedAt: Long
+    val oldestAddedAt: Long,
+    /**
+     * 是否为推荐来源（截图 / 下载目录）。
+     *
+     * 推荐 = 首次进入预勾 + 列表置顶；非推荐仍然可勾，只是默认不选。
+     * 这个字段让"全部列出"和"默认只清暂存"两件事同时成立。
+     */
+    val isRecommended: Boolean = false
 )
 
 /**
@@ -135,15 +142,46 @@ object StagedCleanupRules {
      *
      * 排序：照片多的在前，同数量按路径升序，保证跨设备结果稳定。
      */
+    /**
+     * 列出**当前可访问的全部图片来源**，供用户勾选要清理的范围。
+     *
+     * 审计修复（#84）：旧实现只列截图与下载目录，用户无法选择聊天软件保存
+     * 目录等其它来源。现在列出图库里出现的每一个来源（卷 + 相对路径），
+     * 只把"看起来像暂存"的标成推荐项，选择权交给用户。
+     *
+     * 分类口径：
+     * - [StagedCleanupSource.isRecommended] = true：截图 / 下载目录，
+     *   界面预勾并置于顶部——这是路线图说的"可直接开发"的那一类
+     * - false：其它一切有照片的目录（相机、聊天软件保存、社交 App 缓存……），
+     *   默认不勾，用户按需自己选
+     *
+     * 排序：推荐项在前，其次照片多的在前，同数量按路径升序，跨设备稳定。
+     */
     fun availableSources(allImages: List<ImageFile>): List<StagedCleanupSource> {
         val buckets = linkedMapOf<StagedSourceKey, MutableList<ImageFile>>()
         allImages.forEach { image ->
             val key = stagedSourceKeyOf(image) ?: return@forEach
-            if (!isStagedSourcePath(key.relativePath)) return@forEach
             buckets.getOrPut(normalize(key)) { mutableListOf() }.add(image)
         }
         return summarizeSources(buckets.values.flatten(), buckets.keys.toList())
+            .map { source ->
+                source.copy(
+                    isRecommended = isStagedSourcePath(source.key.relativePath)
+                )
+            }
+            .sortedWith(
+                compareByDescending<StagedCleanupSource> { it.isRecommended }
+                    .thenByDescending { it.imageCount }
+                    .thenBy { it.key.relativePath }
+            )
     }
+
+    /** 首次进入时默认勾选的来源：只勾推荐项。 */
+    fun defaultSelectedSourceKeys(sources: List<StagedCleanupSource>, limit: Int = 3): Set<String> =
+        sources.filter { it.isRecommended }
+            .take(limit)
+            .map { "${it.key.volumeName}|${it.key.relativePath}" }
+            .toSet()
 
     /**
      * 判断一个相对路径是否属于"暂存"类来源。

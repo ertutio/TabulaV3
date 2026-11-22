@@ -643,19 +643,18 @@ fun TabulaApp(
     }
 
     fun openStagedCleanup() {
+        // 审计修复（#84）：列出全部可访问来源，不再只列截图/下载。
         stagedCleanupSources = StagedCleanupRules.availableSources(allImages)
         stagedCleanupSelectedKeys = emptySet()
         currentScreen = AppScreen.STAGED_CLEANUP
         if (preferences.hasStagedCleanupSourceChoice) {
             recomputeStagedCleanupSelection()
         } else {
-            // 首次进入：先把三个"看起来像暂存"的来源预勾上，用户确认才写偏好。
-            val defaults = stagedCleanupSources
-                .filter { StagedCleanupRules.isStagedSourcePath(it.key.relativePath) }
-                .take(MAX_DEFAULT_STAGED_SOURCES)
-                .map { "${it.key.volumeName}|${it.key.relativePath}" }
-                .toSet()
-            stagedCleanupSelectedKeys = defaults
+            // 首次进入：只预勾推荐来源（截图/下载），其它来源由用户自己决定。
+            stagedCleanupSelectedKeys = StagedCleanupRules.defaultSelectedSourceKeys(
+                stagedCleanupSources,
+                limit = MAX_DEFAULT_STAGED_SOURCES
+            )
             stagedCleanupSelection = null
         }
     }

@@ -89,14 +89,17 @@ class StagedCleanupRulesTest {
 
         val sources = StagedCleanupRules.availableSources(rows)
 
-        assertEquals(3, sources.size)
+        // 审计修复（#84）：现在列出全部来源（含 Camera），共 4 个
+        assertEquals(4, sources.size)
         val screenshotSources = sources.filter { it.displayName == "Screenshots" }
         assertEquals(2, screenshotSources.size)
         assertEquals(setOf("external_primary", "1234-5678"), screenshotSources.map { it.key.volumeName }.toSet())
         assertEquals(1, sources.first { it.key.volumeName == "1234-5678" }.imageCount)
-        // 照片多的排前面
+        // 推荐项（截图/下载）在前，同组内照片多的在前
         assertEquals("Screenshots", sources.first().displayName)
         assertEquals(2, sources.first().imageCount)
+        // Camera 也列出，但不算推荐
+        assertTrue(sources.any { it.displayName == "Camera" && !it.isRecommended })
     }
 
     // ==================== 分组与门限 ====================
@@ -303,5 +306,258 @@ class StagedCleanupRulesTest {
         assertEquals(16, calendar.get(java.util.Calendar.DAY_OF_MONTH))
         assertEquals(0, calendar.get(java.util.Calendar.HOUR_OF_DAY))
         assertEquals(0, calendar.get(java.util.Calendar.MINUTE))
+    }
+}
+
+/**
+ * 审计修复（#84）补充的入口级测试。
+ *
+ * 对应审计要求：来源选择器列出全部图片来源、聊天软件保存目录可选、
+ * 保留卷+路径身份、同名跨卷目录、空选择、重新选择、重启、部分照片权限。
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], manifest = Config.NONE)
+class StagedCleanupSourceSelectionTest {
+
+    private fun photo(
+        id: Long,
+        relativePath: String,
+        volume: String? = "external_primary",
+        dateAdded: Long = 1_795_000_000_000L
+    ) = ImageFile(
+        id = id,
+        uri = android.net.Uri.parse("content://media/$volume/images/media/$id"),
+        displayName = "p$id.jpg",
+        dateModified = dateAdded,
+        size = 1024L,
+        width = 1080,
+        height = 1920,
+        bucketDisplayName = relativePath.trimEnd('/').substringAfterLast('/'),
+        volumeName = volume,
+        relativePath = relativePath,
+        dateAdded = dateAdded
+    )
+
+    @Test
+    fun allImageSourcesAreListedNotJustScreenshotsAndDownloads() {
+        val library = listOf(
+            photo(1, "DCIM/Screenshots/"),
+            photo(2, "Download/"),
+            photo(3, "DCIM/Camera/"),
+            photo(4, "Pictures/WeiXin/"),
+            photo(5, "Pictures/Tencent/QQImages/")
+        )
+
+        val sources = StagedCleanupRules.availableSources(library)
+
+        // 五个来源一个不少
+        assertEquals(5, sources.size)
+        val names = sources.map { it.displayName }.toSet()
+        assertEquals(
+            setOf("Screenshots", "Download", "Camera", "WeiXin", "QQImages"),
+            names
+        )
+    }
+
+    @Test
+    fun chatAppDirectoriesAreSelectable() {
+        val library = listOf(
+            photo(1, "Pictures/WeiXin/"),
+            photo(2, "Pictures/WeiXin/"),
+            photo(3, "DCIM/Screenshots/")
+        )
+
+        val sources = StagedCleanupRules.availableSources(library)
+        val weixin = sources.first { it.displayName == "WeiXin" }
+
+        // 可选，但不算推荐（推荐只给截图/下载）
+        assertEquals(2, weixin.imageCount)
+        assertFalse(weixin.isRecommended)
+
+        // 用户勾上之后，确实能筛出这个目录的照片
+        val selection = StagedCleanupRules.select(
+            allImages = library,
+            sources = listOf(weixin.key),
+            nowMillis = 1_800_000_000_000L,
+            timeZone = TimeZone.getTimeZone("UTC")
+        )
+        assertEquals(2, selection.allCandidateImages.size)
+        assertTrue(selection.allCandidateImages.all { it.relativePath == "Pictures/WeiXin/" })
+    }
+
+    @Test
+    fun recommendedSourcesAreScreenshotsAndDownloads() {
+        val library = listOf(
+            photo(1, "DCIM/Screenshots/"),
+            photo(2, "Download/"),
+            photo(3, "DCIM/Camera/"),
+            photo(4, "Pictures/WeiXin/")
+        )
+
+        val sources = StagedCleanupRules.availableSources(library)
+
+        assertEquals(
+            setOf("Screenshots", "Download"),
+            sources.filter { it.isRecommended }.map { it.displayName }.toSet()
+        )
+        assertEquals(
+            setOf("Camera", "WeiXin"),
+            sources.filterNot { it.isRecommended }.map { it.displayName }.toSet()
+        )
+    }
+
+    @Test
+    fun recommendedSourcesComeFirstThenByCount() {
+        val library = listOf(
+            photo(1, "Pictures/WeiXin/"), photo(2, "Pictures/WeiXin/"), photo(3, "Pictures/WeiXin/"),
+            photo(4, "DCIM/Camera/"),
+            photo(5, "DCIM/Screenshots/")
+        )
+
+        val sources = StagedCleanupRules.availableSources(library)
+
+        // 推荐项（截图）即使只有 1 张也排第一；其余按数量降序
+        assertEquals("Screenshots", sources.first().displayName)
+        assertEquals(listOf("WeiXin", "Camera"), sources.drop(1).map { it.displayName })
+    }
+
+    @Test
+    fun sameNameDirectoryOnTwoVolumesStaysSeparate() {
+        val library = listOf(
+            photo(1, "DCIM/Screenshots/", volume = "external_primary"),
+            photo(2, "DCIM/Screenshots/", volume = "1234-5678"),
+            photo(3, "DCIM/Screenshots/", volume = "1234-5678")
+        )
+
+        val sources = StagedCleanupRules.availableSources(library)
+        val screenshots = sources.filter { it.displayName == "Screenshots" }
+
+        assertEquals(2, screenshots.size)
+        assertEquals(
+            mapOf("external_primary" to 1, "1234-5678" to 2),
+            screenshots.associate { it.key.volumeName to it.imageCount }
+        )
+    }
+
+    @Test
+    fun selectingOneVolumeDoesNotPullTheOtherVolumesPhotos() {
+        val library = listOf(
+            photo(1, "DCIM/Screenshots/", volume = "external_primary"),
+            photo(2, "DCIM/Screenshots/", volume = "1234-5678")
+        )
+        val sources = StagedCleanupRules.availableSources(library)
+        val firstVolume = sources.first { it.key.volumeName == "external_primary" }
+
+        val selection = StagedCleanupRules.select(
+            allImages = library,
+            sources = listOf(firstVolume.key),
+            nowMillis = 1_800_000_000_000L,
+            timeZone = TimeZone.getTimeZone("UTC")
+        )
+
+        assertEquals(1, selection.allCandidateImages.size)
+        assertEquals("external_primary", selection.allCandidateImages.single().volumeName)
+    }
+
+    @Test
+    fun emptySelectionYieldsNoCandidates() {
+        val library = listOf(photo(1, "DCIM/Screenshots/"))
+
+        val selection = StagedCleanupRules.select(
+            allImages = library,
+            sources = emptyList(),
+            nowMillis = 1_800_000_000_000L,
+            timeZone = TimeZone.getTimeZone("UTC")
+        )
+
+        assertTrue(selection.isEmpty)
+        assertTrue(selection.selectedSources.isEmpty())
+    }
+
+    @Test
+    fun reselectingSourcesReplacesTheScope() {
+        val library = listOf(
+            photo(1, "DCIM/Screenshots/"),
+            photo(2, "Pictures/WeiXin/")
+        )
+        val sources = StagedCleanupRules.availableSources(library)
+        val screenshots = sources.first { it.displayName == "Screenshots" }
+        val weixin = sources.first { it.displayName == "WeiXin" }
+
+        val first = StagedCleanupRules.select(
+            library, listOf(screenshots.key), nowMillis = 1_800_000_000_000L,
+            timeZone = TimeZone.getTimeZone("UTC")
+        )
+        assertEquals(1, first.allCandidateImages.single().id)
+
+        // 重新选择：换成微信目录，结果必须只剩它
+        val second = StagedCleanupRules.select(
+            library, listOf(weixin.key), nowMillis = 1_800_000_000_000L,
+            timeZone = TimeZone.getTimeZone("UTC")
+        )
+        // 换成微信目录后，候选里只剩微信目录那 1 张（id=2），截图不再出现
+        assertEquals(1, second.allCandidateImages.size)
+        assertEquals(2L, second.allCandidateImages.single().id)
+    }
+
+    @Test
+    fun defaultSelectionOnlyPicksRecommendedSources() {
+        val library = listOf(
+            photo(1, "DCIM/Screenshots/"),
+            photo(2, "Download/"),
+            photo(3, "Pictures/WeiXin/"),
+            photo(4, "DCIM/Camera/")
+        )
+        val sources = StagedCleanupRules.availableSources(library)
+
+        val defaults = StagedCleanupRules.defaultSelectedSourceKeys(sources)
+
+        assertEquals(2, defaults.size)
+        // 键是归一化后的 "卷|小写路径"，尾部斜杠已被 trim
+        assertTrue(defaults.any { it.endsWith("|dcim/screenshots") })
+        assertTrue(defaults.any { it.endsWith("|download") })
+        assertTrue(defaults.none { it.contains("weixin") })
+    }
+
+    @Test
+    fun defaultSelectionRespectsLimit() {
+        val library = listOf(
+            photo(1, "DCIM/Screenshots/"),
+            photo(2, "Download/"),
+            photo(3, "Pictures/Screenshots/"),
+            photo(4, "Pictures/Download/")
+        )
+        val sources = StagedCleanupRules.availableSources(library)
+
+        assertEquals(2, StagedCleanupRules.defaultSelectedSourceKeys(sources, limit = 2).size)
+    }
+
+    @Test
+    fun partialPermissionOnlySeesAccessibleSources() {
+        // 部分照片权限下，图库只返回授权范围内的照片；未授权的目录自然不出现，
+        // 界面不应列出用户不可达的来源（否则勾了也没有候选）。
+        val visible = listOf(
+            photo(1, "DCIM/Screenshots/"),
+            photo(2, "Pictures/WeiXin/")
+        )
+        val sources = StagedCleanupRules.availableSources(visible)
+
+        assertEquals(2, sources.size)
+        // 如果之后权限变化、某个目录不再可见，重新计算就不会再列出它
+        val afterRevoke = StagedCleanupRules.availableSources(listOf(photo(1, "DCIM/Screenshots/")))
+        assertEquals(1, afterRevoke.size)
+        assertEquals("Screenshots", afterRevoke.single().displayName)
+    }
+
+    @Test
+    fun photoWithoutPathIsNotOfferedAsARow() {
+        val library = listOf(
+            photo(1, "DCIM/Screenshots/"),
+            photo(2, "").copy(relativePath = null)
+        )
+        val sources = StagedCleanupRules.availableSources(library)
+
+        assertEquals(1, sources.size)
+        assertEquals("Screenshots", sources.single().displayName)
     }
 }
