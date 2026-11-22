@@ -23,29 +23,22 @@ import kotlin.math.abs
  *
  * @param offsetX/offsetY 网格相对视口的像素偏移，用来模拟滚动或背景移动。
  */
-@Composable
-fun LiquidGlassDebugGrid(
-    modifier: Modifier = Modifier,
+/** 网格背景的绘制方式。同一个 lambda 会被宿主与采样层各画一次。 */
+fun debugGridBackground(
     offsetX: Float = 0f,
     offsetY: Float = 0f,
     cellSizePx: Float = 72f,
     lineWidthPx: Float = 2f
-) {
-    val palette = remember {
-        DebugGridPalette(
-            background = Color(0xFF0E1020),
-            major = Color(0xFFF6F8FF),
-            minor = Color(0xFF4356A8),
-            accent = Color(0xFFFFC857)
-        )
-    }
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .drawBehind {
-                drawDebugGrid(palette, offsetX, offsetY, cellSizePx, lineWidthPx)
-            }
+): DrawScope.() -> Unit {
+    val palette = DebugGridPalette(
+        background = Color(0xFF0E1020),
+        major = Color(0xFFF6F8FF),
+        minor = Color(0xFF4356A8),
+        accent = Color(0xFFFFC857)
     )
+    return {
+        drawDebugGrid(palette, offsetX, offsetY, cellSizePx, lineWidthPx)
+    }
 }
 
 internal data class DebugGridPalette(
@@ -115,32 +108,25 @@ private fun DrawScope.drawAccentSquare(color: Color, x: Float, y: Float, lineWid
  * 不读相册、不占磁盘、无需权限，因此可以作为固定的回归素材：
  * 同一张合成图在任何设备、任何一次运行里都一致。
  */
-@Composable
-fun LiquidGlassDebugSyntheticPhoto(
-    modifier: Modifier = Modifier,
+/** 合成照片背景的绘制方式；与网格同构，供宿主与采样层各画一次。 */
+fun debugSyntheticPhotoBackground(
     offsetX: Float = 0f,
     offsetY: Float = 0f
-) {
-    val gradient = remember {
-        Brush.linearGradient(
-            colors = listOf(
-                Color(0xFF2B1055),
-                Color(0xFF7597DE),
-                Color(0xFFEF8A62),
-                Color(0xFF1B998B)
-            ),
-            start = Offset(0f, 0f),
-            end = Offset(1400f, 2200f)
-        )
-    }
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(gradient)
-            .drawBehind {
-                drawSyntheticPhotoDetails(offsetX, offsetY)
-            }
+): DrawScope.() -> Unit {
+    val gradient = Brush.linearGradient(
+        colors = listOf(
+            Color(0xFF2B1055),
+            Color(0xFF7597DE),
+            Color(0xFFEF8A62),
+            Color(0xFF1B998B)
+        ),
+        start = Offset(0f, 0f),
+        end = Offset(1400f, 2200f)
     )
+    return {
+        drawRect(gradient, Offset.Zero, Size(size.width, size.height))
+        drawSyntheticPhotoDetails(offsetX, offsetY)
+    }
 }
 
 internal fun DrawScope.drawSyntheticPhotoDetails(offsetX: Float, offsetY: Float) {

@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -82,13 +83,18 @@ fun LiquidGlassDebugPreview(
     ) {
         // 背景层：网格或合成照片，二者共用同一套偏移
         Box(modifier = Modifier.weight(1f)) {
-            LiquidGlassBackdropHost(state = state, modifier = Modifier.fillMaxSize()) {
+            val background: DrawScope.() -> Unit = remember(usePhoto, offsetX, offsetY) {
                 if (usePhoto) {
-                    LiquidGlassDebugSyntheticPhoto(offsetX = offsetX, offsetY = offsetY)
+                    debugSyntheticPhotoBackground(offsetX = offsetX, offsetY = offsetY)
                 } else {
-                    LiquidGlassDebugGrid(offsetX = offsetX, offsetY = offsetY)
+                    debugGridBackground(offsetX = offsetX, offsetY = offsetY)
                 }
             }
+            LiquidGlassBackdropHost(
+                state = state,
+                modifier = Modifier.fillMaxSize(),
+                background = background
+            )
 
             // 玻璃节点 + 前景文字图标：全部在背景图层之外
             Box(
@@ -287,5 +293,5 @@ internal fun BackdropSamplePlan.auditLine(): String = when (status) {
         "ORIGINAL reason=$reason"
 }
 
-/** 是否有必要让宿主建立背景图层：仅作可读性辅助，不参与渲染决策。 */
-internal fun LiquidGlassBackdropState.isSamplingActive(): Boolean = contentLayer != null
+/** 背景是否已可采样：仅作可读性辅助，不参与渲染决策。 */
+internal fun LiquidGlassBackdropState.isSamplingActive(): Boolean = hasContent

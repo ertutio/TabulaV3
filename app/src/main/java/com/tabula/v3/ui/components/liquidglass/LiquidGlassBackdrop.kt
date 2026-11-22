@@ -43,19 +43,19 @@ import kotlin.math.roundToInt
  * 液态玻璃背景采样：同一个 Compose 图层提供背景。
  *
  * 分工（对应原型验收项）：
- * - [LiquidGlassBackdropHost]：把"背景内容"录进一个可复用 [GraphicsLayer]。
- *   只录背景；玻璃节点、前景文字与图标都在这个图层之外绘制。
- * - [LiquidGlassBackdropSampling]：玻璃侧。按玻璃在窗口中的位置，把背景图层
- *   像素对齐后平移进"玻璃 + 采样外扩"的小图层，串上折射 shader，再按外扩
- *   反向回贴并按形状裁切。
+ * - [LiquidGlassBackdropHost]：提供背景的绘制入口与窗口位置。背景**不录成
+ *   整屏位图**，玻璃侧按需在自己的小层里局部重绘。
+ * - [LiquidGlassBackdropSampling]：玻璃侧。按玻璃在窗口中的位置对齐背景，
+ *   在"玻璃节点大小"的层里局部重绘背景，串上折射 shader。
  * - 采样层里只有背景，因此边缘折射永远采不到玻璃自身。
  *
- * 刷新策略：只有几何、外观参数或背景版本（[BackdropEffectKey]）变化时才重新
- * 录制采样层；静止画面复用上一次的图层。滚动或改尺寸时位置发生变化，必须
- * 重新对齐——重录的只是"玻璃大小"的小图层，不做整屏回读。
+ * 为什么不走"录成 GraphicsLayer 再引用"：模拟器取证实测，被引用的图层
+ * 不会经过 `renderEffect`（自绘图案上 48px 模糊生效 26.9 万像素，换成引用
+ * 外部图层后同一效果 0 像素变化）。因此这里让采样层自己拥有内容。
  */
 class LiquidGlassBackdropState {
-    internal var contentLayer: GraphicsLayer? = null
+    internal var content: (DrawScope.() -> Unit)? = null
+    internal val hasContent: Boolean get() = content != null
     private var sourceBoundsState by mutableStateOf(IntRect.Zero)
     private var boundsKnownState by mutableStateOf(false)
     private var revisionState by mutableIntStateOf(0)
@@ -77,7 +77,7 @@ class LiquidGlassBackdropState {
 
     /** 背景在窗口坐标系中的像素范围；未布局完成时返回 null。 */
     fun boundsOrNull(): IntRect? =
-        if (boundsKnownState && contentLayer != null && sourceBoundsState.width > 0) {
+        if (boundsKnownState && hasContent && sourceBoundsState.width > 0) {
             sourceBoundsState
         } else {
             null
@@ -88,8 +88,8 @@ class LiquidGlassBackdropState {
         revisionState += 1
     }
 
-    internal fun attachLayer(layer: GraphicsLayer?) {
-        contentLayer = layer
+    internal fun attachContent(block: (DrawScope.() -> Unit)?) {
+        content = block
     }
 
     private var planState by mutableStateOf(
@@ -131,47 +131,44 @@ fun rememberLiquidGlassBackdropState(): LiquidGlassBackdropState =
     remember { LiquidGlassBackdropState() }
 
 /**
- * 背景宿主：把 [content] 录进共享图层，再把图层画出来。
+ * 背景宿主：提供背景的绘制方式与窗口位置。
  *
- * 同一份内容只绘制一次（录制即绘制），静止时不再触发重绘。API 33 以下不建立
- * 图层，[content] 按原有路径直接绘制，保证 Android 12 走原有显示。
+ * 背景以 `DrawScope.() -> Unit` 的形式传入，同一个 lambda 会被画两次：
+ * 1. 这里按正常流程铺满宿主（背景照常显示）；
+ * 2. 采样层在自己的小层里按对齐后的原点局部重绘（只覆盖玻璃大小）。
+ *
+ * 两次都是直接绘制，不产生"录成整屏位图再引用"的中间物——既避免逐帧回读
+ * 整张照片，也保证采样层的 renderEffect 真的作用在自己拥有的内容上。
+ *
+ * API 33 以下不参与采样，背景按原有路径直接绘制，Android 12 走原有显示。
  */
 @Composable
 fun LiquidGlassBackdropHost(
     state: LiquidGlassBackdropState,
     modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit
+    background: DrawScope.() -> Unit
 ) {
     if (Build.VERSION.SDK_INT < LIQUID_GLASS_BACKDROP_MIN_SDK) {
-        state.attachLayer(null)
-        Box(modifier = modifier, content = content)
+        state.attachContent(null)
+        Box(modifier = modifier.drawBehind(background))
         return
     }
-
-    val layer = rememberGraphicsLayer()
-    state.attachLayer(layer)
 
     Box(
         modifier = modifier
             .onGloballyPositioned { coordinates ->
-                val rect: Rect = coordinates.boundsInWindow()
-                state.sourceBounds = rect.toIntRect()
+                state.sourceBounds = coordinates.boundsInWindow().toIntRect()
                 state.boundsKnown = true
             }
             .drawWithContent {
-                val pixelSize = IntSize(size.width.toInt(), size.height.toInt())
-                if (pixelSize.width > 0 && pixelSize.height > 0) {
-                    layer.record(this@drawWithContent, layoutDirection, pixelSize) {
-                        this@drawWithContent.drawContent()
-                    }
-                    layer.topLeft = IntOffset.Zero
-                    drawLayer(layer)
-                } else {
-                    drawContent()
-                }
-            },
-        content = content
+                drawContent()
+                background()
+            }
     )
+
+    SideEffect {
+        state.attachContent(background)
+    }
 }
 
 /** Rect → 整像素 IntRect；四边都向外取整，保证采样范围不缩水。 */
@@ -197,25 +194,15 @@ class LiquidGlassBackdropSampling internal constructor(
     }
 
     /**
-     * 背景层：绘制在原有材质之前。
-     *
-     * 效果通过 `graphicsLayer { renderEffect = ... }` 施加，而不是直接写在
-     * 手动创建的 GraphicsLayer 上——后者在本仓库的 Compose 版本里不会被采用
-     * （模拟器取证实测：几何对齐正确、贴图正确，但玻璃内像素零变化）。
-     * 这条写法与 `RealLiquidGlass` 一致，是已验证可用的路径。
-     *
-     * 方案不成立时返回 null，调用方不插入这一层，画面与接入前完全一致。
-     */
-    /**
      * 玻璃下方的背景采样层。
      *
-     * 做法刻意保持最简：这一层的尺寸就等于玻璃节点，自身被裁成同一形状，
-     * 背景按像素对齐平移后直接画进来，再由 `graphicsLayer{renderEffect}` 施加
-     * 折射。不在层内再嵌一层 `GraphicsLayer.record`——嵌套录制与外层 renderEffect
-     * 会互相干扰，实测表现为"几何与贴图都对、但像素零变化"。
-     *
-     * 因为采样层里只有背景，边缘折射采到的一定是背景，不会采到玻璃自身；
-     * shader 侧把取样夹取在层内，边缘重复而不是引入黑边。
+     * 关键约束（由模拟器取证确定，不要再改回去）：
+     * - 采样层必须**自己拥有绘制内容**。整层内容若只是 `drawLayer(外部图层)`，
+     *   `renderEffect` 不会作用于被引用的图层——实测自绘图案上 48px 模糊
+     *   生效（26.9 万像素变化），换成引用外部背景图层后同一效果 0 像素变化。
+     * - 因此这里用 [LiquidGlassBackdropState.content] 在层内局部重绘背景，
+     *   而不是把整屏内容录成一张图再搬过来；离屏范围仍只有玻璃节点大小。
+     * - 重绘只在几何、外观或背景版本变化时发生，静止画面复用缓存。
      */
     @Composable
     internal fun BackdropLayer(
@@ -225,7 +212,7 @@ class LiquidGlassBackdropSampling internal constructor(
     ) {
         val plan = planBackdropSample(
             sdkInt = Build.VERSION.SDK_INT,
-            hasBackdropSource = source.contentLayer != null,
+            hasBackdropSource = source.hasContent,
             isRoundedRectShape = true,
             glassBoundsInWindow = glassBoundsState,
             sourceBoundsInWindow = source.boundsOrNull(),
@@ -235,14 +222,10 @@ class LiquidGlassBackdropSampling internal constructor(
         SideEffect { source.reportPlan(plan) }
         if (!plan.useSampledBackdrop) return
 
-        val background = source.contentLayer ?: return
         val appearance = spec.resolve(density)
         val effect = remember(plan, appearance, cornerRadiusPx, spec.diagnosticBlurOnly) {
             if (spec.diagnosticBlurOnly) {
-                // 诊断：只用模糊，验证 renderEffect 这条路径本身是否生效
-                RenderEffect.createBlurEffect(
-                    48f, 48f, Shader.TileMode.CLAMP
-                )
+                RenderEffect.createBlurEffect(48f, 48f, Shader.TileMode.CLAMP)
             } else {
                 createBackdropRenderEffect(plan, appearance, cornerRadiusPx) { message ->
                     source.reportEffectError(message)
@@ -255,6 +238,10 @@ class LiquidGlassBackdropSampling internal constructor(
             )
         }
 
+        // 背景内容按"玻璃在背景坐标系中的原点"平移后局部重绘
+        val originX = plan.glassOriginInSource.x.toFloat()
+        val originY = plan.glassOriginInSource.y.toFloat()
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -265,8 +252,6 @@ class LiquidGlassBackdropSampling internal constructor(
                 }
                 .drawBehind {
                     if (spec.diagnosticBlurOnly) {
-                        // 诊断：自绘图案（不引用外部图层），用于区分
-                        // "renderEffect 不作用于引用的图层" 与 "效果根本没应用"
                         for (i in 0 until 24) {
                             drawRect(
                                 color = if (i % 2 == 0) Color.White else Color.Black,
@@ -276,11 +261,9 @@ class LiquidGlassBackdropSampling internal constructor(
                         }
                         return@drawBehind
                     }
-                    // 背景在窗口坐标系里的原点相对玻璃的位置，取整像素避免闪烁
-                    val dx = -plan.glassOriginInSource.x.toFloat()
-                    val dy = -plan.glassOriginInSource.y.toFloat()
-                    translate(dx, dy) {
-                        drawLayer(background)
+                    translate(-originX, -originY) {
+                        // 背景在自己的坐标系里局部重绘；这里不带录屏截图
+                        source.content?.invoke(this)
                     }
                 }
         )
