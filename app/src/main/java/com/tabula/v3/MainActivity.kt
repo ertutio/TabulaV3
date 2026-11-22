@@ -583,35 +583,103 @@ fun TabulaApp(
         imagesForSorting = imagesForSorting.filterNot { it.uri in uris }
     }
 
-    // ========== 副本检测（路线图第 5 项第一步：字节相同） ==========
+    // ========== 副本检测（路线图第 5 项 / 审计 #88） ==========
+
+    /**
+     * 删除前复核：把已经不再成立的副本提示从 `duplicateDetails` 里摘掉。
+     *
+     * 审计要求的三项检查全部在这里做，且**用真实 IO 而不是缓存的扫描结果**：
+     * 1. 副本还在当前图库集合里（[allImages]）
+     * 2. 副本此刻仍可读（打开流成功）
+     * 3. 内容摘要与扫描时一致（重新算 SHA-256 比对）
+     *
+     * 为什么必须重算摘要：文件可能被外部编辑器改过（同名不同内容），
+     * 也可能被换成另一张图。只看"文件存在"不足以证明字节相同。
+     *
+     * 复核不通过时**只修改提示**，不阻止删除 —— 用户有权删任何东西；
+     * 我们的责任是不要在"还有一份"的假象下让他删。
+     */
+    suspend fun reverifyDuplicatesBeforeDeletion(toDelete: List<ImageFile>) {
+        val libraryKeys = allImages.map { it.mediaIdentityKey() }.toSet()
+        val selectedKeys = toDelete.map { it.mediaIdentityKey() }.toSet()
+        val calculator = ContentDigestCalculator(context.contentResolver)
+        val updated = duplicateDetails.toMutableMap()
+
+        toDelete.forEach { image ->
+            val key = image.mediaIdentityKey()
+            val copies = duplicateDetails[key] ?: return@forEach
+            val verified = copies.filter { copy ->
+                val copyKey = copy.mediaIdentityKey()
+                // 条件 1：仍在图库里；条件 2：不在本次删除集合里
+                if (copyKey !in libraryKeys || copyKey in selectedKeys) {
+                    return@filter false
+                }
+                // 条件 3：可读 + 内容摘要与主图一致
+                val copyDigest = calculator.digest(copy)
+                val mainDigest = calculator.digest(image)
+                val same = copyDigest is ContentDigestCalculator.Result.Success &&
+                    mainDigest is ContentDigestCalculator.Result.Success &&
+                    copyDigest.version.sha256 == mainDigest.version.sha256 &&
+                    copyDigest.version.size == mainDigest.version.size
+                same
+            }
+            if (verified.isEmpty()) updated.remove(key) else updated[key] = verified
+        }
+
+        duplicateDetails = updated
+        duplicateCounts = updated.mapValues { it.value.size }
+    }
+
     //
     // 时机：回收站里的照片变化时（进站/恢复/删除）重算一次。扫描**只对
     // 回收站内的照片**做全文摘要——它们是最可能被永久删除的一批，也是
     // "还剩哪个版本"最有价值的地方；对全库做摘要代价太大且没有必要。
     //
     // 失败即不提示：读不到的照片不进入结果，不猜、不弹错。
-    LaunchedEffect(deletedImages, duplicateScanRevision) {
+    LaunchedEffect(deletedImages, allImages, duplicateScanRevision) {
         if (deletedImages.isEmpty()) {
             duplicateCounts = emptyMap()
             duplicateDetails = emptyMap()
             return@LaunchedEffect
         }
         val calculator = ContentDigestCalculator(context.contentResolver)
-        val digests = withContext(Dispatchers.IO) { calculator.digestAll(deletedImages) }
+
+        // 审计意见（#88）：要回答的是"图库里还剩哪一份"，因此候选必须包含
+        // **当前可访问且在库里的照片**，而不是只比回收站内部。
+        //
+        // 两步走，先缩小范围再算摘要（全库逐张算 SHA-256 代价不可接受）：
+        // 1. 按文件大小分组：只有大小相同的才可能字节相同
+        // 2. 只对这些大小分组里的照片算全文摘要，且回收站里的这些照片本身
+        //    也要参与（它们是被删除的一方，不参与就无法判断"还剩一份"）
+        val recycleSizes = deletedImages.map { it.size }.filter { it > 0L }.toSet()
+        val libraryCandidates = allImages.filter { image ->
+            image.size > 0L && image.size in recycleSizes &&
+                image.mediaIdentityKey() !in deletedImages.map { it.mediaIdentityKey() }.toSet()
+        }
+        if (libraryCandidates.isEmpty()) {
+            // 图库里没有任何同尺寸候选 —— 不确定，但不声称"还留有副本"
+            duplicateCounts = emptyMap()
+            duplicateDetails = emptyMap()
+            return@LaunchedEffect
+        }
+
+        val toDigest = deletedImages + libraryCandidates
+        val digests = withContext(Dispatchers.IO) { calculator.digestAll(toDigest) }
         if (digests.isEmpty()) {
             duplicateCounts = emptyMap()
             duplicateDetails = emptyMap()
             return@LaunchedEffect
         }
+
+        // 只为回收站里的照片找库内副本；库内照片之间互相比不是这次要回答的问题
+        val recycleKeys = deletedImages.map { it.mediaIdentityKey() }.toSet()
         val findings = withContext(Dispatchers.Default) {
             DuplicateRules.findExactDuplicates(
                 candidates = digests,
-                // 回收站里**全部**照片都算"还在"吗？不——进站的这些本身
-                // 会不会被删还不确定，因此这里不排除任何一张，让提示如实
-                // 反映"站内还有同样的字节"。
                 recycledIdentityKeys = emptySet()
-            )
+            ).filter { it.image.mediaIdentityKey() in recycleKeys }
         }
+
         duplicateCounts = findings.associate {
             it.image.mediaIdentityKey() to it.duplicates.size
         }
@@ -677,6 +745,12 @@ fun TabulaApp(
         isDeletingRecycleBin = true
         scope.launch {
             try {
+                // 审计意见（#88）：确认前**实际调用复核**，而不是相信扫描时的旧结果。
+                // 复核三件事：副本仍在图库里、仍可读、内容摘要与扫描时一致。
+                // 任一不成立就把该条的副本提示降级（从 duplicateDetails 移除），
+                // 避免用户在"还有一份"的错误前提下删掉最后一份。
+                reverifyDuplicatesBeforeDeletion(snapshot)
+
                 var recoveredCount = 0
                 val summary = deleteRecycleBinSelection(
                     snapshot.map { it.uri }, recycleBinManager,

@@ -1,64 +1,129 @@
 package com.tabula.v3.ui.screens
 
+import android.net.Uri
+import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.repository.mediaIdentityKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
- * 回收站副本提示的措辞测试（路线图 #83 第 5 项）。
+ * 回收站副本提示的测试（路线图 #83 第 5 项 / 审计 #88）。
  *
- * 这条提示的职责很窄：告诉用户"你选中的里面，有几张其实还有一份相同副本"，
- * 从而在永久删除前给一次反悔机会。它**不阻止**删除，也不改变任何行为。
- * 因此测试只钉住三件事：什么时候不提示、什么时候提示、数字对不对。
+ * 审计要求的核心口径：**提示必须排除本次选中的照片**。
+ * 如果两份内容相同的照片都被选中，"还剩一份"不成立，就不能提示。
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], manifest = Config.NONE)
 class DuplicateHintTest {
+
+    private fun photo(id: Long, volume: String = "external_primary") = ImageFile(
+        id = id,
+        uri = Uri.parse("content://media/$volume/images/media/$id"),
+        displayName = "p$id.jpg",
+        dateModified = 1_700_000_000_000L,
+        size = 1000L,
+        width = 1080,
+        height = 1440,
+        bucketDisplayName = "Camera",
+        volumeName = volume
+    )
+
+    private fun keyOf(id: Long, volume: String = "external_primary") = "$volume|$id"
 
     @Test
     fun noSelectionMeansNoHint() {
-        assertNull(buildDuplicateHint(emptySet(), mapOf("a|1" to 1)))
+        assertNull(buildDuplicateHint(emptySet(), mapOf(keyOf(1) to listOf(photo(2)))))
     }
 
     @Test
     fun noKnownCopiesMeansNoHint() {
-        assertNull(buildDuplicateHint(setOf("a|1", "a|2"), emptyMap()))
+        assertNull(buildDuplicateHint(setOf(keyOf(1), keyOf(2)), emptyMap()))
     }
 
     @Test
-    fun selectedPhotosWithoutCopiesProduceNoHint() {
-        // 选中的两张都没有副本（计数为 0 或不在映射里）
-        assertNull(buildDuplicateHint(setOf("a|1", "a|2"), mapOf("a|1" to 0)))
-    }
-
-    @Test
-    fun singleSelectedPhotoWithCopyIsReportedInSingular() {
+    fun singleSelectedPhotoWithSurvivingCopyIsReported() {
         assertEquals(
             "其中 1 张还留有字节相同的副本",
-            buildDuplicateHint(setOf("a|1"), mapOf("a|1" to 1))
+            buildDuplicateHint(setOf(keyOf(1)), mapOf(keyOf(1) to listOf(photo(2))))
         )
     }
 
     @Test
-    fun multipleSelectedPhotosWithCopiesAreCounted() {
+    fun copyThatIsAlsoSelectedDoesNotCount() {
+        // 审计核心场景：两份都被选中 → 删了就一份不剩 → 不能提示
+        assertNull(
+            buildDuplicateHint(
+                selectedIdentityKeys = setOf(keyOf(1), keyOf(2)),
+                duplicateDetails = mapOf(
+                    keyOf(1) to listOf(photo(2)),
+                    keyOf(2) to listOf(photo(1))
+                )
+            )
+        )
+    }
+
+    @Test
+    fun mixedSelectionCountsOnlySurvivingCopies() {
+        // 1 的副本是 2（也选中，不算）；3 的副本是 4（未选中，算）
+        assertEquals(
+            "其中 1 张还留有字节相同的副本",
+            buildDuplicateHint(
+                selectedIdentityKeys = setOf(keyOf(1), keyOf(2), keyOf(3)),
+                duplicateDetails = mapOf(
+                    keyOf(1) to listOf(photo(2)),
+                    keyOf(3) to listOf(photo(4))
+                )
+            )
+        )
+    }
+
+    @Test
+    fun multipleSurvivingCopiesAreCounted() {
         assertEquals(
             "其中 3 张还留有字节相同的副本",
             buildDuplicateHint(
-                setOf("a|1", "a|2", "a|3", "a|4"),
-                mapOf("a|1" to 1, "a|2" to 2, "a|3" to 1, "a|4" to 0)
+                selectedIdentityKeys = setOf(keyOf(1), keyOf(2), keyOf(3)),
+                duplicateDetails = mapOf(
+                    keyOf(1) to listOf(photo(10)),
+                    keyOf(2) to listOf(photo(11)),
+                    keyOf(3) to listOf(photo(12))
+                )
             )
         )
     }
 
     @Test
     fun onlySelectedKeysAreCounted() {
-        // a|9 有副本但没被选中，不应算进提示里的数字
         assertEquals(
             "其中 1 张还留有字节相同的副本",
-            buildDuplicateHint(setOf("a|1"), mapOf("a|1" to 1, "a|9" to 5))
+            buildDuplicateHint(
+                selectedIdentityKeys = setOf(keyOf(1)),
+                duplicateDetails = mapOf(
+                    keyOf(1) to listOf(photo(2)),
+                    keyOf(9) to listOf(photo(5), photo(6))
+                )
+            )
         )
     }
 
     @Test
-    fun zeroCountsAreTreatedAsNoCopy() {
-        assertNull(buildDuplicateHint(setOf("a|1", "a|2"), mapOf("a|1" to 0, "a|2" to 0)))
+    fun emptyCopyListMeansNoHint() {
+        assertNull(buildDuplicateHint(setOf(keyOf(1)), mapOf(keyOf(1) to emptyList())))
+    }
+
+    @Test
+    fun crossVolumeCopyIsNotTheSamePhoto() {
+        // 副本在另一卷、同数值 ID：身份不同，是真实副本
+        assertEquals(
+            "其中 1 张还留有字节相同的副本",
+            buildDuplicateHint(
+                selectedIdentityKeys = setOf(keyOf(1)),
+                duplicateDetails = mapOf(keyOf(1) to listOf(photo(1, volume = "1234-5678")))
+            )
+        )
     }
 }

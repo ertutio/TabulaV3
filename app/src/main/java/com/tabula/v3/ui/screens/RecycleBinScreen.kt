@@ -254,7 +254,7 @@ fun RecycleBinScreen(
                     },
                     // 路线图 #83 第 5 项：选中项里有多少张还留有字节相同的副本。
                     // 这只是提示，不阻止删除——用户仍然可以全部删掉。
-                    duplicateHint = buildDuplicateHint(selectedImages, duplicateCounts)
+                    duplicateHint = buildDuplicateHint(selectedImages, duplicateDetails)
                 )
             } else {
                 RecycleBinTopBar(
@@ -1484,18 +1484,33 @@ private fun rememberImageBadges(
  * （两份都要删时"还剩一份"不成立）。返回 null 表示没有可提示的内容，
  * 界面就不显示这一行。
  */
+/**
+ * 路线图 #83 第 5 项 / 审计意见（#88）：把"选中项里多少张还留有副本"拼成一行提示。
+ *
+ * **关键口径（审计要求）**：副本必须**排除本次选中的照片**。
+ * 如果两份都在选中集合里，那"还剩一份"不成立——这种情况必须不提示，
+ * 否则等于告诉用户"删了这张还有备份"，而实际上备份也正要一起删掉。
+ *
+ * @param selectedIdentityKeys 本次选中的照片身份键
+ * @param duplicateDetails 每张照片的副本列表（来自 [DuplicateRules.findExactDuplicates]）
+ * @return 提示文案；null 表示没有可提示的内容（不显示这一行）
+ */
 internal fun buildDuplicateHint(
     selectedIdentityKeys: Set<String>,
-    duplicateCounts: Map<String, Int>
+    duplicateDetails: Map<String, List<ImageFile>>
 ): String? {
-    if (selectedIdentityKeys.isEmpty() || duplicateCounts.isEmpty()) return null
-    val withCopies = selectedIdentityKeys.count { key ->
-        val count = duplicateCounts[key] ?: 0
-        count > 0
+    if (selectedIdentityKeys.isEmpty() || duplicateDetails.isEmpty()) return null
+
+    val survivors = selectedIdentityKeys.count { key ->
+        duplicateDetails[key].orEmpty().any { copy ->
+            // 副本本身不在选中集合里，才算"还剩一份"
+            copy.mediaIdentityKey() !in selectedIdentityKeys
+        }
     }
+
     return when {
-        withCopies == 0 -> null
-        withCopies == 1 -> "其中 1 张还留有字节相同的副本"
-        else -> "其中 $withCopies 张还留有字节相同的副本"
+        survivors == 0 -> null
+        survivors == 1 -> "其中 1 张还留有字节相同的副本"
+        else -> "其中 $survivors 张还留有字节相同的副本"
     }
 }
