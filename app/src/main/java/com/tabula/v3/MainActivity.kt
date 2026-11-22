@@ -1724,6 +1724,22 @@ fun TabulaApp(
                     stagedCleanupSelectedKeys = emptySet()
                     recomputeStagedCleanupSelection()
                 },
+                onRetainSelected = {
+                    // 长期保留 = 以后都别再提：写偏好，跨重启生效，只影响暂存清理范围。
+                    val keys = selection?.allCandidateImages.orEmpty()
+                        .filter { cleanupIdentityKey(it) in stagedCleanupSelectedKeys }
+                        .map { cleanupIdentityKey(it) }
+                    if (keys.isEmpty()) return@StagedCleanupCandidateContent
+                    preferences.retainStagedCleanupImages(keys)
+                    stagedCleanupRetainedKeys = preferences.stagedCleanupRetainedIdentityKeys
+                    stagedCleanupSelectedKeys = emptySet()
+                    recomputeStagedCleanupSelection()
+                    Toast.makeText(
+                        context,
+                        "${keys.size} 张照片已长期保留，暂存清理不再提示",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                },
                 onConfirm = {
                     val toMove = selection?.allCandidateImages.orEmpty()
                         .filter { cleanupIdentityKey(it) in stagedCleanupSelectedKeys }

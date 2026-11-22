@@ -212,6 +212,7 @@ fun StagedCleanupCandidateContent(
     onSelectAllOld: () -> Unit,
     onClearSelection: () -> Unit,
     onSkip: () -> Unit,
+    onRetainSelected: () -> Unit,
     onConfirm: () -> Unit,
     onNavigateBack: () -> Unit,
     onChangeSources: () -> Unit
@@ -409,6 +410,26 @@ fun StagedCleanupCandidateContent(
                         enabled = !isSaving
                     ) {
                         Text("这次先不看", color = secondaryTextColor, fontSize = 13.sp)
+                    }
+                }
+
+                // 「长期保留」与「这次先不看」是同一条底栏上的两个不同承诺：
+                // 跳过只是这次不显示（重启后照片回来），保留是以后都别再提
+                // （写入偏好，跨重启生效，且只影响暂存清理范围）。
+                if (selectedIdentityKeys.isNotEmpty()) {
+                    TextButton(
+                        onClick = {
+                            HapticFeedback.lightTap(context)
+                            onRetainSelected()
+                        },
+                        enabled = !isSaving,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "长期保留这 ${selectedIdentityKeys.size} 张（以后不再提示）",
+                            color = secondaryTextColor,
+                            fontSize = 12.sp
+                        )
                     }
                 }
 
