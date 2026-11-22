@@ -5,7 +5,6 @@ import androidx.annotation.RequiresApi
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
@@ -15,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Path
@@ -22,7 +22,6 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
@@ -184,8 +183,7 @@ internal fun Rect.toIntRect(): IntRect = IntRect(
  */
 class LiquidGlassBackdropSampling internal constructor(
     private val source: LiquidGlassBackdropState,
-    private val spec: LiquidGlassBackdropSpec,
-    private val sampleLayer: GraphicsLayer
+    private val spec: LiquidGlassBackdropSpec
 ) {
     internal var glassBoundsState by mutableStateOf<IntRect?>(null)
 
@@ -203,27 +201,35 @@ class LiquidGlassBackdropSampling internal constructor(
      *
      * 方案不成立时返回 null，调用方不插入这一层，画面与接入前完全一致。
      */
+    /**
+     * 玻璃下方的背景采样层。
+     *
+     * 做法刻意保持最简：这一层的尺寸就等于玻璃节点，自身被裁成同一形状，
+     * 背景按像素对齐平移后直接画进来，再由 `graphicsLayer{renderEffect}` 施加
+     * 折射。不在层内再嵌一层 `GraphicsLayer.record`——嵌套录制与外层 renderEffect
+     * 会互相干扰，实测表现为"几何与贴图都对、但像素零变化"。
+     *
+     * 因为采样层里只有背景，边缘折射采到的一定是背景，不会采到玻璃自身；
+     * shader 侧把取样夹取在层内，边缘重复而不是引入黑边。
+     */
     @Composable
     internal fun BackdropLayer(
         shape: Shape,
         density: Float,
         cornerRadiusPx: Float
-    ): Unit {
-        val sourceBounds = source.boundsOrNull()
+    ) {
         val plan = planBackdropSample(
             sdkInt = Build.VERSION.SDK_INT,
             hasBackdropSource = source.contentLayer != null,
             isRoundedRectShape = true,
             glassBoundsInWindow = glassBoundsState,
-            sourceBoundsInWindow = sourceBounds,
-            paddingPx = paddingPx(density),
+            sourceBoundsInWindow = source.boundsOrNull(),
+            paddingPx = 0,
             enabled = spec.enabled
         )
-        // 审计：方案在组合期算出，值变化时才写状态
-        SideEffect {
-            source.reportPlan(plan)
-        }
+        SideEffect { source.reportPlan(plan) }
         if (!plan.useSampledBackdrop) return
+
         val background = source.contentLayer ?: return
         val appearance = spec.resolve(density)
         val effect = remember(plan, appearance, cornerRadiusPx) {
@@ -242,27 +248,15 @@ class LiquidGlassBackdropSampling internal constructor(
                 .fillMaxSize()
                 .graphicsLayer {
                     renderEffect = effect?.asComposeRenderEffect()
+                    clip = true
+                    this.shape = shape
                 }
-                .drawWithCache {
-                    val path = Path().apply {
-                        addOutline(shape.createOutline(size, layoutDirection, this@drawWithCache))
-                    }
-                    onDrawWithContent {
-                        // 只录背景；玻璃自身、前景文字与图标都不在这个图层里
-                        sampleLayer.record(
-                            this,
-                            layoutDirection,
-                            IntSize(plan.layerWidthPx, plan.layerHeightPx)
-                        ) {
-                            translate(plan.sourceTranslateX, plan.sourceTranslateY) {
-                                drawLayer(background)
-                            }
-                        }
-                        clipPath(path) {
-                            translate(-plan.paddingPx.toFloat(), -plan.paddingPx.toFloat()) {
-                                drawLayer(sampleLayer)
-                            }
-                        }
+                .drawBehind {
+                    // 背景在窗口坐标系里的原点相对玻璃的位置，取整像素避免闪烁
+                    val dx = -plan.glassOriginInSource.x.toFloat()
+                    val dy = -plan.glassOriginInSource.y.toFloat()
+                    translate(dx, dy) {
+                        drawLayer(background)
                     }
                 }
         )
@@ -287,9 +281,8 @@ fun rememberLiquidGlassBackdropSampling(
 ): LiquidGlassBackdropSampling? {
     if (state == null || !spec.enabled) return null
     if (Build.VERSION.SDK_INT < LIQUID_GLASS_BACKDROP_MIN_SDK) return null
-    val layer = rememberGraphicsLayer()
-    return remember(state, spec, layer) {
-        LiquidGlassBackdropSampling(state, spec, layer)
+    return remember(state, spec) {
+        LiquidGlassBackdropSampling(state, spec)
     }
 }
 

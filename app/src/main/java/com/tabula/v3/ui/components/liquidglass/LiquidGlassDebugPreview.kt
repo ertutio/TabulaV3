@@ -213,7 +213,7 @@ private fun SamplingAuditBadge(
             fontSize = 10.sp
         )
         Text(
-            text = plan.auditMarkers(),
+            text = plan.auditMarkers(health),
             color = Color.White.copy(alpha = 0.6f),
             fontSize = 9.sp
         )
