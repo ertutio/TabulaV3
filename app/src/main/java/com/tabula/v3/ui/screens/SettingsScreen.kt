@@ -57,6 +57,7 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Science
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.Widgets
 import android.appwidget.AppWidgetManager
@@ -164,6 +165,8 @@ fun SettingsScreen(
     onNavigateToTutorial: () -> Unit = {},  // 导航到使用教程
     onNavigateToStagedCleanup: () -> Unit = {},  // 导航到暂存清理
     stagedCleanupSummary: String = "",  // 暂存清理入口的副标题（如 "12 个来源"）
+    onNavigateToRelayReview: () -> Unit = {},  // 导航到系统分享待清记录
+    relayPendingCount: Int = 0,  // 待核对记录数
     scrollState: ScrollState? = null  // 外部传入的滚动状态，用于保持导航返回时的位置
 ) {
     val context = LocalContext.current
@@ -325,6 +328,21 @@ fun SettingsScreen(
                     onClick = {
                         HapticFeedback.lightTap(context)
                         onNavigateToStagedCleanup()
+                    }
+                )
+
+                Divider(isDarkTheme)
+
+                SettingsItem(
+                    icon = Icons.Outlined.Share,
+                    iconTint = Color(0xFF0A84FF),
+                    title = "分享待清",
+                    value = if (relayPendingCount > 0) "$relayPendingCount 张待核对" else "",
+                    textColor = textColor,
+                    secondaryTextColor = secondaryTextColor,
+                    onClick = {
+                        HapticFeedback.lightTap(context)
+                        onNavigateToRelayReview()
                     }
                 )
 

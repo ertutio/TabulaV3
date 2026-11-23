@@ -1,0 +1,140 @@
+name: Verify share relay on emulator
+
+on:
+  push:
+    branches: [feature/share-relay-2026-11-23]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: share-relay-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install build SDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+      - name: Pre-fetch Robolectric android-all jars
+        run: |
+          # Robolectric 测试时在线下载 android-all jar；runner 网络偶发失败会
+          # 导致批量 AssertionError（MavenArtifactFetcher IOException）。
+          # 预先拉到本地仓库，测试期不再联网下载。
+          GROUP_DIR="$HOME/.m2/repository/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6"
+          mkdir -p "$GROUP_DIR"
+          JAR_URL="https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6/android-all-instrumented-14-robolectric-10818077-i6.jar"
+          for attempt in 1 2 3; do
+            if curl -fsSL --retry 3 --retry-delay 5 -o "$GROUP_DIR/android-all-instrumented-14-robolectric-10818077-i6.jar" "$JAR_URL"; then
+              echo "android-all fetched (attempt $attempt)"
+              break
+            fi
+            echo "attempt $attempt failed"; sleep 10
+          done
+          test -s "$GROUP_DIR/android-all-instrumented-14-robolectric-10818077-i6.jar"
+          ls -la "$GROUP_DIR"
+
+      - name: Unit regressions, app APK and instrumented APK
+        run: bash ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Collect build artifacts
+        run: |
+          mkdir -p device-apks artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk device-apks/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk device-apks/
+          sha256sum device-apks/*.apk > artifacts/SHA256SUMS.txt
+          cat artifacts/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ShareRelay-build
+          path: |
+            artifacts/
+            app/build/test-results/testDebugUnitTest/
+            app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ShareRelay-device-apks
+          path: device-apks/
+
+  device:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ShareRelay-device-apks
+          path: device-apks/
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run share relay device test
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 3072M
+          disk-size: 8G
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -no-metrics
+          disable-animations: true
+          script: |
+            # 两个 runner 特性都踩过了，一并记在这里：
+            # 1) 它用 /bin/sh（dash）执行 → 没有 `set -o pipefail`；
+            # 2) 它把脚本按换行**逐条**交给 `sh -c` → 行尾 `\` 续行不生效，
+            #    续行会被当成独立命令（上一轮 `-d file:///...` 就是这么炸的）。
+            # 因此每条命令必须写成完整的一行。
+            set -eux
+            mkdir -p device-results
+            adb install -r device-apks/app-debug.apk
+            adb install -r device-apks/app-debug-androidTest.apk
+            # 用真正的 1x1 PNG（70 字节），不是只有文件头的假图——MediaStore 会索引空壳，
+            # 但测试读流时会失败，反而把'环境没准备好'伪装成代码缺陷。
+            printf '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63fccfc0500f000485018084a98c210000000049454e44ae426082' | xxd -r -p > /tmp/seed.png
+            adb push /tmp/seed.png /sdcard/Pictures/relay-seed.png
+            adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/relay-seed.png || true
+            adb shell content call --uri content://media/external/images/media --method scan_volume --arg external_primary || true
+            sleep 5
+            adb shell "content query --uri content://media/external/images/media --projection _id:_display_name" > device-results/mediastore.txt || true
+            cat device-results/mediastore.txt
+            timeout 600s adb shell am instrument -w -r -e class com.tabula.v3.ShareRelayDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner | tee device-results/instrumentation.txt
+            grep -Eq 'OK \([0-9]+ tests?\)' device-results/instrumentation.txt
+      - name: Summarise results
+        if: always()
+        run: |
+          mkdir -p device-results
+          {
+            echo "## Share relay device verification"
+            echo ""
+            echo "Emulator: API 36 / google_apis / x86_64 / pixel_6"
+            echo ""
+            echo '```'
+            cat device-results/instrumentation.txt 2>/dev/null || echo "no instrumentation output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ShareRelay-device-results
+          path: device-results/
+          if-no-files-found: warn
