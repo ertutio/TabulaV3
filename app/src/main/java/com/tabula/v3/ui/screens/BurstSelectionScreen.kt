@@ -347,7 +347,10 @@ fun BurstSelectionScreen(
                     HapticFeedback.mediumTap(context)
                     onConfirm()
                 },
-                enabled = validDecision != null && !isCommitting && validDecision.discardCount > 0,
+                // 审计修复：全部保留（discardCount == 0）也必须能确认——
+                // 用户明确决定"这组都留着"是一个有效决定，只是不写回收站。
+                // 之前用 discardCount > 0 会把这条路彻底堵死。
+                enabled = validDecision != null && !isCommitting,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = accentColor,
                     disabledContainerColor = accentColor.copy(alpha = 0.3f)
@@ -367,7 +370,7 @@ fun BurstSelectionScreen(
                     Text(
                         text = when {
                             validDecision == null -> "先勾选要保留的"
-                            validDecision.keepsEverything -> "这组都保留（没有要回收的）"
+                            validDecision.keepsEverything -> "都保留，结束这组"
                             else -> "确认：回收 ${validDecision.discardCount} 张"
                         },
                         color = Color.White,

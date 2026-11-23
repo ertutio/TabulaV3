@@ -1635,12 +1635,29 @@ fun TabulaApp(
                                 recycleKeys = recycleKeys
                             )
                             if (toDiscard.isEmpty()) {
-                                Toast.makeText(
-                                    context,
-                                    "这些照片已不在待整理列表，未重复写入",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                // 分两种情形，不能混为一谈：
+                                // 1) 用户主动"全部保留"——有效决定，把这组标记为已处理
+                                //    并回到卡片页，不写回收站；
+                                // 2) 候选已被外部处理（照片消失/已在回收站）——不重复写入。
+                                val keptEverything = decision.discardCandidates.isEmpty()
+                                if (keptEverything) {
+                                    // 审计修复：全部保留也必须正确结束该组
+                                    recommendationEngine.markSimilarGroupProcessed(group)
+                                    recommendationEngine.invalidateSimilarGroupCache()
+                                    Toast.makeText(
+                                        context,
+                                        "这组都保留了",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "这些照片已不在待整理列表，未重复写入",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                                 burstSelectionGroup = null
+                                activeSimilarGroup = null
                                 burstKeptKeys = emptySet()
                                 currentScreen = AppScreen.DECK
                                 return@launch
