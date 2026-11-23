@@ -198,7 +198,9 @@ fun DeckScreen(
     loadingTotal: Int = 0,
     topBarDisplayMode: TopBarDisplayMode = TopBarDisplayMode.INDEX,
     onRemove: (ImageFile) -> Unit,
-    onKeep: () -> Unit = {},
+    // #90：批次推进后回调（用于归档成功才计数的"这一轮"统计）
+    onBatchAdvanced: () -> Unit = {},
+    onKeep: (ImageFile) -> Unit = {},
     onNavigateToTrash: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAlbumDetail: (Album) -> Unit = {},
@@ -274,7 +276,11 @@ fun DeckScreen(
     // 非 null 才提供入口；组身份来自检测器的内容寻址摘要，不在这里重算。
     activeSimilarGroup: SimilarGroup? = null,
     excludedBurstKeys: Set<String> = emptySet(),
-    onOpenBurstSelection: ((SimilarGroup) -> Unit)? = null
+    onOpenBurstSelection: ((SimilarGroup) -> Unit)? = null,
+    // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示
+    intentSourceName: String? = null,
+    onAcceptIntent: (() -> Unit)? = null,
+    onDismissIntent: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -658,6 +664,8 @@ fun DeckScreen(
                     currentIndex = 0
                     markedCount = 0
                     deckState = DeckState.BROWSING
+                    // #90：新批次真正装载成功后才归档上一批统计
+                    onBatchAdvanced()
                 } else {
                     deckState = DeckState.COMPLETED
                 }
@@ -1088,7 +1096,7 @@ fun DeckScreen(
                                 }
                             } else {
                                 if (newIndex > currentIndex) {
-                                    onKeep()
+                                    currentBatch.getOrNull(currentIndex)?.let(onKeep)
                                 }
                                 // 防止空列表时索引越界
                                 currentIndex = if (currentBatch.isEmpty()) {
@@ -1167,7 +1175,7 @@ fun DeckScreen(
                                 // 自动进入下一张
                                 if (currentIndex < currentBatch.lastIndex) {
                                     currentIndex++
-                                    onKeep()
+                                    currentBatch.getOrNull(currentIndex)?.let(onKeep)
                                 }
                             }
                         },
@@ -1265,7 +1273,11 @@ fun DeckScreen(
                                 )
                                 onOpenBurstSelection?.invoke(group)
                             }
-                        }
+                        },
+                        // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示
+                        intentSourceName = intentSourceName,
+                        onAcceptIntent = onAcceptIntent,
+                        onDismissIntent = onDismissIntent
                     )
                 }
             }
@@ -1352,7 +1364,7 @@ fun DeckScreen(
             },
             onNext = {
                 if (currentIndex < currentBatch.lastIndex) {
-                    onKeep()
+                    currentBatch.getOrNull(currentIndex)?.let(onKeep)
                     currentIndex++
                 }
             },
@@ -1888,6 +1900,12 @@ private fun DeckContent(
     onSettingsClick: () -> Unit,
     // 路线图 #83 第 4 项：非空时显示「连拍选片」入口；null = 当前批次不像连拍
     onBurstSelectionClick: (() -> Unit)? = null,
+    // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示。
+    // suggestSourceName 非空时显示「这轮再看几张这个相册？」；
+    // onAcceptIntent 接受后下一批优先该来源；onDismissIntent 忽略。
+    intentSourceName: String? = null,
+    onAcceptIntent: (() -> Unit)? = null,
+    onDismissIntent: (() -> Unit)? = null,
     onAlbumClick: (Album) -> Unit,
     onAddAlbumClick: (ImageFile?) -> Unit,  // 可选参数：待归档的图片
     onAlbumsClick: () -> Unit,
@@ -2020,6 +2038,17 @@ private fun DeckContent(
                         fontWeight = FontWeight.Medium
                     )
                 }
+            }
+
+            // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示。
+            // 只在用户确实在集中处理同一来源时出现；接受只影响下一批，
+            // 忽略则本次会话不再打扰。
+            if (intentSourceName != null && onAcceptIntent != null && onDismissIntent != null) {
+                com.tabula.v3.ui.components.RoundIntentBanner(
+                    intentSourceName = intentSourceName,
+                    onAcceptIntent = onAcceptIntent,
+                    onDismissIntent = onDismissIntent
+                )
             }
 
             // 卡片堆叠区域
