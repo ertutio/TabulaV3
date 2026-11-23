@@ -126,8 +126,16 @@ jobs:
             adb shell wm density >> device-results/display.txt || true
             adb shell cmd uimode night yes >> device-results/display.txt || true
             cat device-results/display.txt
-            timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.RecentAlbumsEntryDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner | tee device-results/instrumentation.txt
-            grep -Eq 'OK \([0-9]+ tests?\)' device-results/instrumentation.txt
+            # 两个测试类分开运行、分别保存输出、各自精确断言条数
+            timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.RecentAlbumsEntryDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-entry.txt 2>&1 || true
+            cat device-results/instrumentation-entry.txt
+            timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.RecentAlbumsSheetDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-sheet.txt 2>&1 || true
+            cat device-results/instrumentation-sheet.txt
+            grep -E 'INSTRUMENTATION_STATUS: (class|numtests|test=)|OK \(|FAILURES' device-results/instrumentation-entry.txt device-results/instrumentation-sheet.txt > device-results/summary.txt
+            cat device-results/summary.txt
+            # 精确断言：入口 5 条、弹层 4 条
+            grep -Fx 'OK (5 tests)' device-results/instrumentation-entry.txt
+            grep -Fx 'OK (4 tests)' device-results/instrumentation-sheet.txt
       - name: Summarise
         if: always()
         run: |
