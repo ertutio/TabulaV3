@@ -54,6 +54,7 @@ jobs:
           JAR="android-all-instrumented-$VERSION.jar"
           DEST="$HOME/.m2/repository/org/robolectric/android-all-instrumented/$VERSION"
           mkdir -p "$DEST"
+          POM="android-all-instrumented-$VERSION.pom"
           for BASE in \
             https://maven.aliyun.com/repository/central \
             https://repo1.maven.org/maven2 \
@@ -62,6 +63,11 @@ jobs:
               if curl -fsSL --retry 3 --retry-delay 2 --max-time 300 \
                    -o "$DEST/$JAR" \
                    "$BASE/org/robolectric/android-all-instrumented/$VERSION/$JAR" ; then
+                # Robolectric 的 MavenArtifactFetcher 会把 pom 一起校验，
+                # 只放 jar 不放 pom 时它仍然会去联网拉 pom 然后失败。
+                curl -fsSL --retry 3 --retry-delay 2 --max-time 60 \
+                     -o "$DEST/$POM" \
+                     "$BASE/org/robolectric/android-all-instrumented/$VERSION/$POM" || true
                 echo "fetched $JAR from $BASE (attempt $attempt)"
                 ls -la "$DEST"
                 exit 0
@@ -73,7 +79,21 @@ jobs:
           echo '::warning::android-all 预取全部失败（网络），Robolectric 测试可能因此报错'
 
       - name: Run unit tests (debug + release)
-        run: bash ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:testReleaseUnitTest
+        run: |
+          # 只有在预取确实成功（jar 与 pom 都在）时才打开 offline：
+          # 否则 offline 会让缺件变成硬失败，比联网抖动更糟。
+          OFFLINE_FLAGS=""
+          VERSION="14-robolectric-10818077-i6"
+          DEST="$HOME/.m2/repository/org/robolectric/android-all-instrumented/$VERSION"
+          if [ -s "$DEST/android-all-instrumented-$VERSION.jar" ] && \
+             [ -s "$DEST/android-all-instrumented-$VERSION.pom" ]; then
+            OFFLINE_FLAGS="-Drobolectric.offline=true"
+            echo "android-all 已预置，本次以 offline 运行（不再联网）"
+          else
+            echo '::warning::android-all 未预置成功，本次允许联网（可能因网络抖动失败）'
+          fi
+          bash ./gradlew --no-daemon --stacktrace $OFFLINE_FLAGS \
+            :app:testDebugUnitTest :app:testReleaseUnitTest
 
       - name: Assert backdrop prototype tests actually ran
         run: |
