@@ -1238,7 +1238,11 @@ fun TabulaApp(
         // 只把当前图库里仍存在的照片作为定位来源；回收站中的不算"原图"
         val recycledKeys = deletedImages.map { it.mediaIdentityKey() }.toSet()
         val library = allImages.filterNot { it.mediaIdentityKey() in recycledKeys }
-        val rows = RelayReviewRules.resolveRows(relayMarks, library)
+        val rows = RelayReviewRules.resolveRows(
+            marks = relayMarks,
+            library = library,
+            recycleBinKeys = deletedImages.map { it.mediaIdentityKey() }.toSet()
+        )
         RelayReviewScreen(
             rows = rows,
             library = library,
@@ -1253,7 +1257,7 @@ fun TabulaApp(
                         recycleWrite = { recycleBinManager.addToRecycleBin(it) },
                         recycleRead = { recycleBinManager.loadRecycleBin() },
                         markRemove = { key -> shareRelayStore.remove(listOf(key)) },
-                        markRead = { shareRelayStore.load() }
+                        markRead = { shareRelayStore.loadResult() }
                     )
                     val outcome = withContext(Dispatchers.IO) {
                         transaction.execute(mark, image)

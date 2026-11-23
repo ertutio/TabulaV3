@@ -22,12 +22,27 @@ class ShareRelayStore(
     private val clock: () -> Long = System::currentTimeMillis
 ) {
 
-    /** 读全部标记；损坏的存储视为空并原样保留（不覆盖用户数据）。 */
-    fun load(): List<RelayMark> {
-        val raw = storage.read() ?: return emptyList()
-        return runCatching {
+    /**
+     * 审计修复（#85）：标记读回必须区分"没有标记"和"读失败"。
+     *
+     * 旧 load() 把读失败也当空列表，事务会误判"标记已移除成功"——
+     * 这正是"回收站写成功但标记移除失败"被掩盖的根因之一。
+     */
+    sealed interface LoadResult {
+        data class Ok(val marks: List<RelayMark>) : LoadResult
+        data class Failed(val reason: String) : LoadResult
+    }
+
+    fun loadResult(): LoadResult {
+        val raw = try {
+            storage.read()
+        } catch (e: Exception) {
+            return LoadResult.Failed(e.message ?: "storage read failed")
+        }
+        if (raw == null) return LoadResult.Ok(emptyList())
+        return try {
             val array = JSONArray(raw)
-            (0 until array.length()).mapNotNull { index ->
+            val marks = (0 until array.length()).mapNotNull { index ->
                 val obj = array.optJSONObject(index) ?: return@mapNotNull null
                 val state = runCatching {
                     RelayMarkState.valueOf(obj.getString("state"))
@@ -40,7 +55,16 @@ class ShareRelayStore(
                     state = state
                 )
             }
-        }.getOrElse { emptyList() }
+            LoadResult.Ok(marks)
+        } catch (e: Exception) {
+            LoadResult.Failed(e.message ?: "mark parse failed")
+        }
+    }
+
+    /** 读全部标记；读失败仍按空处理，供不关心失败的展示点使用。 */
+    fun load(): List<RelayMark> = when (val result = loadResult()) {
+        is LoadResult.Ok -> result.marks
+        is LoadResult.Failed -> emptyList()
     }
 
     /**

@@ -23,7 +23,7 @@ class RelayRecycleTransaction(
     private val recycleWrite: suspend (ImageFile) -> Unit,
     private val recycleRead: suspend () -> List<ImageFile>,
     private val markRemove: (String) -> Unit,
-    private val markRead: () -> List<RelayMark>
+    private val markRead: () -> ShareRelayStore.LoadResult
 ) {
 
     sealed interface Outcome {
@@ -63,10 +63,14 @@ class RelayRecycleTransaction(
             return Outcome.MarkRemovalFailed(key)
         }
 
-        // 确认标记确实不在了；若仍读得到，按"移除失败"如实提示
-        val stillMarked = runCatching { markRead() }
-            .getOrDefault(emptyList())
-            .any { it.identityKey == key }
+        // 审计 #85：读回失败必须返回"未确认"，不能按空列表认定成功。
+        val readBack = runCatching { markRead() }
+            .getOrElse { ShareRelayStore.LoadResult.Failed(it.message ?: "mark read failed") }
+        if (readBack is ShareRelayStore.LoadResult.Failed) {
+            return Outcome.MarkRemovalFailed(key) // 未能确认移除，按未确认处理
+        }
+        val stillMarked = (readBack as ShareRelayStore.LoadResult.Ok)
+            .marks.any { it.identityKey == key }
         return if (stillMarked) Outcome.MarkRemovalFailed(key) else Outcome.Done
     }
 
@@ -76,6 +80,6 @@ class RelayRecycleTransaction(
         is Outcome.RecycleFailed -> "未能移入回收站，标记已保留，可重试"
         Outcome.NotPersisted -> "回收站未能确认保存，标记已保留，可重试"
         is Outcome.MarkRemovalFailed ->
-            "照片已在回收站，但标记移除失败；重试不会重复写入，可安全重试"
+            "照片已在回收站，但标记未能确认移除；重试只移除标记，不会重复写入"
     }
 }

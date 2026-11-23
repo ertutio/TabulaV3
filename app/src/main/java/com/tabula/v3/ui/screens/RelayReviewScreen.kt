@@ -126,7 +126,12 @@ fun RelayReviewScreen(
                             TextButton(onClick = {
                                 HapticFeedback.lightTap(context)
                                 onRemoveMark(row)
-                            }) { Text("撤销标记", color = secondary) }
+                            }) {
+                                Text(
+                                    if (row.canRetryMarkRemoval) "重试移除标记" else "撤销标记",
+                                    color = if (row.canRetryMarkRemoval) accent else secondary
+                                )
+                            }
                             val image = row.image
                             if (image != null) {
                                 TextButton(onClick = {

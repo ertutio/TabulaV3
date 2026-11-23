@@ -27,22 +27,33 @@ object RelayReviewRules {
     data class ReviewRow(
         val mark: RelayMark,
         val image: ImageFile?,
-        val isActionable: Boolean
+        val isActionable: Boolean,
+        /**
+         * 审计修复（#85）：标记的照片已在回收站里（写成功但标记移除失败）。
+         *
+         * 此时照片已从图库列表消失，但标记还在。页面必须仍能显示这条，
+         * 并允许用户**只重试移除标记**，不能要求用户重新选一张已经
+         * 不在图库里的照片。
+         */
+        val alreadyInRecycleBin: Boolean = false
     ) {
         /**
          * 需要用户核对的理由。`null` 表示这条记录已确认且可操作。
-         *
-         * 措辞刻意保守：拿不到唯一原图时说"找不到"，不说"就是这张"。
          */
         val reviewReason: String?
             get() = when {
                 mark.state == RelayMarkState.REJECTED -> "不是有效图片"
+                alreadyInRecycleBin ->
+                    "照片已在回收站，但标记移除失败；可重试移除标记"
                 isActionable -> null
                 image == null && mark.identityKey == null ->
                     "无法唯一定位原图，需要你确认是图库里的哪一张"
                 image == null -> "标记的照片已不在图库中"
                 else -> "需要核对"
             }
+
+        /** 是否可以重试移除标记（已入回收站但标记仍在）。 */
+        val canRetryMarkRemoval: Boolean get() = alreadyInRecycleBin
     }
 
     /**
@@ -57,7 +68,11 @@ object RelayReviewRules {
      *
      * @param library 当前可访问的照片（调用方传入，已排除回收站内的）
      */
-    fun resolveRows(marks: List<RelayMark>, library: List<ImageFile>): List<ReviewRow> {
+    fun resolveRows(
+        marks: List<RelayMark>,
+        library: List<ImageFile>,
+        recycleBinKeys: Set<String> = emptySet()
+    ): List<ReviewRow> {
         val byIdentity = library.groupBy { it.mediaIdentityKey() }
         return marks
             .filter { it.state != RelayMarkState.REJECTED }
@@ -71,10 +86,13 @@ object RelayReviewRules {
                 // 只按完整身份精确匹配；多值（跨卷同 ID）时取第一个但不是"猜"，
                 // 因为身份键本身已经含卷，命中即唯一
                 val image = key?.let { k -> byIdentity[k]?.firstOrNull() }
+                // 图库里找不到，但身份键命中回收站 → 写成功、标记移除失败
+                val inBin = key != null && key in recycleBinKeys && image == null
                 ReviewRow(
                     mark = mark,
                     image = image,
-                    isActionable = image != null && mark.state == RelayMarkState.CONFIRMED
+                    isActionable = image != null && mark.state == RelayMarkState.CONFIRMED,
+                    alreadyInRecycleBin = inBin
                 )
             }
     }

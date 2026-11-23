@@ -85,7 +85,7 @@ class RelayRecycleTransactionTest {
         recycleWrite = { bin.write(it) },
         recycleRead = { bin.read() },
         markRemove = { marks.remove(it) },
-        markRead = { marks.read() }
+        markRead = { ShareRelayStore.LoadResult.Ok(marks.read()) }
     )
 
     @Test
@@ -129,7 +129,7 @@ class RelayRecycleTransactionTest {
             recycleWrite = { /* 故意不落库 */ },
             recycleRead = { bin.read() },
             markRemove = { marks.remove(it) },
-            markRead = { marks.read() }
+            markRead = { ShareRelayStore.LoadResult.Ok(marks.read()) }
         )
 
         val outcome = tx.execute(mark, image)
