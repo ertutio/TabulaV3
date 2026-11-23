@@ -265,14 +265,22 @@ class StagedCleanupPageFlowTest {
         tap(viewButton!!)
 
         // 候选页 → **先点缩略图勾选**（未勾选时按钮是"选择要移入回收站的照片"）
-        android.os.SystemClock.sleep(1500)
-        val beforeSelect = screenTexts()
         // 缩略图的 contentDescription 就是文件名（sc-xxxxxxxx.jpg）
-        val thumb = beforeSelect.firstOrNull { it.startsWith("sc-") && it.endsWith(".jpg") }
-        if (thumb != null) {
-            tap(thumb)
-            android.os.SystemClock.sleep(1000)
+        val thumb = run {
+            val end = now() + 20000
+            while (now() < end) {
+                screenTexts().firstOrNull { it.startsWith("sc-") && it.endsWith(".jpg") }
+                    ?.let { return@run it }
+                android.os.SystemClock.sleep(250)
+            }
+            null
         }
+        assertTrue(
+            "候选页应出现可勾选的缩略图（屏幕：${screenTexts()}）",
+            thumb != null
+        )
+        tap(thumb!!)
+        android.os.SystemClock.sleep(1200)
         val afterSelect = screenTexts()
         if (afterSelect.none { it.contains("已选中") || it.startsWith("移入回收站（") }) {
             // 诊断：把库内该照片的 dateAdded 打出来，区分"没进候选"与"进了但没勾上"
