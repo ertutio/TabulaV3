@@ -114,8 +114,16 @@ jobs:
             adb install -r device-apks/app-debug-androidTest.apk
             adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || true
             adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED || true
-            timeout 600s adb shell am instrument -w -r -e class com.tabula.v3.DeckScreenRoundIntentEntryTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner | tee device-results/instrumentation.txt
-            grep -Eq 'OK \([0-9]+ tests?\)' device-results/instrumentation.txt
+            # 明确运行实际需要的两个测试类，分别保存 instrumentation 输出
+            timeout 600s adb shell am instrument -w -r -e class com.tabula.v3.DeckScreenRoundIntentEntryTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner | tee device-results/instrumentation-entry.txt
+            grep -Eq 'OK \([0-9]+ tests?\)' device-results/instrumentation-entry.txt
+            timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.DeckScreenRoundIntentUiTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner | tee device-results/instrumentation-ui.txt
+            grep -Eq 'OK \([0-9]+ tests?\)' device-results/instrumentation-ui.txt
+            # 汇总核对：类名、执行数量、失败数
+            for f in device-results/instrumentation-entry.txt device-results/instrumentation-ui.txt; do
+              echo "== $f =="
+              grep -E 'INSTRUMENTATION_STATUS: (numtests|test=)|OK \(|FAILURES' "$f" | tail -20
+            done | tee device-results/summary.txt
       - name: Summarise
         if: always()
         run: |
@@ -126,7 +134,8 @@ jobs:
             echo "Emulator: API 36 / google_apis / x86_64 / pixel_6"
             echo ""
             echo '```'
-            cat device-results/instrumentation.txt 2>/dev/null || echo "no instrumentation output"
+            cat device-results/display.txt 2>/dev/null || true
+            cat device-results/summary.txt 2>/dev/null || cat device-results/instrumentation.txt 2>/dev/null || echo "no instrumentation output"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
