@@ -163,6 +163,39 @@ class StagedCleanupPageFlowTest {
         error("waitFor timeout: $target （屏幕：${screenTexts()}）")
     }
 
+    /**
+     * 按坐标点击（不依赖无障碍点击能力）。
+     *
+     * Compose 里 `Modifier.clickable` 常在外层 Box，而 `contentDescription`
+     * 在内层 Image 上；语义树的 parent 链不一定连到可点击节点，
+     * `performAction(ACTION_CLICK)` 会静默无效（run 45181129949 实测）。
+     */
+    private fun tapByBounds(target: String, timeout: Long = 20000): Boolean {
+        val end = now() + timeout
+        while (now() < end) {
+            val root = ins.uiAutomation.rootInActiveWindow
+            var hit: AccessibilityNodeInfo? = null
+            fun walk(n: AccessibilityNodeInfo?, depth: Int) {
+                if (n == null || hit != null || depth > 24) return
+                if (n.contentDescription?.toString() == target || n.text?.toString() == target) {
+                    hit = n; return
+                }
+                for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
+            }
+            walk(root, 0)
+            hit?.let { node ->
+                val r = android.graphics.Rect(); node.getBoundsInScreen(r)
+                if (r.width() > 0 && r.height() > 0) {
+                    shell("input tap ${r.centerX()} ${r.centerY()}")
+                    android.os.SystemClock.sleep(900)
+                    return true
+                }
+            }
+            android.os.SystemClock.sleep(250)
+        }
+        return false
+    }
+
     private fun tap(target: String, timeout: Long = 25000) {
         val end = now() + timeout
         while (now() < end) {
@@ -279,8 +312,10 @@ class StagedCleanupPageFlowTest {
             "候选页应出现可勾选的缩略图（屏幕：${screenTexts()}）",
             thumb != null
         )
-        tap(thumb!!)
-        android.os.SystemClock.sleep(1200)
+        assertTrue(
+            "缩略图必须能被坐标点击（目标：$thumb）",
+            tapByBounds(thumb!!)
+        )
         val afterSelect = screenTexts()
         if (afterSelect.none { it.contains("已选中") || it.startsWith("移入回收站（") }) {
             // 诊断：把库内该照片的 dateAdded 打出来，区分"没进候选"与"进了但没勾上"
