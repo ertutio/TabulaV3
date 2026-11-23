@@ -126,6 +126,8 @@ jobs:
             timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.DeckScreenRoundIntentUiTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-ui.txt 2>&1 || true
             cat device-results/instrumentation-ui.txt
             adb shell "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'" > device-results/window-focus.txt || true
+            adb shell "cat /data/data/com.tabula.v3.recyclebin.test/files/diag-after-launch.txt" > device-results/diag-after-launch.txt 2>/dev/null || true
+            adb shell "cat /data/data/com.tabula.v3.recyclebin.test/files/diag-timeout.txt" > device-results/diag-timeout.txt 2>/dev/null || true
             adb shell uiautomator dump /sdcard/ui-window.xml > /dev/null 2>&1 || true
             adb shell "cat /sdcard/ui-window.xml" | grep -oE 'text="[^"]+"' | sort -u | head -80 > device-results/ui-texts.txt || true
             echo "== window focus =="

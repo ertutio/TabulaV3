@@ -140,10 +140,22 @@ class DeckScreenRoundIntentUiTest {
         error("timeout waiting: $label")
     }
 
+    private fun dumpScreen(tag: String) {
+        runCatching {
+            shell("uiautomator dump /sdcard/d-$tag.xml >/dev/null 2>&1")
+            val xml = shell("cat /sdcard/d-$tag.xml")
+            val texts = Regex("text=\"([^\"]+)\"").findAll(xml).map { it.groupValues[1] }.toSet()
+            val focus = shell("dumpsys window | grep -E 'mCurrentFocus'")
+            val out = "TAG=$tag\nFOCUS=$focus\nTEXTS=${texts.joinToString(" | ")}\n"
+            java.io.File(ctx.filesDir, "diag-$tag.txt").writeText(out)
+        }
+    }
+
     private fun startApp() {
         activity = ins.startActivitySync(
             Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
+        dumpScreen("after-launch")
         // 等待主界面（卡片页）出现：回收站按钮是卡片页特有锚点
         // （"图集"标题只在图集模式下显示，浏览模式的卡片页没有该文本）
         val end = now() + 45000
@@ -165,6 +177,7 @@ class DeckScreenRoundIntentUiTest {
                 for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
             }
             walk(root, 0)
+            dumpScreen("timeout")
             pullDiagnostics()
             // 写到设备文件（多行输出经 logcat/instrumentation 都会被截断）
             runCatching {
