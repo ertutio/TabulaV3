@@ -164,6 +164,22 @@ class StagedCleanupPageFlowTest {
     }
 
     /**
+     * 等一个**子串**出现。
+     *
+     * [waitFor] 是精确文本相等；而回收站的条目计数文案是「1 项待处理」这种
+     * 带数字的句子，等 "待处理" 永远等不到（run 45203633204 就是这么卡住的：
+     * 屏幕明明已经有 `1 项待处理`，`waitFor("待处理")` 仍超时）。
+     */
+    private fun waitForTextContaining(fragment: String, timeout: Long = 30000) {
+        val end = now() + timeout
+        while (now() < end) {
+            if (screenTexts().any { it.contains(fragment) }) return
+            android.os.SystemClock.sleep(200)
+        }
+        error("waitForTextContaining timeout: $fragment （屏幕：${screenTexts()}）")
+    }
+
+    /**
      * 按坐标点击（不依赖无障碍点击能力）。
      *
      * Compose 里 `Modifier.clickable` 常在外层 Box，而 `contentDescription`
@@ -394,7 +410,7 @@ class StagedCleanupPageFlowTest {
         android.os.SystemClock.sleep(1000)
         if (find("回收站") != null) {
             tap("回收站")
-            waitFor("待处理", timeout = 20000)
+            waitForTextContaining("项待处理", timeout = 20000)
             val binListTexts = screenTexts()
             // 列表里必须有我们刚移进去的那张照片
             val listed = binListTexts.firstOrNull { it.startsWith("sc-") && it.endsWith(".jpg") }
