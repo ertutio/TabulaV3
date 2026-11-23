@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Collections
+import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Favorite
@@ -163,6 +164,8 @@ fun SettingsScreen(
     onNavigateToHiddenAlbums: () -> Unit = {},  // 导航到隐藏与屏蔽图集管理
     onNavigateToPrivacyPolicy: () -> Unit = {},  // 导航到隐私政策
     onNavigateToTutorial: () -> Unit = {},  // 导航到使用教程
+    onNavigateToStagedCleanup: () -> Unit = {},  // 导航到暂存清理
+    stagedCleanupSummary: String = "",  // 暂存清理入口的副标题（如 "12 个来源"）
     scrollState: ScrollState? = null  // 外部传入的滚动状态，用于保持导航返回时的位置
 ) {
     val context = LocalContext.current
@@ -317,6 +320,21 @@ fun SettingsScreen(
             SectionHeader("浏览体验", textColor)
             
             SettingsGroup(cardColor) {
+                SettingsItem(
+                    icon = Icons.Outlined.CleaningServices,
+                    iconTint = Color(0xFFFF9500), // Orange
+                    title = "暂存清理",
+                    value = stagedCleanupSummary,
+                    textColor = textColor,
+                    secondaryTextColor = secondaryTextColor,
+                    onClick = {
+                        HapticFeedback.lightTap(context)
+                        onNavigateToStagedCleanup()
+                    }
+                )
+
+                Divider(isDarkTheme)
+
                 SettingsItem(
                     icon = Icons.Outlined.Widgets,
                     iconTint = Color(0xFF0A84FF), // Blue

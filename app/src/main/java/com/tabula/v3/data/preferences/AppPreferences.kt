@@ -1180,6 +1180,62 @@ class AppPreferences(context: Context) {
         pinnedAlbumNames = current
     }
 
+    // ==================== 暂存清理（路线图第 1 项） ====================
+
+    /**
+     * 暂存清理选定的来源集合，元素格式 `卷|相对路径`（与
+     * [com.tabula.v3.data.cleanup.StagedCleanupRules.normalize] 同口径）。
+     *
+     * 首次进入为空 = 还没选过来源，界面据此显示来源勾选页；用户明确清空
+     * 也会得到空集，因此界面用 [hasStagedCleanupSourceChoice] 区分两者。
+     */
+    var stagedCleanupSourceKeys: Set<String>
+        get() = prefs.getStringSet(KEY_STAGED_CLEANUP_SOURCES, emptySet()) ?: emptySet()
+        set(value) = prefs.edit().putStringSet(KEY_STAGED_CLEANUP_SOURCES, value).apply()
+
+    /** 用户是否已经做过一次来源选择（哪怕选择结果为空）。 */
+    var hasStagedCleanupSourceChoice: Boolean
+        get() = prefs.getBoolean(KEY_STAGED_CLEANUP_SOURCE_CHOSEN, false)
+        set(value) = prefs.edit().putBoolean(KEY_STAGED_CLEANUP_SOURCE_CHOSEN, value).apply()
+
+    /**
+     * 长期保留的照片身份键（`卷|ID`），跨重启生效。
+     *
+     * 只影响暂存清理范围：命中的照片不再作为候选出现在暂存清理里，
+     * 但仍在卡片整理、图集等其它入口原样可见。
+     */
+    var stagedCleanupRetainedIdentityKeys: Set<String>
+        get() = prefs.getStringSet(KEY_STAGED_CLEANUP_RETAINED, emptySet()) ?: emptySet()
+        set(value) = prefs.edit().putStringSet(KEY_STAGED_CLEANUP_RETAINED, value).apply()
+
+    /**
+     * 本次跳过的照片身份键（`卷|ID`）——只压住当前进程内的候选列表。
+     *
+     * 与 [stagedCleanupRetainedIdentityKeys] 的区别：跳过是"这次先不看"，
+     * 重启后照片会重新出现；长期保留是"以后都别再提"，跨重启生效。
+     * 因此这里刻意只存内存（进程内会话级）。
+     */
+    var stagedCleanupSkippedIdentityKeys: Set<String> = emptySet()
+
+    fun retainStagedCleanupImages(identityKeys: Collection<String>) {
+        if (identityKeys.isEmpty()) return
+        stagedCleanupRetainedIdentityKeys = stagedCleanupRetainedIdentityKeys + identityKeys
+    }
+
+    fun releaseStagedCleanupRetention(identityKeys: Collection<String>) {
+        if (identityKeys.isEmpty()) return
+        stagedCleanupRetainedIdentityKeys = stagedCleanupRetainedIdentityKeys - identityKeys.toSet()
+    }
+
+    fun skipStagedCleanupImages(identityKeys: Collection<String>) {
+        if (identityKeys.isEmpty()) return
+        stagedCleanupSkippedIdentityKeys = stagedCleanupSkippedIdentityKeys + identityKeys
+    }
+
+    fun clearStagedCleanupSkips() {
+        stagedCleanupSkippedIdentityKeys = emptySet()
+    }
+
     companion object {
         private const val PREFS_NAME = "tabula_prefs"
         private const val KEY_SORT_ORDER = "sort_order"
@@ -1230,6 +1286,11 @@ class AppPreferences(context: Context) {
         
         // "其他图集"收纳相关
         private const val KEY_PINNED_ALBUM_NAMES = "pinned_album_names"
+
+        // 暂存清理相关（路线图第 1 项）
+        private const val KEY_STAGED_CLEANUP_SOURCES = "staged_cleanup_sources"
+        private const val KEY_STAGED_CLEANUP_SOURCE_CHOSEN = "staged_cleanup_source_chosen"
+        private const val KEY_STAGED_CLEANUP_RETAINED = "staged_cleanup_retained"
 
         // 收纳阈值常量
         /** 系统图集总数超过此值时启用收纳 */

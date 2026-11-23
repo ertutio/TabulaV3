@@ -3,6 +3,7 @@ package com.tabula.v3.data.repository
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
@@ -27,11 +28,14 @@ class LocalImageRepository(private val context: Context) {
 
     /**
      * MediaStore 查询投影 - 仅查询必要列；身份列（卷/路径）按 T03 契约统一携带。
+     * T01（暂存清理）：DATE_ADDED 与 DATE_MODIFIED 一起携带——暂存清理按
+     * "存入相册时间"分组，普通清理按修改时间，两者不可互相替代。
      */
     private val projection = arrayOf(
         MediaStore.Images.Media._ID,
         MediaStore.Images.Media.DISPLAY_NAME,
         MediaStore.Images.Media.DATE_MODIFIED,
+        MediaStore.Images.Media.DATE_ADDED,
         MediaStore.Images.Media.SIZE,
         MediaStore.Images.Media.WIDTH,
         MediaStore.Images.Media.HEIGHT,
@@ -104,6 +108,7 @@ class LocalImageRepository(private val context: Context) {
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DISPLAY_NAME,
             MediaStore.Images.Media.DATE_MODIFIED,
+            MediaStore.Images.Media.DATE_ADDED,
             MediaStore.Images.Media.SIZE,
             MediaStore.Images.Media.WIDTH,
             MediaStore.Images.Media.HEIGHT,
@@ -123,6 +128,7 @@ class LocalImageRepository(private val context: Context) {
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
             val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
+            val addedColumn = cursor.getColumnIndex(MediaStore.Images.Media.DATE_ADDED)
             val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
             val widthColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)
             val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
@@ -162,7 +168,8 @@ class LocalImageRepository(private val context: Context) {
                         bucketDisplayName = cursor.getString(bucketColumn),
                         orientation = cursor.getInt(orientationColumn),
                         volumeName = volumeName,
-                        relativePath = relativePath.ifEmpty { null }
+                        relativePath = relativePath.ifEmpty { null },
+                        dateAdded = cursorDateAddedMillis(cursor, addedColumn)
                     )
                 )
             }
@@ -367,6 +374,7 @@ class LocalImageRepository(private val context: Context) {
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DISPLAY_NAME,
             MediaStore.Images.Media.DATE_MODIFIED,
+            MediaStore.Images.Media.DATE_ADDED,
             MediaStore.Images.Media.SIZE,
             MediaStore.Images.Media.WIDTH,
             MediaStore.Images.Media.HEIGHT,
@@ -386,6 +394,7 @@ class LocalImageRepository(private val context: Context) {
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
             val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
+            val addedColumn = cursor.getColumnIndex(MediaStore.Images.Media.DATE_ADDED)
             val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
             val widthColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)
             val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
@@ -413,7 +422,8 @@ class LocalImageRepository(private val context: Context) {
                         bucketDisplayName = cursor.getString(bucketColumn),
                         orientation = cursor.getInt(orientationColumn),
                         volumeName = volumeName,
-                        relativePath = relativePath
+                        relativePath = relativePath,
+                        dateAdded = cursorDateAddedMillis(cursor, addedColumn)
                     )
                 )
             }
@@ -458,6 +468,7 @@ class LocalImageRepository(private val context: Context) {
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
             val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
+            val addedColumn = cursor.getColumnIndex(MediaStore.Images.Media.DATE_ADDED)
             val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
             val widthColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)
             val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
@@ -485,7 +496,8 @@ class LocalImageRepository(private val context: Context) {
                         bucketDisplayName = cursor.getString(bucketColumn),
                         orientation = cursor.getInt(orientationColumn),
                         volumeName = volumeName,
-                        relativePath = relativePath
+                        relativePath = relativePath,
+                        dateAdded = cursorDateAddedMillis(cursor, addedColumn)
                     )
                 )
             }
@@ -525,6 +537,7 @@ class LocalImageRepository(private val context: Context) {
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DISPLAY_NAME,
             MediaStore.Images.Media.DATE_MODIFIED,
+            MediaStore.Images.Media.DATE_ADDED,
             MediaStore.Images.Media.SIZE,
             MediaStore.Images.Media.WIDTH,
             MediaStore.Images.Media.HEIGHT,
@@ -544,6 +557,7 @@ class LocalImageRepository(private val context: Context) {
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
             val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
+            val addedColumn = cursor.getColumnIndex(MediaStore.Images.Media.DATE_ADDED)
             val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
             val widthColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)
             val heightColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
@@ -574,7 +588,8 @@ class LocalImageRepository(private val context: Context) {
                     bucketDisplayName = bucketDisplayName,
                     orientation = cursor.getInt(orientationColumn),
                     volumeName = volumeName,
-                    relativePath = relativePath.ifEmpty { null }
+                    relativePath = relativePath.ifEmpty { null },
+                    dateAdded = cursorDateAddedMillis(cursor, addedColumn)
                 )
 
                 allImages.add(imageFile)
@@ -679,6 +694,19 @@ internal fun imageItemUri(volumeName: String?, id: Long): Uri =
     } else {
         ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
     }
+
+/**
+ * T01（暂存清理）：读取 MediaStore DATE_ADDED 并换算为毫秒。
+ *
+ * 未知即未知——列缺失（旧投影/假 provider）、NULL、或非正值一律返回 0，
+ * 调用方据此把该照片列入"时间未知"分组供手动查看，不得把它当成某个
+ * 真实时间参与年龄门限比较（否则 1970 会让所有未知项看起来都"很旧"）。
+ */
+internal fun cursorDateAddedMillis(cursor: Cursor, columnIndex: Int): Long {
+    if (columnIndex < 0 || cursor.isNull(columnIndex)) return 0L
+    val seconds = cursor.getLong(columnIndex)
+    return if (seconds > 0L) seconds * 1000 else 0L
+}
 
 /**
  * T03：同媒体身份 = 同数值 ID 且同卷——不同卷的同数值 ID 是不同照片。

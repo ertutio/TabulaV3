@@ -1,0 +1,158 @@
+name: Verify staged cleanup on emulator
+
+on:
+  push:
+    branches: [feature/staged-cleanup-2026-11-23]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: staged-cleanup-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install build SDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+      - name: Pre-fetch Robolectric android-all jars
+        run: |
+          # Robolectric 测试时在线下载 android-all jar；runner 网络偶发失败会
+          # 导致批量 AssertionError（MavenArtifactFetcher IOException）。
+          # 预先拉到本地仓库，测试期不再联网下载。
+          GROUP_DIR="$HOME/.m2/repository/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6"
+          mkdir -p "$GROUP_DIR"
+          JAR_URL="https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6/android-all-instrumented-14-robolectric-10818077-i6.jar"
+          for attempt in 1 2 3; do
+            if curl -fsSL --retry 3 --retry-delay 5 -o "$GROUP_DIR/android-all-instrumented-14-robolectric-10818077-i6.jar" "$JAR_URL"; then
+              echo "android-all fetched (attempt $attempt)"
+              break
+            fi
+            echo "attempt $attempt failed"; sleep 10
+          done
+          test -s "$GROUP_DIR/android-all-instrumented-14-robolectric-10818077-i6.jar"
+          ls -la "$GROUP_DIR"
+
+      - name: Unit regressions, app APK and instrumented APK
+        run: bash ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Collect artifacts
+        run: |
+          mkdir -p device-apks artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk device-apks/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk device-apks/
+          python3 - <<'PY' | tee artifacts/test-counts.txt
+          import glob, xml.etree.ElementTree as ET
+          files = sorted(glob.glob('app/build/test-results/testDebugUnitTest/*.xml'))
+          t = f = e = s = 0
+          for p in files:
+              r = ET.parse(p).getroot()
+              t += int(r.get('tests', 0)); f += int(r.get('failures', 0))
+              e += int(r.get('errors', 0)); s += int(r.get('skipped', 0))
+          print(f"classes={len(files)} tests={t} failures={f} errors={e} skipped={s}")
+          PY
+          sha256sum device-apks/*.apk >> artifacts/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: StagedCleanup-build-${{ github.sha }}
+          path: |
+            artifacts/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: StagedCleanup-device-apks
+          path: device-apks/
+
+  device:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # 两个 profile：像素 6（常规 411dp）与像素 4（窄 392dp），
+        # 对应审计要求的"窄屏显示"。两个都用 API 36，避免旧镜像不可用。
+        include:
+          - profile: pixel_6
+          - profile: pixel_4
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: StagedCleanup-device-apks
+          path: device-apks/
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run recent albums device test
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: ${{ matrix.profile }}
+          cores: 2
+          ram-size: 3072M
+          disk-size: 8G
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -no-metrics
+          disable-animations: true
+          script: |
+            # runner 用 /bin/sh 且按行逐条执行 —— 不用续行，不用 pipefail
+            set -eux
+            mkdir -p device-results
+            adb install -r device-apks/app-debug.apk
+            adb install -r device-apks/app-debug-androidTest.apk
+            adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || true
+            adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED || true
+            adb shell wm size > device-results/display.txt || true
+            adb shell wm density >> device-results/display.txt || true
+            adb shell cmd uimode night yes >> device-results/display.txt || true
+            cat device-results/display.txt
+            # 两个测试类分别运行、分别保存输出
+            timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.StagedCleanupEntryDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-step.txt 2>&1 || true
+            cat device-results/instrumentation-step.txt
+            timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.StagedCleanupPageFlowTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-page.txt 2>&1 || true
+            cat device-results/instrumentation-page.txt
+            grep -E 'INSTRUMENTATION_STATUS: (class|numtests|test=)|OK \(|FAILURES' device-results/instrumentation-step.txt > device-results/summary.txt
+            cat device-results/summary.txt
+            # 精确断言：6 条用例，不接受任意 "OK (N tests)"
+            grep -Fx 'OK (6 tests)' device-results/instrumentation-step.txt
+            grep -Fx 'OK (2 tests)' device-results/instrumentation-page.txt
+      - name: Summarise
+        if: always()
+        run: |
+          mkdir -p device-results
+          {
+            echo "## Staged cleanup device verification"
+            echo ""
+            echo "Emulator: API 36 / google_apis / x86_64 / ${{ matrix.profile }}"
+            echo ""
+            echo '```'
+            cat device-results/display.txt 2>/dev/null || true
+            cat device-results/summary.txt 2>/dev/null || cat device-results/instrumentation-step.txt 2>/dev/null || echo "no instrumentation output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: RecentAlbums-device-${{ matrix.profile }}
+          path: device-results/
+          if-no-files-found: warn

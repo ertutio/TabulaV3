@@ -45,6 +45,7 @@ import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -264,7 +265,9 @@ fun DeckScreen(
     onNavigateToOtherAlbums: (List<Album>) -> Unit = {},
     // 原图清理
     pendingCleanupCount: Int = 0,
-    onCleanupSourceImages: () -> Unit = {}
+    onCleanupSourceImages: () -> Unit = {},
+    // 暂存清理（路线图第 1 项）：进入按来源与存入时间整理的旧图清理
+    onOpenStagedCleanup: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -1253,7 +1256,8 @@ fun DeckScreen(
                     onToggleShowHidden = onToggleShowHidden,
                     onNavigateToOtherAlbums = onNavigateToOtherAlbums,
                     pendingCleanupCount = pendingCleanupCount,
-                    onCleanupSourceImages = onCleanupSourceImages
+                    onCleanupSourceImages = onCleanupSourceImages,
+                    onOpenStagedCleanup = onOpenStagedCleanup
                 )
             }
         }
@@ -2406,7 +2410,8 @@ private fun AlbumsGridContent(
     onToggleShowHidden: () -> Unit = {},
     onNavigateToOtherAlbums: (List<Album>) -> Unit = {},
     pendingCleanupCount: Int = 0,
-    onCleanupSourceImages: () -> Unit = {}
+    onCleanupSourceImages: () -> Unit = {},
+    onOpenStagedCleanup: () -> Unit = {}
 ) {
     val isDarkTheme = LocalIsDarkTheme.current
     val context = LocalContext.current
@@ -2665,6 +2670,18 @@ private fun AlbumsGridContent(
                                 )
                             }
                             
+                            // 暂存清理按钮（截图与下载旧图，按来源与存入时间整理）
+                            ActionIconButton(
+                                icon = Icons.Outlined.PhotoLibrary,
+                                contentDescription = "暂存清理",
+                                onClick = {
+                                    com.tabula.v3.ui.util.HapticFeedback.lightTap(context)
+                                    onOpenStagedCleanup()
+                                },
+                                backgroundColor = buttonBgColor,
+                                iconColor = buttonIconColor
+                            )
+
                             // 设置按钮
                             ActionIconButton(
                                 icon = Icons.Outlined.Settings,
