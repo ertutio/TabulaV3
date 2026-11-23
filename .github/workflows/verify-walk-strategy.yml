@@ -1,0 +1,159 @@
+name: Verify walk strategy on emulator
+
+on:
+  push:
+    branches: [feature/source-balance-2026-11-23]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: walk-strategy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install build SDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+      - name: Pre-fetch Robolectric android-all jars
+        run: |
+          # Maven Central 对 CI runner 会返回 429（限流），Robolectric 测试期在线
+          # 下载失败会造成批量 AssertionError。这里按镜像顺序预取到 ~/.m2；
+          # 全部失败也不阻断 build（Robolectric 自己会再试），只打警告。
+          JAR=android-all-instrumented-14-robolectric-10818077-i6.jar
+          DIR="$HOME/.m2/repository/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6"
+          mkdir -p "$DIR"
+          for BASE in \
+            https://repo.maven.apache.org/maven2 \
+            https://maven.aliyun.com/repository/central \
+            https://repo1.maven.org/maven2 ; do
+            URL="$BASE/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6/$JAR"
+            for attempt in 1 2 3; do
+              if curl -fsSL --retry 2 --retry-delay 5 -o "$DIR/$JAR" "$URL"; then
+                echo "fetched from $BASE (attempt $attempt)"
+                ls -la "$DIR"
+                exit 0
+              fi
+              echo "miss $BASE attempt $attempt"
+              sleep 8
+            done
+          done
+          echo "::warning::android-all prefetch failed on all mirrors; Robolectric will retry at test time"
+      - name: Unit regressions, app APK and instrumented APK
+        run: bash ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Collect artifacts
+        run: |
+          mkdir -p device-apks artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk device-apks/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk device-apks/
+          python3 - <<'PY' | tee artifacts/test-counts.txt
+          import glob, xml.etree.ElementTree as ET
+          files = sorted(glob.glob('app/build/test-results/testDebugUnitTest/*.xml'))
+          t = f = e = s = 0
+          for p in files:
+              r = ET.parse(p).getroot()
+              t += int(r.get('tests', 0)); f += int(r.get('failures', 0))
+              e += int(r.get('errors', 0)); s += int(r.get('skipped', 0))
+          print(f"classes={len(files)} tests={t} failures={f} errors={e} skipped={s}")
+          PY
+          sha256sum device-apks/*.apk >> artifacts/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: WalkStrategy-build-${{ github.sha }}
+          path: |
+            artifacts/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WalkStrategy-device-apks
+          path: device-apks/
+
+  device:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: WalkStrategy-device-apks
+          path: device-apks/
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run walk strategy device test
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 3072M
+          disk-size: 8G
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -no-metrics
+          disable-animations: true
+          script: |
+            # runner 用 /bin/sh 且按行逐条执行 —— 不用续行，不用 pipefail
+            set -eux
+            mkdir -p device-results
+            adb install -r device-apks/app-debug.apk
+            adb install -r device-apks/app-debug-androidTest.apk
+            adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || true
+            adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED || true
+            # 明确运行设置页策略设备测试，保存 instrumentation 输出
+            timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.WalkStrategySettingsDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-walk.txt 2>&1 || true
+            cat device-results/instrumentation-walk.txt
+            adb shell "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'" > device-results/window-focus.txt || true
+            adb shell "cat /data/data/com.tabula.v3.recyclebin.test/files/diag-after-launch.txt" > device-results/diag-after-launch.txt 2>/dev/null || true
+            adb shell "cat /data/data/com.tabula.v3.recyclebin.test/files/diag-timeout.txt" > device-results/diag-timeout.txt 2>/dev/null || true
+            adb shell uiautomator dump /sdcard/ui-window.xml > /dev/null 2>&1 || true
+            adb shell "cat /sdcard/ui-window.xml" | grep -oE 'text="[^"]+"' | sort -u | head -80 > device-results/ui-texts.txt || true
+            echo "== window focus =="
+            cat device-results/window-focus.txt || true
+            echo "== ui texts =="
+            cat device-results/ui-texts.txt || true
+            # 汇总核对：类名、执行数量、失败数
+            grep -E 'INSTRUMENTATION_STATUS: (class|numtests|test=)|OK \(|FAILURES' device-results/instrumentation-walk.txt > device-results/summary.txt
+            cat device-results/summary.txt
+            # 精确断言：3 条用例，不允许"任意 OK"
+            grep -Fx 'OK (5 tests)' device-results/instrumentation-walk.txt
+      - name: Summarise
+        if: always()
+        run: |
+          mkdir -p device-results
+          {
+            echo "## Walk strategy device verification"
+            echo ""
+            echo "Emulator: API 36 / google_apis / x86_64 / pixel_6"
+            echo ""
+            echo '```'
+            cat device-results/display.txt 2>/dev/null || true
+            cat device-results/summary.txt 2>/dev/null || cat device-results/instrumentation.txt 2>/dev/null || echo "no instrumentation output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: WalkStrategy-device-results
+          path: device-results/
+          if-no-files-found: warn
