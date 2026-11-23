@@ -140,14 +140,42 @@ class DeckScreenRoundIntentUiTest {
         error("timeout waiting: $label")
     }
 
+    /** 直接读无障碍树（不依赖 shell/uiautomator，测试进程内可用）。 */
     private fun dumpScreen(tag: String) {
+        val sb = StringBuilder()
         runCatching {
-            shell("uiautomator dump /sdcard/d-$tag.xml >/dev/null 2>&1")
-            val xml = shell("cat /sdcard/d-$tag.xml")
-            val texts = Regex("text=\"([^\"]+)\"").findAll(xml).map { it.groupValues[1] }.toSet()
-            val focus = shell("dumpsys window | grep -E 'mCurrentFocus'")
-            val out = "TAG=$tag\nFOCUS=$focus\nTEXTS=${texts.joinToString(" | ")}\n"
-            java.io.File(ctx.filesDir, "diag-$tag.txt").writeText(out)
+            val root = ins.uiAutomation.rootInActiveWindow
+            sb.append("TAG=").append(tag).append('\n')
+            sb.append("PKG=").append(root?.packageName).append('\n')
+            sb.append("CLS=").append(root?.className).append('\n')
+            val texts = mutableSetOf<String>()
+            fun walk(n: AccessibilityNodeInfo?, depth: Int) {
+                if (n == null || depth > 10) return
+                n.text?.toString()?.takeIf { it.isNotBlank() }?.let { texts += it }
+                n.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { texts += "[cd]$it" }
+                for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
+            }
+            walk(root, 0)
+            sb.append("TEXTS=").append(texts.joinToString(" | ")).append('\n')
+            val acts = StringBuilder()
+            runCatching {
+                val all = ins.uiAutomation.getWindows()
+                all.forEach { acts.append(it.root?.packageName).append(";") }
+            }
+            sb.append("WINDOWS=").append(acts).append('\n')
+        }
+        // 写进 instrumentation status bundle：一定出现在 -r 输出里
+        runCatching {
+            val b = android.os.Bundle()
+            b.putString("roundintent.diag", sb.toString())
+            ins.sendStatus(2, b)
+        }
+        runCatching { java.io.File(ctx.filesDir, "diag-$tag.txt").writeText(sb.toString()) }
+        // 同时写 /sdcard（部分环境 filesDir 不可拉取）
+        runCatching {
+            @Suppress("DEPRECATION")
+            val dir = java.io.File("/sdcard/Download")
+            if (dir.exists()) java.io.File(dir, "diag-$tag.txt").writeText(sb.toString())
         }
     }
 
