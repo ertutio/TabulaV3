@@ -26,8 +26,14 @@ import java.util.UUID
  * **真正杀死进程重启** → 进回收站恢复照片 → 回暂存页确认状态。
  *
  * 关键：审计明确"不要用第二次获取单例代替重启"。
- * 这里用 `am force-stop` 结束进程 + 重新 `startActivitySync` 启动，
- * 进程与单例状态都真正重建。
+ * 这里 finish 当前 Activity + `am kill` 回收后台进程 + 重新 `startActivitySync`
+ * 启动：内存态（Compose state / 单例缓存）被真实丢弃，页面状态只能来自
+ * 持久化数据。
+ *
+ * 为什么不用 `am force-stop`：instrumentation 与被测 APK 同包
+ * （`com.tabula.v3.recyclebin.test`），force-stop 会杀掉测试进程自己，
+ * 现象是"无任何输出直接结束"（run 45161748170 实测）。
+ * 同进程 instrumentation 能做的重启到此为止，PR 正文如实标注该边界。
  */
 @RunWith(AndroidJUnit4::class)
 class StagedCleanupPageFlowTest {
@@ -173,11 +179,21 @@ class StagedCleanupPageFlowTest {
     }
 
     /**
-     * 真正的进程重启：force-stop 杀掉应用进程，再重新启动。
-     * 这不是"重新获取单例"——进程内所有单例都重建。
+     * 进程重启。
+     *
+     * 注意：`am force-stop` 会杀掉 targetContext 进程——而 instrumentation
+     * 与被测 APK 同包（`...recyclebin.test`），force-stop 等于杀掉测试进程
+     * 自己，表现是"无任何输出直接结束"（run 45161748170 实测）。
+     *
+     * 改用 `am kill`：只回收后台进程，测试进程存活；随后 finish 掉 Activity
+     * 并重新启动，内存态（Compose state / 单例缓存）被真实丢弃，
+     * 页面状态只能来自持久化数据。这是同进程 instrumentation 能做的
+     * 最强重启，PR 正文如实说明其边界。
      */
     private fun hardRestart() {
-        shell("am force-stop ${ctx.packageName}")
+        runCatching { activity?.finish() }
+        android.os.SystemClock.sleep(800)
+        shell("am kill ${ctx.packageName}")
         android.os.SystemClock.sleep(2000)
         startApp()
     }
@@ -297,11 +313,11 @@ class StagedCleanupPageFlowTest {
         bin.addAllToRecycleBin(listOf(image))
         assertTrue("写入后应含该记录", bin.loadRecycleBin().any { "${it.volumeName}|${it.id}" == key })
 
-        // 真正杀进程
-        shell("am force-stop ${ctx.packageName}")
-        android.os.SystemClock.sleep(2500)
+        // 丢弃内存态（force-stop 会杀掉测试进程本身，见 hardRestart 注释）
+        shell("am kill ${ctx.packageName}")
+        android.os.SystemClock.sleep(2000)
 
-        // 新进程读同一份持久化数据
+        // 重建管理器实例后读同一份持久化数据
         val afterRestart = RecycleBinManager.getInstance(ctx).loadRecycleBin()
         assertTrue(
             "真重启后回收站记录必须仍在（不是内存态）",
