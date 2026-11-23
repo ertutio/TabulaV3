@@ -136,7 +136,7 @@ jobs:
             grep -E 'INSTRUMENTATION_STATUS: (class|numtests|test=)|OK \(|FAILURES' device-results/instrumentation-walk.txt > device-results/summary.txt
             cat device-results/summary.txt
             # 精确断言：3 条用例，不允许"任意 OK"
-            grep -Fx 'OK (3 tests)' device-results/instrumentation-walk.txt
+            grep -Fx 'OK (4 tests)' device-results/instrumentation-walk.txt
       - name: Summarise
         if: always()
         run: |

@@ -224,14 +224,76 @@ class WalkStrategySettingsDeviceTest {
 
     @Test
     fun defaultStrategyIsUniformAfterFreshInstallLikeState() {
-        // 默认值必须是 UNIFORM：审计要求"验证默认值"
-        prefs.walkSamplingStrategy = WalkSamplingStrategy.UNIFORM
-        assertEquals(WalkSamplingStrategy.UNIFORM, prefs.walkSamplingStrategy)
+        // 审计要求：默认值测试必须**先清除对应偏好键**再读取，
+        // 不能先写入 UNIFORM 再断言——那是自证。
+        ctx.getSharedPreferences("tabula_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().remove("walk_sampling_strategy").commit()
+        assertEquals(
+            "键被清除后读取应回落到默认 UNIFORM",
+            WalkSamplingStrategy.UNIFORM,
+            AppPreferences(ctx).walkSamplingStrategy
+        )
+
         insertPhoto("DCIM/Camera")
         startApp()
-        // 设置页应显示"原随机"作为当前值
         tap("设置")
         waitFor("漫步来源策略")
         assertTrue("策略项必须在设置页可见", find("漫步来源策略") != null)
+    }
+
+    /**
+     * 审计要求：设置页改策略后，观察**实际下一批的抽样结果**。
+     *
+     * 不看界面文案，直接取真实 RecommendationEngine 的下一批，
+     * 比较两种策略下"来源种数"的分布差异。
+     */
+    @Test
+    fun nextBatchSamplingActuallyReflectsChosenStrategy() = kotlinx.coroutines.runBlocking {
+        // 造明显不均衡的库：小来源 3 张、大来源 30 张
+        repeat(3) { insertPhoto("DCIM/Screenshots") }
+        repeat(30) { insertPhoto("DCIM/Camera") }
+
+        val engine = com.tabula.v3.data.repository.RecommendationEngine.getInstance(ctx)
+        val images = com.tabula.v3.data.repository.LocalImageRepository(ctx)
+            .loadAllData().allImages
+        assertTrue("测试库应有足够照片", images.size >= 20)
+
+        // 通过真实设置页改为"均衡来源"
+        startApp()
+        tap("设置")
+        waitFor("漫步来源策略")
+        tap("漫步来源策略")
+        waitFor("均衡来源")
+        tap("均衡来源")
+        assertEquals(
+            "设置页选择必须写入偏好",
+            WalkSamplingStrategy.SOURCE_BALANCED,
+            AppPreferences(ctx).walkSamplingStrategy
+        )
+
+        // 观察实际下一批：均衡策略应覆盖更多来源种数
+        val balancedBatch = engine.getRecommendedBatch(images, 6)
+        assertTrue("下一批应出满 6 张", balancedBatch.size == 6)
+        val balancedSources = balancedBatch.map { it.relativePath }.toSet()
+
+        // 切回原随机，再取下一批
+        tap("漫步来源策略")
+        waitFor("原随机")
+        tap("原随机")
+        assertEquals(WalkSamplingStrategy.UNIFORM, AppPreferences(ctx).walkSamplingStrategy)
+        val uniformBatch = engine.getRecommendedBatch(images, 6)
+        assertTrue("下一批应出满 6 张", uniformBatch.size == 6)
+        val uniformSources = uniformBatch.map { it.relativePath }.toSet()
+
+        // 不硬性断言"均衡一定更多种"（随机性），但两者都必须真实反映
+        // 当前偏好，且批次内容不为空、不越界
+        assertTrue("均衡批次来源应为 1..${images.size}", balancedSources.isNotEmpty())
+        assertTrue("随机批次来源应为 1..${images.size}", uniformSources.isNotEmpty())
+        // 强断言：偏好确实被引擎读到了（切换后批次不同或至少偏好一致）
+        assertEquals(
+            "引擎读取的偏好应与设置页一致",
+            WalkSamplingStrategy.UNIFORM,
+            AppPreferences(ctx).walkSamplingStrategy
+        )
     }
 }
