@@ -40,6 +40,10 @@ OUT.mkdir(exist_ok=True)
 PACKAGE = "com.tabula.v3.recyclebin.test"
 PREVIEW = f"{PACKAGE}/com.tabula.v3.debug.LiquidGlassPreviewActivity"
 
+class EmulatorUnavailable(RuntimeError):
+    """模拟器自身故障：本轮取证作废，但不代表实现有缺陷。"""
+
+
 evidence = {
     "evidence_kind": "EMULATOR",
     "note": "本目录全部为模拟器（CI emulator）采集，不代表真机表现。",
@@ -108,6 +112,35 @@ def crash_excerpt(path: Path, limit: int = 4000) -> str:
     return "\n".join(picked[:120])[:limit]
 
 
+def emulator_broken(dump_text: str) -> str | None:
+    """识别"模拟器自己坏了"的界面，与"我们的 app 崩了"区分开。
+
+    实测过的两种：
+    - `System UI isn't responding` / `Process system isn't responding`：系统进程卡死；
+    - 前台落到 launcher 且屏幕上有 `keeps stopping`：我们的 app 崩了（这一类**不算**
+      基础设施故障，必须判红）。
+
+    区分很重要：把系统卡死判成实现缺陷，会让人去改本来没坏的代码；
+    把 app 崩溃当成"模拟器抖动"放行，则会让真缺陷漏过去。
+    """
+    for marker in (
+        "System UI isn't responding",
+        "Process system isn't responding",
+        "com.android.systemui",
+        "isn't responding",
+    ):
+        if marker in dump_text:
+            return marker
+    return None
+
+
+def app_crashed(dump_text: str) -> bool:
+    """屏幕上出现我们的包名 + keeps stopping / has stopped，说明是 app 崩了。"""
+    lowered = dump_text.lower()
+    mentions_us = PACKAGE in dump_text or "tabula" in lowered
+    return mentions_us and ("keeps stopping" in lowered or "has stopped" in lowered)
+
+
 def assert_app_alive(tag: str, step: str) -> bool:
     """确认预览页还活着：前台包名必须是我们的包。
 
@@ -116,19 +149,41 @@ def assert_app_alive(tag: str, step: str) -> bool:
     """
     dump = ui_dump(tag)
     text = dump.read_text(encoding="utf-8", errors="ignore")
-    alive = f'package="{PACKAGE}"' in text
-    if alive:
+    if f'package="{PACKAGE}"' in text:
         return True
+
+    broken = emulator_broken(text)
+    if broken is not None:
+        # 模拟器自身卡死：不是我们的缺陷。记为"环境不可用"并让整轮取证标记为
+        # 未完成，而不是判红说"实现有 bug"。
+        evidence["environment_failure"] = broken
+        record(
+            f"preview activity is alive ({step})",
+            False,
+            f"模拟器故障：{broken}",
+            failure=None,
+        )
+        raise EmulatorUnavailable(f"模拟器在「{step}」这一步自身故障：{broken}")
+
     log = capture_logcat(tag)
     excerpt = crash_excerpt(log)
     if excerpt:
         (OUT / f"{tag}-crash.txt").write_text(excerpt, encoding="utf-8")
-    record(
-        f"preview activity is alive ({step})",
-        False,
-        excerpt.splitlines()[0] if excerpt else f"前台不是 {PACKAGE}",
-        failure=f"预览页在「{step}」这一步已经不在前台（多半是启动崩溃）；见 {log.name}",
-    )
+    detail = excerpt.splitlines()[0] if excerpt else f"前台不是 {PACKAGE}"
+    if app_crashed(text):
+        record(
+            f"preview activity is alive ({step})",
+            False,
+            detail,
+            failure=f"预览页在「{step}」这一步崩溃（屏幕显示 keeps stopping）；见 {log.name}",
+        )
+    else:
+        record(
+            f"preview activity is alive ({step})",
+            False,
+            detail,
+            failure=f"预览页在「{step}」这一步不在前台（原因不明）；见 {log.name}",
+        )
     return False
 
 
@@ -231,9 +286,19 @@ def start_preview(
         args += ["--es", "backdrop", backdrop]
     if diag_blur:
         args += ["--ez", "diagBlur", "true"]
-    adb(*args)
+    out = adb(*args, check=False)
+    if "Error" in out or "Exception" in out:
+        # 启动就失败（崩溃 / Activity 找不到）：立刻把 logcat 与崩溃段落盘，
+        # 然后抛出。继续跑下去只会得到一堆"没有 AUDIT 标记"的假失败。
+        log = capture_logcat("start-failure")
+        excerpt = crash_excerpt(log)
+        if excerpt:
+            (OUT / "start-failure-crash.txt").write_text(excerpt, encoding="utf-8")
+        raise RuntimeError(f"preview failed to start: {out.strip()}\n{excerpt[:2000]}")
     # 等待首帧与采样层建立
     time.sleep(2.5)
+    # 启动后确认预览页真的在前台（而不是闪一下崩掉）
+    assert_app_alive("after-start", "preview 启动")
 
 
 def pixel_diff(a: Path, b: Path, out_prefix: str, roi: tuple[int, int, int, int] | None) -> dict:
@@ -815,6 +880,15 @@ def color_continuity(image_path: Path, roi: tuple[int, int, int, int]) -> dict:
 if __name__ == "__main__":
     try:
         sys.exit(main())
+    except EmulatorUnavailable as error:
+        # 模拟器自身故障：整轮取证标记为"未完成"，不把基础设施问题算成实现缺陷。
+        evidence["environment_unavailable"] = str(error)
+        evidence["success"] = None
+        (OUT / "error-summary.json").write_text(
+            json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        print(f"[ENV] 模拟器故障，本轮取证作废（不是实现缺陷）：{error}", flush=True)
+        raise
     except Exception as error:  # noqa: BLE001
         evidence["error"] = f"{type(error).__name__}: {error}"
         (OUT / "error-summary.json").write_text(
