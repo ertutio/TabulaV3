@@ -43,11 +43,17 @@ class ShareRelayStore(
         if (raw == null) return LoadResult.Ok(emptyList())
         return try {
             val array = JSONArray(raw)
-            val marks = (0 until array.length()).mapNotNull { index ->
-                val obj = array.optJSONObject(index) ?: return@mapNotNull null
+            val marks = (0 until array.length()).map { index ->
+                // 审计 #85：无法解析的记录（非对象、缺必要字段、未知 state）不静默丢弃——
+                // 否则读后写会把它从存储里删掉。任何一条解析失败都让整个读取
+                // 返回 Failed，禁止后续覆盖，原始数据保持可恢复。
+                val obj = array.optJSONObject(index)
+                    ?: throw IllegalStateException("mark $index is not a JSON object")
                 val state = runCatching {
                     RelayMarkState.valueOf(obj.getString("state"))
-                }.getOrNull() ?: return@mapNotNull null
+                }.getOrElse {
+                    throw IllegalStateException("mark $index has unknown state")
+                }
                 RelayMark(
                     identityKey = obj.optString("identityKey", "").ifBlank { null },
                     uriString = obj.getString("uri"),
