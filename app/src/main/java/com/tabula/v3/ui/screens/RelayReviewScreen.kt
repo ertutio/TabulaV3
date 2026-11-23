@@ -48,7 +48,7 @@ fun RelayReviewScreen(
     library: List<ImageFile>,
     showReviewOnly: Boolean,
     onToggleReviewOnly: () -> Unit,
-    onRecycle: (ImageFile) -> Unit,
+    onRecycle: (ImageFile, com.tabula.v3.data.relay.RelayMark) -> Unit,
     onRemoveMark: (RelayReviewRules.ReviewRow) -> Unit,
     onChooseImage: (RelayReviewRules.ReviewRow, ImageFile) -> Unit,
     onNavigateBack: () -> Unit
@@ -131,7 +131,7 @@ fun RelayReviewScreen(
                             if (image != null) {
                                 TextButton(onClick = {
                                     HapticFeedback.lightTap(context)
-                                    onRecycle(image)
+                                    onRecycle(image, row.mark)
                                 }) { Text("移入回收站", color = accent) }
                             } else if (row.mark.identityKey == null) {
                                 Text("手动指定原图：", color = secondary, fontSize = 12.sp)

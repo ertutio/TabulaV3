@@ -106,6 +106,7 @@ import com.tabula.v3.ui.screens.TutorialScreen
 import com.tabula.v3.ui.screens.OtherAlbumsScreen
 import com.tabula.v3.ui.screens.RelayReviewScreen
 import com.tabula.v3.data.relay.RelayMark
+import com.tabula.v3.data.relay.RelayRecycleTransaction
 import com.tabula.v3.data.relay.RelayReviewController
 import com.tabula.v3.data.relay.RelayReviewRules
 import com.tabula.v3.data.relay.ShareRelayStore
@@ -1243,22 +1244,37 @@ fun TabulaApp(
             library = library,
             showReviewOnly = relayShowReviewOnly,
             onToggleReviewOnly = { relayShowReviewOnly = !relayShowReviewOnly },
-            onRecycle = { image ->
+            onRecycle = { image, mark ->
                 scope.launch {
-                    try {
-                        shareRelayStore.remove(listOf(image.mediaIdentityKey()))
-                        recycleBinManager.addToRecycleBin(image)
-                        val persisted = recycleBinManager.loadRecycleBin()
-                        val moved = persisted.map { it.mediaIdentityKey() }.toSet()
-                        allImages = allImages.filterNot { it.mediaIdentityKey() in moved }
-                        imagesForSorting = imagesForSorting.filterNot { it.mediaIdentityKey() in moved }
-                        deletedImages = persisted
-                        relayRevision++
-                        Toast.makeText(context, "已移入回收站，可在回收站恢复", Toast.LENGTH_SHORT).show()
-                    } catch (e: Exception) {
-                        Log.e("TabulaApp", "Relay recycle failed", e)
-                        Toast.makeText(context, "未能移入回收站，标记已保留", Toast.LENGTH_LONG).show()
+                    // #85：先写回收站并读回确认持久化，再移除待清标记。
+                    // 任一步失败都保留标记、如实提示；回收站按身份去重，
+                    // 重试不会重复写入或丢失记录。
+                    val transaction = RelayRecycleTransaction(
+                        recycleWrite = { recycleBinManager.addToRecycleBin(it) },
+                        recycleRead = { recycleBinManager.loadRecycleBin() },
+                        markRemove = { key -> shareRelayStore.remove(listOf(key)) },
+                        markRead = { shareRelayStore.load() }
+                    )
+                    val outcome = withContext(Dispatchers.IO) {
+                        transaction.execute(mark, image)
                     }
+                    when (outcome) {
+                        is RelayRecycleTransaction.Outcome.Done,
+                        is RelayRecycleTransaction.Outcome.MarkRemovalFailed -> {
+                            // 回收站确实写入成功：同步真实状态
+                            val persisted = recycleBinManager.loadRecycleBin()
+                            val moved = persisted.map { it.mediaIdentityKey() }.toSet()
+                            allImages = allImages.filterNot { it.mediaIdentityKey() in moved }
+                            imagesForSorting = imagesForSorting.filterNot { it.mediaIdentityKey() in moved }
+                            deletedImages = persisted
+                        }
+                        else -> Unit
+                    }
+                    if (outcome is RelayRecycleTransaction.Outcome.RecycleFailed) {
+                        Log.e("TabulaApp", "Relay recycle failed: ${outcome.reason}")
+                    }
+                    Toast.makeText(context, transaction.message(outcome), Toast.LENGTH_LONG).show()
+                    relayRevision++
                 }
             },
             onRemoveMark = { row ->
