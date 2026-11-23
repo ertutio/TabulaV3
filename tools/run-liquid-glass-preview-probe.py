@@ -115,7 +115,9 @@ def screenshot(name: str, attempts: int = 3) -> Path:
         except Exception as error:  # noqa: BLE001
             last_error = error
             print(f"[retry] screencap {name} attempt {attempt} failed: {error}", flush=True)
-            adb("wait-for-device", check=False)
+            # 只用短超时的轻量探测确认 adbd 还在；不用 wait-for-device，
+            # 它在模拟器抖动时会挂满超时并让整轮取证无谓中断。
+            adb("shell", "echo", "ping", check=False, timeout=15)
             time.sleep(2.0)
     raise RuntimeError(f"screencap {name} failed after {attempts} attempts: {last_error}")
 
