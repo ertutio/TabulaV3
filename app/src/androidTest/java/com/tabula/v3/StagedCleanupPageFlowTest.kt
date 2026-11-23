@@ -236,8 +236,21 @@ class StagedCleanupPageFlowTest {
             sourceTexts.any { it.contains("先选来源") } || sourceTexts.any { it.contains("来源") }
         )
 
-        // 选择来源并确认（按钮文案随选中数量变化）
-        val viewButton = sourceTexts.firstOrNull { it.startsWith("查看") && it.endsWith("个来源的旧图") }
+        // 先在来源选择器里**勾选来源**（未勾选时是"本轮 0 个来源"，
+        // 查看按钮会导向空候选页——run 45167685266 的真实原因）
+        val sourceRow = sourceTexts.firstOrNull { it.contains("张 · ") }
+        assertTrue(
+            "来源选择器应列出至少一个来源（屏幕：$sourceTexts）",
+            sourceRow != null
+        )
+        tap(sourceRow!!)
+        android.os.SystemClock.sleep(1000)
+
+        // 勾选后确认（按钮文案随选中数量变化）
+        val afterPick = screenTexts()
+        val viewButton = afterPick.firstOrNull {
+            it.startsWith("查看") && it.endsWith("个来源的旧图")
+        }
         if (viewButton != null) {
             tap(viewButton)
         } else {
