@@ -106,8 +106,9 @@ jobs:
             adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED || true
             adb shell wm size > device-results/display.txt || true
             adb shell wm density >> device-results/display.txt || true
+            adb shell cmd uimode night yes >> device-results/display.txt || true
             cat device-results/display.txt
-            timeout 600s adb shell am instrument -w -r -e class com.tabula.v3.RecentAlbumsDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner | tee device-results/instrumentation.txt
+            timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.RecentAlbumsEntryDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner | tee device-results/instrumentation.txt
             grep -Eq 'OK \([0-9]+ tests?\)' device-results/instrumentation.txt
       - name: Summarise
         if: always()
