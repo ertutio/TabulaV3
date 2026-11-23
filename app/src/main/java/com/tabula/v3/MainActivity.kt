@@ -69,6 +69,7 @@ import com.tabula.v3.data.preferences.TopBarDisplayMode
 import com.tabula.v3.data.repository.DeletionVerification
 import com.tabula.v3.data.repository.FileOperationManager
 import com.tabula.v3.data.repository.LocalImageRepository
+import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.copyImagesResultMessage
 import com.tabula.v3.data.repository.moveImagesResultMessage
 import com.tabula.v3.data.repository.matchesSameMediaIdentity
@@ -104,6 +105,12 @@ import com.tabula.v3.ui.screens.DisclaimerScreen
 import com.tabula.v3.ui.screens.PrivacyPolicyScreen
 import com.tabula.v3.ui.screens.TutorialScreen
 import com.tabula.v3.ui.screens.OtherAlbumsScreen
+import com.tabula.v3.ui.screens.RelayReviewScreen
+import com.tabula.v3.data.relay.RelayMark
+import com.tabula.v3.data.relay.RelayRecycleTransaction
+import com.tabula.v3.data.relay.RelayReviewController
+import com.tabula.v3.data.relay.RelayReviewRules
+import com.tabula.v3.data.relay.ShareRelayStore
 import com.tabula.v3.data.repository.AlbumManager
 import com.tabula.v3.data.model.Album
 import androidx.compose.runtime.collectAsState
@@ -553,6 +560,15 @@ fun TabulaApp(
     var duplicateCounts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var duplicateDetails by remember { mutableStateOf<Map<String, List<ImageFile>>>(emptyMap()) }
     var duplicateScanRevision by remember { mutableIntStateOf(0) }
+
+    // ========== 分享待清记录（#85：用户可达的清理界面） ==========
+    val shareRelayStore = remember { ShareRelayStore.getInstance(context) }
+    var relayMarks by remember { mutableStateOf<List<RelayMark>>(emptyList()) }
+    var relayShowReviewOnly by remember { mutableStateOf(false) }
+    var relayRevision by remember { mutableIntStateOf(0) }
+    LaunchedEffect(relayRevision) {
+        relayMarks = withContext(Dispatchers.IO) { shareRelayStore.load() }
+    }
 
     // ========== 图片数据状态 ==========
     var allImages by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
@@ -1480,10 +1496,103 @@ fun TabulaApp(
                 if (preferences.stagedCleanupSourceKeys.isEmpty()) "" else
                     "${preferences.stagedCleanupSourceKeys.size} 个来源"
             } else "",
+            onNavigateToRelayReview = {
+                relayRevision++
+                currentScreen = AppScreen.RELAY_REVIEW
+            },
+            relayPendingCount = RelayReviewRules.pendingReviewRows(
+                RelayReviewRules.resolveRows(relayMarks, allImages)
+            ).size,
             scrollState = settingsScrollState
         )
     }
     
+    // 系统分享产生的待清记录页面（#85）
+    val relayReviewContent: @Composable () -> Unit = {
+        // 只把当前图库里仍存在的照片作为定位来源；回收站中的不算"原图"
+        val recycledKeys = deletedImages.map { it.mediaIdentityKey() }.toSet()
+        val library = allImages.filterNot { it.mediaIdentityKey() in recycledKeys }
+        val rows = RelayReviewRules.resolveRows(
+            marks = relayMarks,
+            library = library,
+            recycleBinKeys = deletedImages.map { it.mediaIdentityKey() }.toSet()
+        )
+        RelayReviewScreen(
+            rows = rows,
+            library = library,
+            showReviewOnly = relayShowReviewOnly,
+            onToggleReviewOnly = { relayShowReviewOnly = !relayShowReviewOnly },
+            onRecycle = { image, mark ->
+                scope.launch {
+                    // #85：先写回收站并读回确认持久化，再移除待清标记。
+                    // 任一步失败都保留标记、如实提示；回收站按身份去重，
+                    // 重试不会重复写入或丢失记录。
+                    val transaction = RelayRecycleTransaction(
+                        recycleWrite = { recycleBinManager.addToRecycleBin(it) },
+                        recycleRead = { recycleBinManager.loadRecycleBin() },
+                        markRemove = { key -> shareRelayStore.remove(listOf(key)) },
+                        markRead = { shareRelayStore.loadResult() }
+                    )
+                    val outcome = withContext(Dispatchers.IO) {
+                        transaction.execute(mark, image)
+                    }
+                    when (outcome) {
+                        is RelayRecycleTransaction.Outcome.Done,
+                        is RelayRecycleTransaction.Outcome.MarkRemovalFailed -> {
+                            // 回收站确实写入成功：同步真实状态
+                            val persisted = recycleBinManager.loadRecycleBin()
+                            val moved = persisted.map { it.mediaIdentityKey() }.toSet()
+                            allImages = allImages.filterNot { it.mediaIdentityKey() in moved }
+                            imagesForSorting = imagesForSorting.filterNot { it.mediaIdentityKey() in moved }
+                            deletedImages = persisted
+                        }
+                        else -> Unit
+                    }
+                    if (outcome is RelayRecycleTransaction.Outcome.RecycleFailed) {
+                        Log.e("TabulaApp", "Relay recycle failed: ${outcome.reason}")
+                    }
+                    Toast.makeText(context, transaction.message(outcome), Toast.LENGTH_LONG).show()
+                    relayRevision++
+                }
+            },
+            onRemoveMark = { row ->
+                // 审计 #85：撤销/重试失败时保留页面状态并提示，不当作已完成
+                val result = RelayReviewController(shareRelayStore).undo(row.mark)
+                when (result) {
+                    is ShareRelayStore.WriteResult.Ok -> {
+                        Toast.makeText(context, "标记已移除", Toast.LENGTH_SHORT).show()
+                        relayRevision++
+                    }
+                    is ShareRelayStore.WriteResult.Failed -> {
+                        Toast.makeText(
+                            context,
+                            "标记移除失败：${result.reason}，记录已保留，可重试",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            },
+            onChooseImage = { row, chosen ->
+                val result = RelayReviewController(shareRelayStore).manualConfirm(row.mark, chosen)
+                Toast.makeText(
+                    context,
+                    when (result) {
+                        is ShareRelayStore.WriteResult.Ok -> {
+                            // 确认后按身份去重：同一张只留一条
+                            val total = shareRelayStore.load()
+                            "已关联原图，共 ${total.size} 条记录"
+                        }
+                        is ShareRelayStore.WriteResult.Failed ->
+                            "确认失败：${result.reason}，原记录保留"
+                    },
+                    Toast.LENGTH_LONG
+                ).show()
+                relayRevision++
+            },
+            onNavigateBack = { currentScreen = AppScreen.SETTINGS }
+        )
+    }
+
     // 使用教程页面
     val tutorialContent: @Composable () -> Unit = {
         TutorialScreen(
@@ -2191,6 +2300,7 @@ fun TabulaApp(
         AppScreen.OTHER_ALBUMS -> deckContent to otherAlbumsContent
         AppScreen.STAGED_CLEANUP -> deckContent to stagedCleanupContent
         AppScreen.BURST_SELECTION -> deckContent to burstSelectionContent
+        AppScreen.RELAY_REVIEW -> settingsContent to relayReviewContent
         AppScreen.VIBRATION_SOUND -> settingsContent to vibrationSoundContent
         AppScreen.DISPLAY_SETTINGS -> settingsContent to displaySettingsContent
         AppScreen.LAB -> settingsContent to labContent
@@ -2220,6 +2330,7 @@ fun TabulaApp(
                     AppScreen.OTHER_ALBUMS -> AppScreen.DECK
                     AppScreen.STAGED_CLEANUP -> AppScreen.DECK
                     AppScreen.BURST_SELECTION -> AppScreen.DECK
+                    AppScreen.RELAY_REVIEW -> AppScreen.SETTINGS
                     AppScreen.VIBRATION_SOUND -> AppScreen.SETTINGS
                     AppScreen.DISPLAY_SETTINGS -> AppScreen.SETTINGS
                     AppScreen.LAB -> AppScreen.SETTINGS
