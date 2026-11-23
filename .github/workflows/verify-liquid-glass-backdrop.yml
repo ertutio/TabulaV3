@@ -46,7 +46,7 @@ jobs:
           # 逐类断言实跑条数：改名/删类都会让这里失败，避免"测试没跑却报绿"。
           expected = {
               "LiquidGlassAuditMarkerTest": 3,
-              "LiquidGlassBackdropInvalidationTest": 8,
+              "LiquidGlassBackdropInvalidationTest": 10,
               "LiquidGlassBackdropPlanTest": 17,
               "LiquidGlassBackdropRefractionTest": 26,
               "LiquidGlassBackdropShaderContractTest": 5,

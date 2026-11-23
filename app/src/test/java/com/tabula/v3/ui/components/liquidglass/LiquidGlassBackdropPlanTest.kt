@@ -838,6 +838,58 @@ class LiquidGlassBackdropInvalidationTest {
     }
 
     @Test
+    fun `only the largest glass writes the audit reading`() {
+        // 同一个背景来源上通常有主面板 + 一排 48dp 按钮。若每个节点都写读数，
+        // 最后绘制的按钮会把主面板挤掉——模拟器实测出现过 glass=126x126。
+        val state = LiquidGlassBackdropState()
+        val spec = LiquidGlassBackdropSpec.Default
+        val panel = LiquidGlassBackdropSampling(state, spec)
+        val button = LiquidGlassBackdropSampling(state, spec)
+
+        // 按钮先布局，面板后布局：面板面积更大，应成为主玻璃
+        button.onGlassPositioned(IntRect(16, 24, 16 + 126, 24 + 126))
+        panel.onGlassPositioned(IntRect(63, 105, 63 + 954, 105 + 420))
+
+        assertTrue("面积大的面板应成为主玻璃", panel.isPrimary)
+        assertFalse("按钮不应写审计读数", button.isPrimary)
+
+        // 反过来：更大的节点出现后，原来的主玻璃必须让位
+        val huge = LiquidGlassBackdropSampling(state, spec)
+        huge.onGlassPositioned(IntRect(0, 0, 1080, 2000))
+        assertTrue(huge.isPrimary)
+        assertFalse(panel.isPrimary)
+    }
+
+    @Test
+    fun `non primary glass never overwrites the audit reading`() {
+        val state = LiquidGlassBackdropState()
+        val spec = LiquidGlassBackdropSpec.Default
+        val panel = LiquidGlassBackdropSampling(state, spec)
+        val button = LiquidGlassBackdropSampling(state, spec)
+        panel.onGlassPositioned(IntRect(63, 105, 63 + 954, 105 + 420))
+        button.onGlassPositioned(IntRect(16, 24, 16 + 126, 24 + 126))
+
+        val panelPlan = planBackdropSample(
+            35, true, true,
+            IntRect(63, 105, 63 + 954, 105 + 420),
+            IntRect(0, 0, 1080, 1800),
+            20
+        )
+        val buttonPlan = planBackdropSample(
+            35, true, true,
+            IntRect(16, 24, 16 + 126, 24 + 126),
+            IntRect(0, 0, 1080, 1800),
+            20
+        )
+        state.reportPlan(panelPlan, IntRect(63, 105, 63 + 954, 105 + 420), panel.isPrimary)
+        state.reportPlan(buttonPlan, IntRect(16, 24, 16 + 126, 24 + 126), button.isPrimary)
+
+        assertEquals("审计读数必须是面板的方案", panelPlan, state.lastPlan)
+        assertEquals(954, state.lastPlan.glassWidthPx)
+        assertEquals(IntRect(63, 105, 1017, 525), state.lastGlassWindow)
+    }
+
+    @Test
     fun `source size follows the measured host bounds`() {
         val state = LiquidGlassBackdropState()
         state.attachContent { }

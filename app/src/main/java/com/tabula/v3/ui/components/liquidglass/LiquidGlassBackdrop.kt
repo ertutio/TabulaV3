@@ -169,13 +169,46 @@ class LiquidGlassBackdropState {
      *
      * 只在值真的变化时写一次：绘制阶段写状态会安排下一帧重组，写完即稳定，
      * 不会持续刷新。静止场景的"不刷新"由绘制计数与逐像素稳定性共同守。
+     *
+     * **只记录"主玻璃"**：同一个背景来源可以被多个玻璃节点共享（例如主面板 +
+     * 顶栏那排 48dp 按钮）。若每个节点都写，最后绘制的那个会把读数覆盖掉——
+     * 模拟器取证里就出现过 `sampled=true glass=126x126`（那是按钮的尺寸），
+     * 把主面板的读数挤掉了。见 [reportPlan] 的 `isPrimary` 参数。
      */
     val lastPlan: BackdropSamplePlan get() = planState
 
     /** 采样层的实际渲染健康度：用于区分"方案说采样了但效果没建起来"。 */
     val effectHealth: BackdropEffectHealth get() = effectState
 
-    internal fun reportPlan(plan: BackdropSamplePlan, glassBoundsInWindow: IntRect?) {
+    /** 面积最大的玻璃节点（主玻璃）；用于决定谁写审计读数。 */
+    private var primarySampling: LiquidGlassBackdropSampling? = null
+    private var primaryArea: Long = -1L
+
+    internal fun reportGlassArea(sampling: LiquidGlassBackdropSampling, areaPx: Long) {
+        val current = primarySampling
+        if (current === sampling) {
+            // 自己面积变了：保持自己是主玻璃（除非有更大的节点已登记）
+            if (areaPx > primaryArea) primaryArea = areaPx
+            return
+        }
+        if (areaPx > primaryArea) {
+            primaryArea = areaPx
+            primarySampling = sampling
+            current?.isPrimary = false
+            sampling.isPrimary = true
+        } else {
+            sampling.isPrimary = false
+        }
+    }
+
+    internal fun reportPlan(
+        plan: BackdropSamplePlan,
+        glassBoundsInWindow: IntRect?,
+        isPrimary: Boolean
+    ) {
+        // 非主玻璃不写读数，但它仍然要报告自己的健康度（见 reportEffectHealth），
+        // 否则"按钮效果建不起来"会被静默吞掉。
+        if (!isPrimary) return
         lastGlassWindow = glassBoundsInWindow
         if (planState != plan) planState = plan
     }
@@ -261,12 +294,26 @@ internal fun androidx.compose.ui.geometry.Rect.toIntRect(): IntRect = IntRect(
  */
 class LiquidGlassBackdropSampling internal constructor(
     private val source: LiquidGlassBackdropState,
-    private val spec: LiquidGlassBackdropSpec
+    private val spec: LiquidGlassBackdropSpec,
+    /**
+     * 是否是"主玻璃"（负责向审计读数写方案的那个节点）。
+     *
+     * 同一个背景来源会被多个玻璃节点共享：主面板 + 顶栏那排 48dp 按钮。
+     * 每个节点都写读数时，最后绘制的那个会覆盖前面——实测出现过
+     * `glass=126x126`（按钮尺寸）把主面板读数挤掉，探针因此误判"回退失败"。
+     * 约定：**面积最大的那个节点是主玻璃**，由 [rememberLiquidGlassBackdropSampling]
+     * 在布局阶段比较面积后确定。
+     */
+    internal var isPrimary: Boolean = true
 ) {
     internal var glassBoundsState by mutableStateOf<IntRect?>(null)
 
     internal fun onGlassPositioned(bounds: IntRect) {
         if (glassBoundsState != bounds) glassBoundsState = bounds
+        // 面积最大的节点是"主玻璃"，由它向审计读数写方案。
+        // 同一个背景来源上通常有主面板 + 一排 48dp 按钮；若不区分，最后绘制的
+        // 按钮会把读数覆盖成 `glass=126x126`，探针就会误判主面板回退失败。
+        source.reportGlassArea(this, bounds.width.toLong() * bounds.height.toLong())
     }
 
     /** 采样外扩（像素）：由外观参数决定，给模糊核与折射位移留真实内容。 */
@@ -309,7 +356,7 @@ class LiquidGlassBackdropSampling internal constructor(
             paddingPx = padding,
             enabled = spec.enabled
         )
-        SideEffect { source.reportPlan(plan, glassBoundsState) }
+        SideEffect { source.reportPlan(plan, glassBoundsState, isPrimary) }
 
         val appearance = spec.resolve(density.density)
         // 圆角半径由**玻璃实际尺寸**夹取（圆形正是取到短边一半），
