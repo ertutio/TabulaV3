@@ -62,7 +62,7 @@ class DeckScreenRoundIntentUiTest {
             "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
             "android.permission.WRITE_EXTERNAL_STORAGE"
         ).forEach { p ->
-            runCatching { automation.executeShellCommand("pm grant ${ctx.packageName} $p").close() }
+            runCatching { shell("pm grant ${ctx.packageName} $p") }
         }
     }
 
@@ -96,7 +96,9 @@ class DeckScreenRoundIntentUiTest {
         return uri
     }
 
-    private fun shell(cmd: String) = ins.uiAutomation.executeShellCommand(cmd).close()
+    private fun shell(cmd: String) = ins.uiAutomation.executeShellCommand(cmd).use { p ->
+        java.io.FileInputStream(p.fileDescriptor).use { it.readBytes().toString(Charsets.UTF_8) }
+    }
 
     private fun find(root: AccessibilityNodeInfo?, text: String): AccessibilityNodeInfo? =
         root?.findAccessibilityNodeInfosByText(text)?.firstOrNull { it.isClickable || it.text == text }
@@ -113,6 +115,7 @@ class DeckScreenRoundIntentUiTest {
         val end = now() + 15000
         while (now() < end) {
             find(ins.uiAutomation.rootInActiveWindow, label)?.let { tapNode(it, label); return }
+            dismissPermissionDialogIfAny()
             android.os.SystemClock.sleep(150)
         }
         error("not found: $label")
@@ -124,6 +127,7 @@ class DeckScreenRoundIntentUiTest {
         val end = now() + timeout
         while (now() < end) {
             if (find(ins.uiAutomation.rootInActiveWindow, label) != null) return
+            dismissPermissionDialogIfAny()
             android.os.SystemClock.sleep(150)
         }
         error("timeout waiting: $label")
@@ -133,9 +137,33 @@ class DeckScreenRoundIntentUiTest {
         activity = ins.startActivitySync(
             Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
-        // 等待主界面照片加载（第一批来自真实 MediaStore）
-        waitFor("图集", timeout = 30000)
-        android.os.SystemClock.sleep(2000)
+        // 等待主界面（卡片页）出现：回收站按钮是卡片页特有锚点
+        // （"图集"标题只在图集模式下显示，浏览模式的卡片页没有该文本）
+        val end = now() + 45000
+        while (now() < end) {
+            if (find(ins.uiAutomation.rootInActiveWindow, "回收站") != null) break
+            // 权限对话框偶发弹出：自动点"Allow/允许"
+            dismissPermissionDialogIfAny()
+            android.os.SystemClock.sleep(200)
+        }
+        if (find(ins.uiAutomation.rootInActiveWindow, "回收站") == null) {
+            error("卡片页未出现（回收站按钮超时）")
+        }
+        android.os.SystemClock.sleep(2500) // 等首批照片从 MediaStore 装载
+    }
+
+    /** 系统权限对话框偶发弹出：自动点 Allow/允许。 */
+    private fun dismissPermissionDialogIfAny() {
+        val root = ins.uiAutomation.rootInActiveWindow ?: return
+        val owner = root.packageName?.toString().orEmpty()
+        if (owner == ctx.packageName) return
+        if (!(owner.contains("permissioncontroller") || owner.contains("providers.media"))) return
+        listOf("Allow", "允许", "Select all", "全部选择").forEach { label ->
+            root.findAccessibilityNodeInfosByText(label)
+                .filter { it.isClickable }
+                .firstOrNull()
+                ?.let { tapNode(it, label) }
+        }
     }
 
     /**
@@ -173,6 +201,7 @@ class DeckScreenRoundIntentUiTest {
         var hintSeen = false
         while (now() < hintTimeout) {
             if (find(ins.uiAutomation.rootInActiveWindow, "看这个") != null) { hintSeen = true; break }
+            dismissPermissionDialogIfAny()
             if (find(ins.uiAutomation.rootInActiveWindow, "再来一组") != null) {
                 // 批次完成：装载下一批（真实页面入口）
                 tapNode(find(ins.uiAutomation.rootInActiveWindow, "再来一组")!!, "再来一组")
