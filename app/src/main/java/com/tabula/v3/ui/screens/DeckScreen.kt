@@ -193,7 +193,7 @@ fun DeckScreen(
     loadingTotal: Int = 0,
     topBarDisplayMode: TopBarDisplayMode = TopBarDisplayMode.INDEX,
     onRemove: (ImageFile) -> Unit,
-    onKeep: () -> Unit = {},
+    onKeep: (ImageFile) -> Unit = {},
     onNavigateToTrash: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAlbumDetail: (Album) -> Unit = {},
@@ -1051,7 +1051,7 @@ fun DeckScreen(
                                 }
                             } else {
                                 if (newIndex > currentIndex) {
-                                    onKeep()
+                                    currentBatch.getOrNull(currentIndex)?.let(onKeep)
                                 }
                                 // 防止空列表时索引越界
                                 currentIndex = if (currentBatch.isEmpty()) {
@@ -1130,7 +1130,7 @@ fun DeckScreen(
                                 // 自动进入下一张
                                 if (currentIndex < currentBatch.lastIndex) {
                                     currentIndex++
-                                    onKeep()
+                                    // 归档在 onAlbumSelect 里单独记为成功行为
                                 }
                             }
                         },
@@ -1308,7 +1308,7 @@ fun DeckScreen(
             },
             onNext = {
                 if (currentIndex < currentBatch.lastIndex) {
-                    onKeep()
+                    currentBatch.getOrNull(currentIndex)?.let(onKeep)
                     currentIndex++
                 }
             },
