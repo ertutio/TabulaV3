@@ -131,7 +131,20 @@ class DuplicateVersionsDeviceTest {
         val digests = calc.digestAll(listOf(ia, ib, id))
         assertEquals("三张照片都应有摘要", 3, digests.size)
 
-        val findings = DuplicateRules.findExactDuplicates(digests)
+        // 诊断：摘要与分组键（sha256, size）必须一致才能分到一组
+        println("DIAG sizes ia=${ia.size} ib=${ib.size} id=${id.size}")
+        println("DIAG digests=" + digests.map { (k, v) ->
+            "${k.displayName}:${v.sha256.take(8)}/${v.size}/meaningful=${v.isMeaningful}"
+        })
+        // 契约：只有 recycledIdentityKeys 里的成员才产出 finding
+        //（提示只在"回收站里待永久删除"时才需要"还剩一份吗"）
+        val findings = DuplicateRules.findExactDuplicates(
+            candidates = digests,
+            recycledIdentityKeys = setOf(ia.mediaIdentityKey())
+        )
+        println("DIAG findings=" + findings.map { f ->
+            "${f.image.displayName}->${f.duplicates.map { it.displayName }}"
+        })
         val forA = findings.firstOrNull { it.image.mediaIdentityKey() == ia.mediaIdentityKey() }
         assertTrue("字节相同的两张应被识别为副本", forA?.hasDuplicate == true)
         assertTrue(
@@ -174,7 +187,10 @@ class DuplicateVersionsDeviceTest {
 
         val calc = ContentDigestCalculator(ctx.contentResolver)
         val before = calc.digestAll(listOf(ia, ib))
-        val findingsBefore = DuplicateRules.findExactDuplicates(before)
+        val findingsBefore = DuplicateRules.findExactDuplicates(
+            candidates = before,
+            recycledIdentityKeys = setOf(ia.mediaIdentityKey())
+        )
         assertTrue(
             "初始状态应识别为副本",
             findingsBefore.first { it.image.mediaIdentityKey() == ia.mediaIdentityKey() }.hasDuplicate
@@ -193,7 +209,10 @@ class DuplicateVersionsDeviceTest {
 
         // 重新计算摘要：副本身份已变化，提示必须失效
         val after = calc.digestAll(listOf(awaitImageOf(a), awaitImageOf(b)))
-        val findingsAfter = DuplicateRules.findExactDuplicates(after)
+        val findingsAfter = DuplicateRules.findExactDuplicates(
+            candidates = after,
+            recycledIdentityKeys = setOf(ia.mediaIdentityKey())
+        )
         val forAAfter = findingsAfter.firstOrNull {
             it.image.mediaIdentityKey() == ia.mediaIdentityKey()
         }
