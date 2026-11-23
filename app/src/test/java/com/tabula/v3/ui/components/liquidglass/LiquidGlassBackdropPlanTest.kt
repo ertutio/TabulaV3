@@ -660,6 +660,47 @@ class LiquidGlassLayoutContractTest {
     }
 
     @Test
+    fun `content is measured exactly once and other children once each`() {
+        // Compose 对同一个 Measurable 只允许 measure 一次；重复会抛
+        // IllegalStateException，而且是在布局阶段——首帧已经画出去了，
+        // 表现成"闪一下然后崩溃"。这里把"每个下标只测一次"锁成事实。
+        val layout = glassChildLayout(hasBackdropLayer = true)
+        val content = "content"
+        val measured = mutableListOf<Int>()
+        val placeables = collectPlaceablesInPlanOrder(
+            childCount = layout.childCount,
+            contentIndex = layout.contentIndex,
+            contentPlaceable = content,
+            measureOther = { index ->
+                measured += index
+                "child-$index"
+            }
+        )
+
+        assertEquals(layout.childCount, placeables.size)
+        assertEquals(content, placeables[layout.contentIndex])
+        // 内容层没有被重复测量
+        assertFalse("内容层被测量了第二次", measured.contains(layout.contentIndex))
+        // 其余每个下标恰好一次
+        assertEquals((0 until layout.childCount).filter { it != layout.contentIndex }, measured)
+        assertEquals(measured.size, measured.toSet().size)
+    }
+
+    @Test
+    fun `measure once contract also holds without a backdrop layer`() {
+        val layout = glassChildLayout(hasBackdropLayer = false)
+        val measured = mutableListOf<Int>()
+        collectPlaceablesInPlanOrder(
+            childCount = layout.childCount,
+            contentIndex = layout.contentIndex,
+            contentPlaceable = "content",
+            measureOther = { measured += it }
+        )
+        assertFalse(measured.contains(layout.contentIndex))
+        assertEquals(layout.childCount - 1, measured.size)
+    }
+
+    @Test
     fun `zero sized content keeps the plan valid instead of crashing`() {
         val layout = glassChildLayout(hasBackdropLayer = true)
         val plan = planGlassLayout(layout, 20, IntSize.Zero, parentConstraints)

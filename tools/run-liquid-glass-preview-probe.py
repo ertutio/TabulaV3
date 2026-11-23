@@ -75,6 +75,63 @@ def sdk_int() -> int:
     return int(adb("shell", "getprop", "ro.build.version.sdk").strip())
 
 
+def capture_logcat(tag: str) -> Path:
+    """把 logcat（含 crash buffer）落到文件。
+
+    没有这一步，模拟器上"app 起不来"就只剩一句 "keeps stopping"，看不出是
+    哪一行崩的——上一轮取证正是卡在这里。crash buffer 单独拉一次，因为
+    `logcat -d` 默认不含 crash 事件。
+    """
+    local = OUT / f"{tag}-logcat.txt"
+    parts = []
+    for args in (
+        ("-d", "-v", "threadtime"),
+        ("-d", "-b", "crash", "-v", "threadtime"),
+    ):
+        parts.append(adb("logcat", *args, check=False, timeout=60))
+    local.write_text("\n".join(parts), encoding="utf-8")
+    return local
+
+
+def crash_excerpt(path: Path, limit: int = 4000) -> str:
+    """从 logcat 里截出与本次包名相关的异常段，放进证据文件。"""
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    lines = text.splitlines()
+    picked: list[str] = []
+    for i, line in enumerate(lines):
+        if "FATAL EXCEPTION" in line or "AndroidRuntime" in line:
+            picked.extend(lines[i:i + 60])
+        elif PACKAGE in line and ("Exception" in line or "Error" in line):
+            picked.extend(lines[max(0, i - 2):i + 20])
+    if not picked:
+        return ""
+    return "\n".join(picked[:120])[:limit]
+
+
+def assert_app_alive(tag: str, step: str) -> bool:
+    """确认预览页还活着：前台包名必须是我们的包。
+
+    "app 崩了但探针继续跑"是最坏的取证形态——后面每条断言都会以"没有 AUDIT
+    标记"失败，看起来像实现缺陷，其实是启动就崩了。这里先拦一道。
+    """
+    dump = ui_dump(tag)
+    text = dump.read_text(encoding="utf-8", errors="ignore")
+    alive = f'package="{PACKAGE}"' in text
+    if alive:
+        return True
+    log = capture_logcat(tag)
+    excerpt = crash_excerpt(log)
+    if excerpt:
+        (OUT / f"{tag}-crash.txt").write_text(excerpt, encoding="utf-8")
+    record(
+        f"preview activity is alive ({step})",
+        False,
+        excerpt.splitlines()[0] if excerpt else f"前台不是 {PACKAGE}",
+        failure=f"预览页在「{step}」这一步已经不在前台（多半是启动崩溃）；见 {log.name}",
+    )
+    return False
+
+
 def ui_dump(tag: str) -> Path:
     adb("shell", "uiautomator", "dump", "/sdcard/ui.xml")
     local = OUT / f"{tag}-ui.xml"

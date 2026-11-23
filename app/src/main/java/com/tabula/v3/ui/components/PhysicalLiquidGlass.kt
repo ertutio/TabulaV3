@@ -48,6 +48,7 @@ import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropSampling
 import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropSpec
 import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropState
 import com.tabula.v3.ui.components.liquidglass.hasBackdropLayer
+import com.tabula.v3.ui.components.liquidglass.collectPlaceablesInPlanOrder
 import com.tabula.v3.ui.components.liquidglass.glassChildLayout
 import com.tabula.v3.ui.components.liquidglass.layerSizeFor
 import com.tabula.v3.ui.components.liquidglass.liquidGlassBackdropPosition
@@ -1073,8 +1074,14 @@ private fun PhysicalLiquidGlassBoxImpl(
         // 子项契约：内容先按**真实内容**测量（wrapContent 才能拿到内容尺寸），
         // 其余层用内容的固定尺寸测量。背景层用"内容 + 2*pad"测量，并放在
         // (-pad,-pad)，于是它在屏幕上与玻璃精确重合，外扩只用于边缘取样。
-        // 计划本身由 planGlassLayout 给出，可被单测逐条断言。
-        val contentPlaceable = measurables[childLayout.contentIndex].measure(constraints)
+        //
+        // 关键：**每个 Measurable 只能 measure 一次**。Compose 会直接抛
+        // `measure() may not be called multiple times on the same Measurable`，
+        // 而且是在布局阶段抛——画面可能已经画出一帧，随后崩溃（模拟器上就
+        // 表现成"闪一下然后 keeps stopping"）。因此内容层的 placeable 复用进
+        // 最终列表，不重复测量；顺序由 collectPlaceablesInPlanOrder 保证。
+        val contentIndex = childLayout.contentIndex
+        val contentPlaceable = measurables[contentIndex].measure(constraints)
         val plan = planGlassLayout(
             layout = childLayout,
             paddingPx = backdropPaddingPx,
@@ -1085,7 +1092,12 @@ private fun PhysicalLiquidGlassBoxImpl(
             parentConstraints = constraints
         )
 
-        val placeables = measurables.mapIndexed { i, m -> m.measure(plan.constraintsPerChild[i]) }
+        val placeables = collectPlaceablesInPlanOrder(
+            childCount = plan.childCount,
+            contentIndex = contentIndex,
+            contentPlaceable = contentPlaceable,
+            measureOther = { index -> measurables[index].measure(plan.constraintsPerChild[index]) }
+        )
 
         layout(plan.contentSize.width, plan.contentSize.height) {
             placeables.forEachIndexed { i, placeable ->

@@ -424,6 +424,27 @@ fun glassChildLayout(hasBackdropLayer: Boolean): GlassChildLayout = if (hasBackd
 }
 
 /**
+ * 按计划顺序收集子项测量结果，**保证内容层不会被测量第二次**。
+ *
+ * Compose 对同一个 `Measurable` 只允许 `measure()` 一次，重复调用会直接抛
+ * `IllegalStateException: measure() may not be called multiple times on the same
+ * Measurable`。这条异常发生在**布局阶段**，而首帧往往已经画出去了，所以表现
+ * 成"画面闪一下然后 app 崩溃"——模拟器取证里就出现过这个症状，最后是靠本地
+ * Robolectric 冒烟才定位到。
+ *
+ * 抽成纯函数是为了让"内容只测一次"成为可断言的事实，而不是靠读代码：
+ * 内容层的 placeable 由调用方先测好传进来，这里只对其余下标调用 [measureOther]。
+ */
+internal inline fun <T> collectPlaceablesInPlanOrder(
+    childCount: Int,
+    contentIndex: Int,
+    contentPlaceable: T,
+    measureOther: (index: Int) -> T
+): List<T> = List(childCount) { index ->
+    if (index == contentIndex) contentPlaceable else measureOther(index)
+}
+
+/**
  * 内容层下标。保留这个入口是因为它被测试直接断言；语义与 [glassChildLayout] 一致。
  */
 fun glassContentLayerIndex(hasBackdropLayer: Boolean): Int =
