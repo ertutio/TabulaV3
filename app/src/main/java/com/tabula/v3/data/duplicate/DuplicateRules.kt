@@ -81,24 +81,31 @@ object DuplicateRules {
      * @param candidates 候选照片 → 内容摘要（缺失摘要的照片不参与）
      * @param recycledIdentityKeys 已在回收站的照片身份键——它们不算"还剩一份"
      */
+    /**
+     * 审计意见（#88）：[recycledIdentityKeys] 的成员是"要判断的对象"，
+     * 绝不能作为"图库还剩一份"的证据。
+     */
     fun findExactDuplicates(
         candidates: Map<ImageFile, ContentVersion>,
         recycledIdentityKeys: Set<String> = emptySet()
     ): List<ExactDuplicateFinding> {
         val usable = candidates.filterValues { it.isMeaningful }
-            .filterKeys { it.mediaIdentityKey() !in recycledIdentityKeys }
+        val recycled = recycledIdentityKeys
 
         // (sha256, size) -> 成员
         val groups = usable.entries
             .groupBy { it.value.sha256.lowercase() to it.value.size }
 
         return usable.keys
+            .filter { it.mediaIdentityKey() in recycled }
             .sortedBy { it.mediaIdentityKey() }
             .mapNotNull { image ->
                 val version = usable[image] ?: return@mapNotNull null
                 val key = version.sha256.lowercase() to version.size
-                val group = groups[key].orEmpty()
-                val others = group.map { it.key }
+                // 只接受库内成员作副本证据：回收站成员互相比不算"还剩一份"
+                val others = groups[key].orEmpty()
+                    .map { it.key }
+                    .filter { it.mediaIdentityKey() !in recycled }
                     .filter { it.mediaIdentityKey() != image.mediaIdentityKey() }
                     .distinctBy { it.mediaIdentityKey() }
                     .sortedBy { it.mediaIdentityKey() }

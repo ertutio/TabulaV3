@@ -78,7 +78,8 @@ class DuplicateReverifyScenariosTest {
             mapOf(
                 main to DuplicateRules.ContentVersion("same-hash", 1000L),
                 copy to DuplicateRules.ContentVersion("same-hash", 1000L)
-            )
+            ),
+            recycledIdentityKeys = setOf(keyOf(1))
         )
         assertEquals(1, scanned.first { it.image.id == 1L }.duplicates.size)
 
@@ -87,7 +88,8 @@ class DuplicateReverifyScenariosTest {
             mapOf(
                 main to DuplicateRules.ContentVersion("same-hash", 1000L),
                 copy to DuplicateRules.ContentVersion("changed-hash", 1000L)
-            )
+            ),
+            recycledIdentityKeys = setOf(keyOf(1))
         )
         assertTrue("内容变了就不再是副本", afterEdit.isEmpty())
     }

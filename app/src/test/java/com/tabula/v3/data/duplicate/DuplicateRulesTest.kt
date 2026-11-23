@@ -47,14 +47,16 @@ class DuplicateRulesTest {
     fun identicalBytesAreReportedAsCopies() {
         val a = photo(1)
         val b = photo(2)
+        // a 在回收站（被查对象），b 在库里（副本证据）
         val findings = DuplicateRules.findExactDuplicates(
             mapOf(
                 a to DuplicateRules.ContentVersion("abc123", 1000L),
                 b to DuplicateRules.ContentVersion("abc123", 1000L)
-            )
+            ),
+            recycledIdentityKeys = setOf(keyOf(1))
         )
 
-        assertEquals(2, findings.size)
+        assertEquals(1, findings.size)
         assertTrue(findings.all { it.hasDuplicate })
         val forA = findings.first { it.image.id == 1L }
         assertEquals(listOf(2L), forA.duplicates.map { it.id })
@@ -122,8 +124,17 @@ class DuplicateRulesTest {
             recycledIdentityKeys = setOf(keyOf(2))
         )
 
-        // b 已在回收站，不算"还剩一份"，因此 a 没有副本可提示
-        assertTrue(findings.isEmpty())
+        // 只有 b 是被查的回收站成员，而 a 算库内副本；但 a 不在回收站
+        // → 对 b 而言 a 仍是副本。这里反过来验证：两张都在回收站时互相不算证据
+        val bothRecycled = DuplicateRules.findExactDuplicates(
+            mapOf(
+                a to DuplicateRules.ContentVersion("same", 1000L),
+                b to DuplicateRules.ContentVersion("same", 1000L)
+            ),
+            recycledIdentityKeys = setOf(keyOf(1), keyOf(2))
+        )
+        // 两张都在回收站，图库没有留存 → 无提示
+        assertTrue(bothRecycled.isEmpty())
     }
 
     @Test
@@ -134,11 +145,12 @@ class DuplicateRulesTest {
             mapOf(
                 a to DuplicateRules.ContentVersion("same", 1000L),
                 b to DuplicateRules.ContentVersion("same", 1000L)
-            )
+            ),
+            recycledIdentityKeys = setOf(keyOf(7))
         )
 
-        // 两个不同卷上的同 ID 是两张不同照片，字节相同就是真的互为副本
-        assertEquals(2, findings.size)
+        // a 在回收站，b 在另一卷的库里：字节相同就是真副本
+        assertEquals(1, findings.size)
         val forA = findings.first { it.image.volumeName == "external_primary" }
         assertEquals("1234-5678", forA.duplicates.single().volumeName)
     }
