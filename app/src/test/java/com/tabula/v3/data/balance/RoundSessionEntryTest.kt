@@ -59,6 +59,19 @@ class RoundSessionEntryTest {
         random = Random(1)
     )
 
+    @Test
+    fun deletedHandledPhotosStillSuggestWhenOtherPhotosRemainInSameSource() {
+        val handled = library.filter { SourceBalanceRules.sourceKeyOf(it).contains("Screenshots") }.take(3)
+        require(handled.size == 3)
+        val session = handled.fold(RoundSessionRules.Session()) { state, image ->
+            RoundSessionRules.record(state, image, RoundSessionRules.HandledAction.DELETE)
+        }
+        val remaining = library.filterNot { image -> handled.any { it.mediaIdentityKey() == image.mediaIdentityKey() } }
+        assertTrue(RoundSessionRules.shouldSuggest(session, { SourceBalanceRules.sourceKeyOf(it) }, remaining) != null)
+        val otherSources = remaining.filterNot { SourceBalanceRules.sourceKeyOf(it).contains("Screenshots") }
+        assertNull(RoundSessionRules.shouldSuggest(session, { SourceBalanceRules.sourceKeyOf(it) }, otherSources))
+    }
+
     // ============ 提示触发 ============
 
     @Test
@@ -66,7 +79,7 @@ class RoundSessionEntryTest {
         val suggestion = RoundSessionRules.shouldSuggest(
             session = sessionWithSuccess(),
             sourceKeyOf = { SourceBalanceRules.sourceKeyOf(it) },
-            availableKeys = library.map { it.mediaIdentityKey() }.toSet()
+            availableImages = library
         )
         assertEquals("external_primary|DCIM/Screenshots/", suggestion)
     }
@@ -83,7 +96,7 @@ class RoundSessionEntryTest {
         assertNull(
             RoundSessionRules.shouldSuggest(
                 s, { SourceBalanceRules.sourceKeyOf(it) },
-                library.map { it.mediaIdentityKey() }.toSet()
+                library
             )
         )
     }
@@ -173,7 +186,7 @@ class RoundSessionEntryTest {
         assertNull(
             RoundSessionRules.shouldSuggest(
                 isolated, { SourceBalanceRules.sourceKeyOf(it) },
-                library.map { it.mediaIdentityKey() }.toSet()
+                library
             )
         )
     }

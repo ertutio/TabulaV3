@@ -83,7 +83,7 @@ class DeckScreenRoundIntentComposeTest {
         val suggestion = RoundSessionRules.shouldSuggest(
             session = session,
             sourceKeyOf = ::sourceOf,
-            availableKeys = library.map { it.mediaIdentityKey() }.toSet()
+            availableImages = library
         )
         composeRule.setContent {
             if (suggestion != null) {
@@ -136,7 +136,7 @@ class DeckScreenRoundIntentComposeTest {
         val after = RoundSessionRules.shouldSuggest(
             session = session,
             sourceKeyOf = ::sourceOf,
-            availableKeys = library.map { it.mediaIdentityKey() }.toSet()
+            availableImages = library
         )
         // 提示可再次出现（新一轮整理），但引擎意图为空，直到用户再次点击接受
         if (after != null) assertFalse(engine.roundIntent.isActive)

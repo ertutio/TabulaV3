@@ -155,7 +155,7 @@ class BurstCardEntryTest {
             "上一批会触发提示",
             RoundSessionRules.shouldSuggest(
                 session, ::sourceOf,
-                (shots() + cameras()).map { it.mediaIdentityKey() }.toSet()
+                (shots() + cameras())
             )
         )
 
@@ -168,7 +168,7 @@ class BurstCardEntryTest {
             "上一批记录不能进入下一批判断",
             RoundSessionRules.shouldSuggest(
                 session, ::sourceOf,
-                (shots() + cameras()).map { it.mediaIdentityKey() }.toSet()
+                (shots() + cameras())
             )
         )
     }
