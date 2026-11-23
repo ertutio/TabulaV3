@@ -237,26 +237,28 @@ class DuplicateVersionsDeviceTest {
         val ia = awaitImageOf(a)
         val ib = awaitImageOf(b)
 
-        // 模拟权限变化：撤销读权限后重新以"不可读"判定
-        shell("pm revoke ${ctx.packageName} android.permission.READ_MEDIA_IMAGES")
-        val readableAfterRevoke = runCatching {
-            ctx.contentResolver.openInputStream(ib.uri)?.use { it.read() != -1 } == true
-        }.getOrDefault(false)
-
-        val canDelete = DuplicateReverify.copyStillValid(
-            main = ia,
-            copy = ib,
-            libraryKeys = setOf(ia.mediaIdentityKey(), ib.mediaIdentityKey()),
-            selectedKeys = setOf(ia.mediaIdentityKey()),
-            digestOf = { null }  // 权限丢失后无法计算摘要
-        )
+        // 权限变化：撤销读权限 → 摘要无法计算
+        // 用 try/finally 保证恢复，避免影响后续用例（之前漏恢复会让后续用例卡住）
+        val canDelete: Boolean = try {
+            shell("pm revoke ${ctx.packageName} android.permission.READ_MEDIA_IMAGES")
+            val readableAfterRevoke = runCatching {
+                ctx.contentResolver.openInputStream(ib.uri)?.use { it.read() != -1 } == true
+            }.getOrDefault(false)
+            // 权限丢失后无法计算摘要 → digestOf 返回 null
+            DuplicateReverify.copyStillValid(
+                main = ia,
+                copy = ib,
+                libraryKeys = setOf(ia.mediaIdentityKey(), ib.mediaIdentityKey()),
+                selectedKeys = setOf(ia.mediaIdentityKey()),
+                digestOf = { if (readableAfterRevoke) null else null }
+            )
+        } finally {
+            grantMedia()
+        }
         assertFalse(
             "权限变化导致副本不可读时，复核必须失败而不是继续删除",
             canDelete
         )
-
-        // 恢复权限，避免影响后续用例
-        grantMedia()
     }
 
     @Test
