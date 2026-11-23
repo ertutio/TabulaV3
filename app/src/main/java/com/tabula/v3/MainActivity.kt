@@ -1677,8 +1677,16 @@ fun TabulaApp(
                     stagedCleanupSelectedKeys = next
                 },
                 onConfirm = {
+                    // 审计修复：首次进入时预勾的推荐来源只存在内存
+                    // （openStagedCleanup 写的是 stagedCleanupSelectedKeys），
+                    // 偏好里还是空的。确认时必须把内存里的选择落到偏好，
+                    // 否则 recomputeStagedCleanupSelection 读到空集合，
+                    // 候选页会显示"本轮 0 个来源"（run 45175633833 的真实原因）。
+                    val effective = preferences.stagedCleanupSourceKeys
+                        .ifEmpty { stagedCleanupSelectedKeys }
+                    preferences.stagedCleanupSourceKeys = effective
                     preferences.hasStagedCleanupSourceChoice = true
-                    stagedCleanupSelectedKeys = emptySet()
+                    stagedCleanupSelectedKeys = effective
                     recomputeStagedCleanupSelection()
                 },
                 onNavigateBack = { currentScreen = AppScreen.DECK }
