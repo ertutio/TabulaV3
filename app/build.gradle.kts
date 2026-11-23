@@ -114,7 +114,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     androidTestImplementation("androidx.test:runner:1.6.2")
-    // #87 审计：真实选片界面（BurstSelectionScreen）的 Compose 界面测试
+    // #87/#90 审计：真实 Compose 界面测试（选片界面、DeckScreen 意图提示）
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

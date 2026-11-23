@@ -198,7 +198,8 @@ fun DeckScreen(
     loadingTotal: Int = 0,
     topBarDisplayMode: TopBarDisplayMode = TopBarDisplayMode.INDEX,
     onRemove: (ImageFile) -> Unit,
-    onKeep: () -> Unit = {},
+    // #90：保留时传出当前照片，会话统计需要完整身份
+    onKeep: (ImageFile) -> Unit = {},
     onNavigateToTrash: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAlbumDetail: (Album) -> Unit = {},
@@ -273,7 +274,13 @@ fun DeckScreen(
     // 连拍选片（路线图第 4 项 / 审计 #87）：推荐引擎返回的真实相似组。
     activeSimilarGroup: SimilarGroup? = null,
     excludedBurstKeys: Set<String> = emptySet(),
-    onOpenBurstSelection: ((SimilarGroup) -> Unit)? = null
+    onOpenBurstSelection: ((SimilarGroup) -> Unit)? = null,
+    // #90：批次真正切换到新的一批后回调，用于归档本轮统计
+    onBatchAdvanced: () -> Unit = {},
+    // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示
+    intentSourceName: String? = null,
+    onAcceptIntent: (() -> Unit)? = null,
+    onDismissIntent: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -657,6 +664,8 @@ fun DeckScreen(
                     currentIndex = 0
                     markedCount = 0
                     deckState = DeckState.BROWSING
+                    // #90：新批次真正装载成功后才归档上一批统计
+                    onBatchAdvanced()
                 } else {
                     deckState = DeckState.COMPLETED
                 }
@@ -1083,7 +1092,7 @@ fun DeckScreen(
                                 }
                             } else {
                                 if (newIndex > currentIndex) {
-                                    onKeep()
+                                    currentBatch.getOrNull(currentIndex)?.let(onKeep)
                                 }
                                 // 防止空列表时索引越界
                                 currentIndex = if (currentBatch.isEmpty()) {
@@ -1161,8 +1170,8 @@ fun DeckScreen(
                                 showUndoSnackbar = true
                                 // 自动进入下一张
                                 if (currentIndex < currentBatch.lastIndex) {
+                                    currentBatch.getOrNull(currentIndex)?.let(onKeep)
                                     currentIndex++
-                                    onKeep()
                                 }
                             }
                         },
@@ -1260,7 +1269,12 @@ fun DeckScreen(
                                 )
                                 onOpenBurstSelection?.invoke(group)
                             }
-                        }
+                        },
+                        // #90：批次切换与意图提示透传
+                        onBatchAdvanced = onBatchAdvanced,
+                        intentSourceName = intentSourceName,
+                        onAcceptIntent = onAcceptIntent,
+                        onDismissIntent = onDismissIntent
                     )
                 }
             }
@@ -1347,7 +1361,7 @@ fun DeckScreen(
             },
             onNext = {
                 if (currentIndex < currentBatch.lastIndex) {
-                    onKeep()
+                    currentBatch.getOrNull(currentIndex)?.let(onKeep)
                     currentIndex++
                 }
             },
@@ -1905,7 +1919,12 @@ private fun DeckContent(
     albumCleanupRemainingImages: Int = 0,
     albumCleanupDisplayMode: AlbumCleanupDisplayMode = AlbumCleanupDisplayMode.GROUPS,
     onAlbumCleanupDisplayModeToggle: (() -> Unit)? = null,
-    onAlbumCleanupClick: (() -> Unit)? = null
+    onAlbumCleanupClick: (() -> Unit)? = null,
+    // #90：批次切换与意图提示
+    onBatchAdvanced: () -> Unit = {},
+    intentSourceName: String? = null,
+    onAcceptIntent: (() -> Unit)? = null,
+    onDismissIntent: (() -> Unit)? = null
 ) {
     val isDarkTheme = LocalIsDarkTheme.current
     val textColor = if (isDarkTheme) Color.White else TabulaColors.CatBlack
@@ -2019,6 +2038,15 @@ private fun DeckContent(
 
             // 卡片堆叠区域
             // 固定标签模式下有双行标签，卡片位置较高；其他模式卡片可以更靠下
+            // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示
+            if (intentSourceName != null && onAcceptIntent != null && onDismissIntent != null) {
+                com.tabula.v3.ui.components.RoundIntentBanner(
+                    intentSourceName = intentSourceName,
+                    onAcceptIntent = onAcceptIntent,
+                    onDismissIntent = onDismissIntent
+                )
+            }
+
             val cardTopPadding = if (tagSelectionMode == TagSelectionMode.FIXED_TAP) 32.dp else 48.dp
             Box(
                 modifier = Modifier
