@@ -107,8 +107,26 @@ class DeckScreenRoundIntentUiTest {
         }
     }
 
-    private fun find(root: AccessibilityNodeInfo?, text: String): AccessibilityNodeInfo? =
-        root?.findAccessibilityNodeInfosByText(text)?.firstOrNull { it.isClickable || it.text == text }
+    /**
+     * 按 text 或 contentDescription 查找节点。
+     *
+     * 注意：TopBar 的回收站按钮只有 contentDescription（"回收站"），
+     * 且可点击的是外层容器——不能只用 findAccessibilityNodeInfosByText
+     * 加 isClickable 过滤（会漏掉），这里同时匹配两者，并向上找可点击祖先。
+     */
+    private fun find(root: AccessibilityNodeInfo?, text: String): AccessibilityNodeInfo? {
+        if (root == null) return null
+        val direct = root.findAccessibilityNodeInfosByText(text)
+            .firstOrNull { it.text == text || it.contentDescription == text }
+            ?: return null
+        var node: AccessibilityNodeInfo? = direct
+        var hops = 0
+        while (node != null && hops < 4) {
+            if (node.isClickable) return node
+            node = node.parent; hops++
+        }
+        return direct
+    }
 
     private fun tapNode(node: AccessibilityNodeInfo, label: String) {
         if (node.isClickable) node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
