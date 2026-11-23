@@ -117,7 +117,12 @@ fun LiquidGlassDebugPreview(
                 refractionAmountDp = refractionAmountDp.dp,
                 diagnosticBlurOnly = true
             )
-            else -> LiquidGlassBackdropSpec.Default.copy(refractionAmountDp = refractionAmountDp.dp)
+            // 预览页用"对照测试"的模糊：面板默认 20dp 模糊会把 72px 网格抹成
+            // 近乎纯色，只改位移时玻璃区域内是 0 像素变化，看不出任何差异。
+            // 生产参数不变（仍是 Default 的 20dp）。
+            else -> LiquidGlassBackdropSpec.Default
+                .forDisplacementComparison()
+                .copy(refractionAmountDp = refractionAmountDp.dp)
         }
     }
     val config = remember {

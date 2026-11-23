@@ -519,8 +519,12 @@ def main() -> int:
     )
 
     # 4b. 换背景必须让采样层重画（layerdraw 严格增加）
+    #
+    # 前置：换背景是从 Grid 切到 SizeDependent，而 Grid 是默认背景。因此这里
+    # 先用默认背景起一次，记下基线，再点"切换背景"。两次都在**同一个进程**里，
+    # layerdraw 才有可比性。
     adb("shell", "am", "force-stop", PACKAGE)
-    start_preview(refraction=True, photo=False, backdrop="SizeDependent")
+    start_preview(refraction=True, photo=False)
     before_switch = parse_audit(ui_dump(f"api{api}-switch-before"))
     # 用 UI 交互切背景：点"切换背景"按钮，位置由 dump 里的文本节点给出
     tap_text("切换背景", f"api{api}-switch-tap")
@@ -608,6 +612,13 @@ def main() -> int:
             failure=None if same_geometry
             else "对照测试的采样几何不同，不能归因于位移",
         )
+        # 位移对照的前提：模糊是**两组共用的不变量**。预览页用
+        # forDisplacementComparison() 把模糊压到 2dp，否则 72px 网格会被
+        # 面板默认的 20dp 模糊抹成近乎纯色，位移再大也是 0 像素变化。
+        evidence["displacement_only_premise"] = {
+            "blur": "2dp (forDisplacementComparison)",
+            "amounts_dp": [2, 12],
+        }
 
         edge_roi = edge_band(roi, band=60)
         center_roi = inner_ring(roi, inset_ratio=0.3)

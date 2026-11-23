@@ -482,6 +482,39 @@ class LiquidGlassDisplacementOnlyControlTest {
     }
 
     @Test
+    fun `displacement comparison keeps the production blur untouched`() {
+        // 对照测试要把模糊压小（否则 72px 网格被抹成纯色，位移看不出差异），
+        // 但**生产参数不能被改**：两条断言一起锁住，避免有人为了让测试出数
+        // 就把 Default 的模糊改小。
+        assertEquals(
+            "生产默认模糊必须保持 20dp",
+            20f,
+            LiquidGlassBackdropSpec.Default.blurRadiusDp.value,
+            0.001f
+        )
+        val comparison = LiquidGlassBackdropSpec.Default.forDisplacementComparison()
+        assertTrue(
+            "对照用的模糊必须比生产小",
+            comparison.blurRadiusDp.value < LiquidGlassBackdropSpec.Default.blurRadiusDp.value
+        )
+        // 除模糊外一切不变，否则"只改位移"的前提不成立
+        assertEquals(
+            LiquidGlassBackdropSpec.Default.refractionHeightDp,
+            comparison.refractionHeightDp
+        )
+        assertEquals(
+            LiquidGlassBackdropSpec.Default.refractionAmountDp,
+            comparison.refractionAmountDp
+        )
+        assertEquals(
+            LiquidGlassBackdropSpec.Default.dispersion,
+            comparison.dispersion,
+            0.001f
+        )
+        assertEquals(LiquidGlassBackdropSpec.Default.enabled, comparison.enabled)
+    }
+
+    @Test
     fun `padding is stable across displacement settings`() {
         // 外扩由"模糊核与位移中的较大者"决定；两者都在上限内时它不该随位移抖动，
         // 否则对照测试里采样范围会变，"只改位移"就不成立了。

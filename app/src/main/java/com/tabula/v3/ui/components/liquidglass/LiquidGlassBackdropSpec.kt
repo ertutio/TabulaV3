@@ -57,3 +57,18 @@ fun LiquidGlassBackdropSpec.resolve(density: Float): LiquidGlassBackdropAppearan
         dispersion = dispersion.coerceIn(0f, 1f),
         blurRadiusPx = (blurRadiusDp.value * density).coerceAtLeast(0f)
     )
+
+/**
+ * "只改位移"对照测试用的采样参数。
+ *
+ * 面板默认的 20dp 模糊（2.75x 下 55px）会把 72px 网格抹成近乎纯色，于是
+ * **边缘位移再大也看不出差异**——模拟器取证里"位移 2dp vs 12dp"在玻璃区域内
+ * 是 0 像素变化（`changed_pixels=0`），就是被模糊抹平的。模糊本身是对照的
+ * 不变量（两组必须相同），所以只能在**对照测试**里把模糊压小，让位移成为
+ * 唯一可见的变量。
+ *
+ * 生产参数不受影响：`LiquidGlassBackdropSpec.Default` 仍是 20dp 模糊。
+ * 这一点很重要——不能为了让测试出数就把生产模糊改小。
+ */
+fun LiquidGlassBackdropSpec.forDisplacementComparison(): LiquidGlassBackdropSpec =
+    copy(blurRadiusDp = 2.dp)

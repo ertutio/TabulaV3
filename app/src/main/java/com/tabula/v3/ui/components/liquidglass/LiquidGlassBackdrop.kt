@@ -145,7 +145,14 @@ class LiquidGlassBackdropState {
     }
 
     internal fun attachContent(block: (DrawScope.() -> Unit)?) {
+        // 背景 lambda 换了本身就是"内容变了"：必须同时递增版本号。
+        // 只写 contentState 时，绘制阶段虽然读到了新 lambda，但在部分路径上
+        // （graphicsLayer 内的 drawBehind）这一笔绘制不会被重新标脏——模拟器取证
+        // 里就出现过"换背景后 layerdraw 1→1"，画面停在旧内容。版本号是绘制阶段
+        // 显式读取的状态，递增它一定让采样层重画一次。
+        if (contentState === block) return
         contentState = block
+        invalidateContent()
     }
 
     private var planState by mutableStateOf(
@@ -197,6 +204,10 @@ fun rememberLiquidGlassBackdropState(): LiquidGlassBackdropState =
  * 背景以 `DrawScope.() -> Unit` 的形式传入，同一个 lambda 会被画两次：
  * 1. 这里按正常流程铺满宿主（背景照常显示）；
  * 2. 采样层在自己的小层里按对齐后的原点、以**宿主尺寸**局部重绘（只覆盖玻璃大小）。
+ *
+ * **调用方必须用 `remember(...)` 稳定这个 lambda**：它在 `SideEffect` 里被挂到
+ * [LiquidGlassBackdropState] 上，身份变化会被判定为"背景内容变了"并触发重画。
+ * 每次重组都新建 lambda 的写法会让采样层每帧重画（而且本来就会破坏稳定性）。
  *
  * 两次都是直接绘制，不产生"录成整屏位图再引用"的中间物——既避免逐帧回读
  * 整张照片，也保证采样层的 renderEffect 真的作用在自己拥有的内容上。
