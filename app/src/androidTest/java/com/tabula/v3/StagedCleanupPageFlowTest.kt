@@ -81,11 +81,6 @@ class StagedCleanupPageFlowTest {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, name)
                     put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
                     put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/$path/")
-                    // 暂存清理只收「存放超过 DEFAULT_RETENTION_DAYS(7) 天」的旧图，
-                    // 刚插入的新照片不会出现在候选里（run 45166133122 的真实原因）
-                    val old = System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000
-                    put(MediaStore.MediaColumns.DATE_ADDED, old / 1000)
-                    put(MediaStore.MediaColumns.DATE_MODIFIED, old / 1000)
                     put(MediaStore.MediaColumns.IS_PENDING, 1)
                 }
             )
@@ -93,9 +88,19 @@ class StagedCleanupPageFlowTest {
         inserted += uri
         val bytes = ByteArray(1024) { i -> ((name.hashCode() shr ((i % 4) * 8)) xor i).toByte() }
         ctx.contentResolver.openOutputStream(uri)!!.use { it.write(bytes) }
+        // 暂存清理只收「存放超过 DEFAULT_RETENTION_DAYS(7) 天」的旧图。
+        // DATE_ADDED 必须在 IS_PENDING 落定**之后**再改——pending 期间写入会被忽略
+        // （run 45172680609 的"本轮 0 个来源"就是这个原因）。
+        val old = (System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000) / 1000
         check(
             ctx.contentResolver.update(
-                uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null
+                uri,
+                ContentValues().apply {
+                    put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    put(MediaStore.MediaColumns.DATE_ADDED, old)
+                    put(MediaStore.MediaColumns.DATE_MODIFIED, old)
+                },
+                null, null
             ) == 1
         )
         return uri
@@ -269,6 +274,15 @@ class StagedCleanupPageFlowTest {
             android.os.SystemClock.sleep(1000)
         }
         val afterSelect = screenTexts()
+        if (afterSelect.none { it.contains("已选中") || it.startsWith("移入回收站（") }) {
+            // 诊断：把库内该照片的 dateAdded 打出来，区分"没进候选"与"进了但没勾上"
+            val diag = runBlocking {
+                com.tabula.v3.data.repository.LocalImageRepository(ctx).loadAllData().allImages
+                    .filter { it.uri == shot }
+                    .map { "dateAdded=${it.dateAdded} relativePath=${it.relativePath}" }
+            }
+            println("DIAG candidate-miss: $diag")
+        }
         assertTrue(
             "勾选后应出现选中标记（屏幕：$afterSelect）",
             afterSelect.any { it.contains("已选中") } ||
