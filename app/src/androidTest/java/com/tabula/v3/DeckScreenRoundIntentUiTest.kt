@@ -110,22 +110,30 @@ class DeckScreenRoundIntentUiTest {
     /**
      * 按 text 或 contentDescription 查找节点。
      *
-     * 注意：TopBar 的回收站按钮只有 contentDescription（"回收站"），
-     * 且可点击的是外层容器——不能只用 findAccessibilityNodeInfosByText
-     * 加 isClickable 过滤（会漏掉），这里同时匹配两者，并向上找可点击祖先。
+     * 关键：findAccessibilityNodeInfosByText **只匹配 text，不匹配
+     * contentDescription**（Android 平台行为）。Compose 的 IconButton 常把
+     * 文案放在 contentDescription 上（如"回收站"），所以这里自己遍历树，
+     * 两种都匹配，并向上找可点击祖先。
      */
-    private fun find(root: AccessibilityNodeInfo?, text: String): AccessibilityNodeInfo? {
+    private fun find(root: AccessibilityNodeInfo?, target: String): AccessibilityNodeInfo? {
         if (root == null) return null
-        val direct = root.findAccessibilityNodeInfosByText(text)
-            .firstOrNull { it.text == text || it.contentDescription == text }
-            ?: return null
-        var node: AccessibilityNodeInfo? = direct
+        var hit: AccessibilityNodeInfo? = null
+        fun walk(n: AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || hit != null || depth > 24) return
+            if (n.text?.toString() == target || n.contentDescription?.toString() == target) {
+                hit = n
+                return
+            }
+            for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
+        }
+        walk(root, 0)
+        var node = hit
         var hops = 0
-        while (node != null && hops < 4) {
+        while (node != null && hops < 5) {
             if (node.isClickable) return node
             node = node.parent; hops++
         }
-        return direct
+        return hit
     }
 
     private fun tapNode(node: AccessibilityNodeInfo, label: String) {
