@@ -271,7 +271,16 @@ class DeckScreenRoundIntentUiTest {
             for (i in 0 until node.childCount) findCard(node.getChild(i))?.let { return it }
             return null
         }
-        val card = requireNotNull(findCard(ins.uiAutomation.rootInActiveWindow)) { "Current card not found" }
+        val deadline = now() + 8000
+        var card: AccessibilityNodeInfo? = null
+        while (now() < deadline) {
+            val root = ins.uiAutomation.rootInActiveWindow
+            if (find(root, "再来一组") != null) return
+            card = findCard(root)
+            if (card != null) break
+            android.os.SystemClock.sleep(100)
+        }
+        card = requireNotNull(card) { "Current card not found after transition" }
         val bounds = android.graphics.Rect().also { card.getBoundsInScreen(it) }
         val cx = bounds.centerX()
         val cy = bounds.centerY()
