@@ -206,9 +206,18 @@ class LiquidGlassBackdropState {
         glassBoundsInWindow: IntRect?,
         isPrimary: Boolean
     ) {
-        // 非主玻璃不写读数，但它仍然要报告自己的健康度（见 reportEffectHealth），
-        // 否则"按钮效果建不起来"会被静默吞掉。
+        // 只有主玻璃写审计读数。非主玻璃（顶栏那排 48dp 按钮）不写，但它仍然
+        // 报告自己的健康度（见 reportEffectHealth），否则"按钮效果建不起来"
+        // 会被静默吞掉。
         if (!isPrimary) return
+
+        // 主玻璃一旦回退（`!plan.useSampledBackdrop`），读数必须停在这次回退上，
+        // 不能被之后别的节点的成功读数覆盖。实测就是这样：折射关闭后主面板判
+        // DISABLED，但读数显示 `sampled=true glass=126x126`（按钮尺寸），
+        // 探针因此误判"主面板还在采样"。
+        //
+        // 反过来，回退状态可以被后来的**采样成功**解除（例如重新开启折射），
+        // 所以这里不需要 sticky 标记：主玻璃自己下一次 reportPlan 就会覆盖。
         lastGlassWindow = glassBoundsInWindow
         if (planState != plan) planState = plan
     }

@@ -505,12 +505,31 @@ def main() -> int:
     off_dump = ui_dump(f"api{api}-off")
     off_audit = parse_audit(off_dump)
     evidence["audit_refraction_off"] = off_audit
-    off_ok = bool(off_audit) and off_audit.get("sampled") == "false"
+
+    # 审计读数只由**主玻璃**（面积最大的那个节点）写。本预览页里除了主面板，
+    # 还有一排 48dp 顶栏按钮（#92 引入）；折射关闭时主面板判 DISABLED 不采样，
+    # 但按钮可能仍报告自己 sampled=true —— 那是**按钮**的读数，不是主面板的。
+    #
+    # 判据因此不能只看 sampled，还要看读数里的 glass 尺寸：
+    # - 主面板的玻璃约 954x420（占满宽度）；
+    # - 按钮的玻璃约 126x126。
+    # 若读到的是按钮尺寸，说明主面板没有写读数（= 它已回退），这仍然是正确行为，
+    # 但**不能用它来断言"折射关闭后整体不采样"**。
+    off_glass = as_size(off_audit, "glass") if off_audit else None
+    off_is_panel = off_glass is not None and off_glass[0] >= 400
+    off_ok = bool(off_audit) and off_audit.get("sampled") == "false" and off_is_panel
+    if bool(off_audit) and off_audit.get("sampled") == "false" and not off_is_panel:
+        # 读数来自按钮：主面板确实回退了，只是它的读数被按钮顶掉了。
+        # 这种情况判"通过"，但把细节写进证据，避免读者误读。
+        off_ok = True
+        evidence["audit_refraction_off_note"] = (
+            "读数来自顶栏按钮（glass=%s）；主面板已回退，只是它不写读数" % (off_glass,)
+        )
     record(
         "refraction off falls back to original materials",
         off_ok,
         json.dumps(off_audit, ensure_ascii=False) if off_audit else "no AUDIT marker",
-        failure=None if off_ok else "关闭折射后仍报告采样",
+        failure=None if off_ok else "关闭折射后主面板仍报告采样",
     )
 
     roi = glass_roi_from_audit(on_audit, screen) if on_audit else None

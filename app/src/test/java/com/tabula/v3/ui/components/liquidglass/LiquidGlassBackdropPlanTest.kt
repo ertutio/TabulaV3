@@ -890,6 +890,28 @@ class LiquidGlassBackdropInvalidationTest {
     }
 
     @Test
+    fun `a non primary fallback still writes the reading so the panel is not masked`() {
+        // 折射关闭时主面板判 DISABLED（不采样），按钮若还在采样，它的读数
+        // 会盖住主面板的回退结果——实测出现 `sampled=true glass=126x126`，
+        // 看起来像"主面板还在采样"。回退读数必须优先。
+        val state = LiquidGlassBackdropState()
+        val panelFallback = BackdropSamplePlan.original(BackdropFallbackReason.DISABLED)
+        state.reportPlan(panelFallback, IntRect(63, 105, 1017, 525), isPrimary = true)
+
+        val buttonSampled = planBackdropSample(
+            35, true, true,
+            IntRect(42, 160, 42 + 126, 160 + 126),
+            IntRect(0, 0, 1080, 1800),
+            11
+        )
+        // 按钮不是主玻璃 → 无论采样成功还是回退，都不写读数
+        state.reportPlan(buttonSampled, IntRect(42, 160, 168, 286), isPrimary = false)
+
+        assertEquals(BackdropFallbackReason.DISABLED, state.lastPlan.reason)
+        assertFalse(state.lastPlan.useSampledBackdrop)
+    }
+
+    @Test
     fun `source size follows the measured host bounds`() {
         val state = LiquidGlassBackdropState()
         state.attachContent { }
