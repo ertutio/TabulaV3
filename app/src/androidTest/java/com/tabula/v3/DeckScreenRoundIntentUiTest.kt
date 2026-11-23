@@ -158,7 +158,10 @@ class DeckScreenRoundIntentUiTest {
                 for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
             }
             walk(root, 0)
-            android.util.Log.e("RoundIntentUi", "screen text at timeout:\n$visible")
+            // System.out 会进 instrumentation stream（Log.e 多行被截断）
+            println("SCREEN_AT_TIMEOUT_BEGIN")
+            visible.lines().forEach { println("SCREEN|$it") }
+            println("SCREEN_AT_TIMEOUT_END")
             error("卡片页未出现（回收站按钮超时）")
         }
         android.os.SystemClock.sleep(2500) // 等首批照片从 MediaStore 装载
