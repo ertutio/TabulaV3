@@ -118,7 +118,12 @@ jobs:
             timeout 600s adb shell am instrument -w -r -e class com.tabula.v3.DeckScreenRoundIntentEntryTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner | tee device-results/instrumentation-entry.txt
             grep -Eq 'OK \([0-9]+ tests?\)' device-results/instrumentation-entry.txt
             timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.DeckScreenRoundIntentUiTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner | tee device-results/instrumentation-ui.txt
-            grep -Eq 'OK \([0-9]+ tests?\)' device-results/instrumentation-ui.txt
+            grep -Eq 'OK \([0-9]+ tests?\)' device-results/instrumentation-ui.txt || {
+              echo "== UI test failed: dumping diagnostics =="
+              adb shell "cat /data/data/com.tabula.v3.recyclebin.test/files/screen-at-timeout.txt" 2>/dev/null | tee device-results/screen-at-timeout.txt || true
+              adb exec-out run-as com.tabula.v3.recyclebin.test cat files/screen-at-timeout.txt 2>/dev/null | tee -a device-results/screen-at-timeout.txt || true
+              false
+            }
             # 汇总核对：类名、执行数量、失败数
             for f in device-results/instrumentation-entry.txt device-results/instrumentation-ui.txt; do
               echo "== $f =="
