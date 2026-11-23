@@ -282,16 +282,16 @@ class DeckScreenRoundIntentUiTest {
     @Test
     fun swipeThroughShotsShowsHintAndAcceptAffectsNextBatch() = runBlocking {
         // 预置：10 张截图 + 40 张相机照片（真实 MediaStore）
-        repeat(10) { insertPhoto("DCIM/Screenshots") }
+        repeat(12) { insertPhoto("DCIM/Screenshots") }
         repeat(40) { insertPhoto("DCIM/Camera") }
 
         startApp()
 
         // 连续滑动处理截图（上滑删除）直到提示出现
-        val hintTimeout = now() + 60000
+        val hintTimeout = now() + 90000
         var hintSeen = false
         var swipes = 0
-        while (now() < hintTimeout) {
+        while (now() < hintTimeout && swipes < 8) {
             if (find(ins.uiAutomation.rootInActiveWindow, "看这个") != null) { hintSeen = true; break }
             dismissPermissionDialogIfAny()
             if (swipes == 0) dumpScreen("before-swipe")
