@@ -177,3 +177,96 @@ internal fun gridPhase(offset: Float, cellSizePx: Float): Int {
     if (cellSizePx <= 0f) return 0
     return kotlin.math.floor(abs(offset) / cellSizePx).toInt()
 }
+
+/**
+ * **尺寸相关**背景：几何全部由 `size` 决定，而不是常量像素。
+ *
+ * 这是尺寸契约的判据。采样层如果沿用"玻璃尺寸的 DrawScope 只做平移"，那么：
+ * - 同心圆半径会按玻璃短边重算 → 圆的曲率、数量间距全变；
+ * - 渐变端点会落在玻璃尺寸上 → 颜色分布完全不同于宿主；
+ * - 按 `size.width / 12` 分格的竖条数量会变 → 图案密度不同。
+ *
+ * 三者任一出现，肉眼即可判定"采样层不是同一张背景"。反过来，只要画面与宿主
+ * 完全连续（玻璃内外的同心圆同心、竖条间距一致），就说明采样层用的是宿主尺寸。
+ *
+ * @param phase 相位偏移：调用方每次 +1 并 `invalidateContent()`，用来验证
+ *              "背景内容变化确实触发了采样层重画"。
+ */
+internal fun debugSizeDependentBackground(
+    offsetX: Float = 0f,
+    offsetY: Float = 0f,
+    phase: Int = 0
+): DrawScope.() -> Unit = {
+    val w = size.width
+    val h = size.height
+    val minDim = size.minDimension.coerceAtLeast(1f)
+    val shift = phase * minDim * 0.07f
+
+    // 1) 尺寸相关渐变：端点由 size 决定，颜色分布随尺寸拉伸
+    drawRect(
+        brush = Brush.linearGradient(
+            colors = listOf(
+                Color(0xFF101A3A),
+                Color(0xFF2E7DFF),
+                Color(0xFF7CFFB2),
+                Color(0xFFFFC857),
+                Color(0xFF3A1030)
+            ),
+            start = Offset(-w * 0.15f + offsetX * 0.5f, -h * 0.10f + offsetY * 0.5f),
+            end = Offset(w * 1.10f + offsetX * 0.5f, h * 0.95f + offsetY * 0.5f)
+        ),
+        topLeft = Offset.Zero,
+        size = Size(w, h)
+    )
+
+    // 2) 同心圆：半径 = 短边 × 比例 → 尺寸一变曲率就变
+    val center = Offset(w * 0.5f + offsetX, h * 0.42f + offsetY)
+    for (i in 1..7) {
+        drawCircle(
+            color = if (i % 2 == 0) Color(0xFF0B0B14) else Color(0xFFF7FAFF),
+            radius = minDim * 0.055f * i + shift,
+            center = center,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = minDim * 0.012f)
+        )
+    }
+
+    // 3) 等分竖条：条数由 size.width 决定 → 尺寸一变密度就变
+    val columns = 12
+    val columnWidth = w / columns
+    for (i in 0 until columns) {
+        if (i % 2 != 0) continue
+        drawRect(
+            color = Color(0x33FFFFFF),
+            topLeft = Offset(i * columnWidth, h * 0.78f + offsetY * 0.3f),
+            size = Size(columnWidth * 0.86f, h * 0.16f)
+        )
+    }
+
+    // 4) 对角硬边：用来判断"边缘位移"是否只发生在玻璃边缘
+    drawLine(
+        color = Color(0xFFFF2E63),
+        start = Offset(0f, h * 0.62f + offsetY * 0.2f),
+        end = Offset(w, h * 0.30f + offsetY * 0.2f),
+        strokeWidth = minDim * 0.02f
+    )
+}
+
+/**
+ * 只画一个"尺寸指纹"：把 size 编码成横竖两条长度不同的线。
+ *
+ * 用于单测/探针的机器判据：若采样层用错尺寸，两条线会明显变短。
+ */
+internal fun DrawScope.drawSizeFingerprint(hostWidthPx: Float, hostHeightPx: Float) {
+    drawLine(
+        color = Color(0xFFFFFFFF),
+        start = Offset(0f, 0f),
+        end = Offset(hostWidthPx, 0f),
+        strokeWidth = 2f
+    )
+    drawLine(
+        color = Color(0xFFFFFFFF),
+        start = Offset(0f, 0f),
+        end = Offset(0f, hostHeightPx),
+        strokeWidth = 2f
+    )
+}

@@ -43,12 +43,17 @@ jobs:
         run: |
           python3 - <<'PY'
           import glob, re, sys
+          # 逐类断言实跑条数：改名/删类都会让这里失败，避免"测试没跑却报绿"。
           expected = {
               "LiquidGlassAuditMarkerTest": 3,
+              "LiquidGlassBackdropInvalidationTest": 8,
               "LiquidGlassBackdropPlanTest": 17,
-              "LiquidGlassBackdropRevisionTest": 3,
+              "LiquidGlassBackdropRefractionTest": 26,
               "LiquidGlassBackdropShaderContractTest": 5,
-              "LiquidGlassLayerOrderTest": 3,
+              "LiquidGlassBackdropShapeTest": 8,
+              "LiquidGlassBackdropSizeContractTest": 13,
+              "LiquidGlassDisplacementOnlyControlTest": 3,
+              "LiquidGlassLayoutContractTest": 8,
           }
           found = {}
           for path in glob.glob("app/build/test-results/testDebugUnitTest/*liquidglass*.xml"):
@@ -69,8 +74,16 @@ jobs:
                   ok = False
               else:
                   print(f"OK {name} tests={actual[0]}")
+          total = sum(v[0] for v in found.values())
+          print(f"liquidglass total tests={total}")
+          if total < 91:
+              print(f"EXPECTED at least 91 liquid glass tests, got {total}")
+              ok = False
           sys.exit(0 if ok else 1)
           PY
+
+      - name: Probe script stays syntactically valid
+        run: python3 -m py_compile tools/run-liquid-glass-preview-probe.py
 
       - name: Assemble debug and release
         run: bash ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:assembleRelease

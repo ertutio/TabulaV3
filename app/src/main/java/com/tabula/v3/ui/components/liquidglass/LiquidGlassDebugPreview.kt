@@ -1,49 +1,84 @@
 package com.tabula.v3.ui.components.liquidglass
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Slider
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Photo
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tabula.v3.ui.components.PhysicalLiquidGlassBox
 import com.tabula.v3.ui.components.PhysicalLiquidGlassConfig
 
+/** 调试预览里可切换的玻璃形状；用来覆盖"非圆角形状回退"与圆形采样。 */
+enum class DebugGlassShape(val label: String) {
+    RoundedRect("圆角矩形"),
+    Circle("圆形"),
+    CutCorner("切角(应回退)");
+
+    fun toShape(cornerRadiusDp: Float): Shape = when (this) {
+        RoundedRect -> RoundedCornerShape(cornerRadiusDp.dp)
+        Circle -> CircleShape
+        CutCorner -> CutCornerShape(cornerRadiusDp.dp)
+    }
+}
+
+/** 调试预览里可切换的背景来源。 */
+enum class DebugBackdropKind(val label: String) {
+    Grid("网格"),
+    Photo("合成照片"),
+    SizeDependent("尺寸相关(圆+渐变)");
+
+    fun draw(offsetX: Float, offsetY: Float, phase: Int): DrawScope.() -> Unit = when (this) {
+        Grid -> debugGridBackground(offsetX, offsetY)
+        Photo -> debugSyntheticPhotoBackground(offsetX, offsetY)
+        SizeDependent -> debugSizeDependentBackground(offsetX, offsetY, phase)
+    }
+}
+
 /**
  * 独立调试预览：液态玻璃背景采样层。
  *
  * 验收要求在这里逐条落地：
- * - 可移动的高对比网格 + 一张合成照片，两者都能拖动/滚动；
- * - 同一背景、同一组材质参数下切换"折射"开关；
+ * - 可移动的高对比网格 / 合成照片 / **尺寸相关背景**（圆形半径与渐变端点都取自
+ *   `size`，用来验证采样层用的是宿主尺寸而不是玻璃尺寸）；
+ * - **宿主与玻璃尺寸可不同**（宿主缩放到 60%~100%），验证两者尺寸契约一致；
+ * - 同一背景、同一组材质参数下**只切换折射位移**（模糊、采样范围、背景都不变），
+ *   用来做"边缘位移 / 中心不动"的对照；
  * - 玻璃之外的文字与图标保持清晰（它们不在采样图层里，也不经过 shader）；
- * - 滚动或改变尺寸时背景不错位、不闪黑、不采到玻璃自身；
- * - 页脚常驻显示当前采样方案（图层尺寸、对齐平移、回退原因），便于审计。
+ * - 滚动 / 改尺寸 / 换背景 / 移动图案时背景不错位、不闪黑、不采到玻璃自身；
+ * - 页脚常驻显示采样方案、宿主与玻璃尺寸、以及**绘制次数**，便于审计"到底刷新
+ *   了几次"，而不是靠两张截图相同来冒充静止。
  */
 @Composable
 fun LiquidGlassDebugPreview(
@@ -53,26 +88,46 @@ fun LiquidGlassDebugPreview(
     initialOffsetX: Float = 0f,
     initialOffsetY: Float = 0f,
     initialGlassHeightDp: Float = 160f,
+    initialRefractionAmountDp: Float = 10f,
+    initialShape: DebugGlassShape = DebugGlassShape.RoundedRect,
+    initialBackdropKind: DebugBackdropKind? = null,
+    initialHostScalePercent: Int = 100,
     diagnosticBlurOnly: Boolean = false
 ) {
     val state = rememberLiquidGlassBackdropState()
     var refractionOn by remember { mutableStateOf(initialRefractionOn) }
-    var usePhoto by remember { mutableStateOf(initialUsePhoto) }
+    var backdropKind by remember {
+        mutableStateOf(
+            initialBackdropKind
+                ?: if (initialUsePhoto) DebugBackdropKind.Photo else DebugBackdropKind.Grid
+        )
+    }
     var offsetX by remember { mutableFloatStateOf(initialOffsetX) }
     var offsetY by remember { mutableFloatStateOf(initialOffsetY) }
     var glassHeightDp by remember { mutableFloatStateOf(initialGlassHeightDp) }
+    var refractionAmountDp by remember { mutableFloatStateOf(initialRefractionAmountDp) }
+    var shape by remember { mutableStateOf(initialShape) }
+    var hostScalePercent by remember { mutableIntStateOf(initialHostScalePercent) }
+    var patternPhase by remember { mutableIntStateOf(0) }
 
-    val spec = remember(refractionOn, diagnosticBlurOnly) {
+    val spec = remember(refractionOn, refractionAmountDp, diagnosticBlurOnly) {
         when {
             !refractionOn -> LiquidGlassBackdropSpec.Off
-            diagnosticBlurOnly -> LiquidGlassBackdropSpec.Default.copy(diagnosticBlurOnly = true)
-            else -> LiquidGlassBackdropSpec.Default
+            diagnosticBlurOnly -> LiquidGlassBackdropSpec.Default.copy(
+                refractionAmountDp = refractionAmountDp.dp,
+                diagnosticBlurOnly = true
+            )
+            else -> LiquidGlassBackdropSpec.Default.copy(refractionAmountDp = refractionAmountDp.dp)
         }
     }
     val config = remember {
+        // 预览页关掉表面装饰性动画（`subtleMotionEnabled`），否则整块玻璃每帧都在
+        // 重画，"静止时绘制次数不变"这条指标就永远不成立。生产配置不变：
+        // `PhysicalLiquidGlassConfig.iOSLiquidGlass` 仍然开着它。
         PhysicalLiquidGlassConfig.iOSLiquidGlass.copy(
             cornerRadius = 20.dp,
-            blurRadius = 12.dp
+            blurRadius = 12.dp,
+            subtleMotionEnabled = false
         )
     }
 
@@ -81,18 +136,17 @@ fun LiquidGlassDebugPreview(
             .fillMaxSize()
             .background(Color(0xFF0A0B14))
     ) {
-        // 背景层：网格或合成照片，二者共用同一套偏移
+        // 背景层：宿主尺寸可缩放，玻璃尺寸独立——两者不同才能验证尺寸契约
         Box(modifier = Modifier.weight(1f)) {
-            val background: DrawScope.() -> Unit = remember(usePhoto, offsetX, offsetY) {
-                if (usePhoto) {
-                    debugSyntheticPhotoBackground(offsetX = offsetX, offsetY = offsetY)
-                } else {
-                    debugGridBackground(offsetX = offsetX, offsetY = offsetY)
+            val background: DrawScope.() -> Unit =
+                remember(backdropKind, offsetX, offsetY, patternPhase) {
+                    backdropKind.draw(offsetX, offsetY, patternPhase)
                 }
-            }
             LiquidGlassBackdropHost(
                 state = state,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(hostScalePaddingDp(hostScalePercent)),
                 background = background
             )
 
@@ -107,6 +161,7 @@ fun LiquidGlassDebugPreview(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(glassHeightDp.dp),
+                    shape = shape.toShape(config.cornerRadius.value),
                     config = config,
                     backdropState = state,
                     backdropSpec = spec,
@@ -144,30 +199,68 @@ fun LiquidGlassDebugPreview(
                 }
             }
 
-            // 采样方案审计读数
             SamplingAuditBadge(
                 samplingSpec = spec,
                 plan = state.lastPlan,
                 health = state.effectHealth,
+                revision = state.revision,
+                hostDrawCount = state.hostDrawCount,
+                layerDrawCount = state.layerDrawCount,
+                hostSize = state.sourceSize,
+                glassWindow = state.lastGlassWindow,
+                shapeLabel = shape.label,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(12.dp)
             )
         }
 
-        // 控制面板
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFF12131F))
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                .padding(horizontal = 20.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             ControlRow(label = "折射开关") {
                 Switch(checked = refractionOn, onCheckedChange = { refractionOn = it })
             }
-            ControlRow(label = "背景：合成照片") {
-                Switch(checked = usePhoto, onCheckedChange = { usePhoto = it })
+            // 只改位移：模糊、采样范围、背景都不变，用来做"边缘位移 / 中心不动"的对照
+            LabeledSlider(
+                label = "折射位移 ${refractionAmountDp.toInt()}dp",
+                value = refractionAmountDp,
+                valueRange = 0f..24f,
+                onChange = { refractionAmountDp = it }
+            )
+            ControlRow(label = "背景：${backdropKind.label}") {
+                DebugButton("切换背景") {
+                    backdropKind = when (backdropKind) {
+                        DebugBackdropKind.Grid -> DebugBackdropKind.Photo
+                        DebugBackdropKind.Photo -> DebugBackdropKind.SizeDependent
+                        DebugBackdropKind.SizeDependent -> DebugBackdropKind.Grid
+                    }
+                }
+            }
+            ControlRow(label = "形状：${shape.label}") {
+                DebugButton("切换形状") {
+                    shape = when (shape) {
+                        DebugGlassShape.RoundedRect -> DebugGlassShape.Circle
+                        DebugGlassShape.Circle -> DebugGlassShape.CutCorner
+                        DebugGlassShape.CutCorner -> DebugGlassShape.RoundedRect
+                    }
+                }
+            }
+            ControlRow(label = "宿主缩放 ${hostScalePercent}%") {
+                DebugButton("改宿主尺寸") {
+                    hostScalePercent = if (hostScalePercent >= 100) 60 else hostScalePercent + 20
+                }
+            }
+            ControlRow(label = "图案相位 $patternPhase") {
+                DebugButton("移动图案") {
+                    patternPhase += 1
+                    // 背景内容变了：显式声明，采样层必须重画一次
+                    state.invalidateContent()
+                }
             }
             LabeledSlider(
                 label = "水平移动 ${offsetX.toInt()}px",
@@ -191,11 +284,35 @@ fun LiquidGlassDebugPreview(
     }
 }
 
+/** 宿主缩放到 [percent]% 时四周留出的 padding。 */
+private fun hostScalePaddingDp(percent: Int): androidx.compose.ui.unit.Dp {
+    val clamped = percent.coerceIn(30, 100)
+    return ((100 - clamped) * 1.2f).dp
+}
+
+@Composable
+private fun DebugButton(label: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .background(Color(0xFF2A2C42), RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Text(text = label, color = Color(0xFFFFD400), fontSize = 12.sp)
+    }
+}
+
 @Composable
 private fun SamplingAuditBadge(
     samplingSpec: LiquidGlassBackdropSpec,
     plan: BackdropSamplePlan,
     health: BackdropEffectHealth,
+    revision: Int,
+    hostDrawCount: Int,
+    layerDrawCount: Int,
+    hostSize: IntSize,
+    glassWindow: IntRect?,
+    shapeLabel: String,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -209,11 +326,7 @@ private fun SamplingAuditBadge(
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold
         )
-        Text(
-            text = plan.auditLine(),
-            color = Color.White,
-            fontSize = 10.sp
-        )
+        Text(text = plan.auditLine(), color = Color.White, fontSize = 10.sp)
         Text(
             text = "effect=$health",
             color = when (health) {
@@ -224,13 +337,25 @@ private fun SamplingAuditBadge(
             fontSize = 10.sp
         )
         Text(
-            text = plan.auditMarkers(health),
+            text = plan.auditMarkers(
+                health = health,
+                hostWidth = hostSize.width,
+                hostHeight = hostSize.height,
+                hostDraws = hostDrawCount,
+                layerDraws = layerDrawCount,
+                revision = revision,
+                shapeLabel = shapeLabel,
+                screenX = glassWindow?.left,
+                screenY = glassWindow?.top
+            ),
             color = Color.White.copy(alpha = 0.6f),
             fontSize = 9.sp
         )
         Text(
             text = if (samplingSpec.enabled) {
-                "折射带 ${samplingSpec.refractionHeightDp.value.toInt()}dp / 位移 ${samplingSpec.refractionAmountDp.value.toInt()}dp / 色散 ${samplingSpec.dispersion}"
+                "折射带 ${samplingSpec.refractionHeightDp.value.toInt()}dp / " +
+                    "位移 ${samplingSpec.refractionAmountDp.value.toInt()}dp / " +
+                    "色散 ${samplingSpec.dispersion} / 模糊 ${samplingSpec.blurRadiusDp.value.toInt()}dp"
             } else {
                 "折射已关闭：完全回到接入前的画面"
             },
@@ -265,21 +390,42 @@ private fun LabeledSlider(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(text = label, color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
         Slider(value = value, onValueChange = onChange, valueRange = valueRange)
-        Spacer(modifier = Modifier.height(2.dp))
-        Spacer(modifier = Modifier.width(0.dp))
+        Box(modifier = Modifier.height(2.dp))
     }
 }
 
 /**
  * 机器可读的审计标记，供 CI 从 uiautomator dump 里解析。
- * 形如：`AUDIT sampled=true glass=500x400 origin=(100,300) layer=520x420 pad=10 effect=Ok`
+ *
+ * 形如：
+ * `AUDIT sampled=true reason=NONE glass=500x400 origin=(100,300) layer=540x440 pad=20
+ *  host=1080x1800 screen=(63,105) hostdraw=3 layerdraw=3 rev=0 shape=圆角矩形 effect=Ok`
+ *
+ * - `screen` 是**玻璃在窗口坐标系**里的左上角，探针据此裁 ROI，不再靠猜页脚内边距；
+ * - `hostdraw` / `layerdraw` 是**绘制次数**：静止时两次 dump 之间必须不变；换背景 /
+ *   移动图案 / 改尺寸后必须增加。这才是"绘制失效真的接上了"的证据，而不是拿
+ *   "两张截图相同"冒充刷新次数验证。
  */
-internal fun BackdropSamplePlan.auditMarkers(health: BackdropEffectHealth? = null): String {
+internal fun BackdropSamplePlan.auditMarkers(
+    health: BackdropEffectHealth? = null,
+    hostWidth: Int = 0,
+    hostHeight: Int = 0,
+    hostDraws: Int = 0,
+    layerDraws: Int = 0,
+    revision: Int = 0,
+    shapeLabel: String = "",
+    screenX: Int? = null,
+    screenY: Int? = null
+): String {
     val base = "AUDIT sampled=$useSampledBackdrop reason=$reason " +
         "glass=${glassWidthPx}x${glassHeightPx} " +
         "origin=(${glassOriginInSource.x},${glassOriginInSource.y}) " +
-        "layer=${layerWidthPx}x${layerHeightPx} pad=$paddingPx"
-    return if (health != null) "$base effect=$health" else base
+        "layer=${layerWidthPx}x${layerHeightPx} pad=$paddingPx " +
+        "host=${hostWidth}x${hostHeight} " +
+        (if (screenX != null && screenY != null) "screen=($screenX,$screenY) " else "") +
+        "hostdraw=$hostDraws layerdraw=$layerDraws rev=$revision"
+    val withShape = if (shapeLabel.isNotEmpty()) "$base shape=$shapeLabel" else base
+    return if (health != null) "$withShape effect=$health" else withShape
 }
 
 /** 供预览/测试读取的方案摘要：一行可粘贴进 PR 的文本。 */

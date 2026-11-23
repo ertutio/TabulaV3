@@ -48,8 +48,10 @@ import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropSampling
 import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropSpec
 import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropState
 import com.tabula.v3.ui.components.liquidglass.hasBackdropLayer
-import com.tabula.v3.ui.components.liquidglass.glassContentLayerIndex
+import com.tabula.v3.ui.components.liquidglass.glassChildLayout
+import com.tabula.v3.ui.components.liquidglass.layerSizeFor
 import com.tabula.v3.ui.components.liquidglass.liquidGlassBackdropPosition
+import com.tabula.v3.ui.components.liquidglass.planGlassLayout
 import com.tabula.v3.ui.components.liquidglass.rememberLiquidGlassBackdropSampling
 import kotlin.math.min
 import kotlin.random.Random
@@ -845,18 +847,20 @@ private fun PhysicalLiquidGlassBoxImpl(
     val cornerFadeEnabled = config.cornerFadeEnabled
     val cornerFadeAmount = config.cornerFadeAmount
     
-    // 背景采样层（可选）插在最前，仍在原有高光/边缘/内阴影/噪点/形状之下
-    val contentIndex = glassContentLayerIndex(hasBackdropLayer = backdropSampling?.hasBackdropLayer() == true)
+    // 背景采样层（可选）插在最前，仍在原有高光/边缘/内阴影/噪点/形状之下。
+    // 子项契约由 glassChildLayout 统一给出：背景层**永远只占一个子项**，
+    // 哪怕采样不可用（此时它画空），因此内容下标不会漂移。
+    val childLayout = glassChildLayout(hasBackdropLayer = backdropSampling != null)
+    val backdropPaddingPx = backdropSampling?.paddingPx(LocalDensity.current.density) ?: 0
 
     Layout(
         content = {
             if (backdropSampling != null) {
                 // 层 0: 背景采样（只含背景，边缘折射不会采到玻璃自身）
-                // 方案不成立时它什么都不画
+                // 方案不成立时它什么都不画，但仍占住这个子项
                 backdropSampling.BackdropLayer(
                     shape = shape,
-                    density = LocalDensity.current.density,
-                    cornerRadiusPx = cornerRadiusPx
+                    density = LocalDensity.current
                 )
             }
             
@@ -1066,16 +1070,29 @@ private fun PhysicalLiquidGlassBoxImpl(
             .clip(shape)
             .border(0.5.dp, borderGradient, shape)
     ) { measurables, constraints ->
-        val contentPlaceable = measurables[contentIndex].measure(constraints)
-        val w = contentPlaceable.width
-        val h = contentPlaceable.height
-        val fixed = Constraints.fixed(w, h)
-        
-        val placeables = measurables.mapIndexed { i, m ->
-            if (i == contentIndex) contentPlaceable else m.measure(fixed)
+        // 子项契约：内容先按**真实内容**测量（wrapContent 才能拿到内容尺寸），
+        // 其余层用内容的固定尺寸测量。背景层用"内容 + 2*pad"测量，并放在
+        // (-pad,-pad)，于是它在屏幕上与玻璃精确重合，外扩只用于边缘取样。
+        // 计划本身由 planGlassLayout 给出，可被单测逐条断言。
+        val contentPlaceable = measurables[childLayout.contentIndex].measure(constraints)
+        val plan = planGlassLayout(
+            layout = childLayout,
+            paddingPx = backdropPaddingPx,
+            contentSize = androidx.compose.ui.unit.IntSize(
+                contentPlaceable.width,
+                contentPlaceable.height
+            ),
+            parentConstraints = constraints
+        )
+
+        val placeables = measurables.mapIndexed { i, m -> m.measure(plan.constraintsPerChild[i]) }
+
+        layout(plan.contentSize.width, plan.contentSize.height) {
+            placeables.forEachIndexed { i, placeable ->
+                val offset = plan.offsetsPerChild[i]
+                placeable.place(offset.x, offset.y)
+            }
         }
-        
-        layout(w, h) { placeables.forEach { it.place(0, 0) } }
     }
 }
 

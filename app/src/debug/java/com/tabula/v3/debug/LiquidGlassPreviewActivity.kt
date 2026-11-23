@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tabula.v3.ui.components.liquidglass.DebugBackdropKind
+import com.tabula.v3.ui.components.liquidglass.DebugGlassShape
 import com.tabula.v3.ui.components.liquidglass.LIQUID_GLASS_BACKDROP_MIN_SDK
 import com.tabula.v3.ui.components.liquidglass.LiquidGlassDebugPreview
 
@@ -37,6 +39,13 @@ class LiquidGlassPreviewActivity : ComponentActivity() {
         val offsetY = intent.getIntExtra(EXTRA_OFFSET_Y, 0).toFloat()
         val glassHeightDp = intent.getIntExtra(EXTRA_GLASS_HEIGHT_DP, 160).toFloat()
         val diagnosticBlurOnly = intent.getBooleanExtra(EXTRA_DIAGNOSTIC_BLUR, false)
+        val refractionAmountDp = intent.getIntExtra(EXTRA_REFRACTION_AMOUNT_DP, 10).toFloat()
+        val shape = intent.getStringExtra(EXTRA_SHAPE)
+            ?.let { name -> DebugGlassShape.entries.firstOrNull { it.name == name } }
+            ?: DebugGlassShape.RoundedRect
+        val backdropKind = intent.getStringExtra(EXTRA_BACKDROP)
+            ?.let { name -> DebugBackdropKind.entries.firstOrNull { it.name == name } }
+        val hostScalePercent = intent.getIntExtra(EXTRA_HOST_SCALE_PERCENT, 100)
 
         setContent {
             if (Build.VERSION.SDK_INT < LIQUID_GLASS_BACKDROP_MIN_SDK) {
@@ -49,6 +58,10 @@ class LiquidGlassPreviewActivity : ComponentActivity() {
                     initialOffsetX = offsetX,
                     initialOffsetY = offsetY,
                     initialGlassHeightDp = glassHeightDp,
+                    initialRefractionAmountDp = refractionAmountDp,
+                    initialShape = shape,
+                    initialBackdropKind = backdropKind,
+                    initialHostScalePercent = hostScalePercent,
                     diagnosticBlurOnly = diagnosticBlurOnly
                 )
             }
@@ -62,6 +75,18 @@ class LiquidGlassPreviewActivity : ComponentActivity() {
         const val EXTRA_OFFSET_Y = "offsetY"
         const val EXTRA_GLASS_HEIGHT_DP = "glassHeightDp"
         const val EXTRA_DIAGNOSTIC_BLUR = "diagBlur"
+
+        /** 折射位移（dp）。对照测试只改它，模糊与采样范围保持不变。 */
+        const val EXTRA_REFRACTION_AMOUNT_DP = "refractionAmountDp"
+
+        /** 玻璃形状：`RoundedRect` / `Circle` / `CutCorner`（后者应回退）。 */
+        const val EXTRA_SHAPE = "shape"
+
+        /** 背景来源：`Grid` / `Photo` / `SizeDependent`。 */
+        const val EXTRA_BACKDROP = "backdrop"
+
+        /** 宿主缩放百分比（30~100）。宿主与玻璃尺寸不同才能验证尺寸契约。 */
+        const val EXTRA_HOST_SCALE_PERCENT = "hostScale"
     }
 }
 

@@ -1,6 +1,15 @@
 package com.tabula.v3.ui.components.liquidglass
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -9,10 +18,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 背景采样层的几何与回退决策测试。
+ * 采样层的几何与回退决策测试。
  *
- * 这里锁定的是"什么时候采、采多大、平移多少"三件事；一旦有人改动对齐算法
- * 或放宽回退条件，这些断言会直接失败，避免悄悄采到玻璃自身。
+ * 这里锁定"什么时候采、采多大、平移多少、背景以什么尺寸重绘"四件事；
+ * 一旦有人改动对齐算法或放宽回退条件，这些断言会直接失败，避免悄悄采到玻璃自身。
  */
 class LiquidGlassBackdropPlanTest {
 
@@ -143,7 +152,6 @@ class LiquidGlassBackdropPlanTest {
             sourceBoundsInWindow = source,
             paddingPx = 12
         )
-        // 玻璃左上角在背景坐标系里的位置
         assertEquals(120, plan.glassOriginInSource.x)
         assertEquals(340, plan.glassOriginInSource.y)
         // 背景像素 120 → 图层内 padding(12)，平移量 = 12 - 120
@@ -164,7 +172,6 @@ class LiquidGlassBackdropPlanTest {
                 paddingPx = 4
             )
             if (plan.useSampledBackdrop) {
-                // 背景平移 + 玻璃原点 恒等于 padding：滚动后不会累积误差
                 assertEquals(4f, plan.sourceTranslateY + plan.glassOriginInSource.y, 0.001f)
             }
         }
@@ -233,10 +240,10 @@ class LiquidGlassBackdropPlanTest {
     @Test
     fun `spec resolves dp to pixels and clamps dispersion`() {
         val appearance = LiquidGlassBackdropSpec(
-            refractionHeightDp = androidx.compose.ui.unit.Dp(20f),
-            refractionAmountDp = androidx.compose.ui.unit.Dp(10f),
+            refractionHeightDp = 20.dp,
+            refractionAmountDp = 10.dp,
             dispersion = 2f,
-            blurRadiusDp = androidx.compose.ui.unit.Dp(16f)
+            blurRadiusDp = 16.dp
         ).resolve(density = 3f)
         assertEquals(60f, appearance.refractionHeightPx, 0.001f)
         assertEquals(30f, appearance.refractionAmountPx, 0.001f)
@@ -261,119 +268,557 @@ class LiquidGlassBackdropPlanTest {
 }
 
 /**
- * 层序与 API 门控：新增背景层不能挤占原有高光/边缘/内阴影/噪点/形状的位置。
+ * 尺寸契约：采样层必须以**背景来源尺寸**重绘背景，而不是玻璃尺寸。
+ *
+ * 这是本轮修复的核心缺陷：原实现只把"玻璃尺寸的 DrawScope"平移了一下，
+ * 于是所有 `size` 相关几何（圆形半径、尺寸相关渐变、等分图案）都按玻璃重算，
+ * 画面不是同一张背景。下面几条用可计算的数值锁死这一点。
  */
-class LiquidGlassLayerOrderTest {
+class LiquidGlassBackdropSizeContractTest {
+
+    private val source = IntRect(left = 0, top = 0, right = 1080, bottom = 1800)
+
+    private fun sampledPlan(
+        glass: IntRect = IntRect(120, 340, 620, 740),
+        paddingPx: Int = 20
+    ) = planBackdropSample(35, true, true, glass, source, paddingPx)
 
     @Test
-    fun `content stays on the same relative position with and without the backdrop layer`() {
-        // 没有背景层时是原有 8 层实现，内容在第 4 层
-        assertEquals(4, glassContentLayerIndex(hasBackdropLayer = false))
-        // 有背景层时它插在最前，内容顺延一位，其余层的相对顺序不变
-        assertEquals(5, glassContentLayerIndex(hasBackdropLayer = true))
-        assertEquals(8, LIQUID_GLASS_CORE_LAYER_COUNT)
+    fun `content is drawn with the host size not the glass size`() {
+        val plan = sampledPlan()
+        val placement = backdropContentPlacement(plan, source.width, source.height)
+        assertNotNull(placement)
+        // 宿主 1080x1800，玻璃只有 500x400：两者必须不同，否则这条测试没有意义
+        assertTrue(plan.glassWidthPx != source.width)
+        assertEquals(1080, placement!!.sourceWidthPx)
+        assertEquals(1800, placement.sourceHeightPx)
     }
 
     @Test
-    fun `api 31 and 32 never produce a sample plan`() {
-        listOf(31, 32).forEach { sdk ->
-            val plan = planBackdropSample(
-                sdkInt = sdk,
-                hasBackdropSource = true,
-                isRoundedRectShape = true,
-                glassBoundsInWindow = androidx.compose.ui.unit.IntRect(100, 300, 600, 700),
-                sourceBoundsInWindow = androidx.compose.ui.unit.IntRect(0, 0, 1080, 2400),
-                paddingPx = 10
-            )
-            assertFalse("API $sdk 应回退到原有显示", plan.useSampledBackdrop)
-            assertEquals(BackdropFallbackReason.UNSUPPORTED_API, plan.reason)
+    fun `host and glass of different sizes still align pixel for pixel`() {
+        val plan = sampledPlan()
+        val placement = backdropContentPlacement(plan, source.width, source.height)!!
+        // 玻璃左上角在来源坐标 (120,340) 必须落到图层内 (pad,pad)
+        val layerPoint = placement.sourceToLayer(120f, 340f)
+        assertEquals(plan.paddingPx.toFloat(), layerPoint.x, 0.001f)
+        assertEquals(plan.paddingPx.toFloat(), layerPoint.y, 0.001f)
+        // 反向换算必须回到原点（无累积误差）
+        val back = placement.layerToSource(layerPoint.x, layerPoint.y)
+        assertEquals(120f, back.x, 0.001f)
+        assertEquals(340f, back.y, 0.001f)
+    }
+
+    @Test
+    fun `nonzero source origin shifts the placement so alignment is relative`() {
+        // 宿主不在屏幕原点（例如下方内容区、带顶部内边距）
+        val offsetSource = IntRect(left = 40, top = 260, right = 1120, bottom = 2060)
+        val plan = planBackdropSample(
+            sdkInt = 35,
+            hasBackdropSource = true,
+            isRoundedRectShape = true,
+            glassBoundsInWindow = IntRect(160, 600, 660, 1000),
+            sourceBoundsInWindow = offsetSource,
+            paddingPx = 12
+        )
+        assertTrue(plan.useSampledBackdrop)
+        // 玻璃相对宿主是 (120,340)，与宿主绝对位置无关
+        assertEquals(120, plan.glassOriginInSource.x)
+        assertEquals(340, plan.glassOriginInSource.y)
+        assertEquals((12 - 120).toFloat(), plan.sourceTranslateX, 0.001f)
+        assertEquals((12 - 340).toFloat(), plan.sourceTranslateY, 0.001f)
+    }
+
+    @Test
+    fun `circle geometry depends on host size so a wrong scope is detectable`() {
+        // 预览里的同心圆半径 = minDimension * 0.055 * i
+        fun ringRadius(dimension: Float, i: Int) = dimension * 0.055f * i
+        val hostMin = minOf(source.width, source.height).toFloat() // 1080
+        val glassMin = 400f
+        // 用宿主尺寸算出来的半径必须与玻璃尺寸算出来的明显不同，
+        // 否则"半径按玻璃重算"这个缺陷在画面上看不出来
+        assertTrue(ringRadius(hostMin, 3) - ringRadius(glassMin, 3) > 100f)
+    }
+
+    @Test
+    fun `size dependent gradient endpoints follow the host size`() {
+        // 预览里的渐变端点 = size * 比例；用宿主尺寸与玻璃尺寸算出的端点必须不同
+        fun endX(width: Float) = width * 1.10f
+        assertTrue(endX(source.width.toFloat()) - endX(500f) > 600f)
+    }
+
+    @Test
+    fun `layer size always equals glass plus two paddings`() {
+        listOf(0, 4, 20, 64).forEach { pad ->
+            val plan = sampledPlan(paddingPx = pad)
+            assertEquals(plan.glassWidthPx + pad * 2, plan.layerWidthPx)
+            assertEquals(plan.glassHeightPx + pad * 2, plan.layerHeightPx)
+            assertEquals(pad, plan.paddingPx)
         }
     }
 
     @Test
-    fun `api 33 and above may sample`() {
-        listOf(33, 34, 35, 36).forEach { sdk ->
-            val plan = planBackdropSample(
-                sdkInt = sdk,
-                hasBackdropSource = true,
-                isRoundedRectShape = true,
-                glassBoundsInWindow = androidx.compose.ui.unit.IntRect(100, 300, 600, 700),
-                sourceBoundsInWindow = androidx.compose.ui.unit.IntRect(0, 0, 1080, 2400),
-                paddingPx = 10
-            )
-            assertTrue("API $sdk 应可采样", plan.useSampledBackdrop)
+    fun `shader uniforms derive from the layer size not from the glass size`() {
+        val plan = sampledPlan()
+        val appearance = LiquidGlassBackdropSpec.Default.resolve(2.75f)
+        val uniforms = backdropShaderUniforms(
+            layerWidthPx = plan.layerWidthPx,
+            layerHeightPx = plan.layerHeightPx,
+            paddingPx = plan.paddingPx,
+            cornerRadiusPx = 40f,
+            appearance = appearance
+        )
+        assertEquals(plan.layerWidthPx.toFloat(), uniforms.layerWidth, 0.001f)
+        assertEquals(plan.layerHeightPx.toFloat(), uniforms.layerHeight, 0.001f)
+        // 玻璃在图层内的原点必须等于 padding，否则玻璃区域会整体偏移
+        assertEquals(plan.paddingPx.toFloat(), uniforms.glassOriginX, 0.001f)
+        assertEquals(plan.paddingPx.toFloat(), uniforms.glassOriginY, 0.001f)
+        assertEquals(plan.glassWidthPx.toFloat(), uniforms.glassWidth, 0.001f)
+        assertEquals(plan.glassHeightPx.toFloat(), uniforms.glassHeight, 0.001f)
+    }
+
+    @Test
+    fun `corner radius is clamped to half of the shorter glass side`() {
+        val appearance = LiquidGlassBackdropSpec.Default.resolve(2.75f)
+        val uniforms = backdropShaderUniforms(
+            layerWidthPx = 300,
+            layerHeightPx = 140,
+            paddingPx = 20,
+            cornerRadiusPx = 999f,
+            appearance = appearance
+        )
+        // 玻璃 260x100 → 上限 50
+        assertEquals(50f, uniforms.cornerRadius, 0.001f)
+    }
+
+    @Test
+    fun `layer to glass round trip is exact for every padding`() {
+        listOf(0, 1, 7, 20, 64).forEach { pad ->
+            val layer = layerSizeFor(IntSize(500, 400), pad)
+            assertEquals(IntSize(500, 400), glassSizeFromLayer(layer, pad))
         }
     }
-}
-
-/**
- * 背景内容版本与重建键的关系：背景变了必须重录，静止时必须稳定。
- */
-class LiquidGlassBackdropRevisionTest {
-
-    private val appearance = LiquidGlassBackdropSpec.Default.resolve(density = 2.75f)
-    private val bounds = androidx.compose.ui.unit.IntRect(100, 300, 600, 700)
-    private val source = androidx.compose.ui.unit.IntRect(0, 0, 1080, 2400)
 
     @Test
-    fun `content revision change forces a re-record`() {
-        val plan = planBackdropSample(35, true, true, bounds, source, 10)
-        val before = backdropEffectKey(plan, appearance, 40f, contentRevision = 7)
-        val after = backdropEffectKey(plan, appearance, 40f, contentRevision = 8)
-        assertTrue("背景换图后必须重新采样", before != after)
+    fun `content placement is null when the plan is not sampled`() {
+        val plan = BackdropSamplePlan.original(BackdropFallbackReason.NO_COORDINATES)
+        assertNull(backdropContentPlacement(plan, 1080, 1800))
     }
 
     @Test
-    fun `appearance change forces a re-record`() {
-        val plan = planBackdropSample(35, true, true, bounds, source, 10)
-        val weak = LiquidGlassBackdropSpec(
-            refractionHeightDp = androidx.compose.ui.unit.Dp(18f),
-            refractionAmountDp = androidx.compose.ui.unit.Dp(10f)
-        ).resolve(density = 2.75f)
+    fun `content placement is null for a degenerate source`() {
+        val plan = sampledPlan()
+        assertNull(backdropContentPlacement(plan, 0, 1800))
+        assertNull(backdropContentPlacement(plan, 1080, 0))
+    }
+
+    @Test
+    fun `padding covers half of the blur kernel and the refraction amount`() {
         val strong = LiquidGlassBackdropSpec(
-            refractionHeightDp = androidx.compose.ui.unit.Dp(18f),
-            refractionAmountDp = androidx.compose.ui.unit.Dp(24f)
-        ).resolve(density = 2.75f)
-        assertTrue(
-            "改参数后必须重建效果",
-            backdropEffectKey(plan, weak, 40f, 1) != backdropEffectKey(plan, strong, 40f, 1)
-        )
+            refractionHeightDp = 18.dp,
+            refractionAmountDp = 10.dp,
+            blurRadiusDp = 20.dp
+        ).resolve(2.75f) // 模糊 55px → 半个核 27.5px
+        assertEquals(28, backdropPaddingPx(strong))
+
+        val small = LiquidGlassBackdropSpec(
+            refractionHeightDp = 10.dp,
+            refractionAmountDp = 4.dp,
+            blurRadiusDp = 4.dp
+        ).resolve(2.75f) // 模糊 11px → 5.5px
+        assertEquals(6, backdropPaddingPx(small))
     }
 
     @Test
-    fun `size change forces a re-record`() {
-        val before = planBackdropSample(35, true, true, bounds, source, 10)
-        val after = planBackdropSample(
-            35, true, true,
-            androidx.compose.ui.unit.IntRect(100, 300, 600, 860), source, 10
-        )
-        assertTrue(
-            "改尺寸后必须重建效果",
-            backdropEffectKey(before, appearance, 40f, 1) != backdropEffectKey(after, appearance, 40f, 1)
-        )
+    fun `padding never collapses to zero and never exceeds the cap`() {
+        val zero = LiquidGlassBackdropSpec(
+            refractionHeightDp = 0.dp,
+            refractionAmountDp = 0.dp,
+            blurRadiusDp = 0.dp
+        ).resolve(2.75f)
+        assertEquals(1, backdropPaddingPx(zero))
+
+        val huge = LiquidGlassBackdropSpec(
+            refractionHeightDp = 18.dp,
+            refractionAmountDp = 10.dp,
+            blurRadiusDp = 200.dp
+        ).resolve(2.75f)
+        assertEquals(64, backdropPaddingPx(huge))
     }
 }
 
 /**
- * 审计标记：CI 靠它判断"方案成立"与"效果真的建起来"两件事，格式不能悄悄变形。
+ * 形状契约：只有"四角半径一致"的圆角矩形能采样，圆形是它的特例。
+ */
+class LiquidGlassBackdropShapeTest {
+
+    private val density = Density(2.75f)
+    private val size = Size(500f, 400f)
+
+    @Test
+    fun `uniform rounded rect is supported`() {
+        assertTrue(isBackdropShapeSupported(RoundedCornerShape(20.dp)))
+        val metrics = backdropShapeMetrics(RoundedCornerShape(20.dp), size, density)
+        assertTrue(metrics.isUniformRoundedRect)
+        assertEquals(20f * 2.75f, metrics.cornerRadiusPx, 0.01f)
+    }
+
+    @Test
+    fun `circle is supported and resolves to half of the shorter side`() {
+        assertTrue(isBackdropShapeSupported(CircleShape))
+        val square = Size(200f, 200f)
+        val metrics = backdropShapeMetrics(CircleShape, square, density)
+        assertTrue(metrics.isUniformRoundedRect)
+        assertEquals(100f, metrics.cornerRadiusPx, 0.01f)
+    }
+
+    @Test
+    fun `circle radius follows the shorter side on a non square`() {
+        val metrics = backdropShapeMetrics(CircleShape, Size(300f, 120f), density)
+        assertTrue(metrics.isUniformRoundedRect)
+        assertEquals(60f, metrics.cornerRadiusPx, 0.01f)
+    }
+
+    @Test
+    fun `cut corner shape is rejected`() {
+        assertFalse(isBackdropShapeSupported(CutCornerShape(12.dp)))
+        val metrics = backdropShapeMetrics(CutCornerShape(12.dp), size, density)
+        assertFalse(metrics.isUniformRoundedRect)
+    }
+
+    @Test
+    fun `asymmetric rounded corners are rejected`() {
+        val asymmetric = RoundedCornerShape(
+            topStart = 20.dp,
+            topEnd = 20.dp,
+            bottomEnd = 0.dp,
+            bottomStart = 0.dp
+        )
+        assertFalse(isBackdropShapeSupported(asymmetric))
+        assertFalse(backdropShapeMetrics(asymmetric, size, density).isUniformRoundedRect)
+    }
+
+    @Test
+    fun `radius larger than the shape is clamped not rejected`() {
+        val big = RoundedCornerShape(200.dp)
+        val metrics = backdropShapeMetrics(big, Size(200f, 100f), density)
+        assertTrue(metrics.isUniformRoundedRect)
+        assertEquals(50f, metrics.cornerRadiusPx, 0.01f)
+    }
+
+    @Test
+    fun `unsupported shape falls back with a distinct reason`() {
+        val plan = planBackdropSample(
+            sdkInt = 35,
+            hasBackdropSource = true,
+            isRoundedRectShape = isBackdropShapeSupported(CutCornerShape(12.dp)),
+            glassBoundsInWindow = IntRect(100, 300, 600, 700),
+            sourceBoundsInWindow = IntRect(0, 0, 1080, 1800),
+            paddingPx = 12
+        )
+        assertEquals(BackdropFallbackReason.UNSUPPORTED_SHAPE, plan.reason)
+        assertFalse(plan.useSampledBackdrop)
+    }
+
+    @Test
+    fun `circle on a wide glass still samples`() {
+        val plan = planBackdropSample(
+            sdkInt = 35,
+            hasBackdropSource = true,
+            isRoundedRectShape = isBackdropShapeSupported(CircleShape),
+            glassBoundsInWindow = IntRect(100, 300, 600, 500),
+            sourceBoundsInWindow = IntRect(0, 0, 1080, 1800),
+            paddingPx = 12
+        )
+        assertTrue(plan.useSampledBackdrop)
+    }
+}
+
+/**
+ * Layout 子项契约：采样不可用时内容仍必须按真实内容测量、原材质仍可见。
+ *
+ * 这一组是本轮第二个缺陷的回归锁：原实现"采样句柄非空就推断子项存在"，
+ * 而采样不成立时 `BackdropLayer` 直接 `return` 不发子项，内容下标错位，
+ * `wrapContent` 塌成 0。
+ */
+class LiquidGlassLayoutContractTest {
+
+    private val parentConstraints = Constraints()
+
+    @Test
+    fun `child count and content index are stable with and without the backdrop layer`() {
+        val withBackdrop = glassChildLayout(hasBackdropLayer = true)
+        val without = glassChildLayout(hasBackdropLayer = false)
+
+        assertEquals(LIQUID_GLASS_CORE_LAYER_COUNT + 1, withBackdrop.childCount)
+        assertEquals(LIQUID_GLASS_CONTENT_LAYER_INDEX + 1, withBackdrop.contentIndex)
+        assertEquals(0, withBackdrop.backdropIndex)
+
+        assertEquals(LIQUID_GLASS_CORE_LAYER_COUNT, without.childCount)
+        assertEquals(LIQUID_GLASS_CONTENT_LAYER_INDEX, without.contentIndex)
+        assertNull(without.backdropIndex)
+
+        // 背景层只占一个子项，其余层的相对顺序不变
+        assertEquals(without.contentIndex + 1, withBackdrop.contentIndex)
+    }
+
+    @Test
+    fun `content keeps the parent constraints so wrapContent measures real content`() {
+        val layout = glassChildLayout(hasBackdropLayer = true)
+        val plan = planGlassLayout(
+            layout = layout,
+            paddingPx = 20,
+            contentSize = IntSize(320, 96),
+            parentConstraints = parentConstraints
+        )
+        // 内容层拿父约束（不是固定尺寸），wrapContent 才能返回真实内容尺寸
+        assertEquals(parentConstraints, plan.constraintsPerChild[plan.contentIndex])
+        assertFalse(plan.constraintsPerChild[plan.contentIndex].hasFixedWidth)
+        assertFalse(plan.constraintsPerChild[plan.contentIndex].hasFixedHeight)
+    }
+
+    @Test
+    fun `backdrop layer is measured with content size plus two paddings`() {
+        val layout = glassChildLayout(hasBackdropLayer = true)
+        val plan = planGlassLayout(
+            layout = layout,
+            paddingPx = 20,
+            contentSize = IntSize(320, 96),
+            parentConstraints = parentConstraints
+        )
+        val backdrop = plan.constraintsPerChild[layout.backdropIndex!!]
+        assertEquals(320 + 40, backdrop.minWidth)
+        assertEquals(96 + 40, backdrop.minHeight)
+        assertEquals(320 + 40, backdrop.maxWidth)
+        assertEquals(96 + 40, backdrop.maxHeight)
+    }
+
+    @Test
+    fun `backdrop layer is placed at minus padding so it overlaps the glass exactly`() {
+        val layout = glassChildLayout(hasBackdropLayer = true)
+        val plan = planGlassLayout(
+            layout = layout,
+            paddingPx = 20,
+            contentSize = IntSize(320, 96),
+            parentConstraints = parentConstraints
+        )
+        assertEquals(IntOffset(-20, -20), plan.offsetsPerChild[layout.backdropIndex!!])
+        // 其余所有层都贴在 (0,0)，与接入前一致
+        plan.offsetsPerChild.forEachIndexed { index, offset ->
+            if (index != layout.backdropIndex) assertEquals(IntOffset.Zero, offset)
+        }
+    }
+
+    @Test
+    fun `all non content layers are measured with the content size`() {
+        val layout = glassChildLayout(hasBackdropLayer = true)
+        val plan = planGlassLayout(
+            layout = layout,
+            paddingPx = 8,
+            contentSize = IntSize(200, 120),
+            parentConstraints = parentConstraints
+        )
+        plan.constraintsPerChild.forEachIndexed { index, constraints ->
+            when (index) {
+                layout.contentIndex -> Unit
+                layout.backdropIndex -> assertEquals(200 + 16, constraints.maxWidth)
+                else -> {
+                    assertEquals(200, constraints.maxWidth)
+                    assertEquals(120, constraints.maxHeight)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `wrap content glass with no backdrop layer still measures the content`() {
+        val layout = glassChildLayout(hasBackdropLayer = false)
+        val plan = planGlassLayout(
+            layout = layout,
+            paddingPx = 0,
+            contentSize = IntSize(180, 64),
+            parentConstraints = parentConstraints
+        )
+        assertEquals(IntSize(180, 64), plan.contentSize)
+        assertEquals(LIQUID_GLASS_CORE_LAYER_COUNT, plan.constraintsPerChild.size)
+        assertEquals(LIQUID_GLASS_CORE_LAYER_COUNT, plan.offsetsPerChild.size)
+        assertEquals(IntSize(180, 64), plan.backdropLayerSize)
+    }
+
+    @Test
+    fun `dynamic switch from fixed size to wrap content keeps indices valid`() {
+        // 固定大小 → wrapContent 切换时，内容尺寸变化，但下标与偏移不能变
+        val layout = glassChildLayout(hasBackdropLayer = true)
+        val fixed = planGlassLayout(layout, 20, IntSize(500, 400), parentConstraints)
+        val wrapped = planGlassLayout(layout, 20, IntSize(210, 88), parentConstraints)
+
+        assertEquals(fixed.contentIndex, wrapped.contentIndex)
+        assertEquals(fixed.childCount, wrapped.childCount)
+        assertEquals(fixed.offsetsPerChild, wrapped.offsetsPerChild)
+        // 背景层尺寸必须跟着内容尺寸变，否则会留一圈旧尺寸的空隙
+        assertEquals(IntSize(250, 128), wrapped.backdropLayerSize)
+        assertEquals(IntSize(540, 440), fixed.backdropLayerSize)
+    }
+
+    @Test
+    fun `zero sized content keeps the plan valid instead of crashing`() {
+        val layout = glassChildLayout(hasBackdropLayer = true)
+        val plan = planGlassLayout(layout, 20, IntSize.Zero, parentConstraints)
+        assertEquals(IntSize(40, 40), plan.backdropLayerSize)
+        assertEquals(IntSize.Zero, plan.contentSize)
+        // 采样方案本身会以 DEGENERATE_GEOMETRY 回退，不会去画 0 尺寸图层
+        val sample = planBackdropSample(
+            sdkInt = 35,
+            hasBackdropSource = true,
+            isRoundedRectShape = true,
+            glassBoundsInWindow = IntRect(100, 300, 100, 300),
+            sourceBoundsInWindow = IntRect(0, 0, 1080, 1800),
+            paddingPx = 20
+        )
+        assertEquals(BackdropFallbackReason.DEGENERATE_GEOMETRY, sample.reason)
+    }
+}
+
+/**
+ * 绘制失效：背景内容变化必须真的让采样层重画，静止时必须不重画。
+ */
+class LiquidGlassBackdropInvalidationTest {
+
+    @Test
+    fun `invalidate content bumps the revision so the layer repaints`() {
+        val state = LiquidGlassBackdropState()
+        val before = state.revision
+        state.invalidateContent()
+        assertEquals(before + 1, state.revision)
+        state.invalidateContent()
+        assertEquals(before + 2, state.revision)
+    }
+
+    @Test
+    fun `revision wraps instead of overflowing`() {
+        var revision = Int.MAX_VALUE
+        revision = nextBackdropRevision(revision)
+        assertEquals(1, revision)
+    }
+
+    @Test
+    fun `draw counters start at zero and only move when recorded`() {
+        val state = LiquidGlassBackdropState()
+        assertEquals(0, state.hostDrawCount)
+        assertEquals(0, state.layerDrawCount)
+        assertEquals(-1, state.lastLayerDrawRevision)
+
+        state.countHostDraw()
+        state.countHostDraw()
+        assertEquals(2, state.hostDrawCount)
+        // 宿主绘制不改变采样层计数：两者是独立指标
+        assertEquals(0, state.layerDrawCount)
+
+        state.recordLayerDraw(revision = 5)
+        assertEquals(1, state.layerDrawCount)
+        assertEquals(5, state.lastLayerDrawRevision)
+    }
+
+    @Test
+    fun `content revision is part of the effect key so a background change rebuilds`() {
+        val appearance = LiquidGlassBackdropSpec.Default.resolve(2.75f)
+        val plan = planBackdropSample(
+            35, true, true,
+            IntRect(120, 340, 620, 740),
+            IntRect(0, 0, 1080, 1800),
+            20
+        )
+        val before = backdropEffectKey(plan, appearance, 40f, contentRevision = 0)
+        val after = backdropEffectKey(plan, appearance, 40f, contentRevision = 1)
+        assertTrue("换背景后必须重建采样层", before != after)
+    }
+
+    @Test
+    fun `same geometry and revision produce an identical key`() {
+        val appearance = LiquidGlassBackdropSpec.Default.resolve(2.75f)
+        fun key() = backdropEffectKey(
+            planBackdropSample(
+                35, true, true,
+                IntRect(120, 340, 620, 740),
+                IntRect(0, 0, 1080, 1800),
+                20
+            ),
+            appearance,
+            40f,
+            contentRevision = 4
+        )
+        assertEquals(key(), key())
+    }
+
+    @Test
+    fun `moving the pattern inside the same host forces a repaint`() {
+        // "移动图案"只改内容版本，几何完全不变：这是最容易漏接的一类失效
+        val appearance = LiquidGlassBackdropSpec.Default.resolve(2.75f)
+        val plan = planBackdropSample(
+            35, true, true,
+            IntRect(120, 340, 620, 740),
+            IntRect(0, 0, 1080, 1800),
+            20
+        )
+        val keys = (0..3).map { backdropEffectKey(plan, appearance, 40f, contentRevision = it) }
+        assertEquals(keys.size, keys.toSet().size)
+    }
+
+    @Test
+    fun `bounds are unavailable before layout and after content detaches`() {
+        val state = LiquidGlassBackdropState()
+        assertNull(state.boundsOrNull())
+        state.attachContent { }
+        // 有内容但还没有坐标
+        assertNull(state.boundsOrNull())
+        state.sourceBounds = IntRect(0, 0, 1080, 1800)
+        state.boundsKnown = true
+        assertNotNull(state.boundsOrNull())
+        state.attachContent(null)
+        assertNull(state.boundsOrNull())
+    }
+
+    @Test
+    fun `source size follows the measured host bounds`() {
+        val state = LiquidGlassBackdropState()
+        state.attachContent { }
+        state.sourceBounds = IntRect(left = 0, top = 100, right = 1080, bottom = 1900)
+        state.boundsKnown = true
+        assertEquals(IntSize(1080, 1800), state.sourceSize)
+    }
+}
+
+/**
+ * 审计标记：CI 靠它判断"方案成立 / 效果真的建起来 / 重画了几次"，格式不能变形。
  */
 class LiquidGlassAuditMarkerTest {
 
     @Test
-    fun `sampled plan exposes origin layer and padding`() {
+    fun `sampled plan exposes origin layer padding host and draw counts`() {
         val plan = planBackdropSample(
             35, true, true,
-            androidx.compose.ui.unit.IntRect(120, 340, 620, 740),
-            androidx.compose.ui.unit.IntRect(0, 0, 1080, 2400),
+            IntRect(120, 340, 620, 740),
+            IntRect(0, 0, 1080, 2400),
             12
         )
-        val markers = plan.auditMarkers(BackdropEffectHealth.Ok)
+        val markers = plan.auditMarkers(
+            health = BackdropEffectHealth.Ok,
+            hostWidth = 1080,
+            hostHeight = 2400,
+            hostDraws = 7,
+            layerDraws = 7,
+            revision = 3,
+            shapeLabel = "圆角矩形"
+        )
         assertTrue(markers.startsWith("AUDIT "))
         assertTrue(markers.contains("sampled=true"))
         assertTrue(markers.contains("glass=500x400"))
         assertTrue(markers.contains("origin=(120,340)"))
         assertTrue(markers.contains("layer=524x424"))
         assertTrue(markers.contains("pad=12"))
+        assertTrue(markers.contains("host=1080x2400"))
+        assertTrue(markers.contains("hostdraw=7"))
+        assertTrue(markers.contains("layerdraw=7"))
+        assertTrue(markers.contains("rev=3"))
         assertTrue(markers.contains("effect=Ok"))
     }
 
@@ -390,8 +835,8 @@ class LiquidGlassAuditMarkerTest {
     fun `audit markers stay single token space separated for regex parsing`() {
         val plan = planBackdropSample(
             35, true, true,
-            androidx.compose.ui.unit.IntRect(10, 20, 110, 220),
-            androidx.compose.ui.unit.IntRect(0, 0, 1080, 2400),
+            IntRect(10, 20, 110, 220),
+            IntRect(0, 0, 1080, 2400),
             5
         )
         val markers = plan.auditMarkers(BackdropEffectHealth.Failed)

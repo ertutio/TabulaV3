@@ -17,33 +17,92 @@
 
 | 层 | 位置 | 职责 |
 | --- | --- | --- |
-| 几何与回退决策 | `liquidglass/LiquidGlassBackdropPlan.kt` | 纯函数，决定采不采、采多大、平移多少；每个回退分支都有枚举原因 |
+| 几何与回退决策 | `liquidglass/LiquidGlassBackdropPlan.kt` | 纯函数：采不采、采多大、平移多少、背景以什么尺寸重绘、Layout 子项契约；每个回退分支都有枚举原因 |
 | 外观参数 | `liquidglass/LiquidGlassBackdropSpec.kt` | 折射带宽度、位移、色散、模糊；与 `PhysicalLiquidGlassConfig` 互不覆盖 |
-| 背景录制 | `liquidglass/LiquidGlassBackdrop.kt` 的 `LiquidGlassBackdropHost` | 把背景录进一个 `GraphicsLayer`，只录背景 |
-| 玻璃侧采样 | 同文件 `LiquidGlassBackdropSampling` | 按窗口坐标对齐、平移进小图层、串折射 shader、按形状裁切 |
+| 背景宿主 | `liquidglass/LiquidGlassBackdrop.kt` 的 `LiquidGlassBackdropHost` | 铺满绘制一次背景，并把绘制入口与窗口矩形交给采样侧 |
+| 玻璃侧采样 | 同文件 `LiquidGlassBackdropSampling` | 按窗口坐标对齐、以**宿主尺寸**局部重绘、串折射 shader、按形状裁切 |
 | shader | `liquidglass/LiquidGlassBackdropShader.kt` | AGSL：圆角矩形 SDF + 折射带位移 + 色散 + 采样夹取 |
-| 调试预览 | `liquidglass/LiquidGlassDebugPreview.kt`、`LiquidGlassDebugBackgrounds.kt` | 可移动高对比网格 + 合成照片 + 折射开关 |
+| 调试预览 | `liquidglass/LiquidGlassDebugPreview.kt`、`LiquidGlassDebugBackgrounds.kt` | 可移动高对比网格 / 合成照片 / **尺寸相关背景**；宿主缩放、形状切换、只改位移的对照 |
+| 折射几何模型 | `app/src/test/.../LiquidGlassBackdropRefractionModel.kt` | 与 shader `main()` 同式的纯 Kotlin 实现，让"边缘动、中心不动、不越界"可以在 JVM 上逐点断言 |
 
-层序：背景采样层插在最前，原有 8 层（背景模糊、AGSL 表面、噪点、内阴影、
-内容、底部内高光、separator、顶部内侧暗边/rim light）相对顺序不变。
-`glassContentLayerIndex` 把这件事抽成可断言函数。
+层序：背景采样层插在最前，原有 9 层（背景模糊、AGSL 表面、噪点、内阴影、
+内容、底部内高光、separator、顶部内侧暗边、rim light）相对顺序不变。
+`glassChildLayout()` 把"层数 / 内容下标 / 背景下标"抽成可断言函数。
 
-## 坐标对齐
+## 尺寸契约（核心）
 
-玻璃左上角在窗口坐标系的矩形，减去背景来源的窗口矩形，得到玻璃在背景中的
-原点 `(originX, originY)`。采样图层尺寸是"玻璃 + 2×padding"，背景在图层内
-平移 `(padding - originX, padding - originY)`，玻璃内容固定落在 `(padding, padding)`。
+背景 lambda 在宿主里看到的 `size` 是**宿主尺寸**。采样层里必须让它看到**同一个
+尺寸**，否则所有依赖 `size` 的几何（圆形半径、尺寸相关渐变、等分图案、居中元素）
+都会按玻璃尺寸重算——画面就不是"同一张背景平移"，而是"按玻璃尺寸重画了一张"。
+
 因此：
 
-- 滚动或改尺寸时原点变化 → 平移量跟着变化 → 不会错位；
-- 平移量 + 原点恒等于 padding，长期滚动不会累积误差；
-- 采样外扩一旦越过背景来源边界，直接回退原有材质，不去采玻璃自身或黑边。
+- 采样图层尺寸 = 玻璃尺寸 + 2 × `paddingPx`（**不是**玻璃大小）；
+- 图层在 Layout 里以 `(-paddingPx, -paddingPx)` 放置，于是与玻璃在屏幕上重合；
+- 背景内容以 `sourceWidth × sourceHeight`（宿主尺寸）建立子 `DrawScope`，再整体
+  平移 `(padding - originX, padding - originY)`；
+- shader 的 `uLayerSize` / `uGlassOrigin` / `uGlassSize` 全部由**图层实际尺寸**
+  推导，玻璃尺寸 = 图层 − 2 × pad，两套尺寸不会互相漂移。
+
+判据（调试预览的"尺寸相关"背景）：同心圆半径取 `size.minDimension`，渐变端点取
+`size.width/height`，竖条数取 `size.width`。若采样层用错尺寸，玻璃内外的圆曲率、
+渐变分布、竖条密度会明显不连续。
+
+## 采样外扩（边缘余量）
+
+`backdropPaddingPx()` = `max(模糊半径, 位移) / 2`，上限 64px、下限 1px。
+
+位移本身是向玻璃内部走的，不会越界；但效果链里的模糊核会在图层边缘取到图层外的
+像素（`TileMode.CLAMP` 会复制边缘），边缘就变成"被拉长的边界色"而不是真实背景。
+外扩半个核即可消除。外扩一旦越过背景来源边界，直接回退原有材质，不去采玻璃自身。
+
+## Layout 子项契约（采样不可用时内容必须仍被正确测量）
+
+`glassChildLayout(hasBackdropLayer)` 给出：子项个数、内容下标、背景下标。
+`planGlassLayout(...)` 给出：每个子项的测量约束与摆放偏移。
+
+- 内容层拿**父约束**（不是固定尺寸），`wrapContent` 才能拿到真实内容尺寸；
+- 其余层拿内容的固定尺寸；
+- 背景层拿 `内容 + 2*pad`，摆在 `(-pad,-pad)`。
+
+**背景层永远只发射一个子项**，哪怕采样不成立（此时它画空）。早期版本在采样不可用时
+提前 `return`，于是 Layout 用错的下标测量内容，`wrapContent` 塌成 0，界面上看不到
+内容却不报错——"采样句柄非空"不等于"子项存在"，这个推断本身就是错的。
+
+## 绘制失效
+
+`LiquidGlassBackdropState.revision` 与背景 lambda 本身都是 Compose 状态，且都在
+**绘制阶段被读取**：
+
+- 换背景 / 移动图案 / 滚动容器偏移 → 调用方 `invalidateContent()` → 采样层这一笔
+  绘制被标脏，重画一次；
+- 静止时没人改版本 → 一次也不重画。
+
+重画次数通过 `hostDrawCount` / `layerDrawCount` 暴露成**可观测指标**，并写进预览页的
+`AUDIT` 行（`hostdraw=` / `layerdraw=`）。探针据此判断"到底刷新了几次"：静止时两次
+dump 必须不变，换背景 / 移动图案 / 改尺寸后必须严格增加。**不用"两张截图相同"替代
+刷新次数验证**——截图相同既证明不了没在重画，也证明不了该重画时重画了。
+
+## 形状契约
+
+只有"四角半径一致"的圆角矩形能由单个 `uCornerRadius` 精确表达：
+
+| 形状 | 结论 |
+| --- | --- |
+| `RoundedCornerShape(12.dp)` | 可采样 |
+| `CircleShape`（四角都是 50%） | 可采样，半径夹到短边一半 |
+| `CutCornerShape` | 回退（`UNSUPPORTED_SHAPE`） |
+| 只圆上面两角 / dp 与百分比混用 | 回退 |
+| 任意 `Shape`（Path / GenericShape） | 回退 |
+
+形状可采样性只看形状本身（`isBackdropShapeSupported`），与尺寸无关；尺寸只影响
+半径夹取。
 
 ## 刷新策略
 
-`BackdropEffectKey` 把几何（图层尺寸、外扩、对齐平移）、外观参数和背景内容
-版本合成为一个可比较的键。键不变就不重新录制采样层，静止画面没有额外开销。
-滚动时位置变了必须重录，但重录的只是"玻璃大小"的小图层。
+`BackdropEffectKey` 把几何（图层尺寸、外扩、对齐平移）、外观参数和背景内容版本
+合成为一个可比较的键。键不变就不重建效果，静止画面没有额外开销。滚动时位置变了
+必须重对齐，但重画的只是"玻璃大小 + 外扩"的小图层。
 
 ## 参考实现（按固定源码版本）
 

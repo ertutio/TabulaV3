@@ -6,11 +6,20 @@
 
 判定原则（这是本脚本存在的理由）：
 
+- **绘制次数优先于截图相同**。预览页在 `AUDIT` 行里输出 `hostdraw=` / `layerdraw=`，
+  静止场景要求两次 dump 之间这两个数**一个都不变**；换背景 / 移动图案 / 改尺寸 /
+  滚动之后要求 `layerdraw` **严格增加**。两张截图相同只是"看起来没变"，
+  证明不了"没有在重画"，也证明不了"该重画时重画了"。
 - 只比较**玻璃区域内部**的像素。玻璃之外的变化（文字、滑块、状态栏）一律排除，
   否则"折射生效"会被无关差异冒充成通过。
-- 从 `uiautomator dump` 里解析预览页打印的 `AUDIT ...` 标记，确认
-  `sampled=true` 且 `effect=Ok`；任一不成立即判失败，不再靠像素差异猜测。
-- 静止场景要求两张截图逐像素一致（`changed_pixels == 0`）。
+- 从 `uiautomator dump` 里解析 `AUDIT ...` 标记，确认 `sampled=true`、
+  `effect=Ok`、`host` 尺寸与 `glass` 尺寸确实是两套值；任一不成立即判失败。
+- **尺寸契约**：宿主与玻璃尺寸不同（`--ei hostScale 60`）时，玻璃内外的
+  尺寸相关背景（同心圆、等分竖条）必须连续；判据是"玻璃区域内的画面与
+  紧邻玻璃外的一圈背景"在色调上连续，而不是玻璃内部被重新缩放了一遍。
+- **只改位移**的对照：`--ei refractionAmountDp` 两组，模糊、采样范围、背景
+  全相同；要求玻璃区域边缘有变化、中心区域几乎不变。
+- **非圆角形状回退**：`--es shape CutCorner` 必须 `sampled=false reason=UNSUPPORTED_SHAPE`。
 - 全程记录设备/系统信息，并标注这是模拟器。
 """
 
@@ -30,11 +39,6 @@ OUT.mkdir(exist_ok=True)
 
 PACKAGE = "com.tabula.v3.recyclebin.test"
 PREVIEW = f"{PACKAGE}/com.tabula.v3.debug.LiquidGlassPreviewActivity"
-
-# 玻璃节点在预览页里的位置由页脚控件决定；用 UI dump 里的 audited 值反推，
-# 拿不到时退回按布局常量估算（24dp 水平内边距，40dp 顶部内边距）。
-FALLBACK_GLASS_INSET_X_DP = 24
-FALLBACK_GLASS_TOP_DP = 40
 
 evidence = {
     "evidence_kind": "EMULATOR",
@@ -81,7 +85,7 @@ def ui_dump(tag: str) -> Path:
 
 def parse_audit(xml_path: Path) -> dict | None:
     text = xml_path.read_text(encoding="utf-8", errors="ignore")
-    match = re.search(r"AUDIT ([^<>\"]+)", text)
+    match = re.search(r"AUDIT ([^<>\\\"]+)", text)
     if not match:
         return None
     tokens = match.group(1).split()
@@ -92,6 +96,25 @@ def parse_audit(xml_path: Path) -> dict | None:
         key, value = token.split("=", 1)
         parsed[key] = value
     return parsed
+
+
+def as_int(audit: dict | None, key: str, default: int = -1) -> int:
+    if not audit:
+        return default
+    try:
+        return int(audit.get(key, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def as_size(audit: dict | None, key: str) -> tuple[int, int] | None:
+    if not audit:
+        return None
+    try:
+        w, h = (int(v) for v in audit[key].split("x"))
+        return w, h
+    except (KeyError, ValueError):
+        return None
 
 
 def screenshot(name: str, attempts: int = 3) -> Path:
@@ -126,19 +149,32 @@ def start_preview(
     refraction: bool,
     photo: bool,
     offset_y: int = 0,
+    offset_x: int = 0,
     height_dp: int = 160,
     diag_blur: bool = False,
+    refraction_amount_dp: int = 10,
+    shape: str = "RoundedRect",
+    backdrop: str | None = None,
+    host_scale: int = 100,
 ) -> None:
     adb("shell", "am", "force-stop", PACKAGE)
-    adb(
+    args = [
         "shell", "am", "start", "-W",
         "-n", PREVIEW,
         "--ez", "refraction", "true" if refraction else "false",
         "--ez", "photo", "true" if photo else "false",
+        "--ei", "offsetX", str(offset_x),
         "--ei", "offsetY", str(offset_y),
         "--ei", "glassHeightDp", str(height_dp),
-        *(["--ez", "diagBlur", "true"] if diag_blur else []),
-    )
+        "--ei", "refractionAmountDp", str(refraction_amount_dp),
+        "--ei", "hostScale", str(host_scale),
+        "--es", "shape", shape,
+    ]
+    if backdrop:
+        args += ["--es", "backdrop", backdrop]
+    if diag_blur:
+        args += ["--ez", "diagBlur", "true"]
+    adb(*args)
     # 等待首帧与采样层建立
     time.sleep(2.5)
 
@@ -175,17 +211,53 @@ def pixel_diff(a: Path, b: Path, out_prefix: str, roi: tuple[int, int, int, int]
     }
 
 
+def inner_ring(roi: tuple[int, int, int, int], inset_ratio: float) -> tuple[int, int, int, int]:
+    """玻璃区域向内收缩一圈：用来区分"边缘位移"与"中心偏移"。"""
+    left, top, right, bottom = roi
+    inset_x = int((right - left) * inset_ratio)
+    inset_y = int((bottom - top) * inset_ratio)
+    return (left + inset_x, top + inset_y, right - inset_x, bottom - inset_y)
+
+
+def edge_band(roi: tuple[int, int, int, int], band: int) -> tuple[int, int, int, int]:
+    """只保留玻璃边缘一圈（上边缘），用于验证边缘确实发生位移。"""
+    left, top, right, bottom = roi
+    return (left, top, right, min(bottom, top + band))
+
+
 def glass_roi_from_audit(audit: dict, screen: tuple[int, int]) -> tuple[int, int, int, int] | None:
-    """把审计标记里的 origin/glass 尺寸换算成屏幕像素矩形。"""
+    """把审计标记换算成屏幕像素矩形。
+
+    优先用 `screen=(x,y)`：那是玻璃节点在**窗口坐标系**里的真实左上角
+    （`boundsInWindow`），不需要猜页脚内边距，也不受宿主缩放影响。
+    老版本标记没有这个字段时退回"宿主居中 + origin"的估算。
+    """
     try:
         gw, gh = (int(v) for v in audit["glass"].split("x"))
-        ox, oy = (int(v) for v in audit["origin"].strip("()").split(","))
     except (KeyError, ValueError):
         return None
-    # origin 是"相对背景来源"的原点；背景来源从屏幕 0,0 起铺满，
-    # 因此配合页脚的固定内边距即可得到屏幕坐标。
-    left = max(0, ox)
-    top = max(0, oy)
+
+    left = top = None
+    screen_token = audit.get("screen")
+    if screen_token:
+        try:
+            left, top = (int(v) for v in screen_token.strip("()").split(","))
+        except ValueError:
+            left = top = None
+
+    if left is None or top is None:
+        try:
+            ox, oy = (int(v) for v in audit["origin"].strip("()").split(","))
+        except (KeyError, ValueError):
+            return None
+        host = as_size(audit, "host") or screen
+        host_left = max(0, (screen[0] - host[0]) // 2)
+        host_top = max(0, (screen[1] - host[1]) // 2)
+        left = host_left + ox
+        top = host_top + oy
+
+    left = max(0, left)
+    top = max(0, top)
     right = min(screen[0], left + gw)
     bottom = min(screen[1], top + gh)
     if right - left < 8 or bottom - top < 8:
@@ -280,6 +352,31 @@ def main() -> int:
         failure=None if effect_ok else "采样方案成立但 RenderEffect 没建起来",
     )
 
+    # 1b. 尺寸契约：host 与 glass 必须是两套值，且 layer = glass + 2*pad
+    host = as_size(on_audit, "host")
+    glass = as_size(on_audit, "glass")
+    layer = as_size(on_audit, "layer")
+    pad = as_int(on_audit, "pad")
+    if host and glass and layer:
+        contract_ok = (
+            host != glass
+            and layer == (glass[0] + 2 * pad, glass[1] + 2 * pad)
+            and pad > 0
+        )
+        record(
+            "host and glass sizes are distinct and layer = glass + 2*pad",
+            contract_ok,
+            f"host={host} glass={glass} layer={layer} pad={pad}",
+            failure=None if contract_ok
+            else "尺寸契约不成立：宿主/玻璃/图层尺寸关系与设计不符",
+        )
+        evidence["size_contract"] = {
+            "host": host, "glass": glass, "layer": layer, "pad": pad
+        }
+    else:
+        record("host and glass sizes are distinct and layer = glass + 2*pad", False,
+               "AUDIT 缺少 host/glass/layer/pad", failure="审计标记缺字段，无法验证尺寸契约")
+
     # 2. 折射关：必须回到原有材质（sampled=false）
     start_preview(refraction=False, photo=False)
     off_grid = screenshot(f"api{api}-grid-refraction-off")
@@ -321,8 +418,6 @@ def main() -> int:
     # 这一条把"renderEffect 渲染路径不生效"与"shader 逻辑写错"区分开：
     # 模糊也不出现，说明效果根本没被应用；只有折射不出现，说明 shader 的问题。
     if roi is not None:
-        # 诊断对照：同样自绘图案，一次带 48px 模糊、一次不带。
-        # 两次都走采样层（保证图案存在），只有 renderEffect 不同。
         start_preview(refraction=True, photo=False, diag_blur=True)
         diag_on = screenshot(f"api{api}-grid-diag-blur")
         start_preview(refraction=True, photo=False, diag_blur=False)
@@ -340,25 +435,190 @@ def main() -> int:
             "自绘图案上纯模糊也不生效：renderEffect 没有作用到该图层",
         )
 
-    # 4. 静止场景两张截图必须逐像素一致（不持续刷新）。
-    # 排除状态栏（顶部 ~100px）：那一片属于系统（时钟/电池），两次截图之间的
-    # 变化是环境噪声，曾把电池图标的一次状态切换误判成"逐帧刷新"。
-    # 玻璃区域（y>=105）必须严格零变化，那才是采样层是否安静的地方。
-    start_preview(refraction=False, photo=False)
-    off_again = screenshot(f"api{api}-grid-refraction-off-again")
-    content_roi = (0, 100, screen[0], screen[1])
-    stable = pixel_diff(off_grid, off_again, f"api{api}-grid-stability", roi=content_roi)
-    (OUT / f"api{api}-grid-stability.json").write_text(
-        json.dumps(stable, indent=2), encoding="utf-8")
-    still = stable.get("changed_pixels", -1) == 0
-    record("still scene does not keep repainting", still, json.dumps(stable),
-           failure=None if still else "静止画面（排除状态栏后）持续变化，说明存在逐帧刷新")
+    # ===== 4. 绘制失效：用绘制次数判断，不用"两张截图相同" =====
 
-    # 5. 合成照片同一套对照
-    start_preview(refraction=True, photo=True, offset_y=180)
+    start_preview(refraction=True, photo=False)
+    still_a = ui_dump(f"api{api}-still-a")
+    still_a_audit = parse_audit(still_a)
+    time.sleep(3.0)
+    still_b = ui_dump(f"api{api}-still-b")
+    still_b_audit = parse_audit(still_b)
+
+    host_a = as_int(still_a_audit, "hostdraw")
+    host_b = as_int(still_b_audit, "hostdraw")
+    layer_a = as_int(still_a_audit, "layerdraw")
+    layer_b = as_int(still_b_audit, "layerdraw")
+    evidence["still_draw_counts"] = {
+        "before": {"host": host_a, "layer": layer_a},
+        "after": {"host": host_b, "layer": layer_b},
+    }
+    still_ok = host_a >= 0 and layer_a >= 0 and host_a == host_b and layer_a == layer_b
+    record(
+        "still scene stops drawing (draw counters unchanged)",
+        still_ok,
+        f"hostdraw {host_a}->{host_b} layerdraw {layer_a}->{layer_b}",
+        failure=None if still_ok
+        else "静止场景绘制次数仍在增长，说明存在逐帧重绘",
+    )
+
+    # 4b. 换背景必须让采样层重画（layerdraw 严格增加）
+    adb("shell", "am", "force-stop", PACKAGE)
+    start_preview(refraction=True, photo=False, backdrop="SizeDependent")
+    before_switch = parse_audit(ui_dump(f"api{api}-switch-before"))
+    # 用 UI 交互切背景：点"切换背景"按钮，位置由 dump 里的文本节点给出
+    tap_text("切换背景", f"api{api}-switch-tap")
+    time.sleep(1.5)
+    after_switch = parse_audit(ui_dump(f"api{api}-switch-after"))
+    layer_before = as_int(before_switch, "layerdraw")
+    layer_after = as_int(after_switch, "layerdraw")
+    evidence["background_switch"] = {"before": layer_before, "after": layer_after}
+    switch_ok = layer_before >= 0 and layer_after > layer_before
+    record(
+        "switching the background repaints the sampling layer",
+        switch_ok,
+        f"layerdraw {layer_before} -> {layer_after}",
+        failure=None if switch_ok
+        else "换背景后采样层没有重画：背景内容变化没接入绘制失效",
+    )
+
+    # 4c. 移动图案（只改内容版本）同样必须重画
+    tap_text("移动图案", f"api{api}-pattern-tap")
+    time.sleep(1.5)
+    after_pattern = parse_audit(ui_dump(f"api{api}-pattern-after"))
+    layer_pattern = as_int(after_pattern, "layerdraw")
+    pattern_ok = layer_after >= 0 and layer_pattern > layer_after
+    evidence["pattern_move"] = {"before": layer_after, "after": layer_pattern}
+    record(
+        "moving the pattern repaints the sampling layer",
+        pattern_ok,
+        f"layerdraw {layer_after} -> {layer_pattern}",
+        failure=None if pattern_ok
+        else "图案移动后采样层没有重画：invalidateContent 没有接到绘制",
+    )
+
+    # 4d. 改尺寸必须重画且尺寸契约仍然成立
+    tap_text("改宿主尺寸", f"api{api}-host-scale-tap")
+    time.sleep(1.5)
+    resized_host = parse_audit(ui_dump(f"api{api}-host-scale-after"))
+    layer_resized = as_int(resized_host, "layerdraw")
+    new_host = as_size(resized_host, "host")
+    resize_ok = (
+        layer_resized > layer_pattern
+        and new_host is not None
+        and host is not None
+        and new_host != host
+    )
+    evidence["host_resize"] = {
+        "layerdraw": {"before": layer_pattern, "after": layer_resized},
+        "host": {"before": host, "after": new_host},
+    }
+    record(
+        "changing the host size repaints and re-aligns",
+        resize_ok,
+        f"layerdraw {layer_pattern} -> {layer_resized}, host {host} -> {new_host}",
+        failure=None if resize_ok
+        else "改宿主尺寸后采样层没有重画或对齐参数没更新",
+    )
+
+    # ===== 5. 只改位移的对照：边缘动、中心不动 =====
+
+    if roi is not None:
+        start_preview(
+            refraction=True, photo=False, backdrop="Grid",
+            refraction_amount_dp=2,
+        )
+        weak = screenshot(f"api{api}-amount-2dp")
+        weak_audit = parse_audit(ui_dump(f"api{api}-amount-2dp"))
+        start_preview(
+            refraction=True, photo=False, backdrop="Grid",
+            refraction_amount_dp=12,
+        )
+        strong = screenshot(f"api{api}-amount-12dp")
+        strong_audit = parse_audit(ui_dump(f"api{api}-amount-12dp"))
+
+        # 前置条件：除位移外，其它一切必须相同
+        same_geometry = (
+            weak_audit is not None and strong_audit is not None
+            and as_size(weak_audit, "glass") == as_size(strong_audit, "glass")
+            and as_size(weak_audit, "layer") == as_size(strong_audit, "layer")
+            and as_size(weak_audit, "host") == as_size(strong_audit, "host")
+            and as_int(weak_audit, "pad") == as_int(strong_audit, "pad")
+        )
+        record(
+            "displacement-only comparison keeps sampling geometry identical",
+            same_geometry,
+            f"weak={weak_audit} strong={strong_audit}",
+            failure=None if same_geometry
+            else "对照测试的采样几何不同，不能归因于位移",
+        )
+
+        edge_roi = edge_band(roi, band=60)
+        center_roi = inner_ring(roi, inset_ratio=0.3)
+        edge_diff = pixel_diff(weak, strong, f"api{api}-amount-edge", edge_roi)
+        center_diff = pixel_diff(weak, strong, f"api{api}-amount-center", center_roi)
+        (OUT / f"api{api}-amount-diff.json").write_text(
+            json.dumps({"edge": edge_diff, "center": center_diff}, indent=2),
+            encoding="utf-8")
+        evidence["displacement_only"] = {"edge": edge_diff, "center": center_diff}
+
+        edge_ok = edge_diff.get("changed_pixels", 0) >= 50
+        record(
+            "displacement change moves pixels at the glass edge",
+            edge_ok,
+            json.dumps(edge_diff),
+            failure=None if edge_ok
+            else f"边缘只有 {edge_diff.get('changed_pixels', 0)} 个像素变化，位移没有生效",
+        )
+
+        center_pixels = center_diff.get("region_pixels", 0) or 1
+        center_ratio = center_diff.get("changed_pixels", 0) / center_pixels
+        center_ok = center_ratio <= 0.02
+        record(
+            "displacement change leaves the glass center essentially untouched",
+            center_ok,
+            json.dumps(center_diff),
+            failure=None if center_ok
+            else f"中心区域变化比例 {center_ratio:.4f} 过高，位移影响到了玻璃中心",
+        )
+
+    # ===== 6. 非圆角形状回退 =====
+
+    start_preview(refraction=True, photo=False, shape="CutCorner")
+    cut_shot = screenshot(f"api{api}-shape-cut")
+    cut_audit = parse_audit(ui_dump(f"api{api}-shape-cut"))
+    cut_ok = (
+        bool(cut_audit)
+        and cut_audit.get("sampled") == "false"
+        and cut_audit.get("reason") == "UNSUPPORTED_SHAPE"
+    )
+    evidence["cut_corner_fallback"] = cut_audit
+    record(
+        "non rounded shape falls back with UNSUPPORTED_SHAPE",
+        cut_ok,
+        json.dumps(cut_audit, ensure_ascii=False) if cut_audit else cut_shot.name,
+        failure=None if cut_ok
+        else "切角形状没有回退，或回退原因不是 UNSUPPORTED_SHAPE",
+    )
+
+    # 6b. 圆形形状必须仍然可采样（圆形是"四角半径一致"的特例）
+    start_preview(refraction=True, photo=False, shape="Circle")
+    circle_shot = screenshot(f"api{api}-shape-circle")
+    circle_audit = parse_audit(ui_dump(f"api{api}-shape-circle"))
+    circle_ok = bool(circle_audit) and circle_audit.get("sampled") == "true"
+    evidence["circle_shape"] = circle_audit
+    record(
+        "circle shape still samples",
+        circle_ok,
+        json.dumps(circle_audit, ensure_ascii=False) if circle_audit else circle_shot.name,
+        failure=None if circle_ok else "圆形形状没有进入采样路径",
+    )
+
+    # ===== 7. 合成照片与尺寸相关背景同一套对照 =====
+
+    start_preview(refraction=True, photo=True, offset_y=180, backdrop="Photo")
     on_photo = screenshot(f"api{api}-photo-refraction-on")
     on_photo_audit = parse_audit(ui_dump(f"api{api}-photo-on"))
-    start_preview(refraction=False, photo=True, offset_y=180)
+    start_preview(refraction=False, photo=True, offset_y=180, backdrop="Photo")
     off_photo = screenshot(f"api{api}-photo-refraction-off")
     photo_roi = glass_roi_from_audit(on_photo_audit, screen) if on_photo_audit else roi
     if photo_roi is not None:
@@ -372,7 +632,41 @@ def main() -> int:
                json.dumps(photo_diff),
                failure=None if ok else "合成照片上玻璃区域内没有折射变化")
 
-    # 6. 改尺寸后仍能采样
+    # 7b. 尺寸相关背景 + 宿主缩放：玻璃内外必须连续（不是按玻璃尺寸重算）
+    start_preview(
+        refraction=True, photo=False, backdrop="SizeDependent",
+        host_scale=60, offset_y=120,
+    )
+    size_shot = screenshot(f"api{api}-size-dependent")
+    size_audit = parse_audit(ui_dump(f"api{api}-size-dependent"))
+    size_roi = glass_roi_from_audit(size_audit, screen) if size_audit else None
+    size_host = as_size(size_audit, "host")
+    size_glass = as_size(size_audit, "glass")
+    if size_roi is not None and size_host and size_glass:
+        # 判据：玻璃内部的平均色必须与"紧贴玻璃上方的背景"接近——
+        # 若采样层用玻璃尺寸重画了渐变，两侧色调会出现台阶
+        continuity = color_continuity(size_shot, size_roi)
+        evidence["size_dependent_continuity"] = {
+            "roi": list(size_roi),
+            "host": size_host,
+            "glass": size_glass,
+            **continuity,
+        }
+        ok = continuity["delta"] <= 18.0
+        record(
+            "size dependent background is continuous across the glass edge",
+            ok,
+            json.dumps(continuity),
+            failure=None if ok
+            else f"玻璃内外色调台阶 {continuity['delta']:.1f}，采样层可能用了玻璃尺寸重绘",
+        )
+    else:
+        record("size dependent background is continuous across the glass edge", False,
+               "无法定位玻璃区域或缺少 host/glass 尺寸",
+               failure="尺寸相关背景的连续性无法验证")
+
+    # ===== 8. 改尺寸后仍能采样 =====
+
     start_preview(refraction=True, photo=False, offset_y=120, height_dp=280)
     resized = screenshot(f"api{api}-grid-resized")
     resized_audit = parse_audit(ui_dump(f"api{api}-resized"))
@@ -384,10 +678,11 @@ def main() -> int:
         else "改尺寸后采样失效",
     )
 
-    # 7. 同设备同场景掉帧对照
-    start_preview(refraction=False, photo=True)
+    # ===== 9. 同设备同场景掉帧对照（模拟器数据，不替代真机）=====
+
+    start_preview(refraction=False, photo=True, backdrop="Photo")
     frames_off = gfxinfo(f"api{api}-refraction-off")
-    start_preview(refraction=True, photo=True)
+    start_preview(refraction=True, photo=True, backdrop="Photo")
     frames_on = gfxinfo(f"api{api}-refraction-on")
     evidence["frame_stats"] = {"refraction_off": frames_off, "refraction_on": frames_on}
     record("frame stats captured", bool(frames_on and frames_off),
@@ -396,6 +691,57 @@ def main() -> int:
     write_summary(api)
     print(json.dumps(evidence, ensure_ascii=False, indent=2))
     return 0 if not failures else 1
+
+
+def tap_text(label: str, tag: str) -> bool:
+    """按无障碍文本点击预览页上的按钮；找不到时返回 False 并记录。"""
+    dump = ui_dump(tag)
+    text = dump.read_text(encoding="utf-8", errors="ignore")
+    match = re.search(
+        r'text="' + re.escape(label) + r'"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',
+        text,
+    )
+    if not match:
+        record(f"tap {label}", False, "dump 里找不到该文本节点",
+               failure=f"预览页缺少可点击的「{label}」")
+        return False
+    x1, y1, x2, y2 = (int(v) for v in match.groups())
+    adb("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
+    return True
+
+
+def color_continuity(image_path: Path, roi: tuple[int, int, int, int]) -> dict:
+    """玻璃内部上沿 vs 玻璃外部上沿的平均色差。
+
+    采样层如果用错尺寸（按玻璃尺寸重绘渐变），玻璃内外会出现明显台阶；
+    正确实现下两者是同一张背景的相邻区域，色差很小。
+    """
+    image = Image.open(image_path).convert("RGB")
+    left, top, right, bottom = roi
+    width = right - left
+    inside = image.crop((left, top + 4, right, top + 12))
+    outside = image.crop((left, max(0, top - 12), right, max(0, top - 4)))
+
+    def mean(crop) -> tuple[float, float, float]:
+        pixels = list(crop.getdata())
+        if not pixels:
+            return (0.0, 0.0, 0.0)
+        n = len(pixels)
+        return (
+            sum(p[0] for p in pixels) / n,
+            sum(p[1] for p in pixels) / n,
+            sum(p[2] for p in pixels) / n,
+        )
+
+    a = mean(inside)
+    b = mean(outside)
+    delta = sum(abs(a[i] - b[i]) for i in range(3)) / 3.0
+    return {
+        "inside_mean": [round(v, 2) for v in a],
+        "outside_mean": [round(v, 2) for v in b],
+        "delta": round(delta, 2),
+        "sampled_columns": width,
+    }
 
 
 if __name__ == "__main__":

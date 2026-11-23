@@ -120,27 +120,23 @@ internal fun createBackdropRenderEffect(
 ): RenderEffect? {
     if (!plan.useSampledBackdrop) return null
     return try {
+        // uniform 全部由**图层实际尺寸**推导，玻璃尺寸 = 图层 - 2*pad，
+        // 保证 shader 眼里的图层与真实绘制面积永远一致。
+        val uniforms = backdropShaderUniforms(
+            layerWidthPx = plan.layerWidthPx,
+            layerHeightPx = plan.layerHeightPx,
+            paddingPx = plan.paddingPx,
+            cornerRadiusPx = cornerRadiusPx,
+            appearance = appearance
+        )
         val shader = RuntimeShader(LIQUID_GLASS_BACKDROP_SHADER)
-        shader.setFloatUniform(
-            "uLayerSize",
-            plan.layerWidthPx.toFloat(),
-            plan.layerHeightPx.toFloat()
-        )
-        shader.setFloatUniform(
-            "uGlassOrigin",
-            plan.paddingPx.toFloat(),
-            plan.paddingPx.toFloat()
-        )
-        shader.setFloatUniform(
-            "uGlassSize",
-            plan.glassWidthPx.toFloat(),
-            plan.glassHeightPx.toFloat()
-        )
-        val maxRadius = minOf(plan.glassWidthPx, plan.glassHeightPx) / 2f
-        shader.setFloatUniform("uCornerRadius", cornerRadiusPx.coerceIn(0f, maxRadius))
-        shader.setFloatUniform("uRefractionHeight", appearance.refractionHeightPx)
-        shader.setFloatUniform("uRefractionAmount", appearance.refractionAmountPx)
-        shader.setFloatUniform("uDispersion", appearance.dispersion)
+        shader.setFloatUniform("uLayerSize", uniforms.layerWidth, uniforms.layerHeight)
+        shader.setFloatUniform("uGlassOrigin", uniforms.glassOriginX, uniforms.glassOriginY)
+        shader.setFloatUniform("uGlassSize", uniforms.glassWidth, uniforms.glassHeight)
+        shader.setFloatUniform("uCornerRadius", uniforms.cornerRadius)
+        shader.setFloatUniform("uRefractionHeight", uniforms.refractionHeight)
+        shader.setFloatUniform("uRefractionAmount", uniforms.refractionAmount)
+        shader.setFloatUniform("uDispersion", uniforms.dispersion)
 
         val refraction = RenderEffect.createRuntimeShaderEffect(shader, "content")
         if (appearance.blurRadiusPx > 0.01f) {
