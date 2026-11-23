@@ -187,7 +187,13 @@ class StagedCleanupEntryDeviceTest {
         tap("设置")
         waitFor("暂存清理")
         tap("暂存清理")
-        android.os.SystemClock.sleep(1500)
+        // 等页面真正切换：设置页有"外观/主题模式"，暂存清理页没有
+        val end = now() + 20000
+        while (now() < end) {
+            if (find("外观") == null && find("暂存清理") == null) break
+            android.os.SystemClock.sleep(250)
+        }
+        android.os.SystemClock.sleep(800)
     }
 
     // ==================== 用例 ====================
@@ -246,13 +252,11 @@ class StagedCleanupEntryDeviceTest {
     @Test
     fun moveToRecycleBinThenRestoreKeepsPhoto() = runBlocking {
         val uri = insertPhoto("DCIM/Screenshots")
-        val images = loadLibrary()
-        val target = images.firstOrNull { it.uri == uri }
-        assertTrue("测试照片应被图库发现", target != null)
+        val target = awaitImageOf(uri)
 
         val bin = RecycleBinManager.getInstance(ctx)
         val before = bin.loadRecycleBin().size
-        bin.addAllToRecycleBin(listOf(target!!))
+        bin.addAllToRecycleBin(listOf(target))
         val after = bin.loadRecycleBin()
         assertTrue("移入回收站后记录数应增加", after.size > before)
         assertTrue(
@@ -278,11 +282,10 @@ class StagedCleanupEntryDeviceTest {
     @Test
     fun recycleBinStateSurvivesManagerRecreation() = runBlocking {
         val uri = insertPhoto("Download")
-        val target = loadLibrary().firstOrNull { it.uri == uri }
-        assertTrue("测试照片应被图库发现", target != null)
+        val target = awaitImageOf(uri)
 
         val bin = RecycleBinManager.getInstance(ctx)
-        bin.addAllToRecycleBin(listOf(target!!))
+        bin.addAllToRecycleBin(listOf(target))
         val key = cleanupIdentityKey(target)
         assertTrue(bin.loadRecycleBin().any { cleanupIdentityKey(it) == key })
 
@@ -307,7 +310,20 @@ class StagedCleanupEntryDeviceTest {
         assertTrue("无可见照片时来源列表为空而不是崩溃", result.isEmpty())
     }
 
-    private fun loadLibrary(): List<com.tabula.v3.data.model.ImageFile> = runBlocking {
+    private suspend fun loadLibrarySuspend(): List<com.tabula.v3.data.model.ImageFile> =
         com.tabula.v3.data.repository.LocalImageRepository(ctx).loadAllData().allImages
+
+    private fun loadLibrary(): List<com.tabula.v3.data.model.ImageFile> =
+        runBlocking { loadLibrarySuspend() }
+
+    /** MediaStore 索引新照片有延迟：带重试等待目标出现。 */
+    private suspend fun awaitImageOf(uri: Uri, timeoutMs: Long = 15000)
+        : com.tabula.v3.data.model.ImageFile {
+        val end = android.os.SystemClock.uptimeMillis() + timeoutMs
+        while (android.os.SystemClock.uptimeMillis() < end) {
+            loadLibrarySuspend().firstOrNull { it.uri == uri }?.let { return it }
+            kotlinx.coroutines.delay(250)
+        }
+        error("照片未在 ${timeoutMs}ms 内被图库索引：$uri")
     }
 }
