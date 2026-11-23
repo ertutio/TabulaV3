@@ -340,15 +340,19 @@ def main() -> int:
             "自绘图案上纯模糊也不生效：renderEffect 没有作用到该图层",
         )
 
-    # 4. 静止场景两张截图必须逐像素一致（不持续刷新）
+    # 4. 静止场景两张截图必须逐像素一致（不持续刷新）。
+    # 排除状态栏（顶部 ~100px）：那一片属于系统（时钟/电池），两次截图之间的
+    # 变化是环境噪声，曾把电池图标的一次状态切换误判成"逐帧刷新"。
+    # 玻璃区域（y>=105）必须严格零变化，那才是采样层是否安静的地方。
     start_preview(refraction=False, photo=False)
     off_again = screenshot(f"api{api}-grid-refraction-off-again")
-    stable = pixel_diff(off_grid, off_again, f"api{api}-grid-stability", roi=None)
+    content_roi = (0, 100, screen[0], screen[1])
+    stable = pixel_diff(off_grid, off_again, f"api{api}-grid-stability", roi=content_roi)
     (OUT / f"api{api}-grid-stability.json").write_text(
         json.dumps(stable, indent=2), encoding="utf-8")
-    still = stable.get("changed_pixels_whole_screen", -1) == 0
+    still = stable.get("changed_pixels", -1) == 0
     record("still scene does not keep repainting", still, json.dumps(stable),
-           failure=None if still else "静止画面持续变化，说明存在逐帧刷新")
+           failure=None if still else "静止画面（排除状态栏后）持续变化，说明存在逐帧刷新")
 
     # 5. 合成照片同一套对照
     start_preview(refraction=True, photo=True, offset_y=180)
