@@ -244,21 +244,34 @@ class StagedCleanupPageFlowTest {
             return@runBlocking
         }
 
-        // 候选页 → 选中照片 → 移入回收站
+        // 候选页 → **先点缩略图勾选**（未勾选时按钮是"选择要移入回收站的照片"）
         android.os.SystemClock.sleep(1500)
-        val candidateTexts = screenTexts()
-        val moveButton = candidateTexts.firstOrNull {
-            it.startsWith("移入回收站（") || it.contains("选择要移入回收站的照片")
+        val beforeSelect = screenTexts()
+        // 缩略图的 contentDescription 就是文件名（sc-xxxxxxxx.jpg）
+        val thumb = beforeSelect.firstOrNull { it.startsWith("sc-") && it.endsWith(".jpg") }
+        if (thumb != null) {
+            tap(thumb)
+            android.os.SystemClock.sleep(1000)
         }
-        if (moveButton != null && moveButton.startsWith("移入回收站（")) {
-            tap(moveButton)
-            android.os.SystemClock.sleep(1500)
-            val afterMove = bin.loadRecycleBin()
-            assertTrue(
-                "点移入回收站后回收站应增加记录（before=$binBefore after=${afterMove.size}）",
-                afterMove.size > binBefore
-            )
-        }
+        val afterSelect = screenTexts()
+        assertTrue(
+            "勾选后应出现选中标记（屏幕：$afterSelect）",
+            afterSelect.any { it.contains("已选中") } ||
+                afterSelect.any { it.startsWith("移入回收站（") }
+        )
+
+        val moveButton = afterSelect.firstOrNull { it.startsWith("移入回收站（") }
+        assertTrue(
+            "勾选后必须出现「移入回收站（N 张）」按钮（屏幕：$afterSelect）",
+            moveButton != null
+        )
+        tap(moveButton!!)
+        android.os.SystemClock.sleep(1800)
+        val afterMove = bin.loadRecycleBin()
+        assertTrue(
+            "点移入回收站后回收站应增加记录（before=$binBefore after=${afterMove.size}）",
+            afterMove.size > binBefore
+        )
 
         // ---- 真正重启：杀进程 ----
         hardRestart()
