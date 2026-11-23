@@ -77,6 +77,49 @@ class RecommendationEngine(
             }
         }
     }
+
+    /**
+     * 一批推荐结果 + 这批照片来自哪个相似组（审计意见 #87）。
+     *
+     * 为什么需要它：旧实现让 UI 用 `currentBatch` 的时间跨度与相册去**猜**
+     * 组关系，猜出来的"组"与检测器的内容寻址身份无关——冷却、进度、
+     * 持久化全都对不上。现在由推荐引擎把它实际用到的 `SimilarGroup` 一并
+     * 交出来，UI 直接用真实身份。
+     *
+     * 随机漫步模式返回的 [group] 为 null（那批照片本来就互不相关）。
+     */
+    data class BatchResult(
+        val images: List<ImageFile>,
+        val group: SimilarGroup?
+    )
+
+    suspend fun getRecommendedBatchWithGroup(
+        allImages: List<ImageFile>,
+        batchSize: Int,
+        identityCandidates: List<ImageFile> = allImages
+    ): BatchResult = withContext(Dispatchers.IO) {
+        if (allImages.isEmpty()) return@withContext BatchResult(emptyList(), null)
+        val filteredImages = filterExcludedAlbums(allImages)
+        if (filteredImages.isEmpty()) return@withContext BatchResult(emptyList(), null)
+
+        when (preferences.recommendMode) {
+            RecommendMode.RANDOM_WALK -> {
+                preferences.cleanupExpiredPickRecords()
+                migrateLegacyPickRecords(identityCandidates + allImages)
+                BatchResult(getRandomWalkBatch(filteredImages, batchSize), null)
+            }
+            RecommendMode.SIMILAR -> {
+                preferences.cleanupExpiredSimilarGroupRecords()
+                // 与 getSimilarBatch 同一套取组逻辑，但把组对象一并返回
+                val group = runCatching { getNextSimilarGroup(filteredImages) }.getOrNull()
+                if (group == null) {
+                    BatchResult(getRandomWalkBatch(filteredImages, batchSize), null)
+                } else {
+                    BatchResult(group.images, group)
+                }
+            }
+        }
+    }
     
     /**
      * 过滤掉被屏蔽图集的照片
