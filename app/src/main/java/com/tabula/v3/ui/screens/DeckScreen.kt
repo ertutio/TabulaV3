@@ -1930,44 +1930,11 @@ private fun DeckContent(
             // 只在用户确实在集中处理同一来源时出现；接受只影响下一批，
             // 忽略则本次会话不再打扰。
             if (intentSourceName != null && onAcceptIntent != null && onDismissIntent != null) {
-                val intentContext = LocalContext.current
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            if (LocalIsDarkTheme.current) Color(0xFF2C2C2E) else Color.White
-                        )
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = "这轮再看几张「$intentSourceName」？",
-                            color = if (LocalIsDarkTheme.current) Color.White else Color.Black,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "接受后下一批优先这个来源，只影响一批",
-                            color = Color(0xFF8E8E93),
-                            fontSize = 11.sp
-                        )
-                    }
-                    TextButton(onClick = {
-                        HapticFeedback.lightTap(intentContext)
-                        onDismissIntent()
-                    }) {
-                        Text("忽略", color = Color(0xFF8E8E93), fontSize = 13.sp)
-                    }
-                    TextButton(onClick = {
-                        HapticFeedback.lightTap(intentContext)
-                        onAcceptIntent()
-                    }) {
-                        Text("看这个", color = Color(0xFF007AFF), fontSize = 13.sp)
-                    }
-                }
+                com.tabula.v3.ui.components.RoundIntentBanner(
+                    intentSourceName = intentSourceName,
+                    onAcceptIntent = onAcceptIntent,
+                    onDismissIntent = onDismissIntent
+                )
             }
 
             // 卡片堆叠区域
