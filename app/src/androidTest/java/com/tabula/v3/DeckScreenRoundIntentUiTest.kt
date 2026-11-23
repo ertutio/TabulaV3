@@ -147,6 +147,18 @@ class DeckScreenRoundIntentUiTest {
             android.os.SystemClock.sleep(200)
         }
         if (find(ins.uiAutomation.rootInActiveWindow, "回收站") == null) {
+            // 诊断：把当前屏幕的可见文本写入日志，供 CI 工件核对
+            val root = ins.uiAutomation.rootInActiveWindow
+            val visible = StringBuilder()
+            fun walk(n: AccessibilityNodeInfo?, depth: Int) {
+                if (n == null || depth > 8) return
+                n.text?.toString()?.takeIf { it.isNotBlank() }?.let {
+                    visible.append("  ".repeat(depth)).append(it).append('\n')
+                }
+                for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
+            }
+            walk(root, 0)
+            android.util.Log.e("RoundIntentUi", "screen text at timeout:\n$visible")
             error("卡片页未出现（回收站按钮超时）")
         }
         android.os.SystemClock.sleep(2500) // 等首批照片从 MediaStore 装载
