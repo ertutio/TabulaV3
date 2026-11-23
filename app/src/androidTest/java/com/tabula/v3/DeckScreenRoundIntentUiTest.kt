@@ -47,6 +47,8 @@ class DeckScreenRoundIntentUiTest {
         prefs.hasAcknowledgedDisclaimer = true
         prefs.recommendMode = RecommendMode.RANDOM_WALK
         prefs.walkSamplingStrategy = WalkSamplingStrategy.UNIFORM
+        prefs.swipeStyle = com.tabula.v3.data.preferences.SwipeStyle.SHUFFLE
+        prefs.batchSize = 5
         grantMedia()
     }
 
@@ -326,6 +328,7 @@ class DeckScreenRoundIntentUiTest {
         while (find(ins.uiAutomation.rootInActiveWindow, "再来一组") == null && attempts++ < 30) {
             swipeCard(SwipeDirection.KEEP_LEFT)
         }
+        dumpScreen("before-next-batch")
         tap("再来一组")
         val deadline = now() + 15000
         while (engine.roundIntent.isActive && now() < deadline) android.os.SystemClock.sleep(100)
