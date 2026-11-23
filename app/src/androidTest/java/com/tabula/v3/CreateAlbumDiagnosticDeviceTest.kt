@@ -159,7 +159,7 @@ class CreateAlbumDiagnosticDeviceTest {
         var placeholderUri: Uri? = null
         try {
             placeholderUri = ctx.contentResolver.insert(
-                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
                     put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
@@ -233,7 +233,7 @@ class CreateAlbumDiagnosticDeviceTest {
         var sentinel: Uri? = null
         attempt {
             val item = requireNotNull(ctx.contentResolver.insert(
-                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, "$sentinelName.jpg")
                     put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
