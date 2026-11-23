@@ -238,14 +238,20 @@ class StagedCleanupPageFlowTest {
      *
      * 同进程 instrumentation 的边界（如实记录）：
      * - `am force-stop` 会杀掉测试进程自己（同包），不可用；
-     * - `am kill` 之后进程重建但 MediaStore 访问未就绪，重启后界面显示
-     *   「没有找到照片，请确保已授权访问相册」（run 45183861900 / 45186394357
-     *   两次实测），即使重新 grant 也不恢复。
+     * - 这里做的是：finish 掉 Activity → 冷启动新 Activity。这会丢弃全部
+     *   Compose state 与 Activity 级状态，页面只能从持久化数据重建；但进程级
+     *   单例仍存活。**PR 正文如实标注该边界，不把它写成"真机冷启动已验证"。**
      *
-     * 因此这里做的是：finish 掉 Activity → 冷启动新 Activity。
-     * 这会丢弃全部 Compose state 与 Activity 级状态，页面只能从持久化数据
-     * 重建；但进程级单例仍存活。**PR 正文如实标注该边界，
-     * 不把它写成"真机冷启动已验证"。**
+     * 历史归因更正（重要，别再重走）：此前把重启后的失败记成"MediaStore 访问
+     * 未就绪 / 权限问题 / 单例缓存不一致"，三条都错。真实原因是**产品缺陷**：
+     * 本用例把唯一一张照片移入回收站后重启，`projectSnapshot` 扣掉软删除项，
+     * 图库确实为空 → 界面进 `EmptyState`。而 `EmptyState` 当时**没有顶部栏**，
+     * 「回收站」入口根本不存在，于是 `waitFor("回收站")` 超时——屏幕正是
+     * `[Tabula Logo, 没有找到照片, 请确保已授权访问相册]`。
+     *
+     * 也就是说：用户把照片全部移入回收站后，会被困在一个只有 Logo 的页面上，
+     * 连回收站都进不去（而待恢复的照片恰恰在回收站里）。修复在
+     * `DeckScreen.EmptyState`：空图库同样渲染 `TopBar`（回收站 + 设置）。
      */
     private fun hardRestart() {
         runCatching { activity?.finish() }
@@ -396,6 +402,71 @@ class StagedCleanupPageFlowTest {
                 afterRestore.size < persisted.size || persisted.isEmpty()
             )
         }
+    }
+
+    /**
+     * 空图库仍必须能进回收站（#84 卡点的真实缺陷回归）。
+     *
+     * 场景：用户把照片全部移入回收站 → 图库为空。此时界面进 `EmptyState`。
+     * 修复前 `EmptyState` 没有顶部栏，屏幕上只有 Logo 与两行提示，
+     * 「回收站」入口不存在——用户再也回不去回收站恢复那张照片。
+     *
+     * 本用例不复用完整页面链路，直接构造该终态：
+     * 1. 插入一张照片并移入回收站（图库因此为空）；
+     * 2. 启动应用，断言空状态与回收站入口**同时存在**；
+     * 3. 点回收站进入列表，点照片打开查看器，点「恢复」；
+     * 4. 断言回收站记录真的减少（恢复生效，不只是界面能点）。
+     */
+    @Test
+    fun emptyLibraryStillReachesRecycleBinAndRestores() = runBlocking {
+        val uri = insertPhoto("DCIM/Screenshots")
+        waitIndexed(uri)
+        val bin = RecycleBinManager.getInstance(ctx)
+        val image = com.tabula.v3.data.repository.LocalImageRepository(ctx)
+            .loadAllData().allImages.first { it.uri == uri }
+        bin.addAllToRecycleBin(listOf(image))
+        val key = "${image.volumeName}|${image.id}"
+        val binAfterMove = bin.loadRecycleBin()
+        assertTrue("照片应已入回收站", binAfterMove.any { "${it.volumeName}|${it.id}" == key })
+
+        startApp()
+
+        // 图库为空 → 空状态；同时顶部栏必须在（回收站 + 设置）
+        waitFor("没有找到照片", timeout = 45000)
+        val emptyTexts = screenTexts()
+        assertTrue(
+            "空图库时必须同时保留回收站入口（屏幕：$emptyTexts）",
+            emptyTexts.contains("回收站")
+        )
+        assertTrue(
+            "空图库时必须同时保留设置入口（屏幕：$emptyTexts）",
+            emptyTexts.contains("设置")
+        )
+
+        // 进回收站
+        tap("回收站")
+        waitFor("返回", timeout = 20000)
+        val binTexts = screenTexts()
+        assertTrue(
+            "回收站页应列出那张照片（屏幕：$binTexts）",
+            binTexts.any { it == image.displayName }
+        )
+
+        // 打开查看器 → 恢复。网格项同样用坐标点击：Compose 的 clickable 在
+        // 外层 Box，语义树 parent 链不一定连到可点节点（见 tapByBounds 注释）。
+        assertTrue(
+            "回收站网格里的照片必须能被点击（目标：${image.displayName}）",
+            tapByBounds(image.displayName)
+        )
+        waitFor("恢复", timeout = 20000)
+        tap("恢复")
+        android.os.SystemClock.sleep(1500)
+
+        val afterRestore = bin.loadRecycleBin()
+        assertTrue(
+            "恢复后回收站记录应减少（before=${binAfterMove.size} after=${afterRestore.size}）",
+            afterRestore.none { "${it.volumeName}|${it.id}" == key }
+        )
     }
 
     @Test

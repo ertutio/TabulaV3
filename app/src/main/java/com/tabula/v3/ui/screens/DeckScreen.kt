@@ -1001,7 +1001,11 @@ fun DeckScreen(
                     scanned = loadingScanned,
                     total = loadingTotal
                 )
-                "empty" -> EmptyState()
+                "empty" -> EmptyState(
+                    onTrashClick = onNavigateToTrash,
+                    onSettingsClick = onNavigateToSettings,
+                    topBarDisplayMode = topBarDisplayMode
+                )
                 "completed" -> {
                     BatchCompletionScreen(
                         totalReviewed = currentBatch.size,
@@ -2280,40 +2284,68 @@ private fun LoadingState(
  * 空状态
  */
 @Composable
-private fun EmptyState() {
+private fun EmptyState(
+    onTrashClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    topBarDisplayMode: TopBarDisplayMode = TopBarDisplayMode.INDEX
+) {
     val isDarkTheme = LocalIsDarkTheme.current
     val textColor = if (isDarkTheme) Color.White else TabulaColors.CatBlack
 
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(32.dp)
+        // 空图库同样保留顶部栏：回收站与设置是用户在图库为空时唯一还能做的两件事。
+        // 缺了它，图库一旦为空（权限刚恢复、照片被外部清空、暂存清理把可见照片
+        // 全部移入回收站），用户就被困在一个只有 Logo 的页面上，连回收站都进不去。
+        // 这是产品缺陷，不是测试问题（#84 的 fullPageFlowThroughHardRestart 正是
+        // 撞在这里：它把唯一一张照片移入回收站后重启，图库为空 → 顶部栏消失 →
+        // 找不到「回收站」，而回收站里恰恰躺着那张待恢复的照片）。
+        TopBar(
+            currentIndex = 0,
+            totalCount = 0,
+            currentImage = null,
+            displayMode = topBarDisplayMode,
+            onTrashClick = onTrashClick,
+            onSettingsClick = onSettingsClick
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentAlignment = Alignment.Center
         ) {
-            // Logo
-            Image(
-                painter = painterResource(id = R.drawable.logo),
-                contentDescription = "Tabula Logo",
-                modifier = Modifier.size(120.dp)
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = "没有找到照片",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold
-                ),
-                color = textColor
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "请确保已授权访问相册",
-                style = MaterialTheme.typography.bodyMedium,
-                color = textColor.copy(alpha = 0.6f),
-                textAlign = TextAlign.Center
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(32.dp)
+            ) {
+                // Logo
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "Tabula Logo",
+                    modifier = Modifier.size(120.dp)
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "没有找到照片",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = textColor
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "请确保已授权访问相册",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = textColor.copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
