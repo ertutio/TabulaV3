@@ -238,6 +238,10 @@ class StagedCleanupPageFlowTest {
         android.os.SystemClock.sleep(800)
         shell("am kill ${ctx.packageName}")
         android.os.SystemClock.sleep(2000)
+        // am kill 后进程重建，MediaStore 访问可能未就绪（run 45183861900 实测
+        // 重启后显示"没有找到照片，请确保已授权访问相册"）。重新授予并等索引。
+        grantMedia()
+        android.os.SystemClock.sleep(1500)
         startApp()
     }
 
