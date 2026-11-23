@@ -384,14 +384,33 @@ class StagedCleanupPageFlowTest {
         )
 
         // 回到回收站恢复照片
+        //
+        // 注意：回收站**列表页**没有「恢复」按钮——「恢复」只在点开照片后的
+        // 全屏查看器里（RecycleBinScreen 的查看器底部操作栏）。所以必须
+        // 先点开那张照片，不能直接 waitFor("恢复")。
+        // （run 45200929475 卡在这里：屏幕是列表页
+        // [返回, 回收站, 1 项待处理, 帮助, 清空, sc-xxxx.jpg]，等不到「恢复」。）
         tap("返回")
         android.os.SystemClock.sleep(1000)
         if (find("回收站") != null) {
             tap("回收站")
-            waitFor("恢复")
+            waitFor("待处理", timeout = 20000)
+            val binListTexts = screenTexts()
+            // 列表里必须有我们刚移进去的那张照片
+            val listed = binListTexts.firstOrNull { it.startsWith("sc-") && it.endsWith(".jpg") }
+            assertTrue(
+                "回收站列表应列出刚移入的照片（屏幕：$binListTexts）",
+                listed != null
+            )
+            // 网格项用坐标点击（Compose clickable 在外层 Box，语义链不保证可点）
+            assertTrue(
+                "回收站里的照片必须能被点击（目标：$listed）",
+                tapByBounds(listed!!)
+            )
+            waitFor("恢复", timeout = 20000)
             val restoreTexts = screenTexts()
             assertTrue(
-                "回收站页应显示恢复入口（屏幕：$restoreTexts）",
+                "照片查看器应显示恢复入口（屏幕：$restoreTexts）",
                 restoreTexts.any { it.contains("恢复") }
             )
             tap("恢复")
