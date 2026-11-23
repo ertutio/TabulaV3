@@ -95,11 +95,25 @@ class DuplicateVersionsDeviceTest {
         return uri
     }
 
-    private fun library(): List<ImageFile> = runBlocking {
+    private suspend fun librarySuspend(): List<ImageFile> =
         com.tabula.v3.data.repository.LocalImageRepository(ctx).loadAllData().allImages
-    }
+
+    private fun library(): List<ImageFile> = runBlocking { librarySuspend() }
 
     private fun imageOf(uri: Uri): ImageFile? = library().firstOrNull { it.uri == uri }
+
+    /**
+     * MediaStore 索引新插入照片有延迟：带重试地等待它出现在图库里。
+     * 直接 !! 会在 CI 上偶发 NPE（run 45140538691）。
+     */
+    private suspend fun awaitImageOf(uri: Uri, timeoutMs: Long = 15000): ImageFile {
+        val end = android.os.SystemClock.uptimeMillis() + timeoutMs
+        while (android.os.SystemClock.uptimeMillis() < end) {
+            librarySuspend().firstOrNull { it.uri == uri }?.let { return it }
+            kotlinx.coroutines.delay(250)
+        }
+        error("照片未在 ${timeoutMs}ms 内被图库索引：$uri")
+    }
 
     // ==================== 用例 ====================
 
@@ -137,8 +151,8 @@ class DuplicateVersionsDeviceTest {
         val color = 0x7FABCDEF
         val a = insertPhoto(sameBytesAs = color)
         val b = insertPhoto(sameBytesAs = color)
-        val ia = imageOf(a)!!
-        val ib = imageOf(b)!!
+        val ia = awaitImageOf(a)
+        val ib = awaitImageOf(b)
 
         // 两份都选中要删 → "还剩一份"的前提不成立，必须拒绝
         val selected = setOf(ia.mediaIdentityKey(), ib.mediaIdentityKey())
@@ -157,8 +171,8 @@ class DuplicateVersionsDeviceTest {
         val color = 0x7F111111
         val a = insertPhoto(sameBytesAs = color)
         val b = insertPhoto(sameBytesAs = color)
-        val ia = imageOf(a)!!
-        val ib = imageOf(b)!!
+        val ia = awaitImageOf(a)
+        val ib = awaitImageOf(b)
 
         val calc = ContentDigestCalculator(ctx.contentResolver)
         val before = calc.digestAll(listOf(ia, ib))
@@ -180,7 +194,7 @@ class DuplicateVersionsDeviceTest {
         }
 
         // 重新计算摘要：副本身份已变化，提示必须失效
-        val after = calc.digestAll(listOf(imageOf(a)!!, imageOf(b)!!))
+        val after = calc.digestAll(listOf(awaitImageOf(a), awaitImageOf(b)))
         val findingsAfter = DuplicateRules.findExactDuplicates(after)
         val forAAfter = findingsAfter.firstOrNull {
             it.image.mediaIdentityKey() == ia.mediaIdentityKey()
@@ -196,8 +210,8 @@ class DuplicateVersionsDeviceTest {
         val color = 0x7F222222
         val a = insertPhoto(sameBytesAs = color)
         val b = insertPhoto(sameBytesAs = color)
-        val ia = imageOf(a)!!
-        val ib = imageOf(b)!!
+        val ia = awaitImageOf(a)
+        val ib = awaitImageOf(b)
 
         val stillReadable = { image: ImageFile ->
             runCatching {
@@ -220,8 +234,8 @@ class DuplicateVersionsDeviceTest {
         val color = 0x7F333333
         val a = insertPhoto(sameBytesAs = color)
         val b = insertPhoto(sameBytesAs = color)
-        val ia = imageOf(a)!!
-        val ib = imageOf(b)!!
+        val ia = awaitImageOf(a)
+        val ib = awaitImageOf(b)
 
         // 模拟权限变化：撤销读权限后重新以"不可读"判定
         shell("pm revoke ${ctx.packageName} android.permission.READ_MEDIA_IMAGES")
