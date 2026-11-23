@@ -244,16 +244,21 @@ fun backdropShapeMetrics(shape: Shape, sizePx: Size, density: Density): Backdrop
 }
 
 /**
- * 采样外扩（像素）：给"边缘折射带"和"模糊核"留真实内容，而不是让边缘去夹取自己。
+ * 采样外扩（像素）：给**模糊核**留真实内容，不让图层边缘夹取自己。
  *
- * - 折射位移是向玻璃内部走的，本身不会越界；
- * - 但效果链里的模糊核会在图层边缘取到图层外的像素（`TileMode.CLAMP` 会复制边缘），
- *   边缘就变成"被拉长的边界色"而不是真实背景。外扩半个模糊核即可消除。
+ * 只由模糊决定，**与折射位移无关**——这一点是"只改位移"对照测试能成立的前提：
+ * 位移是向玻璃内部走的，永远不会让采样点越出图层；而模糊核会在图层边缘取到
+ * 图层外的像素（`TileMode.CLAMP` 会复制边缘），边缘就变成"被拉长的边界色"。
+ * 因此外扩 = 半个模糊核即可。
+ *
+ * 若把位移也纳入外扩（早期写法 `max(模糊, 位移)/2`），改位移时采样范围会跟着变，
+ * 对照测试里"除位移外一切相同"就不成立——模拟器证据里两组 `pad` 分别是 3 与 16，
+ * 正是这个原因。位移本身不需要外扩，所以这里去掉它。
  *
  * 上限 64px：再大只是白画离屏像素，不会改善观感。
  */
 fun backdropPaddingPx(appearance: LiquidGlassBackdropAppearance): Int {
-    val halfKernel = maxOf(appearance.blurRadiusPx, appearance.refractionAmountPx) / 2f
+    val halfKernel = appearance.blurRadiusPx / 2f
     return ceil(halfKernel).toInt().coerceIn(1, 64)
 }
 

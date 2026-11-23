@@ -21,6 +21,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -147,6 +148,14 @@ fun LiquidGlassDebugPreview(
                 remember(backdropKind, offsetX, offsetY, patternPhase) {
                     backdropKind.draw(offsetX, offsetY, patternPhase)
                 }
+            // 宿主尺寸变化（缩放）必须让采样层重画：背景 lambda 里 `size` 变了，
+            // 但 lambda 身份没变，仅靠"换 lambda 触发失效"是不够的。
+            // 生产接线里对应的是"容器/窗口尺寸变化"，同样必须显式失效——
+            // 模拟器证据里 `host (1080x931) -> (828x679)` 但 `layerdraw 3 -> 3`，
+            // 就是漏了这一条。
+            LaunchedEffect(hostScalePercent) {
+                state.invalidateContent()
+            }
             LiquidGlassBackdropHost(
                 state = state,
                 modifier = Modifier

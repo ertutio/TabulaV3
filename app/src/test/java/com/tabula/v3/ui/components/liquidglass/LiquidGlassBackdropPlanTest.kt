@@ -412,7 +412,7 @@ class LiquidGlassBackdropSizeContractTest {
     }
 
     @Test
-    fun `padding covers half of the blur kernel and the refraction amount`() {
+    fun `padding is derived from the blur kernel only`() {
         val strong = LiquidGlassBackdropSpec(
             refractionHeightDp = 18.dp,
             refractionAmountDp = 10.dp,
@@ -426,6 +426,25 @@ class LiquidGlassBackdropSizeContractTest {
             blurRadiusDp = 4.dp
         ).resolve(2.75f) // 模糊 11px → 5.5px
         assertEquals(6, backdropPaddingPx(small))
+    }
+
+    @Test
+    fun `changing the refraction amount never changes the padding`() {
+        // 这是"只改位移"对照能成立的前提：外扩只由模糊决定。
+        // 早期写法 max(模糊, 位移)/2 会让 pad 随位移变化（实测 3 vs 16），
+        // 于是两组采样范围不同，差异无法归因于位移。
+        val amounts = listOf(0f, 2f, 4f, 10f, 24f)
+        val pads = amounts.map { amount ->
+            backdropPaddingPx(
+                LiquidGlassBackdropSpec(
+                    refractionHeightDp = 18.dp,
+                    refractionAmountDp = amount.dp,
+                    blurRadiusDp = 20.dp
+                ).resolve(2.75f)
+            )
+        }
+        assertEquals("位移变化时外扩必须恒定", 1, pads.toSet().size)
+        assertEquals(28, pads.first())
     }
 
     @Test
