@@ -156,11 +156,11 @@ class DeckScreenRoundIntentUiTest {
         if (find(ins.uiAutomation.rootInActiveWindow, "回收站") == null) {
             // 诊断：把当前屏幕的可见文本写入文件（CI 工件会拉取）
             val root = ins.uiAutomation.rootInActiveWindow
-            val visible = StringBuilder("screen text at timeout:\n")
+            val visible = StringBuilder("screen text at timeout: ")
             fun walk(n: AccessibilityNodeInfo?, depth: Int) {
                 if (n == null || depth > 8) return
                 n.text?.toString()?.takeIf { it.isNotBlank() }?.let {
-                    visible.append("  ".repeat(depth)).append(it).append('\n')
+                    visible.append("[").append(it).append("] ")
                 }
                 for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
             }
