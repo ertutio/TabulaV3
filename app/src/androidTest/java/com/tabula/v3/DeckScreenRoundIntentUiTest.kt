@@ -96,8 +96,15 @@ class DeckScreenRoundIntentUiTest {
         return uri
     }
 
-    private fun shell(cmd: String) = ins.uiAutomation.executeShellCommand(cmd).use { p ->
+    private fun shell(cmd: String): String = ins.uiAutomation.executeShellCommand(cmd).use { p ->
         java.io.FileInputStream(p.fileDescriptor).use { it.readBytes().toString(Charsets.UTF_8) }
+    }
+
+    /** 从测试进程的 filesDir 把诊断文件拉到 device-results（经 /sdcard 中转）。 */
+    private fun pullDiagnostics() {
+        runCatching {
+            shell("cp /data/data/com.tabula.v3.recyclebin.test/files/screen-at-timeout.txt /sdcard/screen-at-timeout.txt")
+        }
     }
 
     private fun find(root: AccessibilityNodeInfo?, text: String): AccessibilityNodeInfo? =
@@ -147,9 +154,9 @@ class DeckScreenRoundIntentUiTest {
             android.os.SystemClock.sleep(200)
         }
         if (find(ins.uiAutomation.rootInActiveWindow, "回收站") == null) {
-            // 诊断：把当前屏幕的可见文本写入日志，供 CI 工件核对
+            // 诊断：把当前屏幕的可见文本写入文件（CI 工件会拉取）
             val root = ins.uiAutomation.rootInActiveWindow
-            val visible = StringBuilder()
+            val visible = StringBuilder("screen text at timeout:\n")
             fun walk(n: AccessibilityNodeInfo?, depth: Int) {
                 if (n == null || depth > 8) return
                 n.text?.toString()?.takeIf { it.isNotBlank() }?.let {
@@ -158,10 +165,12 @@ class DeckScreenRoundIntentUiTest {
                 for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
             }
             walk(root, 0)
-            // System.out 会进 instrumentation stream（Log.e 多行被截断）
-            println("SCREEN_AT_TIMEOUT_BEGIN")
-            visible.lines().forEach { println("SCREEN|$it") }
-            println("SCREEN_AT_TIMEOUT_END")
+            pullDiagnostics()
+            // 写到设备文件（多行输出经 logcat/instrumentation 都会被截断）
+            runCatching {
+                java.io.File(ctx.filesDir, "screen-at-timeout.txt").writeText(visible.toString())
+                android.util.Log.e("RoundIntentUi", "screen text dumped to filesDir/screen-at-timeout.txt")
+            }
             error("卡片页未出现（回收站按钮超时）")
         }
         android.os.SystemClock.sleep(2500) // 等首批照片从 MediaStore 装载
