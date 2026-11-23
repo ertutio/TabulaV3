@@ -326,7 +326,7 @@ class DeckScreenRoundIntentUiTest {
         assertTrue("接受提示后应等待下一批消费意图", engine.roundIntent.isActive)
         var attempts = 0
         while (find(ins.uiAutomation.rootInActiveWindow, "再来一组") == null && attempts++ < 30) {
-            swipeCard(SwipeDirection.KEEP_LEFT)
+            swipeCard(SwipeDirection.DELETE_UP)
         }
         dumpScreen("before-next-batch")
         tap("再来一组")
