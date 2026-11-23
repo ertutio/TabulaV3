@@ -33,6 +33,7 @@ class ShareRelayStore(
         data class Failed(val reason: String) : LoadResult
     }
 
+    @Synchronized
     fun loadResult(): LoadResult {
         val raw = try {
             storage.read()
@@ -62,6 +63,7 @@ class ShareRelayStore(
     }
 
     /** 读全部标记；读失败仍按空处理，供不关心失败的展示点使用。 */
+    @Synchronized
     fun load(): List<RelayMark> = when (val result = loadResult()) {
         is LoadResult.Ok -> result.marks
         is LoadResult.Failed -> emptyList()
@@ -95,6 +97,7 @@ class ShareRelayStore(
      * 合并保存：同一身份键（或同一未定位 URI）只保留最新一条。
      * 读/写失败返回 [WriteResult.Failed]，存储原样保留。
      */
+    @Synchronized
     fun merge(marks: List<RelayMark>): WriteResult {
         if (marks.isEmpty()) return WriteResult.Ok(load())
         return withMarksOrFail { existing ->
@@ -105,6 +108,7 @@ class ShareRelayStore(
         }
     }
 
+    @Synchronized
     fun remove(identityKeys: Collection<String>): WriteResult {
         if (identityKeys.isEmpty()) return WriteResult.Ok(load())
         val keys = identityKeys.toSet()
@@ -113,6 +117,7 @@ class ShareRelayStore(
         }
     }
 
+    @Synchronized
     fun removeByUri(uriStrings: Collection<String>): WriteResult {
         if (uriStrings.isEmpty()) return WriteResult.Ok(load())
         val uris = uriStrings.toSet()
@@ -121,6 +126,7 @@ class ShareRelayStore(
         }
     }
 
+    @Synchronized
     fun clear(): WriteResult = try {
         storage.write(JSONArray().toString())
         WriteResult.Ok(emptyList())
@@ -138,16 +144,29 @@ class ShareRelayStore(
      * 读失败 / 写失败返回 [WriteResult.Failed]，存储原样保留；
      * 成功返回 [WriteResult.Ok]（携带写后的完整集合，即确认写入结果）。
      */
+    @Synchronized
     fun replace(
         removeKey: String?,
         removeUri: String?,
         add: RelayMark
     ): WriteResult = withMarksOrFail { existing ->
-        val updated = existing
+        // 审计 #85：若存储中已存在同身份的目标记录，保留更晚的 markedAt
+        // （说明用户再次确认过）与既有来源信息。
+        val existingSameKey = existing.firstOrNull {
+            it.identityKey != null && it.identityKey == add.identityKey
+        }
+        val merged = if (existingSameKey != null) {
+            add.copy(
+                markedAt = maxOf(add.markedAt, existingSameKey.markedAt),
+                displayName = add.displayName ?: existingSameKey.displayName
+            )
+        } else add
+
+        existing
             .filterNot { it.identityKey != null && it.identityKey == removeKey }
             .filterNot { it.uriString == removeUri }
-            .let { list -> list + add }
-        updated
+            .filterNot { it.identityKey != null && it.identityKey == merged.identityKey }
+            .let { list -> list + merged }
     }
 
     private fun save(marks: List<RelayMark>) {

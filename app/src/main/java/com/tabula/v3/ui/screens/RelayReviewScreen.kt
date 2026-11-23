@@ -313,6 +313,15 @@ private fun ConfirmCandidateDialog(
         com.tabula.v3.di.CoilSetup.getImageLoader(context)
     }
 
+    // 审计 #85：实际检查来源 URI 是否可读（临时授权可能已失效）
+    val sourceReadable = remember(pending.mark.uriString) {
+        runCatching {
+            context.contentResolver
+                .openInputStream(android.net.Uri.parse(pending.mark.uriString))
+                ?.use { stream -> stream.read(ByteArray(1)) > 0 } == true
+        }.getOrDefault(false)
+    }
+
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = cardColor,
@@ -335,7 +344,11 @@ private fun ConfirmCandidateDialog(
                     color = secondary, fontSize = 12.sp
                 )
                 Text(
-                    text = "来源 URI 不可再读取（临时授权已失效），无法核对内容",
+                    text = if (sourceReadable) {
+                        "来源 URI 当前可读，但内容可能已被系统更新，无法确认与所选照片一致"
+                    } else {
+                        "来源 URI 不可再读取（临时授权已失效），无法核对内容"
+                    },
                     color = Color(0xFFFF9500), fontSize = 11.sp,
                     modifier = Modifier.padding(top = 2.dp)
                 )
@@ -364,7 +377,8 @@ private fun ConfirmCandidateDialog(
                             maxLines = 1, overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "存入时间：" +
+                            // 审计 #85：图库行的 dateModified 是修改时间，不是存入时间
+                            text = "修改时间：" +
                                 SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA)
                                     .format(Date(candidate.dateModified)),
                             color = secondary, fontSize = 12.sp
