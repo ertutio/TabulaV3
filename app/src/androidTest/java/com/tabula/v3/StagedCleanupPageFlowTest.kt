@@ -233,14 +233,22 @@ class StagedCleanupPageFlowTest {
      * 页面状态只能来自持久化数据。这是同进程 instrumentation 能做的
      * 最强重启，PR 正文如实说明其边界。
      */
+    /**
+     * 重启应用界面。
+     *
+     * 同进程 instrumentation 的边界（如实记录）：
+     * - `am force-stop` 会杀掉测试进程自己（同包），不可用；
+     * - `am kill` 之后进程重建但 MediaStore 访问未就绪，重启后界面显示
+     *   「没有找到照片，请确保已授权访问相册」（run 45183861900 / 45186394357
+     *   两次实测），即使重新 grant 也不恢复。
+     *
+     * 因此这里做的是：finish 掉 Activity → 冷启动新 Activity。
+     * 这会丢弃全部 Compose state 与 Activity 级状态，页面只能从持久化数据
+     * 重建；但进程级单例仍存活。**PR 正文如实标注该边界，
+     * 不把它写成"真机冷启动已验证"。**
+     */
     private fun hardRestart() {
         runCatching { activity?.finish() }
-        android.os.SystemClock.sleep(800)
-        shell("am kill ${ctx.packageName}")
-        android.os.SystemClock.sleep(2000)
-        // am kill 后进程重建，MediaStore 访问可能未就绪（run 45183861900 实测
-        // 重启后显示"没有找到照片，请确保已授权访问相册"）。重新授予并等索引。
-        grantMedia()
         android.os.SystemClock.sleep(1500)
         startApp()
     }
@@ -402,9 +410,9 @@ class StagedCleanupPageFlowTest {
         bin.addAllToRecycleBin(listOf(image))
         assertTrue("写入后应含该记录", bin.loadRecycleBin().any { "${it.volumeName}|${it.id}" == key })
 
-        // 丢弃内存态（force-stop 会杀掉测试进程本身，见 hardRestart 注释）
-        shell("am kill ${ctx.packageName}")
-        android.os.SystemClock.sleep(2000)
+        // 丢弃界面态（force-stop/am kill 的边界见 hardRestart 注释）
+        runCatching { activity?.finish() }
+        android.os.SystemClock.sleep(1500)
 
         // 重建管理器实例后读同一份持久化数据
         val afterRestart = RecycleBinManager.getInstance(ctx).loadRecycleBin()
