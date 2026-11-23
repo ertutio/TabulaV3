@@ -350,9 +350,12 @@ class WalkStrategySettingsDeviceTest {
         repeat(30) { insertPhoto("DCIM/Camera") }
 
         startApp()
-        // 记录切换前的批次指纹（卡片页顶栏的索引文本）
+        // 前置条件：切换前卡片页必须在浏览状态（否则后面的"仍能浏览"没有意义）
         val beforeTexts = screenTexts()
-        val beforeIndex = beforeTexts.firstOrNull { Regex("^\\d+/\\d+$").matches(it) }
+        assertTrue(
+            "切换策略前卡片页应已在浏览批次（屏幕：$beforeTexts）",
+            beforeTexts.any { it.endsWith("张待整理") }
+        )
 
         tap("设置")
         waitFor("漫步来源策略")
@@ -368,16 +371,24 @@ class WalkStrategySettingsDeviceTest {
         waitFor("回收站", timeout = 25000)
         android.os.SystemClock.sleep(3000)
 
-        // 卡片页必须重新加载出批次（有索引文本 = 有批次）
+        // 卡片页必须重新加载出批次。
+        //
+        // 注意：顶栏默认显示**日期**（"2026 Nov"），不是 "x/y" 索引——
+        // 不能等索引文本（run 45220212349 就是判错了这个）。
+        // 卡片页在浏览状态的可靠锚点：底部「N 张待整理」+ 卡片文件名。
         val afterTexts = screenTexts()
-        val afterIndex = afterTexts.firstOrNull { Regex("^\\d+/\\d+$").matches(it) }
+        val afterRemaining = afterTexts.firstOrNull { it.endsWith("张待整理") }
         assertTrue(
-            "切换策略回到卡片页后必须仍有可浏览的批次（屏幕：$afterTexts）",
-            afterIndex != null
+            "切换策略回到卡片页后必须仍在浏览批次（屏幕：$afterTexts）",
+            afterRemaining != null
         )
         assertTrue(
             "卡片页必须消费了新批次，不能停在空态（屏幕：$afterTexts）",
             !afterTexts.contains("没有找到照片")
+        )
+        assertTrue(
+            "卡片页必须显示照片文件名（屏幕：$afterTexts）",
+            afterTexts.any { it.startsWith("ws-") && it.endsWith(".jpg") }
         )
         // 批次来源覆盖：均衡策略下当前批次应覆盖两个来源。
         // 卡片页不直接暴露来源，改用引擎在相同偏好下的下一批做交叉验证，
