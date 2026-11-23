@@ -15,7 +15,9 @@ object ShareRelayEntry {
     data class Outcome(
         val items: List<RelayItem>,
         val resolution: RelayResolution,
-        val persistedMarks: List<RelayMark>
+        val persistedMarks: List<RelayMark>,
+        /** 审计 #85：标记落库失败时如实上报（null = 成功） */
+        val writeFailure: String?
     )
 
     /**
@@ -39,11 +41,24 @@ object ShareRelayEntry {
             localIdentityKeys = localIdentityKeys,
             nowMillis = nowMillis
         )
-        val persisted = if (resolution.marks.isNotEmpty()) {
-            store.merge(resolution.marks)
+        val persisted: List<RelayMark>
+        val writeFailure: String?
+        if (resolution.marks.isNotEmpty()) {
+            when (val write = store.merge(resolution.marks)) {
+                is ShareRelayStore.WriteResult.Ok -> {
+                    persisted = write.marks
+                    writeFailure = null
+                }
+                is ShareRelayStore.WriteResult.Failed -> {
+                    // 读/写失败：不覆盖原始数据，只上报
+                    persisted = store.load()
+                    writeFailure = write.reason
+                }
+            }
         } else {
-            store.load()
+            persisted = store.load()
+            writeFailure = null
         }
-        return Outcome(items, resolution, persisted)
+        return Outcome(items, resolution, persisted, writeFailure)
     }
 }

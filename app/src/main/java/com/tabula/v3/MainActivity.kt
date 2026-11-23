@@ -1286,7 +1286,20 @@ fun TabulaApp(
                 relayRevision++
             },
             onChooseImage = { row, chosen ->
-                RelayReviewController(shareRelayStore).manualConfirm(row.mark, chosen)
+                val result = RelayReviewController(shareRelayStore).manualConfirm(row.mark, chosen)
+                Toast.makeText(
+                    context,
+                    when (result) {
+                        is ShareRelayStore.WriteResult.Ok -> {
+                            // 确认后按身份去重：同一张只留一条
+                            val total = shareRelayStore.load()
+                            "已关联原图，共 ${total.size} 条记录"
+                        }
+                        is ShareRelayStore.WriteResult.Failed ->
+                            "确认失败：${result.reason}，原记录保留"
+                    },
+                    Toast.LENGTH_LONG
+                ).show()
                 relayRevision++
             },
             onNavigateBack = { currentScreen = AppScreen.SETTINGS }

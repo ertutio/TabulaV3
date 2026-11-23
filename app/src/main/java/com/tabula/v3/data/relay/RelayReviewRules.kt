@@ -123,11 +123,19 @@ object RelayReviewRules {
     ) {
         val isEmpty: Boolean get() = identityKeys.isEmpty() && uriStrings.isEmpty()
 
-        /** 执行撤销：从存储移除对应标记，返回剩余标记。 */
-        fun applyTo(store: ShareRelayStore): List<RelayMark> {
-            if (identityKeys.isNotEmpty()) store.remove(identityKeys)
-            if (uriStrings.isNotEmpty()) store.removeByUri(uriStrings)
-            return store.load()
+        /**
+         * 审计 #85：撤销读/写失败时返回 [ShareRelayStore.WriteResult.Failed]，
+         * 调用方必须如实提示，不能当成功清掉页面行。
+         */
+        fun applyTo(store: ShareRelayStore): ShareRelayStore.WriteResult {
+            val identityResult = if (identityKeys.isNotEmpty()) {
+                store.remove(identityKeys)
+            } else ShareRelayStore.WriteResult.Ok(store.load())
+            if (identityResult is ShareRelayStore.WriteResult.Failed) return identityResult
+
+            return if (uriStrings.isNotEmpty()) {
+                store.removeByUri(uriStrings)
+            } else identityResult
         }
     }
 

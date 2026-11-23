@@ -68,35 +68,65 @@ class ShareRelayStore(
     }
 
     /**
-     * 合并保存：同一身份键（或同一未定位 URI）只保留最新一条。
-     *
-     * 重复分享同一张照片不会堆出多条待清记录，这是去重的第二道保险
-     * （第一道在 [ShareRelayRules.resolve]）。
+     * 审计 #85：所有读后写（merge/remove/removeByUri）必须区分失败。
+     * 读或解析失败时**停止写入**并向调用方报告，原始数据保持可恢复，
+     * 不把失败包装成空列表再覆盖。
      */
-    fun merge(marks: List<RelayMark>): List<RelayMark> {
-        if (marks.isEmpty()) return load()
-        val existing = load()
-        val merged = LinkedHashMap<String, RelayMark>()
-        existing.forEach { merged[keyOf(it)] = it }
-        marks.forEach { merged[keyOf(it)] = it }
-        val result = merged.values.toList()
-        save(result)
-        return result
+    sealed interface WriteResult {
+        data class Ok(val marks: List<RelayMark>) : WriteResult
+        data class Failed(val reason: String) : WriteResult
     }
 
-    fun remove(identityKeys: Collection<String>) {
-        if (identityKeys.isEmpty()) return
+    private fun withMarksOrFail(block: (List<RelayMark>) -> List<RelayMark>): WriteResult =
+        when (val read = loadResult()) {
+            is LoadResult.Failed -> WriteResult.Failed(read.reason)
+            is LoadResult.Ok -> {
+                val updated = block(read.marks)
+                try {
+                    save(updated)
+                    WriteResult.Ok(updated)
+                } catch (e: Exception) {
+                    WriteResult.Failed("mark write failed: ${e.message}")
+                }
+            }
+        }
+
+    /**
+     * 合并保存：同一身份键（或同一未定位 URI）只保留最新一条。
+     * 读/写失败返回 [WriteResult.Failed]，存储原样保留。
+     */
+    fun merge(marks: List<RelayMark>): WriteResult {
+        if (marks.isEmpty()) return WriteResult.Ok(load())
+        return withMarksOrFail { existing ->
+            val merged = LinkedHashMap<String, RelayMark>()
+            existing.forEach { merged[keyOf(it)] = it }
+            marks.forEach { merged[keyOf(it)] = it }
+            merged.values.toList()
+        }
+    }
+
+    fun remove(identityKeys: Collection<String>): WriteResult {
+        if (identityKeys.isEmpty()) return WriteResult.Ok(load())
         val keys = identityKeys.toSet()
-        save(load().filterNot { it.identityKey != null && it.identityKey in keys })
+        return withMarksOrFail { existing ->
+            existing.filterNot { it.identityKey != null && it.identityKey in keys }
+        }
     }
 
-    fun removeByUri(uriStrings: Collection<String>) {
-        if (uriStrings.isEmpty()) return
+    fun removeByUri(uriStrings: Collection<String>): WriteResult {
+        if (uriStrings.isEmpty()) return WriteResult.Ok(load())
         val uris = uriStrings.toSet()
-        save(load().filterNot { it.uriString in uris })
+        return withMarksOrFail { existing ->
+            existing.filterNot { it.uriString in uris }
+        }
     }
 
-    fun clear() = storage.write(JSONArray().toString())
+    fun clear(): WriteResult = try {
+        storage.write(JSONArray().toString())
+        WriteResult.Ok(emptyList())
+    } catch (e: Exception) {
+        WriteResult.Failed("clear failed: ${e.message}")
+    }
 
     private fun save(marks: List<RelayMark>) {
         val array = JSONArray()

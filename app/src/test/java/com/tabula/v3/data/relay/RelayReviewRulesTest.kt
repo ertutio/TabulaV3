@@ -182,7 +182,8 @@ class RelayReviewRulesTest {
             )
         )
 
-        val remaining = RelayReviewRules.undoPlan(listOf(mark("external_primary|1"))).applyTo(store)
+        val result = RelayReviewRules.undoPlan(listOf(mark("external_primary|1"))).applyTo(store)
+        val remaining = (result as ShareRelayStore.WriteResult.Ok).marks
 
         assertEquals(2, remaining.size)
         assertTrue(remaining.none { it.identityKey == "external_primary|1" })
@@ -195,9 +196,8 @@ class RelayReviewRulesTest {
         val store = ShareRelayStore(MemoryRelayStorage())
         store.merge(listOf(mark("external_primary|1"), mark(null, RelayMarkState.PENDING_REVIEW, uri = "content://x/9")))
 
-        val remaining = RelayReviewRules.undoPlan(store.load()).applyTo(store)
-
-        assertTrue(remaining.isEmpty())
+        val result = RelayReviewRules.undoPlan(store.load()).applyTo(store)
+        assertTrue((result as ShareRelayStore.WriteResult.Ok).marks.isEmpty())
     }
 
     @Test

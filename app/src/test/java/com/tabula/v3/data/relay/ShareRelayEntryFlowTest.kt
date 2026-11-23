@@ -147,7 +147,7 @@ class ShareRelayEntryFlowTest {
         )
         val row = controller.rows(listOf(image)).single()
 
-        val key = controller.recycle(row.mark)
+        val key = row.mark.identityKey
         assertEquals("external_primary|9", key)
         controller.onRecycled(key!!)
 
