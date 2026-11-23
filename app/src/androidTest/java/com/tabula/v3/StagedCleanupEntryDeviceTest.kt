@@ -52,7 +52,7 @@ class StagedCleanupEntryDeviceTest {
     }
 
     @After
-    fun cleanUp() = runBlocking {
+    fun cleanUp(): Unit = runBlocking {
         inserted.forEach { runCatching { ctx.contentResolver.delete(it, null, null) } }
         runCatching { RecycleBinManager.getInstance(ctx).clearRecycleBin() }
     }
