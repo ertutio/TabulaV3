@@ -266,7 +266,14 @@ fun LiquidGlassDebugPreview(
             }
             ControlRow(label = "宿主缩放 ${hostScalePercent}%") {
                 DebugButton("改宿主尺寸") {
-                    hostScalePercent = if (hostScalePercent >= 100) 60 else hostScalePercent + 20
+                    // 90% 时宿主仍装得下玻璃（host 972x838 vs glass 954x420 的横向需求），
+                    // 用于验证"重新对齐并重画"；60% 时宿主已装不下，采样应判
+                    // OUT_OF_SOURCE_BOUNDS 回退——两条路径都要能被探针走到。
+                    hostScalePercent = when {
+                        hostScalePercent >= 100 -> 90
+                        hostScalePercent >= 90 -> 60
+                        else -> 100
+                    }
                 }
             }
             ControlRow(label = "图案相位 $patternPhase") {

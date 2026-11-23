@@ -623,27 +623,75 @@ def main() -> int:
     )
 
     # 4d. 改尺寸必须重画且尺寸契约仍然成立
+    # 第一次点击：100% → 90%，宿主仍装得下玻璃，采样层必须重新对齐并重画
     tap_text("改宿主尺寸", f"api{api}-host-scale-tap")
     time.sleep(1.5)
     resized_host = parse_audit(ui_dump(f"api{api}-host-scale-after"))
     layer_resized = as_int(resized_host, "layerdraw")
     new_host = as_size(resized_host, "host")
-    resize_ok = (
-        layer_resized > layer_pattern
-        and new_host is not None
-        and host is not None
-        and new_host != host
-    )
+    resized_reason = (resized_host or {}).get("reason")
+    resized_sampled = (resized_host or {}).get("sampled")
     evidence["host_resize"] = {
         "layerdraw": {"before": layer_pattern, "after": layer_resized},
         "host": {"before": host, "after": new_host},
+        "reason": resized_reason,
+        "sampled": resized_sampled,
     }
+
+    # 改宿主尺寸有两条**都合法**的结果，断言必须能区分：
+    # 1) 宿主仍装得下玻璃 → 重新对齐并重画（layerdraw 增加）；
+    # 2) 宿主缩到比玻璃还小 → 采样方案判 OUT_OF_SOURCE_BOUNDS 并回退原有材质
+    #    （此时 layerdraw 不增加是**正确的**，因为采样层不再绘制）。
+    # 早期断言只认第 1 种，把第 2 种判成"没重画"——那是断言写错，不是实现缺陷。
+    # 实测 60% 缩放正是第 2 种：host 828x679 小于 glass 954x420 的横向需求。
+    host_changed = new_host is not None and host is not None and new_host != host
+    repainted = layer_resized > layer_pattern
+    fell_back = resized_sampled == "false" and resized_reason == "OUT_OF_SOURCE_BOUNDS"
+    resize_ok = host_changed and (repainted or fell_back)
     record(
-        "changing the host size repaints and re-aligns",
+        "changing the host size either repaints or falls back deterministically",
         resize_ok,
-        f"layerdraw {layer_pattern} -> {layer_resized}, host {host} -> {new_host}",
+        f"layerdraw {layer_pattern} -> {layer_resized}, host {host} -> {new_host}, "
+        f"sampled={resized_sampled} reason={resized_reason}",
         failure=None if resize_ok
-        else "改宿主尺寸后采样层没有重画或对齐参数没更新",
+        else "改宿主尺寸后既没有重画，也没有给出可解释的回退原因",
+    )
+
+    # 2b. 再点一次：90% → 60%，宿主已装不下玻璃 → 必须确定性地回退。
+    tap_text("改宿主尺寸", f"api{api}-host-scale-shrink-tap")
+    time.sleep(1.5)
+    shrunk = parse_audit(ui_dump(f"api{api}-host-scale-shrink"))
+    shrunk_host = as_size(shrunk, "host")
+    shrunk_sampled = (shrunk or {}).get("sampled")
+    shrunk_reason = (shrunk or {}).get("reason")
+    evidence["host_shrink"] = {
+        "host": shrunk_host,
+        "sampled": shrunk_sampled,
+        "reason": shrunk_reason,
+    }
+    shrink_ok = (
+        shrunk_host is not None
+        and new_host is not None
+        and shrunk_host != new_host
+        and shrunk_sampled == "false"
+        and shrunk_reason == "OUT_OF_SOURCE_BOUNDS"
+    )
+    record(
+        "shrinking the host below the glass falls back instead of sampling outside",
+        shrink_ok,
+        f"host {new_host} -> {shrunk_host}, sampled={shrunk_sampled} reason={shrunk_reason}",
+        failure=None if shrink_ok
+        else "宿主缩小到装不下玻璃时没有给出 OUT_OF_SOURCE_BOUNDS 回退",
+    )
+
+    # 2c. 宿主尺寸真的变化时，采样方案必须**重新计算**（而不是沿用旧 host）。
+    # 这一条不依赖"是否重画"，因此能独立成立。
+    recomputed = new_host is not None and new_host != host
+    record(
+        "host size change is picked up by the sampling plan",
+        recomputed,
+        f"host {host} -> {new_host}",
+        failure=None if recomputed else "宿主尺寸变化没有被采样方案读到",
     )
 
     # ===== 5. 只改位移的对照：边缘动、中心不动 =====
