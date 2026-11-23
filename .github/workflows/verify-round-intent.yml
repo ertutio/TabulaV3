@@ -30,22 +30,28 @@ jobs:
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
       - name: Pre-fetch Robolectric android-all jars
         run: |
-          # Robolectric 测试时在线下载 android-all jar；runner 网络偶发失败会
-          # 导致 475+/528 的批量 AssertionError（MavenArtifactFetcher IOException）。
-          # 这里预先用 maven 拉到本地仓库，测试期不再联网下载。
-          GROUP_DIR="$HOME/.m2/repository/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6"
-          mkdir -p "$GROUP_DIR"
-          JAR_URL="https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6/android-all-instrumented-14-robolectric-10818077-i6.jar"
-          for attempt in 1 2 3; do
-            if curl -fsSL --retry 3 --retry-delay 5 -o "$GROUP_DIR/android-all-instrumented-14-robolectric-10818077-i6.jar" "$JAR_URL"; then
-              echo "android-all fetched (attempt $attempt)"
-              break
-            fi
-            echo "attempt $attempt failed"; sleep 10
+          # Maven Central 对 CI runner 会返回 429（限流），Robolectric 测试期在线
+          # 下载失败会造成批量 AssertionError。这里按镜像顺序预取到 ~/.m2；
+          # 全部失败也不阻断 build（Robolectric 自己会再试），只打警告。
+          JAR=android-all-instrumented-14-robolectric-10818077-i6.jar
+          DIR="$HOME/.m2/repository/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6"
+          mkdir -p "$DIR"
+          for BASE in \
+            https://repo.maven.apache.org/maven2 \
+            https://maven.aliyun.com/repository/central \
+            https://repo1.maven.org/maven2 ; do
+            URL="$BASE/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6/$JAR"
+            for attempt in 1 2 3; do
+              if curl -fsSL --retry 2 --retry-delay 5 -o "$DIR/$JAR" "$URL"; then
+                echo "fetched from $BASE (attempt $attempt)"
+                ls -la "$DIR"
+                exit 0
+              fi
+              echo "miss $BASE attempt $attempt"
+              sleep 8
+            done
           done
-          test -s "$GROUP_DIR/android-all-instrumented-14-robolectric-10818077-i6.jar"
-          ls -la "$GROUP_DIR"
-
+          echo "::warning::android-all prefetch failed on all mirrors; Robolectric will retry at test time"
       - name: Unit regressions, app APK and instrumented APK
         run: bash ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
       - name: Collect artifacts
