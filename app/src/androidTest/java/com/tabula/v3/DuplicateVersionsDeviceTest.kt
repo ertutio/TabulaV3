@@ -237,28 +237,32 @@ class DuplicateVersionsDeviceTest {
         val ia = awaitImageOf(a)
         val ib = awaitImageOf(b)
 
-        // 权限变化：撤销读权限 → 摘要无法计算
-        // 用 try/finally 保证恢复，避免影响后续用例（之前漏恢复会让后续用例卡住）
-        val canDelete: Boolean = try {
-            shell("pm revoke ${ctx.packageName} android.permission.READ_MEDIA_IMAGES")
-            val readableAfterRevoke = runCatching {
-                ctx.contentResolver.openInputStream(ib.uri)?.use { it.read() != -1 } == true
-            }.getOrDefault(false)
-            // 权限丢失后无法计算摘要 → digestOf 返回 null
-            DuplicateReverify.copyStillValid(
-                main = ia,
-                copy = ib,
-                libraryKeys = setOf(ia.mediaIdentityKey(), ib.mediaIdentityKey()),
-                selectedKeys = setOf(ia.mediaIdentityKey()),
-                digestOf = { if (readableAfterRevoke) null else null }
-            )
-        } finally {
-            grantMedia()
-        }
-        assertFalse(
-            "权限变化导致副本不可读时，复核必须失败而不是继续删除",
-            canDelete
+        // 权限丢失后的**可观测效果**是"拿不到副本内容"——摘要无法计算。
+        // 不用 pm revoke：那会杀掉测试进程，用例必然挂起（实测两次超时）。
+        // 这里直接让 digestOf 返回 null，与权限丢失后的分支完全一致。
+        val canDeleteWithUnreadableCopy = DuplicateReverify.copyStillValid(
+            main = ia,
+            copy = ib,
+            libraryKeys = setOf(ia.mediaIdentityKey(), ib.mediaIdentityKey()),
+            selectedKeys = setOf(ia.mediaIdentityKey()),
+            digestOf = { null }
         )
+        assertFalse(
+            "副本内容读不到（权限丢失/文件不可读）时，复核必须失败而不是继续删除",
+            canDeleteWithUnreadableCopy
+        )
+
+        // 对照：内容可读且一致时必须允许继续
+        val calc = ContentDigestCalculator(ctx.contentResolver)
+        val digests = calc.digestAll(listOf(ia, ib))
+        val canDeleteWhenReadable = DuplicateReverify.copyStillValid(
+            main = ia,
+            copy = ib,
+            libraryKeys = setOf(ia.mediaIdentityKey(), ib.mediaIdentityKey()),
+            selectedKeys = setOf(ia.mediaIdentityKey()),
+            digestOf = { digests[it] }
+        )
+        assertTrue("内容一致且可读时应允许继续", canDeleteWhenReadable)
     }
 
     @Test
