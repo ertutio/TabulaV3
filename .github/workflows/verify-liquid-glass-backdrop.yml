@@ -36,6 +36,19 @@ jobs:
       - name: Install Android SDK packages
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
 
+      # Robolectric 首次运行要拉 `android-all`（约 100 MB）。CI runner 到
+      # Maven Central 偶发 429 / 连接重置，而失败会表现为一批**与本 PR 无关**的
+      # Robolectric 测试报错（`MavenArtifactFetcher` → `IOException`），
+      # 上一轮 `fdf5151` 就是这样被判红的。这里先单独预热并允许失败：
+      # 拉到了就进本地缓存，拉不到也继续跑（真正的判定仍由测试本身给出），
+      # 但把失败原因打在日志里，便于区分"网络抖动"与"代码问题"。
+      - name: Warm Robolectric android-all cache
+        continue-on-error: true
+        run: |
+          bash ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest \
+            --tests 'com.tabula.v3.RestoreDecisionTest' || \
+            echo '::warning::Robolectric android-all 预热失败（多为网络），后续测试可能因此报错'
+
       - name: Run unit tests (debug + release)
         run: bash ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:testReleaseUnitTest
 
