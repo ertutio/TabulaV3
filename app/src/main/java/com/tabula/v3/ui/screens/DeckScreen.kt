@@ -144,6 +144,8 @@ import com.tabula.v3.ui.components.MonthInfo
 import com.tabula.v3.ui.components.AlbumSelectionSheet
 import com.tabula.v3.data.repository.AlbumCleanupEngine
 import com.tabula.v3.data.repository.AlbumCleanupInfo
+import com.tabula.v3.data.repository.AlbumUsageTracker
+import com.tabula.v3.data.album.RecentAlbumRules
 import com.tabula.v3.data.repository.AlbumCleanupBatch
 import com.tabula.v3.di.CoilSetup
 import kotlinx.coroutines.Job
@@ -1443,9 +1445,20 @@ fun DeckScreen(
     // LIST_POPUP 模式：图集选择弹层（过滤掉隐藏的图集）
     if (showAlbumSelectionSheet) {
         val currentImage = currentBatch.getOrNull(currentIndex)
+        val visibleAlbums = albums.filter { !it.isHidden }
+        // 路线图 #83 第 3 项：最近成功归档过的图集置顶。
+        // 数据取自同一份使用记录（AlbumUsageTracker），每天进弹层时重算一次；
+        // RecentAlbumRules 按当前可见列表求交，隐藏/删除的目标不会残留。
+        val recentAlbums = remember(showAlbumSelectionSheet, visibleAlbums) {
+            RecentAlbumRules.recentAlbums(
+                albums = visibleAlbums,
+                stats = AlbumUsageTracker.getInstance(context).getAllAlbumStats()
+            )
+        }
         AlbumSelectionSheet(
-            albums = albums.filter { !it.isHidden },
+            albums = visibleAlbums,
             allImages = allImages,
+            recentAlbums = recentAlbums,
             onAlbumSelected = { album ->
                 showAlbumSelectionSheet = false
                 currentImage?.let { image ->
