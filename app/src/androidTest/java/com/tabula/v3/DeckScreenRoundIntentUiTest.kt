@@ -290,9 +290,11 @@ class DeckScreenRoundIntentUiTest {
         // 连续滑动处理截图（上滑删除）直到提示出现
         val hintTimeout = now() + 60000
         var hintSeen = false
+        var swipes = 0
         while (now() < hintTimeout) {
             if (find(ins.uiAutomation.rootInActiveWindow, "看这个") != null) { hintSeen = true; break }
             dismissPermissionDialogIfAny()
+            if (swipes == 0) dumpScreen("before-swipe")
             if (find(ins.uiAutomation.rootInActiveWindow, "再来一组") != null) {
                 // 批次完成：装载下一批（真实页面入口）
                 tapNode(find(ins.uiAutomation.rootInActiveWindow, "再来一组")!!, "再来一组")
@@ -300,8 +302,12 @@ class DeckScreenRoundIntentUiTest {
                 continue
             }
             swipeCard(SwipeDirection.DELETE_UP)
+            swipes++
+            if (swipes == 1) dumpScreen("after-swipe-1")
+            if (swipes == 3) dumpScreen("after-swipe-3")
         }
-        assertTrue("连续删除截图后应出现意图提示", hintSeen)
+        if (!hintSeen) dumpScreen("no-hint-final")
+        assertTrue("连续删除截图后应出现意图提示（swipes=$swipes）", hintSeen)
 
         // 点击"看这个"：真实 Banner 回调 → 引擎接受意图
         tap("看这个")
