@@ -133,8 +133,8 @@ jobs:
             cat device-results/instrumentation-screen.txt
             grep -E 'INSTRUMENTATION_STATUS: (class|numtests|test=)|OK \(|FAILURES' device-results/instrumentation-burst.txt > device-results/summary.txt
             cat device-results/summary.txt
-            # 精确断言：6 条用例，不接受任意 "OK (N tests)"
-            grep -Fx 'OK (6 tests)' device-results/instrumentation-burst.txt
+            # 精确断言：burst 类 7 条、screen 类 6 条，不接受任意 "OK (N tests)"
+            grep -Fx 'OK (7 tests)' device-results/instrumentation-burst.txt
             grep -Fx 'OK (6 tests)' device-results/instrumentation-screen.txt
       - name: Summarise
         if: always()
