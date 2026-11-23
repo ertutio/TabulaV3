@@ -319,11 +319,18 @@ class BurstSelectionDeviceTest {
         tap("都保留，结束这组")
 
         // 8. 必须真的回到卡片页（组结束）
+        //
+        // 判定不能用 "x/y" 索引文本：顶栏默认显示**日期**（如 "2026 Nov"），
+        // 不是索引（run 45213847826 就是判错了这个）。
+        // 卡片页的可靠锚点：TopBar 的「回收站 / 设置」+ 底部「N 张待整理」，
+        // 且选片页标题「连拍选片」已消失。
         val deadline = now() + 20000
         var backOnDeck = false
         while (now() < deadline) {
             val texts = screenTexts()
-            if (!texts.contains("连拍选片") && texts.any { it.contains("/3") || it == "去选片" }) {
+            val onDeck = texts.contains("回收站") && texts.contains("设置") &&
+                texts.any { it.endsWith("张待整理") }
+            if (onDeck && !texts.contains("连拍选片")) {
                 backOnDeck = true
                 break
             }
@@ -349,11 +356,20 @@ class BurstSelectionDeviceTest {
         )
 
         // 11. 回到卡片页后的当前批次状态：三张都还在（一张没被移走），
-        //     且连拍入口消失（组已结束，activeSimilarGroup 被清空）
+        //     且连拍入口消失（组已结束，activeSimilarGroup 被清空）。
+        //
+        // 「N 张待整理」的 N 是 remaining = size - currentIndex - 1，
+        // 即"当前这张之后还剩几张"。三张、停在第一张 ⇒ 显示「2 张待整理」。
+        // 直接断言 3 会判错（run 45213847826 的实际屏幕就是 "2 张待整理"）。
         val finalTexts = screenTexts()
         assertTrue(
-            "当前批次应仍是 3 张（屏幕：$finalTexts）",
-            finalTexts.any { it == "1/3" } || finalTexts.any { it.contains("/3") }
+            "当前批次应仍是 3 张、停在第一张 ⇒ 底部显示「2 张待整理」（屏幕：$finalTexts）",
+            finalTexts.contains("2 张待整理")
+        )
+        // 批次里还能看到本次组内成员的文件名（一张都没被移走）
+        assertTrue(
+            "组内照片必须仍在当前批次里（屏幕：$finalTexts）",
+            mine.any { finalTexts.contains(it.displayName) }
         )
         assertTrue(
             "组结束后连拍入口应消失（屏幕：$finalTexts）",
