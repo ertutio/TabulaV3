@@ -69,6 +69,7 @@ import com.tabula.v3.data.preferences.TopBarDisplayMode
 import com.tabula.v3.data.repository.DeletionVerification
 import com.tabula.v3.data.repository.FileOperationManager
 import com.tabula.v3.data.repository.LocalImageRepository
+import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.copyImagesResultMessage
 import com.tabula.v3.data.repository.moveImagesResultMessage
 import com.tabula.v3.data.repository.matchesSameMediaIdentity
@@ -103,6 +104,11 @@ import com.tabula.v3.ui.screens.DisclaimerScreen
 import com.tabula.v3.ui.screens.PrivacyPolicyScreen
 import com.tabula.v3.ui.screens.TutorialScreen
 import com.tabula.v3.ui.screens.OtherAlbumsScreen
+import com.tabula.v3.ui.screens.RelayReviewScreen
+import com.tabula.v3.data.relay.RelayMark
+import com.tabula.v3.data.relay.RelayReviewController
+import com.tabula.v3.data.relay.RelayReviewRules
+import com.tabula.v3.data.relay.ShareRelayStore
 import com.tabula.v3.data.repository.AlbumManager
 import com.tabula.v3.data.model.Album
 import androidx.compose.runtime.collectAsState
@@ -489,6 +495,15 @@ fun TabulaApp(
     var isAlbumMode by remember { mutableStateOf(false) }
     var showHiddenAlbums by remember { mutableStateOf(false) }
     var otherAlbumsForNavigation by remember { mutableStateOf<List<Album>>(emptyList()) }
+
+    // ========== 分享待清记录（#85：用户可达的清理界面） ==========
+    val shareRelayStore = remember { ShareRelayStore.getInstance(context) }
+    var relayMarks by remember { mutableStateOf<List<RelayMark>>(emptyList()) }
+    var relayShowReviewOnly by remember { mutableStateOf(false) }
+    var relayRevision by remember { mutableIntStateOf(0) }
+    LaunchedEffect(relayRevision) {
+        relayMarks = withContext(Dispatchers.IO) { shareRelayStore.load() }
+    }
 
     // ========== 图片数据状态 ==========
     var allImages by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
@@ -1206,10 +1221,58 @@ fun TabulaApp(
             onNavigateToHiddenAlbums = { currentScreen = AppScreen.HIDDEN_ALBUMS },
             onNavigateToPrivacyPolicy = { currentScreen = AppScreen.PRIVACY_POLICY },
             onNavigateToTutorial = { currentScreen = AppScreen.TUTORIAL },
+            onNavigateToRelayReview = {
+                relayRevision++
+                currentScreen = AppScreen.RELAY_REVIEW
+            },
+            relayPendingCount = RelayReviewRules.pendingReviewRows(
+                RelayReviewRules.resolveRows(relayMarks, allImages)
+            ).size,
             scrollState = settingsScrollState
         )
     }
     
+    // 系统分享产生的待清记录页面（#85）
+    val relayReviewContent: @Composable () -> Unit = {
+        // 只把当前图库里仍存在的照片作为定位来源；回收站中的不算"原图"
+        val recycledKeys = deletedImages.map { it.mediaIdentityKey() }.toSet()
+        val library = allImages.filterNot { it.mediaIdentityKey() in recycledKeys }
+        val rows = RelayReviewRules.resolveRows(relayMarks, library)
+        RelayReviewScreen(
+            rows = rows,
+            library = library,
+            showReviewOnly = relayShowReviewOnly,
+            onToggleReviewOnly = { relayShowReviewOnly = !relayShowReviewOnly },
+            onRecycle = { image ->
+                scope.launch {
+                    try {
+                        shareRelayStore.remove(listOf(image.mediaIdentityKey()))
+                        recycleBinManager.addToRecycleBin(image)
+                        val persisted = recycleBinManager.loadRecycleBin()
+                        val moved = persisted.map { it.mediaIdentityKey() }.toSet()
+                        allImages = allImages.filterNot { it.mediaIdentityKey() in moved }
+                        imagesForSorting = imagesForSorting.filterNot { it.mediaIdentityKey() in moved }
+                        deletedImages = persisted
+                        relayRevision++
+                        Toast.makeText(context, "已移入回收站，可在回收站恢复", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Log.e("TabulaApp", "Relay recycle failed", e)
+                        Toast.makeText(context, "未能移入回收站，标记已保留", Toast.LENGTH_LONG).show()
+                    }
+                }
+            },
+            onRemoveMark = { row ->
+                RelayReviewRules.undoPlan(listOf(row.mark)).applyTo(shareRelayStore)
+                relayRevision++
+            },
+            onChooseImage = { row, chosen ->
+                RelayReviewController(shareRelayStore).manualConfirm(row.mark, chosen)
+                relayRevision++
+            },
+            onNavigateBack = { currentScreen = AppScreen.SETTINGS }
+        )
+    }
+
     // 使用教程页面
     val tutorialContent: @Composable () -> Unit = {
         TutorialScreen(
@@ -1661,6 +1724,7 @@ fun TabulaApp(
         AppScreen.ALBUM_VIEW -> deckContent to albumViewContent
         AppScreen.SYSTEM_ALBUM_VIEW -> deckContent to systemAlbumViewContent
         AppScreen.OTHER_ALBUMS -> deckContent to otherAlbumsContent
+        AppScreen.RELAY_REVIEW -> settingsContent to relayReviewContent
         AppScreen.VIBRATION_SOUND -> settingsContent to vibrationSoundContent
         AppScreen.DISPLAY_SETTINGS -> settingsContent to displaySettingsContent
         AppScreen.LAB -> settingsContent to labContent
@@ -1688,6 +1752,7 @@ fun TabulaApp(
                     AppScreen.ALBUM_VIEW -> AppScreen.DECK
                     AppScreen.SYSTEM_ALBUM_VIEW -> AppScreen.DECK
                     AppScreen.OTHER_ALBUMS -> AppScreen.DECK
+                    AppScreen.RELAY_REVIEW -> AppScreen.SETTINGS
                     AppScreen.VIBRATION_SOUND -> AppScreen.SETTINGS
                     AppScreen.DISPLAY_SETTINGS -> AppScreen.SETTINGS
                     AppScreen.LAB -> AppScreen.SETTINGS

@@ -41,6 +41,7 @@ import com.tabula.v3.data.relay.RelayItem
 import com.tabula.v3.data.relay.RelayMark
 import com.tabula.v3.data.relay.RelayResolution
 import com.tabula.v3.data.relay.ShareRelayIntentReader
+import com.tabula.v3.data.relay.ShareRelayEntry
 import com.tabula.v3.data.relay.ShareRelayRules
 import com.tabula.v3.data.relay.ShareRelayStore
 import com.tabula.v3.data.repository.LocalImageRepository
@@ -112,18 +113,8 @@ private fun RelayScreen(
             failure = "没有收到分享内容"
             return@LaunchedEffect
         }
-        val resolver = context.contentResolver
 
-        val items: List<RelayItem> = ShareRelayIntentReader.read(intent) { uri ->
-            runCatching { resolver.getType(uri) }.getOrNull()
-        }
-
-        if (items.isEmpty()) {
-            failure = "这次分享里没有可用的图片"
-            return@LaunchedEffect
-        }
-
-        val resolved = withContext(Dispatchers.IO) {
+        val outcome = withContext(Dispatchers.IO) {
             // 本地身份集只用于"能不能唯一定位"，不读照片内容。
             val localKeys = runCatching {
                 LocalImageRepository(context).loadAllData().allImages
@@ -131,23 +122,27 @@ private fun RelayScreen(
                     .toSet()
             }.getOrElse { emptySet() }
 
-            ShareRelayRules.resolve(
-                items = items,
-                localIdentityKeys = localKeys,
-                nowMillis = System.currentTimeMillis()
-            )
+            runCatching {
+                ShareRelayEntry.handle(
+                    context = context,
+                    store = ShareRelayStore.getInstance(context),
+                    intent = intent,
+                    localIdentityKeys = localKeys,
+                    nowMillis = System.currentTimeMillis()
+                )
+            }.onFailure { Log.e("ShareRelay", "Could not persist relay marks", it) }.getOrNull()
         }
 
-        resolution = resolved
-        if (resolved.marks.isNotEmpty()) {
-            runCatching {
-                ShareRelayStore.getInstance(context).merge(resolved.marks)
-            }.onFailure { Log.e("ShareRelay", "Could not persist relay marks", it) }
+        if (outcome == null) {
+            failure = "这次分享里没有可用的图片"
+            return@LaunchedEffect
         }
+
+        resolution = outcome.resolution
 
         // 立刻转交：不等待用户操作，也不因为定位失败而中止。
         forwardStarted = true
-        forwardToTarget(context, resolved)
+        forwardToTarget(context, outcome.resolution)
     }
 
     val res = resolution
