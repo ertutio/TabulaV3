@@ -135,13 +135,11 @@ jobs:
             echo "== ui texts =="
             cat device-results/ui-texts.txt || true
             # 汇总核对：类名、执行数量、失败数
-            for f in device-results/instrumentation-entry.txt device-results/instrumentation-ui.txt; do
-              echo "== $f =="
-              grep -E 'INSTRUMENTATION_STATUS: (numtests|test=)|OK \(|FAILURES' "$f" | tail -20
-            done | tee device-results/summary.txt
-            # 最终断言：两个类都必须 OK
-            grep -Eq 'OK \([0-9]+ tests?\)' device-results/instrumentation-entry.txt
-            grep -Eq 'OK \([0-9]+ tests?\)' device-results/instrumentation-ui.txt
+            grep -E 'INSTRUMENTATION_STATUS: (numtests|test=)|OK \(|FAILURES' device-results/instrumentation-entry.txt > device-results/summary.txt
+            grep -E 'INSTRUMENTATION_STATUS: (numtests|test=)|OK \(|FAILURES' device-results/instrumentation-ui.txt >> device-results/summary.txt
+            cat device-results/summary.txt
+            grep -Fx 'OK (4 tests)' device-results/instrumentation-entry.txt
+            grep -Fx 'OK (2 tests)' device-results/instrumentation-ui.txt
       - name: Summarise
         if: always()
         run: |
