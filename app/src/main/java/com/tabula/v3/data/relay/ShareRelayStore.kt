@@ -128,6 +128,28 @@ class ShareRelayStore(
         WriteResult.Failed("clear failed: ${e.message}")
     }
 
+    /**
+     * 审计 #85：手动确认的原子更新——在**同一次读取**得到的记录集合里，
+     * 移除待核对项（按身份键或 URI 键）并加入已确认项，然后只写一次。
+     *
+     * 不再使用先 removeByUri、再 merge 的两步：两步流程在第二步失败时
+     * 会丢失待核对项。
+     *
+     * 读失败 / 写失败返回 [WriteResult.Failed]，存储原样保留；
+     * 成功返回 [WriteResult.Ok]（携带写后的完整集合，即确认写入结果）。
+     */
+    fun replace(
+        removeKey: String?,
+        removeUri: String?,
+        add: RelayMark
+    ): WriteResult = withMarksOrFail { existing ->
+        val updated = existing
+            .filterNot { it.identityKey != null && it.identityKey == removeKey }
+            .filterNot { it.uriString == removeUri }
+            .let { list -> list + add }
+        updated
+    }
+
     private fun save(marks: List<RelayMark>) {
         val array = JSONArray()
         marks.forEach { mark ->

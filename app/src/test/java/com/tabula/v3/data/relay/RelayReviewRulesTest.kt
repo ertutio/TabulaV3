@@ -223,8 +223,8 @@ class RelayReviewRulesTest {
         assertEquals("external_primary|7", confirmed.identityKey)
         assertEquals(RelayMarkState.CONFIRMED, confirmed.state)
         assertEquals(500L, confirmed.markedAt)
-        // 原始 URI 保留，便于回溯这次分享来自哪里
-        assertEquals("content://tmp/1", confirmed.uriString)
+        // 审计 #85：确认后 URI 更新为选定照片的真实 URI（旧的临时 URI 已失效）
+        assertEquals("content://media/external_primary/images/media/7", confirmed.uriString)
     }
 
     @Test

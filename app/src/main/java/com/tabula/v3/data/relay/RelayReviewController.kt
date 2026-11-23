@@ -23,13 +23,24 @@ class RelayReviewController(
     fun undo(mark: RelayMark): ShareRelayStore.WriteResult =
         RelayReviewRules.undoPlan(listOf(mark)).applyTo(store)
 
-    /** 手动确认待核对项：用户亲自指定一张图库照片，系统不猜。 */
+    /**
+     * 手动确认待核对项（审计 #85：一次原子性的存储更新）。
+     *
+     * 在**同一次读取**得到的记录集合里移除待核对项并加入已确认项，
+     * 然后只写一次。不再使用先 removeByUri、再 merge 的两步——
+     * 两步流程在第二步失败时会丢失待核对项。
+     *
+     * 失败时存储原样保留（原记录和其他记录均可恢复），返回
+     * [ShareRelayStore.WriteResult.Failed]；成功返回 Ok（携带写后的
+     * 完整集合，即确认写入结果）。
+     */
     fun manualConfirm(mark: RelayMark, chosen: ImageFile): ShareRelayStore.WriteResult {
-        // 先按原键（待核对项没有身份键时用 URI）移除旧记录，
-        // 再写入带身份的已确认记录——否则一条分享会留下两条标记。
-        val removal = store.removeByUri(listOf(mark.uriString))
-        if (removal is ShareRelayStore.WriteResult.Failed) return removal
-        return store.merge(listOf(RelayReviewRules.confirmManually(mark, chosen, clock())))
+        val updatedMark = RelayReviewRules.confirmManually(mark, chosen, clock())
+        return store.replace(
+            removeKey = mark.identityKey,
+            removeUri = mark.uriString,
+            add = updatedMark
+        )
     }
 
     /** 回收站写入成功后清除对应标记，避免重复出现在待清里。 */

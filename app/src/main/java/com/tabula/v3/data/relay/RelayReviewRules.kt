@@ -143,11 +143,13 @@ object RelayReviewRules {
      * 待核对项的手动确认：用户在核对界面**自己选了一张**图库照片。
      *
      * 这是唯一能把 `PENDING_REVIEW` 转成 `CONFIRMED` 的路径——系统从不
-     * 自动猜。确认后身份键落到标记上，后续即可参与暂存清理。
+     * 自动猜。确认后身份键与 URI 都落到选定照片上（旧的临时 URI 已失效，
+     * 不能保留），后续即可参与暂存清理。
      */
     fun confirmManually(mark: RelayMark, chosen: ImageFile, nowMillis: Long): RelayMark =
         mark.copy(
             identityKey = chosen.mediaIdentityKey(),
+            uriString = chosen.uri.toString(),
             markedAt = nowMillis,
             state = RelayMarkState.CONFIRMED
         )

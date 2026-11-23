@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,6 +77,8 @@ fun RelayReviewScreen(
     val visibleRows = if (showReviewOnly) RelayReviewRules.pendingReviewRows(rows) else rows
     // 待核对项的原图选择：null = 未在选择；非 null = 正在为这条记录浏览候选
     var pickingFor by remember { mutableStateOf<RelayReviewRules.ReviewRow?>(null) }
+    // 审计 #85：选中候选 → 展示确认界面 → 用户确认后写入（不直接落库）
+    var confirmCandidate by remember { mutableStateOf<Pair<RelayReviewRules.ReviewRow, ImageFile>?>(null) }
 
     Column(Modifier.fillMaxSize().background(bg)) {
         Row(
@@ -142,7 +145,7 @@ fun RelayReviewScreen(
                                     .background(card)
                                     .clickable {
                                         HapticFeedback.lightTap(context)
-                                        onChooseImage(pending, candidate)
+                                        confirmCandidate = pending to candidate
                                     }
                             ) {
                                 AsyncImage(
@@ -269,7 +272,128 @@ fun RelayReviewScreen(
             }
         }
     }
+
+    // 审计 #85：确认对话框挂在最外层，浏览中或列表中都能弹出
+    val confirm = confirmCandidate
+    if (confirm != null) {
+        ConfirmCandidateDialog(
+            pending = confirm.first,
+            candidate = confirm.second,
+            onConfirm = {
+                onChooseImage(confirm.first, confirm.second)
+                confirmCandidate = null
+                pickingFor = null
+            },
+            onDismiss = { confirmCandidate = null }
+        )
+    }
 }
 
 private fun formatCandidateDate(millis: Long): String =
     SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA).format(Date(millis))
+
+/**
+ * 审计 #85：原图确认对话框——展示分享记录与候选图的可用信息，
+ * 明确说明无法核对来源、不能声称内容一致；用户确认后才写入。
+ */
+@Composable
+private fun ConfirmCandidateDialog(
+    pending: RelayReviewRules.ReviewRow,
+    candidate: ImageFile,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val isDark = LocalIsDarkTheme.current
+    val cardColor = if (isDark) Color(0xFF1C1C1E) else Color.White
+    val textColor = if (isDark) Color.White else Color.Black
+    val secondary = Color(0xFF8E8E93)
+    val accent = Color(0xFF007AFF)
+    val context = LocalContext.current
+    val imageLoader = androidx.compose.runtime.remember(context) {
+        com.tabula.v3.di.CoilSetup.getImageLoader(context)
+    }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = cardColor,
+        textContentColor = textColor,
+        title = { Text("确认关联原图", color = textColor, fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text(
+                    "分享记录",
+                    color = secondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = pending.mark.displayName ?: "分享的照片",
+                    color = textColor, fontSize = 14.sp
+                )
+                Text(
+                    text = "分享时间：" +
+                        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA)
+                            .format(Date(pending.mark.markedAt)),
+                    color = secondary, fontSize = 12.sp
+                )
+                Text(
+                    text = "来源 URI 不可再读取（临时授权已失效），无法核对内容",
+                    color = Color(0xFFFF9500), fontSize = 11.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    "你选择的图库照片",
+                    color = secondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AsyncImage(
+                        model = candidate.uri,
+                        contentDescription = candidate.displayName,
+                        imageLoader = imageLoader,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = candidate.displayName,
+                            color = textColor, fontSize = 14.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "存入时间：" +
+                                SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA)
+                                    .format(Date(candidate.dateModified)),
+                            color = secondary, fontSize = 12.sp
+                        )
+                        Text(
+                            text = "大小：${candidate.size / 1024} KB",
+                            color = secondary, fontSize = 12.sp
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    text = "确认后 Tabula 只记录你指定的关联。" +
+                        "系统无法核对分享来源与这张照片的内容是否一致，" +
+                        "不会声称两者相同。",
+                    color = secondary, fontSize = 11.sp
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                HapticFeedback.lightTap(context)
+                onConfirm()
+            }) { Text("确认关联", color = Color.White) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消", color = secondary) }
+        }
+    )
+}

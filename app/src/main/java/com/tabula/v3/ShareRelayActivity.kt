@@ -106,6 +106,9 @@ private fun RelayScreen(
     var resolution by remember { mutableStateOf<RelayResolution?>(null) }
     var forwardStarted by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
+    // 审计 #85：分享写标记失败时照常转发，但明确告知"未能保存待清标记"，
+    // 不能显示已成功标记。
+    var markFailure by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(incomingIntent) {
         val intent = incomingIntent
@@ -139,6 +142,8 @@ private fun RelayScreen(
         }
 
         resolution = outcome.resolution
+        // 审计 #85：写失败照常转发，但不能显示已成功标记
+        markFailure = outcome.writeFailure
 
         // 立刻转交：不等待用户操作，也不因为定位失败而中止。
         forwardStarted = true
@@ -219,8 +224,12 @@ private fun RelayScreen(
                             if (res.confirmedCount > 0) {
                                 Spacer(Modifier.height(6.dp))
                                 Text(
-                                    text = "${res.confirmedCount} 张已标记为待清",
-                                    color = secondaryTextColor,
+                                    text = if (markFailure != null) {
+                                        "分享可继续，但未能保存待清标记"
+                                    } else {
+                                        "${res.confirmedCount} 张已标记为待清"
+                                    },
+                                    color = if (markFailure != null) Color(0xFFFF9500) else secondaryTextColor,
                                     fontSize = 12.sp
                                 )
                             }
@@ -229,6 +238,14 @@ private fun RelayScreen(
                                 Text(
                                     text = "${res.reviewCount} 张无法唯一定位原图，标记待核对。" +
                                         "不影响转发。",
+                                    color = Color(0xFFFF9500),
+                                    fontSize = 12.sp
+                                )
+                            }
+                            if (markFailure != null) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    text = "待清标记保存失败：$markFailure。这次分享不会被记录。",
                                     color = Color(0xFFFF9500),
                                     fontSize = 12.sp
                                 )

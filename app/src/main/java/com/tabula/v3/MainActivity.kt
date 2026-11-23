@@ -1282,8 +1282,21 @@ fun TabulaApp(
                 }
             },
             onRemoveMark = { row ->
-                RelayReviewRules.undoPlan(listOf(row.mark)).applyTo(shareRelayStore)
-                relayRevision++
+                // 审计 #85：撤销/重试失败时保留页面状态并提示，不当作已完成
+                val result = RelayReviewController(shareRelayStore).undo(row.mark)
+                when (result) {
+                    is ShareRelayStore.WriteResult.Ok -> {
+                        Toast.makeText(context, "标记已移除", Toast.LENGTH_SHORT).show()
+                        relayRevision++
+                    }
+                    is ShareRelayStore.WriteResult.Failed -> {
+                        Toast.makeText(
+                            context,
+                            "标记移除失败：${result.reason}，记录已保留，可重试",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
             },
             onChooseImage = { row, chosen ->
                 val result = RelayReviewController(shareRelayStore).manualConfirm(row.mark, chosen)
