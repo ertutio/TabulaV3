@@ -207,22 +207,36 @@ class RecommendationEngine(
      *
      * 由 UI 在用户接受提示时写入，**会话级、不持久化**：
      * 进程重启后归零，符合"只在当前整理会话内有效"的约束。
-     * 被消费一次后由 [onIntentConsumed] 清空，实现"只影响下一批"。
+     *
+     * 审计修复：意图由**引擎自己原子消费**，不再靠 UI 回调清空。
+     * [consumeRoundIntent] 用 synchronized 保证"取出并清空"是一个原子动作——
+     * 并发或重复取批不会重复使用同一个意图。UI 只通过 [roundIntent] 读取
+     * 展示状态，不承担消费职责。
      */
     @Volatile
     var roundIntent: RoundIntentRules.Intent = RoundIntentRules.clear()
         private set
 
-    /** 消费回调：由持有方清空意图状态（保持单一写者）。 */
-    @Volatile
-    var onIntentConsumed: (() -> Unit)? = null
+    /**
+     * 原子取出并消费意图：返回当前 active 意图并立即清空。
+     * 第二个调用者只会拿到 cleared（null），不会复用同一意图。
+     */
+    @Synchronized
+    fun consumeRoundIntent(): RoundIntentRules.Intent? {
+        val current = roundIntent
+        if (!current.isActive) return null
+        roundIntent = RoundIntentRules.consume(current)
+        return current
+    }
 
     /** 接受意图：下一批优先该来源。 */
+    @Synchronized
     fun acceptRoundIntent(sourceKey: String, nowMillis: Long = System.currentTimeMillis()) {
         roundIntent = RoundIntentRules.accept(sourceKey, nowMillis)
     }
 
     /** 清空意图（用户退出整理 / 会话结束）。 */
+    @Synchronized
     fun clearRoundIntent() {
         roundIntent = RoundIntentRules.clear()
     }
@@ -265,16 +279,16 @@ class RecommendationEngine(
                 )
         }
 
-        val newlyPicked: List<ImageFile> = if (roundIntent.isActive) {
+        // 审计 #90：引擎自己原子消费意图——取出即清空，并发/重复取批
+        // 不会复用同一意图；界面回调不再负责清空展示状态。
+        val consumedIntent = consumeRoundIntent()
+        val newlyPicked: List<ImageFile> = if (consumedIntent != null) {
             RoundIntentRules.sampleWithIntent(
                 available = availableImages,
                 batchSize = batchSize,
-                intent = roundIntent,
+                intent = consumedIntent,
                 random = kotlin.random.Random.Default
-            ).also {
-                // 消费掉：接受只影响这一批
-                onIntentConsumed?.invoke()
-            }
+            )
         } else {
             baseSampled
         }

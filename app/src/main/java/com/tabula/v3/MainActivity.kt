@@ -522,11 +522,6 @@ fun TabulaApp(
     val recommendationEngine = remember { RecommendationEngine.getInstance(context) }
     val albumCleanupEngine = remember { AlbumCleanupEngine.getInstance(context) }
 
-    // 意图被消费后清空本地展示态（引擎是唯一写者，这里只做展示同步）
-    LaunchedEffect(Unit) {
-        recommendationEngine.onIntentConsumed = { intentSuggestion = null }
-    }
-
     /**
      * 按**用户实际处理行为**评估是否提示本轮整理意图（审计 #90）。
      *
