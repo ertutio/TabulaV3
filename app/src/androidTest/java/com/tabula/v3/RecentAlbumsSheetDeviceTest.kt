@@ -46,6 +46,8 @@ class RecentAlbumsSheetDeviceTest {
         prefs.hasCompletedOnboarding = true
         prefs.hasAcknowledgedDisclaimer = true
         prefs.recommendMode = RecommendMode.RANDOM_WALK
+        // 归档弹层只能由 LIST_POPUP 模式的下滑触发（SWIPE_AUTO 下滑是归类）
+        prefs.tagSelectionMode = com.tabula.v3.data.preferences.TagSelectionMode.LIST_POPUP
         albums = AlbumManager.getInstance(ctx)
         albums.initialize()
         grantMedia()
@@ -187,8 +189,9 @@ class RecentAlbumsSheetDeviceTest {
     private fun openAlbumSheetBySwipeDown() {
         val m = ctx.resources.displayMetrics
         val cx = m.widthPixels / 2
-        shell("input swipe $cx ${(m.heightPixels * 0.35f).toInt()} $cx ${(m.heightPixels * 0.85f).toInt()} 300")
-        android.os.SystemClock.sleep(1200)
+        // 从卡片中部向下长滑，覆盖弹层的下滑阈值
+        shell("input swipe $cx ${(m.heightPixels * 0.30f).toInt()} $cx ${(m.heightPixels * 0.90f).toInt()} 400")
+        android.os.SystemClock.sleep(1500)
     }
 
     // ==================== 用例 ====================
