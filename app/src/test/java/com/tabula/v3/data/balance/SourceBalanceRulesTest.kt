@@ -135,6 +135,59 @@ class SourceBalanceRulesTest {
 
     // ==================== 边界 ====================
 
+    /**
+     * 设备测试依赖的**确定性前提**（#89 二轮审计）。
+     *
+     * `WalkStrategySettingsDeviceTest.nextBatchSamplingActuallyReflectsChosenStrategy`
+     * 断言"均衡策略下每一批都覆盖全部来源桶"。那条断言只有在
+     * **batchSize ≥ 桶数** 时才成立（第一轮每桶先贡献 1 张）。
+     * 这里用与设备测试相同的库形状（3 张截图 + 30 张相机、批次 6）把
+     * 这个前提钉在 JVM 层，避免设备测试建立在错误假设上。
+     */
+    @Test
+    fun balancedAlwaysCoversEverySourceWhenBatchSizeIsAtLeastBucketCount() {
+        val library = (1L..3L).map { photo(it, "DCIM/Screenshots/") } +
+            (100L..129L).map { photo(it, "DCIM/Camera/") }
+        val bucketCount = SourceBalanceRules.bucketize(library).size
+        assertEquals("库应恰好 2 个来源桶", 2, bucketCount)
+
+        repeat(100) { seed ->
+            val batch = SourceBalanceRules.balancedSample(library, 6, Random(seed))
+            assertEquals("seed=$seed 应出满 6 张", 6, batch.size)
+            assertEquals(
+                "seed=$seed 必须覆盖全部 $bucketCount 个来源",
+                bucketCount,
+                batch.map { SourceBalanceRules.sourceKeyOf(it) }.toSet().size
+            )
+        }
+    }
+
+    /**
+     * 对照：同一份库上纯均匀随机**必须**出现覆盖不全的批次。
+     *
+     * 没有这条，"均衡覆盖全部"可能只是因为这库太小、随便抽都能覆盖。
+     * 小桶只占 3/33，6 张里抽不到它的概率约 (30/33)^6 ≈ 0.55，
+     * 100 个种子里出现覆盖不全几乎是必然的。
+     */
+    @Test
+    fun uniformRandomOnTheSameLibraryDoesMissSources() {
+        val library = (1L..3L).map { photo(it, "DCIM/Screenshots/") } +
+            (100L..129L).map { photo(it, "DCIM/Camera/") }
+
+        val coverages = (0 until 100).map { seed ->
+            val batch = SourceBalanceRules.uniformSample(library, 6, Random(seed))
+            batch.map { SourceBalanceRules.sourceKeyOf(it) }.toSet().size
+        }
+        assertTrue(
+            "均匀随机必须出现覆盖不全的批次（覆盖数分布：${coverages.groupingBy { it }.eachCount()}）",
+            coverages.any { it < 2 }
+        )
+        assertTrue(
+            "均匀随机的平均覆盖必须低于 2",
+            coverages.average() < 2.0
+        )
+    }
+
     @Test
     fun singleAlbumStillReturnsAFullBatch() {
         val library = (1L..50L).map { photo(it, "DCIM/Camera/") }
