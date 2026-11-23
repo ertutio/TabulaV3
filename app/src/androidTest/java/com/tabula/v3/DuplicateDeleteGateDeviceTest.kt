@@ -224,28 +224,35 @@ class DuplicateDeleteGateDeviceTest {
         val main = awaitImageOf(mainUri)
         val copy = awaitImageOf(copyUri)
 
-        val bin = RecycleBinManager.getInstance(ctx)
-        bin.addAllToRecycleBin(listOf(main, copy))
-        val records = bin.loadRecycleBin()
-            .filter { it.mediaIdentityKey() in setOf(main.mediaIdentityKey(), copy.mediaIdentityKey()) }
-        assertTrue("两张都应在回收站", records.size == 2)
-
+        // 说明：`findExactDuplicates` 只产出"回收站成员 vs **库内**成员"的提示
+        // （回收站成员互相比不算"还剩一份"）。所以"两份都在回收站待删"这个场景
+        // 应当由 deleteRecycleBinImages 的**复核**拦住：
+        // copyStillValid 在两份都进 selected 时返回 false。
         val calc = ContentDigestCalculator(ctx.contentResolver)
-        val versions = calc.digestAll(records)
-        // 两份都在待删集合里 → "还剩一份"的前提不成立
-        val details = DuplicateRules.findExactDuplicates(
-            versions, records.map { it.mediaIdentityKey() }.toSet()
-        ).associate { it.image.mediaIdentityKey() to it.duplicates }
+        val versions = calc.digestAll(listOf(main, copy))
+        val bothKeys = setOf(main.mediaIdentityKey(), copy.mediaIdentityKey())
 
-        val verdict = DuplicateReverify.verifyAll(
-            toDelete = records,
-            details = details,
-            libraryKeys = librarySuspend().map { it.mediaIdentityKey() }.toSet(),
+        val canDelete = DuplicateReverify.copyStillValid(
+            main = main,
+            copy = copy,
+            libraryKeys = bothKeys,
+            // 关键：两份都在本次待删集合里
+            selectedKeys = bothKeys,
             digestOf = { versions[it] }
         )
-        assertTrue(
-            "两份都选中删除时必须停止（不能删掉最后一份）",
-            verdict.shouldStop
+        assertFalse(
+            "两份都在待删集合时，'还剩一份'的前提不成立，必须拒绝",
+            canDelete
         )
+
+        // 对照：只删其中一份、另一份留在库里 → 允许
+        val canDeleteOneOnly = DuplicateReverify.copyStillValid(
+            main = main,
+            copy = copy,
+            libraryKeys = bothKeys,
+            selectedKeys = setOf(main.mediaIdentityKey()),
+            digestOf = { versions[it] }
+        )
+        assertTrue("只删一份、另一份仍在库里时应允许", canDeleteOneOnly)
     }
 }
