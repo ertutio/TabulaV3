@@ -72,7 +72,7 @@ class StagedCleanupEntryDeviceTest {
         val name = "$prefix-" + UUID.randomUUID().toString().take(8) + ".jpg"
         val uri = requireNotNull(
             ctx.contentResolver.insert(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
                 ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, name)
                     put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
