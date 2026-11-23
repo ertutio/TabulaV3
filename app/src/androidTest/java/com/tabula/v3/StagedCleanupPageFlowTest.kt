@@ -81,6 +81,11 @@ class StagedCleanupPageFlowTest {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, name)
                     put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
                     put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/$path/")
+                    // 暂存清理只收「存放超过 DEFAULT_RETENTION_DAYS(7) 天」的旧图，
+                    // 刚插入的新照片不会出现在候选里（run 45166133122 的真实原因）
+                    val old = System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000
+                    put(MediaStore.MediaColumns.DATE_ADDED, old / 1000)
+                    put(MediaStore.MediaColumns.DATE_MODIFIED, old / 1000)
                     put(MediaStore.MediaColumns.IS_PENDING, 1)
                 }
             )
