@@ -236,31 +236,28 @@ class StagedCleanupPageFlowTest {
             sourceTexts.any { it.contains("先选来源") } || sourceTexts.any { it.contains("来源") }
         )
 
-        // 先在来源选择器里**勾选来源**（未勾选时是"本轮 0 个来源"，
-        // 查看按钮会导向空候选页——run 45167685266 的真实原因）
-        val sourceRow = sourceTexts.firstOrNull { it.contains("张 · ") }
-        assertTrue(
-            "来源选择器应列出至少一个来源（屏幕：$sourceTexts）",
-            sourceRow != null
-        )
-        tap(sourceRow!!)
-        android.os.SystemClock.sleep(1000)
-
-        // 勾选后确认（按钮文案随选中数量变化）
-        val afterPick = screenTexts()
-        val viewButton = afterPick.firstOrNull {
+        // 来源选择器：默认已预勾推荐来源（截图/下载），按钮文案应为
+        // "查看 N 个来源的旧图"。若仍显示"本轮 0 个来源"，说明没有可用来源。
+        var afterPick = screenTexts()
+        var viewButton = afterPick.firstOrNull {
             it.startsWith("查看") && it.endsWith("个来源的旧图")
         }
-        if (viewButton != null) {
-            tap(viewButton)
-        } else {
-            // 没有可选来源时，至少验证页面给出了可解释的空态
-            assertTrue(
-                "无来源时应显示明确空态而不是白屏（屏幕：$sourceTexts）",
-                sourceTexts.any { it.contains("没有找到") } || sourceTexts.any { it.contains("没有待清理") }
-            )
-            return@runBlocking
+        if (viewButton == null) {
+            // 没有预勾时手动点来源条目（文案形如「1 张 · pictures/dcim/screenshots」）
+            afterPick.firstOrNull { it.contains(" 张 · ") }?.let {
+                tap(it)
+                android.os.SystemClock.sleep(1200)
+                afterPick = screenTexts()
+                viewButton = afterPick.firstOrNull {
+                    it.startsWith("查看") && it.endsWith("个来源的旧图")
+                }
+            }
         }
+        assertTrue(
+            "来源选择器必须给出可执行的查看按钮（屏幕：$afterPick）",
+            viewButton != null
+        )
+        tap(viewButton!!)
 
         // 候选页 → **先点缩略图勾选**（未勾选时按钮是"选择要移入回收站的照片"）
         android.os.SystemClock.sleep(1500)
