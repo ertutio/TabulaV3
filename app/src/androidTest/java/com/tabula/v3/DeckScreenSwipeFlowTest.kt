@@ -90,7 +90,7 @@ class DeckScreenSwipeFlowTest {
         }
         // 滑完一批：DeckScreen 置 COMPLETED → 用户点"再来一组" → startNewBatch
         // → 装载成功后回调 onBatchAdvanced
-        return RoundSessionRules.nextBatch(s)
+        return s
     }
 
     @Test
@@ -100,7 +100,7 @@ class DeckScreenSwipeFlowTest {
         val shotsRows = all.filter { sourceOf(it) == shots }
 
         // 批次 1：滑动处理（前 6 张全部保留）
-        session = swipeThroughBatch(session, all.take(6))
+        session = RoundSessionRules.nextBatch(swipeThroughBatch(session, all.take(6)))
         assertTrue("批次切换后当前统计清空", session.isEmpty())
 
         // 批次 2：滑动处理 6 张截图（全部删除）→ 处理完看到提示
@@ -110,7 +110,7 @@ class DeckScreenSwipeFlowTest {
         val suggestion = RoundSessionRules.shouldSuggest(
             session = session,
             sourceKeyOf = ::sourceOf,
-            availableKeys = all.map { it.mediaIdentityKey() }.toSet()
+            availableImages = all
         )
         assertEquals(shots, suggestion)
 
@@ -144,7 +144,7 @@ class DeckScreenSwipeFlowTest {
         val suggestion = RoundSessionRules.shouldSuggest(
             session = session,
             sourceKeyOf = ::sourceOf,
-            availableKeys = all.map { it.mediaIdentityKey() }.toSet()
+            availableImages = all
         )
         // 4 张成功删除仍可触发（≥3 且 ≥60%）；验证失败的那张没有计入
         assertEquals(shots, suggestion)
@@ -170,7 +170,7 @@ class DeckScreenSwipeFlowTest {
             RoundSessionRules.shouldSuggest(
                 session = session,
                 sourceKeyOf = ::sourceOf,
-                availableKeys = all.map { it.mediaIdentityKey() }.toSet()
+                availableImages = all
             )
         )
         assertFalse(engine.roundIntent.isActive)
@@ -191,7 +191,7 @@ class DeckScreenSwipeFlowTest {
             RoundSessionRules.shouldSuggest(
                 session = session,
                 sourceKeyOf = ::sourceOf,
-                availableKeys = library.map { it.mediaIdentityKey() }.toSet()
+                availableImages = library
             )
         )
     }

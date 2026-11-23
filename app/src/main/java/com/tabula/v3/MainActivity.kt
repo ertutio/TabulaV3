@@ -533,14 +533,14 @@ fun TabulaApp(
      */
     LaunchedEffect(roundSession, intentDismissed, imagesForSorting) {
         if (intentDismissed || roundSession.isEmpty()) return@LaunchedEffect
-        val availableKeys = imagesForSorting.filterNot { image ->
+        val availableImages = imagesForSorting.filterNot { image ->
             deletedImages.any { it.mediaIdentityKey() == image.mediaIdentityKey() }
-        }.map { it.mediaIdentityKey() }.toSet()
+        }
         // 只用成功处理的行为判定；来源策略与抽样层同口径
         intentSuggestion = RoundSessionRules.shouldSuggest(
             session = roundSession,
             sourceKeyOf = { SourceBalanceRules.sourceKeyOf(it) },
-            availableKeys = availableKeys
+            availableImages = availableImages
         )
     }
 

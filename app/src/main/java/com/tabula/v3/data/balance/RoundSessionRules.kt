@@ -67,14 +67,14 @@ object RoundSessionRules {
     fun shouldSuggest(
         session: Session,
         sourceKeyOf: (ImageFile) -> String,
-        availableKeys: Set<String>
+        availableImages: List<ImageFile>
     ): String? {
         val handled = session.handledImages()
         if (handled.size < 3) return null
         val bySource = handled.groupBy(sourceKeyOf)
         val (source, rows) = bySource.maxByOrNull { it.value.size } ?: return null
         if (rows.size.toDouble() / handled.size < 0.6) return null
-        if (rows.none { it.mediaIdentityKey() in availableKeys }) return null
+        if (availableImages.none { sourceKeyOf(it) == source && session.currentBatch.none { handled -> handled.key == it.mediaIdentityKey() } }) return null
         return source
     }
 }

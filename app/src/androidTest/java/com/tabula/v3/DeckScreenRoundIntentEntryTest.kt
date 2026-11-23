@@ -81,11 +81,11 @@ class DeckScreenRoundIntentEntryTest {
         }
 
         // DeckScreen 用的同一提示判定
-        val availableKeys = all.map { it.mediaIdentityKey() }.toSet()
+        val availableImages = all
         val suggestion = RoundSessionRules.shouldSuggest(
             session = session,
             sourceKeyOf = ::sourceOf,
-            availableKeys = availableKeys
+            availableImages = availableImages
         )
         assertEquals(shots, suggestion)
 
@@ -118,7 +118,7 @@ class DeckScreenRoundIntentEntryTest {
             RoundSessionRules.shouldSuggest(
                 session = session,
                 sourceKeyOf = ::sourceOf,
-                availableKeys = all.map { it.mediaIdentityKey() }.toSet()
+                availableImages = all
             )
         )
     }

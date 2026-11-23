@@ -263,15 +263,22 @@ class DeckScreenRoundIntentUiTest {
      * 不可行（无按钮）。此处用 shell input swipe 模拟真实滑动。
      */
     private fun swipeCard(direction: SwipeDirection) {
-        val display = ctx.resources.displayMetrics
-        val cx = display.widthPixels / 2f
-        val cy = display.heightPixels * 0.45f
-        val dx = display.widthPixels * 0.35f
-        val dy = display.heightPixels * 0.25f
+        fun findCard(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+            if (node == null) return null
+            if (node.contentDescription?.toString()?.matches(Regex("ui-[0-9a-f]{8}\\.jpg")) == true) return node
+            for (i in 0 until node.childCount) findCard(node.getChild(i))?.let { return it }
+            return null
+        }
+        val card = requireNotNull(findCard(ins.uiAutomation.rootInActiveWindow)) { "Current card not found" }
+        val bounds = android.graphics.Rect().also { card.getBoundsInScreen(it) }
+        val cx = bounds.centerX()
+        val cy = bounds.centerY()
+        val dx = (bounds.width() * 0.35f).toInt()
+        val dy = (bounds.height() * 0.35f).toInt()
         val cmd = when (direction) {
-            SwipeDirection.KEEP_LEFT -> "input swipe ${(cx - dx).toInt()} ${cy.toInt()} ${(cx + dx).toInt()} ${cy.toInt()} 250"
-            SwipeDirection.KEEP_RIGHT -> "input swipe ${(cx + dx).toInt()} ${cy.toInt()} ${(cx - dx).toInt()} ${cy.toInt()} 250"
-            SwipeDirection.DELETE_UP -> "input swipe ${cx.toInt()} ${(cy + dy).toInt()} ${cx.toInt()} ${(cy - dy).toInt()} 250"
+            SwipeDirection.KEEP_LEFT -> "input swipe ${cx + dx} $cy ${cx - dx} $cy 250"
+            SwipeDirection.KEEP_RIGHT -> "input swipe ${cx - dx} $cy ${cx + dx} $cy 250"
+            SwipeDirection.DELETE_UP -> "input swipe $cx ${cy + dy} $cx ${cy - dy} 250"
         }
         shell(cmd)
         android.os.SystemClock.sleep(900) // Genie/切牌动画
@@ -291,7 +298,7 @@ class DeckScreenRoundIntentUiTest {
         val hintTimeout = now() + 90000
         var hintSeen = false
         var swipes = 0
-        while (now() < hintTimeout && swipes < 8) {
+        while (now() < hintTimeout && swipes < 20) {
             if (find(ins.uiAutomation.rootInActiveWindow, "看这个") != null) { hintSeen = true; break }
             dismissPermissionDialogIfAny()
             if (swipes == 0) dumpScreen("before-swipe")
@@ -312,17 +319,18 @@ class DeckScreenRoundIntentUiTest {
         // 点击"看这个"：真实 Banner 回调 → 引擎接受意图
         tap("看这个")
 
-        // 批次完成/下一批：经页面装载第一批（受意图影响——全来自截图）
-        if (find(ins.uiAutomation.rootInActiveWindow, "再来一组") != null) {
-            tapNode(find(ins.uiAutomation.rootInActiveWindow, "再来一组")!!, "再来一组")
-            android.os.SystemClock.sleep(1200)
-        }
-
-        // 检查提示状态：意图已消费，同源提示可能再次出现（新一轮），但引擎意图为空
+        // 完成本批再点击下一批，验证意图由真实批次加载消费。
         val engine = com.tabula.v3.data.repository.RecommendationEngine.getInstance(ctx)
-        // 引擎内意图已被 getRecommendedBatch 消费（第二批不应再用）
-        // 经页面装载第二批后再验证：第二次"看这个"未点击，引擎不应有 active 意图
-        assertFalse(engine.roundIntent.isActive)
+        assertTrue("接受提示后应等待下一批消费意图", engine.roundIntent.isActive)
+        var attempts = 0
+        while (find(ins.uiAutomation.rootInActiveWindow, "再来一组") == null && attempts++ < 30) {
+            swipeCard(SwipeDirection.KEEP_LEFT)
+        }
+        tap("再来一组")
+        val deadline = now() + 15000
+        while (engine.roundIntent.isActive && now() < deadline) android.os.SystemClock.sleep(100)
+        assertFalse("装载下一批后意图应被消费", engine.roundIntent.isActive)
+
     }
 
     @Test
