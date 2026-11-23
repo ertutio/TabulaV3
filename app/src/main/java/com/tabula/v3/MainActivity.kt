@@ -1621,7 +1621,14 @@ fun TabulaApp(
                     if (burstCommitting) return@BurstSelectionScreen
                     val resolved = BurstSelectionRules.resolve(group, burstKeptKeys)
                     val decision = (resolved as? BurstSelectionRules.Result.Valid)?.decision
-                    if (decision == null || decision.discardCandidates.isEmpty()) return@BurstSelectionScreen
+                    // 审计修复（#87 二轮）：这里**不能**再用
+                    // `decision.discardCandidates.isEmpty()` 当拒绝条件。
+                    // "全部保留"（discardCandidates 为空）是用户的**有效决定**，
+                    // 必须走「标记该组已处理 + 回卡片页 + 不写回收站」这条路；
+                    // 旧写法在提交前就 return 了，下面 keptEverything 分支永远
+                    // 不可达，等于用户点「都保留，结束这组」毫无反应。
+                    // 真正无效的只有 resolve 失败（一张没勾 / 勾了组外的照片）。
+                    if (decision == null) return@BurstSelectionScreen
                     burstCommitting = true
                     scope.launch {
                         try {
@@ -1639,7 +1646,7 @@ fun TabulaApp(
                                 // 1) 用户主动"全部保留"——有效决定，把这组标记为已处理
                                 //    并回到卡片页，不写回收站；
                                 // 2) 候选已被外部处理（照片消失/已在回收站）——不重复写入。
-                                val keptEverything = decision.discardCandidates.isEmpty()
+                                val keptEverything = decision.keepsEverything
                                 if (keptEverything) {
                                     // 审计修复：全部保留也必须正确结束该组
                                     recommendationEngine.markSimilarGroupProcessed(group)

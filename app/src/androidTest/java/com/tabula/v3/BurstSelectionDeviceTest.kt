@@ -109,6 +109,258 @@ class BurstSelectionDeviceTest {
         return picked
     }
 
+    // ==================== 真实入口链路（#87 二轮审计） ====================
+
+    private var activity: android.app.Activity? = null
+
+    /**
+     * 插入一张**内容完全相同**的照片。
+     *
+     * 为什么必须相同：`SimilarGroupDetector` 的连边条件是 dHash 汉明距离
+     * （Tier 1: ≤6 且 metaScore ≥ 15）。内容相同 ⇒ dHash 相同 ⇒ 距离 0，
+     * 加上时间相近（<5s，25 分）、同分辨率（20 分）、同文件大小（10 分）、
+     * 同相册（5 分），metaScore = 60，**稳定**成组。
+     *
+     * 这正是本测试要的：不靠运气，真实检测器每次都能产出同一个组。
+     */
+    private fun insertIdenticalPhoto(): Uri {
+        val name = "burst-" + UUID.randomUUID().toString().take(8) + ".jpg"
+        val uri = requireNotNull(
+            ctx.contentResolver.insert(
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/DCIM/Camera/")
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+            )
+        )
+        inserted += uri
+        val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
+        try {
+            bmp.eraseColor(0xFF3366CC.toInt())
+            // 固定图案：保证 dHash 有稳定的位（纯色图 dHash 可能全 0，
+            // 但全 0 也是稳定的，这里加图案让距离判定更接近真实照片）
+            for (x in 0 until 64 step 8) {
+                bmp.setPixel(x, 0, 0xFF000000.toInt())
+                bmp.setPixel(x, 63, 0xFFFFFFFF.toInt())
+            }
+            ctx.contentResolver.openOutputStream(uri)!!.use {
+                check(bmp.compress(Bitmap.CompressFormat.JPEG, 90, it))
+            }
+        } finally {
+            bmp.recycle()
+        }
+        check(
+            ctx.contentResolver.update(
+                uri,
+                ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) },
+                null, null
+            ) == 1
+        )
+        return uri
+    }
+
+    private fun now() = android.os.SystemClock.uptimeMillis()
+
+    private fun find(target: String): android.view.accessibility.AccessibilityNodeInfo? {
+        val root = ins.uiAutomation.rootInActiveWindow ?: return null
+        var hit: android.view.accessibility.AccessibilityNodeInfo? = null
+        fun walk(n: android.view.accessibility.AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || hit != null || depth > 24) return
+            if (n.text?.toString() == target || n.contentDescription?.toString() == target) {
+                hit = n; return
+            }
+            for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
+        }
+        walk(root, 0)
+        return hit
+    }
+
+    private fun screenTexts(): Set<String> {
+        val root = ins.uiAutomation.rootInActiveWindow ?: return emptySet()
+        val out = mutableSetOf<String>()
+        fun walk(n: android.view.accessibility.AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || depth > 24) return
+            n.text?.toString()?.takeIf { it.isNotBlank() }?.let { out += it }
+            n.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { out += it }
+            for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
+        }
+        walk(root, 0)
+        return out
+    }
+
+    private fun waitFor(target: String, timeout: Long = 30000) {
+        val end = now() + timeout
+        while (now() < end) {
+            if (find(target) != null) return
+            android.os.SystemClock.sleep(200)
+        }
+        error("waitFor timeout: $target （屏幕：${screenTexts()}）")
+    }
+
+    private fun waitForTextContaining(fragment: String, timeout: Long = 30000) {
+        val end = now() + timeout
+        while (now() < end) {
+            if (screenTexts().any { it.contains(fragment) }) return
+            android.os.SystemClock.sleep(200)
+        }
+        error("waitForTextContaining timeout: $fragment （屏幕：${screenTexts()}）")
+    }
+
+    private fun tap(target: String, timeout: Long = 25000) {
+        val end = now() + timeout
+        while (now() < end) {
+            find(target)?.let { node ->
+                if (node.isClickable) node.performAction(
+                    android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK
+                ) else {
+                    val r = android.graphics.Rect(); node.getBoundsInScreen(r)
+                    shell("input tap ${r.centerX()} ${r.centerY()}")
+                }
+                android.os.SystemClock.sleep(700)
+                return
+            }
+            android.os.SystemClock.sleep(200)
+        }
+        error("tap not found: $target （屏幕：${screenTexts()}）")
+    }
+
+    private fun startApp() {
+        activity = ins.startActivitySync(
+            android.content.Intent(ctx, MainActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+        android.os.SystemClock.sleep(2000)
+    }
+
+    /**
+     * **真实入口**：卡片页 → 连拍选片 → 全部保留 → 确认。
+     *
+     * 审计要求（#87 二轮）：不能只断言组件的 `onConfirm` 被调用。这里走
+     * 真实应用入口，断言的是**产品终态**：
+     *
+     * 1. 真实检测器产出的组，卡片页真的出现「这批像连拍」入口；
+     * 2. 点「去选片」进入选片页，点「这组都留」后按钮文案变成
+     *    「都保留，结束这组」（= discardCount == 0，正是旧代码 return 掉的情形）；
+     * 3. 点确认后**真的回到卡片页**——旧代码在这里静默 return，页面不动；
+     * 4. 回收站**没有新增**（全部保留不写回收站）；
+     * 5. 该组进入冷却（`markSimilarGroupProcessed` 的真实效果）；
+     * 6. 回到卡片页后**当前批次仍是那 3 张**（一张都没被移走），
+     *    且连拍入口消失（组已结束）。
+     */
+    @Test
+    fun keepAllFromRealEntryEndsGroupWithoutTouchingRecycleBin() = runBlocking {
+        // 1. 三张内容相同的真实照片
+        val uris = (1..3).map { insertIdenticalPhoto() }
+        val all = library()
+        val mine = uris.mapNotNull { u -> all.firstOrNull { it.uri == u } }
+        assertEquals("三张真实照片都应被图库索引", 3, mine.size)
+        val myKeys = mine.map { it.mediaIdentityKey() }.toSet()
+
+        // 2. 用真实引擎确认检测器确实产出包含这三张的组
+        prefs.recommendMode = com.tabula.v3.data.preferences.RecommendMode.SIMILAR
+        val engine = com.tabula.v3.data.repository.RecommendationEngine.getInstance(ctx)
+        val detected = engine.getNextSimilarGroup(all)
+        assertTrue(
+            "真实检测器必须产出相似组（dHash 距离 0 + 元数据分 60）",
+            detected != null
+        )
+        val group = detected!!
+        assertTrue(
+            "产出的组必须包含这三张照片（实际成员：${group.images.map { it.displayName }}）",
+            group.images.map { it.mediaIdentityKey() }.toSet().containsAll(myKeys)
+        )
+        val groupId = group.id
+
+        // 3. 基线：回收站与冷却状态
+        val bin = RecycleBinManager.getInstance(ctx)
+        val binBefore = bin.loadRecycleBin().size
+        assertTrue(
+            "该组此刻不应已在冷却中",
+            groupId !in prefs.getSimilarGroupCooldownIds()
+        )
+
+        // 4. 真实入口：启动应用 → 卡片页出现连拍入口
+        startApp()
+        waitForTextContaining("这批像连拍", timeout = 60000)
+        val deckTexts = screenTexts()
+        assertTrue(
+            "卡片页必须出现「去选片」入口（屏幕：$deckTexts）",
+            deckTexts.contains("去选片")
+        )
+
+        // 5. 进选片页
+        tap("去选片")
+        waitFor("连拍选片", timeout = 20000)
+        val pickerTexts = screenTexts()
+        assertTrue(
+            "选片页应显示组规模（屏幕：$pickerTexts）",
+            pickerTexts.any { it.contains("张 ·") }
+        )
+        // 默认保留集 = 最早 + 最晚，因此初始有 1 张待回收
+        assertTrue(
+            "默认保留两张、待回收一张（屏幕：$pickerTexts）",
+            pickerTexts.any { it.startsWith("保留 2 张") } ||
+                pickerTexts.any { it.startsWith("确认：回收 1 张") }
+        )
+
+        // 6. 全部保留 → 按钮文案必须变成「都保留，结束这组」
+        tap("这组都留")
+        waitFor("都保留，结束这组", timeout = 15000)
+        val afterKeepAll = screenTexts()
+        assertTrue(
+            "全部保留时应显示 0 张待回收（屏幕：$afterKeepAll）",
+            afterKeepAll.any { it.contains("回收 0 张") }
+        )
+
+        // 7. 确认 —— 旧代码在这里静默 return（discardCandidates 为空）
+        tap("都保留，结束这组")
+
+        // 8. 必须真的回到卡片页（组结束）
+        val deadline = now() + 20000
+        var backOnDeck = false
+        while (now() < deadline) {
+            val texts = screenTexts()
+            if (!texts.contains("连拍选片") && texts.any { it.contains("/3") || it == "去选片" }) {
+                backOnDeck = true
+                break
+            }
+            android.os.SystemClock.sleep(250)
+        }
+        assertTrue(
+            "确认后必须离开选片页回到卡片页（屏幕：${screenTexts()}）",
+            backOnDeck
+        )
+
+        // 9. 回收站没有新增（全部保留不写回收站）
+        val binAfter = bin.loadRecycleBin().size
+        assertEquals("全部保留不得写入回收站", binBefore, binAfter)
+        assertTrue(
+            "这三张都不应在回收站里",
+            bin.loadRecycleBin().none { it.mediaIdentityKey() in myKeys }
+        )
+
+        // 10. 该组已标记处理（进入冷却）——组真正"结束"的持久化证据
+        assertTrue(
+            "确认后该组必须进入冷却（组 id=$groupId）",
+            groupId in prefs.getSimilarGroupCooldownIds()
+        )
+
+        // 11. 回到卡片页后的当前批次状态：三张都还在（一张没被移走），
+        //     且连拍入口消失（组已结束，activeSimilarGroup 被清空）
+        val finalTexts = screenTexts()
+        assertTrue(
+            "当前批次应仍是 3 张（屏幕：$finalTexts）",
+            finalTexts.any { it == "1/3" } || finalTexts.any { it.contains("/3") }
+        )
+        assertTrue(
+            "组结束后连拍入口应消失（屏幕：$finalTexts）",
+            !finalTexts.contains("这批像连拍")
+        )
+    }
+
     // ==================== 用例 ====================
 
     @Test
