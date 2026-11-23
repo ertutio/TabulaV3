@@ -62,6 +62,7 @@ import com.tabula.v3.data.balance.RoundIntentRules
 import com.tabula.v3.data.balance.StagedSourceDisplayName
 import com.tabula.v3.data.balance.SourceBalanceRules
 import com.tabula.v3.data.balance.RoundSessionRules
+import com.tabula.v3.data.balance.ArchiveIdentityRules
 import com.tabula.v3.BuildConfig
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.CardStyleMode
@@ -907,20 +908,38 @@ fun TabulaApp(
         )
     }
 
-    fun commitPendingArchiveWithFeedback(actionId: String) {
+    /**
+     * #90：提交归档并记录成功行为。
+     *
+     * 审计要求：不要把 actionId 当照片 ID。完整媒体身份来自 PendingArchive
+     * 的 (imageUri 卷, imageId)，且**只在归档真实成功**（COMMITTED）时记账。
+     *
+     * @param action 从 getLastPendingArchive() 取出的真实待归档项
+     * @param snapshot 提交前的照片快照，用于按完整身份匹配真实 ImageFile
+     */
+    fun commitPendingArchiveWithFeedback(
+        action: AlbumManager.PendingArchive,
+        snapshot: List<ImageFile> = allImages + deletedImages
+    ) {
         scope.launch {
-            // #90：先找出这次归档对应的照片，成功后再记为 ARCHIVE；失败不记
-            val archivedImage = allImages.firstOrNull { it.id == actionId.toLongOrNull() }
-            when (albumManager.commitPendingArchive(actionId)) {
-                AlbumManager.ArchiveCommitOutcome.COPY_FAILED ->
-                    Toast.makeText(context, "归档失败，照片未复制", Toast.LENGTH_LONG).show()
-                else -> {
-                    archivedImage?.let {
-                        roundSession = RoundSessionRules.record(
-                            roundSession, it, RoundSessionRules.HandledAction.ARCHIVE
-                        )
+            // 从 PendingArchive 的 (imageUri 卷, imageId) 解析完整身份
+            val archivedImage = ArchiveIdentityRules.findInSnapshot(action, snapshot)
+
+            when (val outcome = albumManager.commitPendingArchive(action.id)) {
+                AlbumManager.ArchiveCommitOutcome.COMMITTED -> {
+                    // 只有真正提交成功才记为 ARCHIVE；失败/未领取都不记
+                    if (ArchiveIdentityRules.shouldRecord(outcome)) {
+                        archivedImage?.let {
+                            roundSession = RoundSessionRules.record(
+                                roundSession, it, RoundSessionRules.HandledAction.ARCHIVE
+                            )
+                        }
                     }
                 }
+                AlbumManager.ArchiveCommitOutcome.COPY_FAILED ->
+                    Toast.makeText(context, "归档失败，照片未复制", Toast.LENGTH_LONG).show()
+                AlbumManager.ArchiveCommitOutcome.NOT_CLAIMED ->
+                    android.util.Log.w("TabulaApp", "Archive action not claimed (already committed/cancelled): ${action.id}")
             }
         }
     }
@@ -940,6 +959,11 @@ fun TabulaApp(
                 roundSession = RoundSessionRules.record(
                     roundSession, kept, RoundSessionRules.HandledAction.KEEP
                 )
+            },
+            // #90：批次真正切换后归档上一批统计，不让它进入下一批意图判断
+            onBatchAdvanced = {
+                roundSession = RoundSessionRules.nextBatch(roundSession)
+                intentSuggestion = null
             },
             onRemove = { image ->
                 scope.launch {
@@ -987,7 +1011,7 @@ fun TabulaApp(
                      // 先提交之前的 pending action（如果有）
                      // 这样快速连续归档时，前一个会被自动提交
                      albumManager.getLastPendingArchive()?.let {
-                         commitPendingArchiveWithFeedback(it.id)
+                         commitPendingArchiveWithFeedback(it)
                      }
                      
                      // 加入新的 pending action（不立即复制）
@@ -1012,7 +1036,7 @@ fun TabulaApp(
                     try {
                         // 先提交之前的 pending action（如果有）
                         albumManager.getLastPendingArchive()?.let {
-                            commitPendingArchiveWithFeedback(it.id)
+                            commitPendingArchiveWithFeedback(it)
                         }
                         
                         // 1. 创建图集
@@ -1037,7 +1061,7 @@ fun TabulaApp(
                 scope.launch {
                     // Snackbar 消失时提交归档，执行真正的复制
                     albumManager.getLastPendingArchive()?.let {
-                        commitPendingArchiveWithFeedback(it.id)
+                        commitPendingArchiveWithFeedback(it)
                     }
                 }
             },

@@ -194,6 +194,8 @@ fun DeckScreen(
     topBarDisplayMode: TopBarDisplayMode = TopBarDisplayMode.INDEX,
     onRemove: (ImageFile) -> Unit,
     onKeep: (ImageFile) -> Unit = {},
+    // #90：批次真正切换到新的一批后回调，用于归档本轮统计、避免上一批进入下一批判断
+    onBatchAdvanced: () -> Unit = {},
     onNavigateToTrash: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAlbumDetail: (Album) -> Unit = {},
@@ -650,6 +652,8 @@ fun DeckScreen(
                     currentIndex = 0
                     markedCount = 0
                     deckState = DeckState.BROWSING
+                    // #90：新批次真正装载成功后才归档上一批统计
+                    onBatchAdvanced()
                 } else {
                     deckState = DeckState.COMPLETED
                 }
