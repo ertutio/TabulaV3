@@ -61,8 +61,11 @@ class DuplicateVersionsDeviceTest {
     }
 
     /**
-     * 写入一张照片；[sameBytesAs] 给定时写入完全相同的像素内容
-     * （用于构造真正的字节级副本）。
+     * 写入一张照片。
+     *
+     * [sameBytesAs] 给定时写入**完全相同的字节串**——不是"同色位图再压一次"：
+     * JPEG 编码器对同一张位图的两次压缩可能产出不同字节（量化/时间戳差异），
+     * 那样"字节相同"的前提根本不成立（run 45148815434 的真实失败原因）。
      */
     private fun insertPhoto(path: String = "DCIM/Camera", sameBytesAs: Int? = null): Uri {
         val name = "dup-" + UUID.randomUUID().toString().take(8) + ".jpg"
@@ -78,15 +81,10 @@ class DuplicateVersionsDeviceTest {
             )
         )
         inserted += uri
-        val bmp = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
-        try {
-            bmp.eraseColor((sameBytesAs ?: name.hashCode()) or -0x1000000)
-            ctx.contentResolver.openOutputStream(uri)!!.use {
-                check(bmp.compress(Bitmap.CompressFormat.JPEG, 100, it))
-            }
-        } finally {
-            bmp.recycle()
-        }
+        // 用 seed 生成确定字节：同一 seed = 完全相同的文件内容
+        val seed = sameBytesAs ?: name.hashCode()
+        val bytes = ByteArray(2048) { i -> ((seed shr ((i % 4) * 8)) xor i).toByte() }
+        ctx.contentResolver.openOutputStream(uri)!!.use { it.write(bytes) }
         check(
             ctx.contentResolver.update(
                 uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null
