@@ -308,7 +308,7 @@ class ProdAuthCallbackDeviceTest {
         val name = "self-" + UUID.randomUUID().toString().replace("-", "").take(12) + ".jpg"
         val item = requireNotNull(
             ctx.contentResolver.insert(
-                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, name)
                     put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
