@@ -132,6 +132,7 @@ import com.tabula.v3.data.repository.deleteMediaUrisBatch
 import com.tabula.v3.data.repository.BatchDeleteSummary
 import com.tabula.v3.data.repository.mediaDeletionMessage
 import com.tabula.v3.data.repository.resolveImagesByIdentitySelection
+import com.tabula.v3.data.burst.BurstCommit
 import com.tabula.v3.data.burst.BurstSelectionRules
 import com.tabula.v3.data.repository.SimilarGroup
 import com.tabula.v3.ui.screens.BurstSelectionScreen
@@ -1003,6 +1004,9 @@ fun TabulaApp(
             // 推荐模式刷新触发器（切换算法时刷新批次）
             recommendModeRefreshKey = recommendModeRefreshKey,
             activeSimilarGroup = activeSimilarGroup,
+            // 审计 #87：进入选片时排除已在回收站的成员。待归档的照片仍
+            // 留在当前批次里、由 currentIndex 区分是否已处理，不在这里重复排除。
+            excludedBurstKeys = deletedImages.map { it.mediaIdentityKey() }.toSet(),
             // 路线图 #83 第 4 项：进入连拍选片。签名是「交给我一个组」，
             // DeckScreen 只在当前批次被判定为连拍时才会调用。
             onOpenBurstSelection = { group ->
@@ -1621,57 +1625,75 @@ fun TabulaApp(
                     burstCommitting = true
                     scope.launch {
                         try {
-                            // 与卡片上滑删除同一条路径：写现有回收站，可恢复。
-                            recycleBinManager.addAllToRecycleBin(decision.discardCandidates)
-                            val persisted = recycleBinManager.loadRecycleBin()
-                            val movedKeys = persisted.map { it.mediaIdentityKey() }.toSet()
-                            val expectedKeys = decision.discardCandidates.map { it.mediaIdentityKey() }.toSet()
-
-                            // 审计意见（#87）：只有**真实组**的结果成功持久化且
-                            // 状态一致时才推进该组进度。这里先核验回收站确实收了
-                            // 每一张，任一张没落库就视为整组未完成：
-                            //   - 不推进 markSimilarGroupProcessed
-                            //   - 不改 allImages / imagesForSorting
-                            //   - 提示重试，用户可再次进入
-                            if (!movedKeys.containsAll(expectedKeys)) {
-                                val missing = (expectedKeys - movedKeys).size
-                                android.util.Log.e(
-                                    "TabulaApp",
-                                    "Burst commit incomplete: $missing of ${expectedKeys.size} not persisted"
-                                )
+                            // 审计 #87：提交前**再次**按完整媒体身份核对——
+                            // 候选必须此刻仍在图库、且不在回收站里。
+                            val currentKeys = allImages.map { it.mediaIdentityKey() }.toSet()
+                            val recycleKeys = deletedImages.map { it.mediaIdentityKey() }.toSet()
+                            val toDiscard = BurstCommit.reverify(
+                                discard = decision.discardCandidates,
+                                libraryKeys = currentKeys,
+                                recycleKeys = recycleKeys
+                            )
+                            if (toDiscard.isEmpty()) {
                                 Toast.makeText(
                                     context,
-                                    "有 $missing 张未能移入回收站，这组未提交；可以重试",
-                                    Toast.LENGTH_LONG
+                                    "这些照片已不在待整理列表，未重复写入",
+                                    Toast.LENGTH_SHORT
                                 ).show()
+                                burstSelectionGroup = null
+                                burstKeptKeys = emptySet()
+                                currentScreen = AppScreen.DECK
                                 return@launch
                             }
 
-                            allImages = allImages.filterNot { it.mediaIdentityKey() in movedKeys }
-                            imagesForSorting = imagesForSorting.filterNot { it.mediaIdentityKey() in movedKeys }
-                            deletedImages = persisted
-                            // 只有核验通过才推进：标记 + 让缓存失效，保证下次
-                            // 检测看到的是删过之后的集合。
-                            recommendationEngine.markSimilarGroupProcessed(group)
-                            recommendationEngine.invalidateSimilarGroupCache()
-                            preferences.totalReviewedCount += decision.discardCandidates.size
-                            preferences.totalDeletedCount += decision.discardCandidates.size
-                            burstSelectionGroup = null
-                            burstKeptKeys = emptySet()
-                            activeSimilarGroup = null
-                            currentScreen = AppScreen.DECK
-                            Toast.makeText(
-                                context,
-                                "保留 ${decision.keepCount} 张，${decision.discardCount} 张已移入回收站",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            // 与卡片上滑删除同一条路径：写现有回收站，可恢复。
+                            recycleBinManager.addAllToRecycleBin(toDiscard)
+                            val persisted = recycleBinManager.loadRecycleBin()
+                            val movedKeys = persisted.map { it.mediaIdentityKey() }.toSet()
+                            val result = BurstCommit.result(toDiscard, movedKeys)
+
+                            // 部分成功：同步真实回收站状态，不声称整组未提交，
+                            // 也不推进原组进度（失败的留待下次处理）。
+                            if (result.succeeded.isNotEmpty()) {
+                                val okKeys = result.succeeded.map { it.mediaIdentityKey() }.toSet()
+                                allImages = allImages.filterNot { it.mediaIdentityKey() in okKeys }
+                                imagesForSorting = imagesForSorting.filterNot { it.mediaIdentityKey() in okKeys }
+                                deletedImages = persisted
+                                preferences.totalReviewedCount += result.succeeded.size
+                                preferences.totalDeletedCount += result.succeeded.size
+                            }
+                            if (result.isComplete) {
+                                // 全部写入成功且状态一致，才推进该组进度。
+                                recommendationEngine.markSimilarGroupProcessed(group)
+                                recommendationEngine.invalidateSimilarGroupCache()
+                            }
+
+                            val message = when {
+                                result.isComplete ->
+                                    "保留 ${decision.keepCount} 张，${result.succeeded.size} 张已移入回收站"
+                                result.isPartial ->
+                                    "${result.succeeded.size} 张已移入回收站，${result.failed.size} 张未能写入，可重试"
+                                else -> "未能写入回收站，标记已保留"
+                            }
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                            // 失败的部分留在组里；全部完成才离开选片页。
+                            if (result.isComplete) {
+                                burstSelectionGroup = null
+                                burstKeptKeys = emptySet()
+                                activeSimilarGroup = null
+                                currentScreen = AppScreen.DECK
+                            } else {
+                                // 把待重试的候选继续留在勾选态，用户可直接再确认
+                                burstKeptKeys = burstKeptKeys -
+                                    result.succeeded.map { it.mediaIdentityKey() }.toSet()
+                            }
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
                             Log.e("TabulaApp", "Burst selection could not reach the recycle bin", e)
                             Toast.makeText(
                                 context,
-                                "未能保存回收站记录，这组未提交；可以重试",
+                                "未能保存回收站记录，已写入的部分保持原样；可重试",
                                 Toast.LENGTH_LONG
                             ).show()
                         } finally {

@@ -269,6 +269,7 @@ fun DeckScreen(
     // 连拍选片（路线图第 4 项 / 审计 #87）：推荐引擎返回的真实相似组。
     // 非 null 才提供入口；组身份来自检测器的内容寻址摘要，不在这里重算。
     activeSimilarGroup: SimilarGroup? = null,
+    excludedBurstKeys: Set<String> = emptySet(),
     onOpenBurstSelection: ((SimilarGroup) -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -1033,14 +1034,20 @@ fun DeckScreen(
                     // 里的成员剔除；剔除后不足两张就不出入口。
                     val burstCandidate: SimilarGroup? = remember(
                         currentBatch,
-                        activeSimilarGroup
+                        currentIndex,
+                        activeSimilarGroup,
+                        excludedBurstKeys
                     ) {
                         if (onOpenBurstSelection == null || activeSimilarGroup == null) {
                             null
                         } else {
+                            // 审计 #87：按 currentIndex 排除已滑过的成员，
+                            // excludedBurstKeys 含回收站与待归档中的成员。
                             BurstSelectionRules.effectiveGroup(
                                 group = activeSimilarGroup,
-                                currentBatch = currentBatch
+                                currentBatch = currentBatch,
+                                currentIndex = currentIndex,
+                                excludedIdentityKeys = excludedBurstKeys
                             )
                         }
                     }

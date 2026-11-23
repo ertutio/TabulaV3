@@ -160,11 +160,20 @@ object BurstSelectionRules {
     fun effectiveGroup(
         group: SimilarGroup,
         currentBatch: List<ImageFile>,
-        stillPresent: Set<String>? = null
+        currentIndex: Int = 0,
+        stillPresent: Set<String>? = null,
+        excludedIdentityKeys: Set<String> = emptySet()
     ): SimilarGroup? {
-        val batchKeys = currentBatch.map { it.mediaIdentityKey() }.toSet()
+        // 审计意见（#87）：按 currentIndex 排除已经滑过的照片。
+        // currentIndex 是当前正在看的这张（尚未处理），index < currentIndex 才
+        // 是"已滑过"。同时它必须仍是真实组成员，且不在排除集合里。
+        val unprocessedKeys = currentBatch
+            .drop(currentIndex.coerceAtLeast(0))
+            .map { it.mediaIdentityKey() }
+            .toSet()
         val members = group.images
-            .filter { it.mediaIdentityKey() in batchKeys }
+            .filter { it.mediaIdentityKey() in unprocessedKeys }
+            .filter { it.mediaIdentityKey() !in excludedIdentityKeys }
             .filter { stillPresent == null || it.mediaIdentityKey() in stillPresent }
             .distinctBy { it.mediaIdentityKey() }
         if (members.size < MIN_BURST_SIZE) return null
@@ -174,6 +183,47 @@ object BurstSelectionRules {
             startTime = members.minOf { it.dateModified },
             endTime = members.maxOf { it.dateModified }
         )
+    }
+
+    /**
+     * 提交前再次按完整媒体身份核对（审计意见 #87）。
+     *
+     * 从"用户勾选要保留的那张"和"要回收的那批"里，剔除提交瞬间已经不在
+     * 图库、已经进了回收站或身份不再匹配的照片。**只提交核对通过的那批**，
+     * 避免重复写入已经处理过的照片。
+     *
+     * @param candidates 待回收候选
+     * @param stillPresent 此刻仍在图库且未进回收站/未待归档的身份键
+     */
+    fun reverifyBeforeCommit(
+        candidates: List<ImageFile>,
+        stillPresent: Set<String>
+    ): List<ImageFile> = candidates
+        .filter { it.mediaIdentityKey() in stillPresent }
+        .distinctBy { it.mediaIdentityKey() }
+
+    /**
+     * 部分写入的结果分类（审计意见 #87）。
+     *
+     * 部分成功时：已写入的那批要同步真实回收站状态；整组**不算完成**，
+     * 因此不推进原组进度；未写入的留待下次，不能声称"整组未提交"。
+     */
+    data class CommitResult(
+        val succeeded: List<ImageFile>,
+        val failed: List<ImageFile>
+    ) {
+        val isComplete: Boolean get() = failed.isEmpty()
+        val isPartial: Boolean get() = succeeded.isNotEmpty() && failed.isNotEmpty()
+        val isNothing: Boolean get() = succeeded.isEmpty()
+    }
+
+    fun classifyCommit(
+        expected: List<ImageFile>,
+        actuallyMovedKeys: Set<String>
+    ): CommitResult {
+        val succeeded = expected.filter { it.mediaIdentityKey() in actuallyMovedKeys }
+        val failed = expected.filter { it.mediaIdentityKey() !in actuallyMovedKeys }
+        return CommitResult(succeeded, failed)
     }
 
     /** 与 SimilarGroupDetector.TIME_WINDOW_MS 对齐的默认时间跨度。 */
