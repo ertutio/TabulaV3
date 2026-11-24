@@ -120,6 +120,8 @@ jobs:
               "LiquidGlassBackdropLoadGateTest": 6,
               # 渲染决策单一来源：path=glass|fallback 必须与 UI 分支一致
               "ViewerBackdropDecisionTest": 10,
+              # 实验室开关的变体语义：debug 可写、默认关、release 由 DEBUG 短路
+              "LiquidGlassLabSwitchTest": 3,
           }
           found = {}
           for path in glob.glob("app/build/test-results/testDebugUnitTest/*liquidglass*.xml"):
@@ -142,8 +144,8 @@ jobs:
                   print(f"OK {name} tests={actual[0]}")
           total = sum(v[0] for v in found.values())
           print(f"liquidglass total tests={total}")
-          if total < 151:
-              print(f"EXPECTED at least 151 liquid glass tests, got {total}")
+          if total < 154:
+              print(f"EXPECTED at least 154 liquid glass tests, got {total}")
               ok = False
           sys.exit(0 if ok else 1)
           PY

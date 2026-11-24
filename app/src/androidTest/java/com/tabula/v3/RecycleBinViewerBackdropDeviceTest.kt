@@ -207,10 +207,25 @@ class RecycleBinViewerBackdropDeviceTest {
             }
 
             // ===== API 35+：真实生产入口启用液态玻璃，验证完整六步 =====
+            //
+            // 实验室开关在 **debug 变体**可写（release 里 getter 恒为 false，
+            // 见 AppPreferences.liquidGlassLabEnabled）。设备测试跑的是
+            // debug APK，所以这里能真正打开生产门控；打不开的话六步断言
+            // 一条都验不到，只会反复报 DISABLED。
+            AppPreferences(ctx).liquidGlassLabEnabled = true
             assertTrue(
-                "前置：API 35+ 时生产入口必须启用液态玻璃",
+                "前置：API 35+ 且开关打开时生产入口必须加载采样照片",
                 shouldLoadBackdropPhoto(liquidGlassEnabled = true, sdkInt = android.os.Build.VERSION.SDK_INT)
             )
+            // 开关写的是 SharedPreferences，MainActivity 在 setContent 时读一次；
+            // 必须重启进程才会生效（否则界面还是旧值）。
+            ui.shell("am force-stop ${ctx.packageName}")
+            SystemClock.sleep(800)
+            ui.launch()
+            ui.waitFor("回收站", timeoutMs = 45000)
+            ui.tap("回收站")
+            ui.waitFor(BIN_COUNT_ANCHOR, timeoutMs = 45000)
+            openFirstPhoto()
 
             // ----- 1. 静止（翻页完成）：必须采样 -----
             val settled = awaitAudit { audit ->
