@@ -217,10 +217,16 @@ class RecycleBinViewerBackdropDeviceTest {
                 "前置：API 35+ 且开关打开时生产入口必须加载采样照片",
                 shouldLoadBackdropPhoto(liquidGlassEnabled = true, sdkInt = android.os.Build.VERSION.SDK_INT)
             )
-            // 开关写的是 SharedPreferences，MainActivity 在 setContent 时读一次；
-            // 必须重启进程才会生效（否则界面还是旧值）。
-            ui.shell("am force-stop ${ctx.packageName}")
-            SystemClock.sleep(800)
+            // 开关写的是 SharedPreferences，MainActivity 在 setContent 时读一次。
+            // 这里**不能** `am force-stop` 后重启：instrumentation 就跑在
+            // `ctx.packageName` 这个进程里，强停等于自杀
+            // （run 45460100076：`INSTRUMENTATION_RESULT: shortMsg=Process crashed.`）。
+            //
+            // 改为走真实入口重新启动 Activity：`ui.launch()` 用
+            // `am start -n .../MainActivity`，在 Activity 已经存在时是 onNewIntent；
+            // 先把当前 Activity finish 掉再启动，才是"重新读偏好"的形态。
+            ui.shell("am start -a android.intent.action.MAIN -c android.intent.category.HOME")
+            SystemClock.sleep(600)
             ui.launch()
             ui.waitFor("回收站", timeoutMs = 45000)
             ui.tap("回收站")
