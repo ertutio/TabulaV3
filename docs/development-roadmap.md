@@ -69,6 +69,8 @@
 
 **DeepSeek 只看文字**：默认不开启，用户可在当前批次启用。优先对本地规则无法明确分类、但文字足够的候选发送必要 OCR 片段；发出前过滤验证码、提取码、链接、手机号、订单号等，无从脱敏的片段留在本地。请求不发送原图、缩略图、图片编码或路径。模型只给候选类别、判断依据或「不确定」，不能覆盖保护规则、凭空认定已失效或触发清理；断网、超时、未配置和结果无效均回到本地结果。
 
+**API Key 保存与恢复**：由用户自行配置，持久化到 App 私有且排除备份和设备迁移的文件，不使用 Android Keystore 或间接依赖它的加密存储；不写入日志、崩溃报告、导出或同步。设置页可单独重填、更换或删除 Key，不需要清除 App 数据。文件缺失、损坏或 Key 被拒绝时只停用模型辅助，本地 OCR、排序和清理照常可用。验收覆盖重启后读取、无 Key 运行及损坏后重填，且不影响原有整理记录。Root 下私有文件仍可能被读取，建议使用独立、可撤销的 Key。
+
 **试点**：第 1 项候选查询稳定后，先用约 50 张合成或经授权的样图，覆盖各类、相似但应留的反例、无字图和 OCR 难读的文字。同一范围对比「按存入时间」「OCR＋规则」和「OCR＋规则＋DeepSeek 文字辅助」三组的前 10 张，记录实际愿意清的张数、误入的应留图、覆盖/弃判率、耗时、文字 API 用量和 APK 增量；分别检查每类，避免只靠购物截图拉高总分。回归权限撤回、断网、缓存、撤销恢复，并用合成敏感字段检查实际请求里只有脱敏文字、没有图像字段。模型组只有能进一步少翻图且不增加应留图误入时才保留；图片上传不在本轮。
 
 规则参考：[Paperless-ngx 文本匹配](https://github.com/paperless-ngx/paperless-ngx/blob/dev/docs/advanced_usage.md#matching)、[支付凭证字段规则](https://github.com/Magicalife/openclaw-voucher-ocr)；[Microsoft 中文日期正则](https://github.com/microsoft/Recognizers-Text/blob/master/Patterns/Chinese/Chinese-DateTime.yaml)和[时间测试样例](https://github.com/microsoft/Recognizers-Text/tree/master/Specs/DateTime/Chinese)用于提取候选时间，不负责判定过期；[Pickup Code](https://github.com/zixij644-elaborate/pickup-code-app)（GPL-3.0）借鉴截图取件/取餐的识别线索，不直接移植代码；[百度网盘官方说明](https://github.com/baidu-netdisk/bdpan-storage/blob/main/skills/baidu-drive/SKILL.md)帮助区分分享格式与失效状态，不接 CLI、不查询链接。没有通用规则库可以直接判定哪些截图该清。
