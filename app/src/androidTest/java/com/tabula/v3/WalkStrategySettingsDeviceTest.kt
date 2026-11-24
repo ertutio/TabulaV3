@@ -13,6 +13,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.RecommendMode
 import com.tabula.v3.data.preferences.WalkSamplingStrategy
+import com.tabula.v3.testsupport.BatchLogLine
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -372,10 +373,11 @@ class WalkStrategySettingsDeviceTest {
      * （`DeckScreen.kt` 的 `LaunchedEffect(recommendModeRefreshKey)`）。
      *
      * 断言链（全部落在页面侧数据上）：
-     * 1. 切策略**之前**的批次行 → 记下 id 集合 A；
-     * 2. 切策略**之后**出现新的 `batch-site-4` 行 → 记下 id 集合 B；
+     * 1. 切策略**之前**的批次行 → 记下 uri 集合 A；
+     * 2. 切策略**之后**出现新的 `batch-site-4` 行 → 记下 uri 集合 B；
      * 3. `A != B`（页面真的换了批，而不是原地不动）；
-     * 4. B 非空，且 B 的每个 id 都是本测试造的照片；
+     * 4. B 非空，且 B 的每个 uri 都是本测试造的照片（按完整 content uri 对账，
+     *    不是按 MediaStore 数字 id 去 contains 文件名）；
      * 5. B 覆盖两个来源目录（Screenshots + Camera）——这是"均衡策略生效"
      *    在**页面批次**上的直接证据，不需要再调引擎。
      *
@@ -388,6 +390,11 @@ class WalkStrategySettingsDeviceTest {
         repeat(3) { insertPhoto("DCIM/Screenshots") }
         repeat(30) { insertPhoto("DCIM/Camera") }
 
+        // 启动边界：只认这之后出现的批次行，避免读到上一次测试残留的 logcat。
+        val startBoundary = "ws-start:" + SystemClock.uptimeMillis()
+        Log.i(TAG, startBoundary)
+        SystemClock.sleep(300)
+
         startApp()
         val beforeTexts = screenTexts()
         assertTrue(
@@ -395,16 +402,27 @@ class WalkStrategySettingsDeviceTest {
             beforeTexts.any { it.endsWith("张待整理") }
         )
 
-        // 前置：切策略前页面已持有一批（batch-site-4 的首次触发或其它 site 均可，
-        // 这里只要求"有一批"，具体 site 不重要——重点是切换之后必须出现新的）
-        val batchBefore = awaitBatchLine(timeoutMs = 15000)
+        val seededUris = inserted.map { it.toString() }.toSet()
+
+        // 前置：切策略前页面**自己**已经持有一批。
+        //
+        // 这里认**任意 site**：应用启动时的首批走 batch-site-1/2/3，只有"推荐
+        // 模式变化 → 重取"才走 batch-site-4。若只认 site-4，启动后根本没有该行，
+        // `awaitBatchLine` 只能读到上一次测试残留的旧行——那样"批次变了"就成了
+        // 假证明。
+        val batchBefore = awaitBatchLineAfter(startBoundary, site = null, timeoutMs = 20000)
         assertNotNull(
             "切换策略前卡片页必须已经持有批次（否则无法证明'换了'）",
             batchBefore
         )
-        val idsBefore = parseBatchIds(batchBefore!!)
+        val urisBefore = parseBatchUris(batchBefore!!)
+        assertTrue(
+            "切换前页面持有的批次必须全部是本测试造的照片" +
+                "（多余项=${urisBefore - seededUris}）",
+            urisBefore.isNotEmpty() && urisBefore.all { it in seededUris }
+        )
 
-        // 写边界：只认这之后出现的批次行
+        // 切换边界：只认这之后出现的 batch-site-4 行
         val boundary = "ws-boundary:" + SystemClock.uptimeMillis()
         Log.i(TAG, boundary)
         SystemClock.sleep(300)
@@ -423,46 +441,41 @@ class WalkStrategySettingsDeviceTest {
         waitFor("回收站", timeout = 25000)
 
         // 页面侧证据：边界之后必须出现一条新的 batch-site-4 行
-        val batchAfter = awaitBatchLineAfterBoundary(boundary, timeoutMs = 25000)
+        val batchAfter = awaitBatchLineAfter(
+            boundary, site = "batch-site-4", timeoutMs = 25000
+        )
         assertNotNull(
             "切策略回到卡片页后，页面必须重新取批（边界之后没有 batch-site-4 行）",
             batchAfter
         )
-        val idsAfter = parseBatchIds(batchAfter!!)
+        val urisAfter = parseBatchUris(batchAfter!!)
 
         // 1. 页面真的换了批
         assertNotEquals(
-            "页面批次必须变化，不能停在旧批次（before=$idsBefore after=$idsAfter）",
-            idsBefore,
-            idsAfter
+            "页面批次必须变化，不能停在旧批次（before=$urisBefore after=$urisAfter）",
+            urisBefore,
+            urisAfter
         )
 
         // 2. 新批次非空且全是本测试造的照片
-        assertTrue("新批次不能为空（$batchAfter）", idsAfter.isNotEmpty())
-        val seededNames = inserted.map { uri ->
-            ctx.contentResolver.query(
-                uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null
-            )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
-        }.filterNotNull().toSet()
+        //
+        // 比的是**完整 content uri**，不是 MediaStore 的数字 _ID：批次日志里的
+        // 条目形如 `content://media/external/images/media/80:1699999999`，
+        // 数字 80 是行 id，和夹具文件名（ws-xxxxxxxx.jpg）没有任何可比的
+        // 子串关系。之前拿 id 去 contains 文件名，是断言自己写错了。
+        assertTrue("新批次不能为空（$batchAfter）", urisAfter.isNotEmpty())
         assertTrue(
-            "新批次的 id 必须都是本测试造的照片（after=$idsAfter seeded=$seededNames）",
-            idsAfter.all { id -> seededNames.any { it.contains(id) } }
+            "新批次的每一项都必须是本测试造的照片（多余项=" +
+                "${urisAfter - seededUris}）",
+            urisAfter.all { uri -> uri in seededUris }
         )
 
         // 3. 均衡策略在**页面批次**上生效：覆盖两个来源目录
-        val sourceDirs = idsAfter.mapNotNull { id ->
-            seededNames.firstOrNull { it.contains(id) }?.let { name ->
-                // 夹具文件名里不带目录，改用 MediaStore 查 RELATIVE_PATH
-                ctx.contentResolver.query(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    arrayOf(MediaStore.MediaColumns.RELATIVE_PATH),
-                    "${MediaStore.MediaColumns.DISPLAY_NAME} = ?",
-                    arrayOf(name), null
-                )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
-            }
-        }.toSet()
+        // 直接按 uri 回查 RELATIVE_PATH，不再经过文件名。
+        val sourceDirs = urisAfter.mapNotNull { uri -> relativePathOf(uri) }.toSet()
         assertEquals(
-            "均衡策略下页面持有的批次必须覆盖两个来源目录（实际：$sourceDirs）",
+            "均衡策略下页面持有的批次必须覆盖两个来源目录" +
+                "（实际：$sourceDirs，批次=$urisAfter）",
             2,
             sourceDirs.size
         )
@@ -470,24 +483,23 @@ class WalkStrategySettingsDeviceTest {
 
     // ==================== 页面批次日志（生产 seam） ====================
 
-    /** 生产批次重取日志锚（DeckScreen.logBatchRows；batch-site-4 = 推荐模式刷新）。 */
-    private val batchAnchor = "currentBatch<-[batch-site-4]:"
-
-    /** logcat 里最新一条 batch-site-4 行。 */
-    private fun awaitBatchLine(timeoutMs: Long): String? {
+    /**
+     * 边界之后最新一条批次行。
+     *
+     * 解析规则在 `BatchLogLine`（sharedTest）里，JVM 单测
+     * `BatchLogLineContractTest` 钉住——这里只负责 logcat 轮询。
+     *
+     * @param site `null` = 任意 site（用于"页面当前持有哪一批"）；
+     *             给具体值则只认该 site（用于"切策略后必须由 site-4 重取"）。
+     */
+    private fun awaitBatchLineAfter(
+        boundary: String,
+        site: String?,
+        timeoutMs: Long
+    ): String? {
         val end = SystemClock.uptimeMillis() + timeoutMs
         while (SystemClock.uptimeMillis() < end) {
-            latestBatchLine()?.let { return it }
-            SystemClock.sleep(150)
-        }
-        return null
-    }
-
-    /** 只认边界之后的 batch-site-4 行（fail-closed：边界缺失则返回 null）。 */
-    private fun awaitBatchLineAfterBoundary(boundary: String, timeoutMs: Long): String? {
-        val end = SystemClock.uptimeMillis() + timeoutMs
-        while (SystemClock.uptimeMillis() < end) {
-            latestBatchLineAfter(boundary)?.let { return it }
+            BatchLogLine.lastAfter(deckLogLines(), boundary, site)?.let { return it }
             SystemClock.sleep(150)
         }
         return null
@@ -496,27 +508,17 @@ class WalkStrategySettingsDeviceTest {
     private fun deckLogLines(): List<String> =
         shell("logcat -d -s DeckScreen $TAG").lineSequence().toList()
 
-    private fun latestBatchLine(): String? =
-        deckLogLines().lastOrNull { it.contains(batchAnchor) }
+    private fun parseBatchUris(line: String): Set<String> = BatchLogLine.parseUris(line)
 
-    private fun latestBatchLineAfter(boundary: String): String? {
-        val lines = deckLogLines()
-        // 边界行由 Log.i(TAG, "ws-boundary:<id>") 写入，同时出现在 TAG 过滤里
-        val markerIdx = lines.indexOfLast { it.contains(boundary) }
-        if (markerIdx < 0) return null
-        return lines.subList(markerIdx + 1, lines.size)
-            .lastOrNull { it.contains(batchAnchor) }
-    }
-
-    /** `uri:dateModified,...` → id 集合（uri 末段数字）。 */
-    private fun parseBatchIds(line: String): Set<String> =
-        line.substringAfter(batchAnchor, "")
-            .split(",")
-            .mapNotNull { entry ->
-                val id = entry.trim().substringBeforeLast(":").substringAfterLast("/", "")
-                if (id.matches(Regex("\\d+"))) id else null
-            }
-            .toSet()
+    /** 按 content uri 查该照片所在的相册目录（`Pictures/DCIM/Camera/` 等）。 */
+    private fun relativePathOf(uri: String): String? =
+        runCatching {
+            ctx.contentResolver.query(
+                Uri.parse(uri),
+                arrayOf(MediaStore.MediaColumns.RELATIVE_PATH),
+                null, null, null
+            )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+        }.getOrNull()
 
     private fun screenTexts(): Set<String> {
         val root = ins.uiAutomation.rootInActiveWindow ?: return emptySet()
