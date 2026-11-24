@@ -2267,9 +2267,10 @@ private fun LoadingState(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(horizontal = 48.dp)
         ) {
-            // Logo
+            // Logo —— 同 EmptyState：`painterResource` 在组合阶段同步解码
+            // 1.2 MB 的 logo.png，软渲染模拟器上会让主线程卡到 ANR。
             Image(
-                painter = painterResource(id = R.drawable.logo),
+                painter = coil.compose.rememberAsyncImagePainter(model = R.drawable.logo),
                 contentDescription = "Tabula Logo",
                 modifier = Modifier.size(100.dp)
             )
@@ -2354,8 +2355,19 @@ private fun EmptyState(
                 modifier = Modifier.padding(32.dp)
             ) {
                 // Logo
+                //
+                // 用 `rememberAsyncImagePainter` 而不是 `painterResource`：后者在
+                // **组合阶段同步解码**，而 logo.png 有 1.2 MB / 数百像素见方，
+                // 在模拟器（swiftshader 软渲染）上足以让主线程卡死几十秒 →
+                // ANR → 进程被杀 → 回到桌面。
+                //
+                // run 45451247589 的 API 35 就是这个形态：主线程栈停在
+                // `ImageDecoder.nDecodeBitmap ← EmptyState(DeckScreen.kt:2294)`，
+                // `mCurrentFocus` 掉回 nexuslauncher。
+                // 空图库时这段代码必走（照片全在回收站），所以它直接影响
+                // 「能不能进回收站把照片恢复出来」——不是纯视觉问题。
                 Image(
-                    painter = painterResource(id = R.drawable.logo),
+                    painter = coil.compose.rememberAsyncImagePainter(model = R.drawable.logo),
                     contentDescription = "Tabula Logo",
                     modifier = Modifier.size(120.dp)
                 )

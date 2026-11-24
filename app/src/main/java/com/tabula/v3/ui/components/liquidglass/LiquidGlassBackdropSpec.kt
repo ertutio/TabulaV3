@@ -30,7 +30,15 @@ data class LiquidGlassBackdropSpec(
      * 用途是区分两类失败：模糊出现说明"renderEffect 渲染路径正常、问题在 shader
      * 逻辑"，模糊不出现说明效果根本没被应用。只在调试预览里打开，不参与生产。
      */
-    val diagnosticBlurOnly: Boolean = false
+    val diagnosticBlurOnly: Boolean = false,
+    /**
+     * 调用方（查看器）声明的"背景采样此刻能否与屏幕照片一致"。
+     *
+     * null = 调用方不参与这个判断（面板、调试预览等静态场景）。
+     * 非 null 时由 [planBackdropSample] 在翻页/放大/拖动状态直接回退，
+     * 避免继续显示错位采样。
+     */
+    val viewerSync: ViewerBackdropSync? = null
 ) {
     companion object {
         val Default = LiquidGlassBackdropSpec()
@@ -59,6 +67,7 @@ fun LiquidGlassBackdropSpec.resolve(density: Float): LiquidGlassBackdropAppearan
     )
 
 /**
+
  * "只改位移"对照测试用的采样参数。
  *
  * 面板默认的 20dp 模糊（2.75x 下 55px）会把 72px 网格抹成近乎纯色，于是
@@ -72,3 +81,40 @@ fun LiquidGlassBackdropSpec.resolve(density: Float): LiquidGlassBackdropAppearan
  */
 fun LiquidGlassBackdropSpec.forDisplacementComparison(): LiquidGlassBackdropSpec =
     copy(blurRadiusDp = 2.dp)
+
+/**
+
+ * 小尺寸控件（48dp 顶部操作按钮一类）的采样参数。
+ *
+ * 48dp 的按钮在 2.75x 密度下只有约 132px 宽；若沿用面板的 18dp 折射带，
+ * 整块按钮几乎都落在折射带里，位移会把背景揉成一团而不是只在边缘弯折。
+ * 因此这里收窄折射带、降低位移，并且只在确实有背景可采时才启用。
+ *
+ * **模糊半径也必须一起收**：采样外扩 = `max(模糊, 位移) / 2`，面板默认的 20dp 模糊
+ * 在 2.75x 下算出 28px 外扩，超过顶栏 8dp（22px）的横向内边距——按钮左边缘会因此
+ * 永远判 `OUT_OF_SOURCE_BOUNDS`，采样形同虚设。8dp 模糊对应约 11px 外扩，
+ * 既保住边缘取样的柔和度，也落在按钮自身的留白之内。
+ */
+fun LiquidGlassBackdropSpec.forCompactControl(): LiquidGlassBackdropSpec =
+    LiquidGlassBackdropSpec(
+        refractionHeightDp = 10.dp,
+        refractionAmountDp = 4.dp,
+        dispersion = dispersion.coerceAtMost(0.08f),
+        blurRadiusDp = 8.dp,
+        enabled = enabled
+    )
+
+/**
+ * 顶部操作按钮是否应启用背景采样。
+ *
+ * 三个条件缺一不可：液态玻璃实验室开关打开（生产入口的 Android 15+ 判定
+ * 由调用方保证）、系统达到采样门槛、调用方确实提供了背景来源。
+ * 任何一个不满足就沿用原有材质。
+ */
+fun shouldSampleCompactControl(
+    liquidGlassEnabled: Boolean,
+    sdkInt: Int,
+    hasBackdropSource: Boolean
+): Boolean = liquidGlassEnabled &&
+    sdkInt >= LIQUID_GLASS_BACKDROP_MIN_SDK &&
+    hasBackdropSource

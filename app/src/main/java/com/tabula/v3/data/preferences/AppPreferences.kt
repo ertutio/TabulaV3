@@ -2,6 +2,7 @@ package com.tabula.v3.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.tabula.v3.BuildConfig
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -313,10 +314,20 @@ class AppPreferences(context: Context) {
      * 注意：该功能还未完善，暂时强制关闭
      */
     var liquidGlassLabEnabled: Boolean
-        get() = false // 功能未完善，强制返回 false
+        // 功能未完善：**release 变体**强制返回 false，开关不生效、不落盘。
+        //
+        // debug 变体读真实偏好，理由：生产入口的完整形态（采样/回退/审计行）
+        // 只有把门控打开才跑得到，而门控的判定本身就在生产代码里
+        // （MainActivity: `liquidGlassLabEnabled && SDK_INT >= 35`）。
+        // 若 debug 也硬编码 false，API 35 的真实主界面**永远**只会走
+        // DISABLED 回退，六步断言没有一条能被验证——那不是"没通过"，
+        // 是"验不到"。设备测试因此只能在 release 语义下反复报同一个回退。
+        //
+        // release 行为零变化：`BuildConfig.DEBUG` 为 false 时这条分支不存在。
+        get() = BuildConfig.DEBUG && prefs.getBoolean(KEY_LIQUID_GLASS_LAB_ENABLED, false)
         set(value) {
-            // 功能未完善，不保存启用状态
-            // prefs.edit().putBoolean(KEY_LIQUID_GLASS_LAB_ENABLED, value).apply()
+            if (!BuildConfig.DEBUG) return
+            prefs.edit().putBoolean(KEY_LIQUID_GLASS_LAB_ENABLED, value).apply()
         }
 
     /**

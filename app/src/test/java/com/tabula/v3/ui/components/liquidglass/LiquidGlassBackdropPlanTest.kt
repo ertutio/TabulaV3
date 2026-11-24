@@ -981,3 +981,69 @@ class LiquidGlassAuditMarkerTest {
         }
     }
 }
+
+/**
+ * 顶部操作按钮的采样参数与门控。
+ *
+ * 48dp 的按钮不能沿用面板参数，也不能在没人提供背景/未达门槛时启用采样。
+ */
+class LiquidGlassCompactControlTest {
+
+    @Test
+    fun `compact control uses a narrower refraction band than the panel default`() {
+        val panel = LiquidGlassBackdropSpec.Default
+        val compact = panel.forCompactControl()
+        assertTrue(
+            "小按钮的折射带必须比面板窄",
+            compact.refractionHeightDp.value < panel.refractionHeightDp.value
+        )
+        assertTrue(
+            "小按钮的最大位移必须比面板小",
+            compact.refractionAmountDp.value < panel.refractionAmountDp.value
+        )
+    }
+
+    @Test
+    fun `compact control keeps dispersion restrained`() {
+        val compact = LiquidGlassBackdropSpec(dispersion = 0.9f).forCompactControl()
+        assertTrue("小按钮不应出现强烈彩虹边", compact.dispersion <= 0.08f)
+    }
+
+    @Test
+    fun `compact control preserves the enabled flag`() {
+        assertFalse(LiquidGlassBackdropSpec.Off.forCompactControl().enabled)
+        assertTrue(LiquidGlassBackdropSpec.Default.forCompactControl().enabled)
+    }
+
+    @Test
+    fun `compact control padding fits inside the top bar inset`() {
+        // 采样外扩 = max(模糊, 位移)/2。顶栏横向内边距是 8dp；外扩超过它时，
+        // 按钮左/右边缘会永远判 OUT_OF_SOURCE_BOUNDS，采样形同虚设。
+        val compact = LiquidGlassBackdropSpec.Default.forCompactControl()
+        listOf(1f, 2f, 2.75f, 3f, 3.5f, 4f).forEach { density ->
+            val pad = backdropPaddingPx(compact.resolve(density))
+            val insetPx = 8f * density
+            assertTrue(
+                "density=$density 时外扩 ${pad}px 超过顶栏内边距 ${insetPx}px",
+                pad <= insetPx
+            )
+        }
+    }
+
+    @Test
+    fun `panel default padding still covers the blur kernel`() {
+        // 面板不受顶栏留白限制，外扩仍应覆盖半个模糊核
+        val panel = LiquidGlassBackdropSpec.Default.resolve(2.75f)
+        val pad = backdropPaddingPx(panel)
+        assertTrue(pad >= (panel.blurRadiusPx / 2f) - 0.5f)
+    }
+
+    @Test
+    fun `sampling requires lab switch, api gate and a real backdrop`() {
+        assertTrue(shouldSampleCompactControl(true, 35, true))
+        assertTrue(shouldSampleCompactControl(true, 33, true))
+        assertFalse("实验室开关关闭时不采样", shouldSampleCompactControl(false, 35, true))
+        assertFalse("API 32 不采样", shouldSampleCompactControl(true, 32, true))
+        assertFalse("没有背景来源不采样", shouldSampleCompactControl(true, 35, false))
+    }
+}
