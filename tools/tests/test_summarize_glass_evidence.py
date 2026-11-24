@@ -45,8 +45,8 @@ def write_viewer(root: Path, code: int) -> Path:
     return path
 
 
-def run_cli(summary: Path | None, viewer: Path | None) -> int:
-    argv = []
+def run_cli(summary: Path | None, viewer: Path | None, mode: str = "all") -> int:
+    argv = ["--mode", mode]
     if summary is not None:
         argv += ["--summary", str(summary)]
     if viewer is not None:
@@ -204,6 +204,44 @@ class GlassEvidenceClassificationTest(unittest.TestCase):
             )
             viewer = write_viewer(root, 0)
             self.assertEqual(2, run_cli(summary, viewer))
+
+    def test_viewer_mode_does_not_require_a_probe_summary(self):
+        """MODE=viewer 的 job 按设计不跑探针：没有 summary 不算证据缺失。
+
+        run 45460100076 的 API 33 设备测试是 `OK (1 test)`，却因为探针没产出
+        summary 被判 exit=2（未完成）——把通过误判成未完成。
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            viewer = write_viewer(root, 0)
+            self.assertEqual(0, run_cli(None, viewer, mode="viewer"))
+
+    def test_probe_mode_does_not_require_a_viewer_result(self):
+        """MODE=probe 的 job 不跑设备测试：没有 viewer-exit 不算证据缺失。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary = write_summary(root, [{"step": "a", "ok": True}])
+            self.assertEqual(0, run_cli(summary, None, mode="probe"))
+
+    def test_viewer_mode_still_fails_on_real_assertion(self):
+        """放宽的只是"另一段没跑"，不是断言失败。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            viewer = write_viewer(root, 1)
+            self.assertEqual(1, run_cli(None, viewer, mode="viewer"))
+
+    def test_viewer_mode_missing_own_evidence_is_still_incomplete(self):
+        """本段自己的证据缺失仍然必须判未完成。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.assertEqual(2, run_cli(None, None, mode="viewer"))
+
+    def test_all_mode_still_requires_both(self):
+        """MODE=all 语义不变：两份都要。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary = write_summary(root, [{"step": "a", "ok": True}])
+            self.assertEqual(2, run_cli(summary, None, mode="all"))
 
 
 if __name__ == "__main__":

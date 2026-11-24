@@ -300,6 +300,7 @@ jobs:
           set -uo pipefail
           set +e
           python3 tools/summarize-glass-evidence.py \
+            --mode viewer \
             --api "${{ matrix.api }}" \
             --summary "device-results/api${{ matrix.api }}-summary.json" \
             --viewer-exit "device-results/viewer-exit.txt" | tee device-results/verdict.txt
@@ -405,6 +406,7 @@ jobs:
           set -uo pipefail
           set +e
           python3 tools/summarize-glass-evidence.py \
+            --mode probe \
             --api "${{ matrix.api }}" \
             --summary "device-results/api${{ matrix.api }}-summary.json" \
             --viewer-exit "device-results/viewer-exit.txt" | tee device-results/verdict.txt

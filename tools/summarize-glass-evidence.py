@@ -133,17 +133,40 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--summary", type=Path, default=None, help="探针 summary json")
     ap.add_argument("--viewer-exit", type=Path, default=None, help="viewer-exit.txt")
     ap.add_argument("--api", default="", help="仅用于日志标注")
+    ap.add_argument(
+        "--mode",
+        default="all",
+        choices=("all", "viewer", "probe"),
+        help="本 job 跑的是哪一段；viewer/probe 时只要求对应的那份证据",
+    )
     args = ap.parse_args(argv)
 
     prefix = f"[API {args.api}] " if args.api else ""
 
-    failed, probe_env, probe_detail, failed_lines = read_probe(args.summary)
-    for line in failed_lines:
-        print(line)
+    # 拆分 job 之后，一个 job 只跑一段证据。`MODE=viewer` 的 job 里探针
+    # 按设计不跑、不产出 summary——此时"没有 summary"不是证据缺失，
+    # 而是"本 job 不要求这份证据"。不区分就会把通过误判成未完成
+    # （run 45460100076 的 API 33 设备测试 OK (1 test)，却被判 exit=2）。
+    expect_probe = args.mode in ("all", "probe")
+    expect_viewer = args.mode in ("all", "viewer")
 
-    viewer_code, viewer_detail, viewer_note = read_viewer(args.viewer_exit)
-    if viewer_note:
-        print(viewer_note)
+    if expect_probe:
+        failed, probe_env, probe_detail, failed_lines = read_probe(args.summary)
+        for line in failed_lines:
+            print(line)
+    else:
+        failed, probe_env = 0, False
+        probe_detail = f"probe(n/a: MODE={args.mode} 本 job 不跑探针)"
+        print(probe_detail)
+
+    if expect_viewer:
+        viewer_code, viewer_detail, viewer_note = read_viewer(args.viewer_exit)
+        if viewer_note:
+            print(viewer_note)
+    else:
+        viewer_code = "na"
+        viewer_detail = f"viewer(n/a: MODE={args.mode} 本 job 不跑设备测试)"
+        print(viewer_detail)
 
     # `na` 既不贡献失败也不贡献环境中断：API<33 本来就没有采样层，
     # 把它算成"未完成"会让合法的矩阵项永远红。
