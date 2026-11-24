@@ -217,17 +217,22 @@ class RecycleBinViewerBackdropDeviceTest {
                 "前置：API 35+ 且开关打开时生产入口必须加载采样照片",
                 shouldLoadBackdropPhoto(liquidGlassEnabled = true, sdkInt = android.os.Build.VERSION.SDK_INT)
             )
-            // 开关写的是 SharedPreferences，MainActivity 在 setContent 时读一次。
-            // 这里**不能** `am force-stop` 后重启：instrumentation 就跑在
-            // `ctx.packageName` 这个进程里，强停等于自杀
-            // （run 45460100076：`INSTRUMENTATION_RESULT: shortMsg=Process crashed.`）。
+            // 开关写的是 SharedPreferences，MainActivity 在 setContent 时读一次，
+            // 所以要让它**重新创建**才生效。两个都不能用：
+            //   - `am force-stop`：instrumentation 就跑在这个进程里，强停等于自杀
+            //     （run 45460100076：`shortMsg=Process crashed.`）；
+            //   - 先 HOME 再 `am start`：Activity 还在任务栈里，`am start` 走
+            //     onNewIntent，不会重新 setContent（run 45464442907 就是这样，
+            //     MainActivity 进 STOPPED 后再没回来）。
             //
-            // 改为走真实入口重新启动 Activity：`ui.launch()` 用
-            // `am start -n .../MainActivity`，在 Activity 已经存在时是 onNewIntent；
-            // 先把当前 Activity finish 掉再启动，才是"重新读偏好"的形态。
-            ui.shell("am start -a android.intent.action.MAIN -c android.intent.category.HOME")
-            SystemClock.sleep(600)
-            ui.launch()
+            // 用 CLEAR_TASK + NEW_TASK：清掉任务栈并重建 Activity，进程不动。
+            ui.shell(
+                "am start -n ${ctx.packageName}/com.tabula.v3.MainActivity " +
+                    "-a android.intent.action.MAIN " +
+                    "-c android.intent.category.LAUNCHER " +
+                    "--activity-clear-task --activity-new-task"
+            )
+            SystemClock.sleep(1200)
             ui.waitFor("回收站", timeoutMs = 45000)
             ui.tap("回收站")
             ui.waitFor(BIN_COUNT_ANCHOR, timeoutMs = 45000)
