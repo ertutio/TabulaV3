@@ -7,6 +7,8 @@ on:
       # 堆叠分支（#92）：生产接线验证必须在它自己的 HEAD 上跑，
       # 否则 #92 的探针改动没有任何 CI 覆盖。
       - feature/liquid-glass-topbar-actions-2026-11-23
+      # 组合分支：四个 PR 合在一起后，液态玻璃的设备测试必须能在这个形态上跑
+      - audit/combined-2026-11-25
   pull_request:
     branches: [master]
     paths:

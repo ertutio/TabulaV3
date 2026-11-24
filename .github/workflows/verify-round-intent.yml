@@ -2,7 +2,7 @@ name: Verify round intent on emulator
 
 on:
   push:
-    branches: [feature/round-intent-2026-11-23]
+    branches: [feature/round-intent-2026-11-23, audit/combined-2026-11-25]
   workflow_dispatch:
 
 permissions:
