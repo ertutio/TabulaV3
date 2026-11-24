@@ -24,6 +24,9 @@ shell 会被当成 heredoc 内容吞掉——比"结果语义错误"更隐蔽。
 断言失败优先于环境中断：只要有一条断言真的失败，就不能用"模拟器抖动"
 把它盖过去。
 
+`summary.success` 为 `null` 表示探针没跑完（增量落盘的半截文件 / 环境中断），
+一律按**未完成**处理——只按 `checks` 的失败数判会让半截文件变成假绿。
+
 用法::
 
     python3 tools/summarize-glass-evidence.py \
@@ -67,7 +70,34 @@ def read_probe(summary: Path | None) -> tuple[int, bool, str, list[str]]:
     ]
     if env:
         lines.append(f"ENV_UNAVAILABLE {data.get('environment_unavailable')}")
-    detail = f"probe(checks={len(checks)},failed={len(failed)},env={int(env)})"
+
+    # `success` 是探针自己的结论，三种取值语义不同：
+    #   true  = 跑完了、全过
+    #   false = 跑完了、有失败
+    #   null  = 没跑完（进行中 / 环境中断）
+    #
+    # 探针每采集一项就增量落盘（防进程被 SIGKILL 丢证据），所以磁盘上
+    # 经常是"success=null 且 failed=0"的半截文件。只按 failed 判会让它
+    # 变成假绿，因此这里必须显式处理 null。
+    # 区分"键不存在"（更早的 summary，那时还没有这个字段）与"显式 null"
+    # （本版探针增量落盘的半截文件 / 环境中断）。前者按失败数判，后者一律
+    # 判未完成——把半截文件读成通过是比丢证据更糟的假绿。
+    if "success" in data:
+        success = data.get("success")
+        if success is None and not env:
+            env = True
+            lines.append("INCOMPLETE probe summary 没有结论（success=null），取证未完成")
+    else:
+        success = "legacy"
+    if success is False and not failed:
+        # 探针自己判了失败但没留下失败项：证据自相矛盾，按未完成处理
+        env = True
+        lines.append("INCONSISTENT success=false 但没有失败检查项，按未完成处理")
+
+    detail = (
+        f"probe(checks={len(checks)},failed={len(failed)},"
+        f"env={int(env)},success={success})"
+    )
     return len(failed), env, detail, lines
 
 

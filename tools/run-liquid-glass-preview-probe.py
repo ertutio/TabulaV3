@@ -55,12 +55,32 @@ evidence = {
 failures: list[str] = []
 
 
+def persist_progress() -> None:
+    """把当前证据落盘，`success` 留 null 表示"还在跑"。
+
+    进程被 SIGKILL 时这是唯一能留下已采集检查项的路径。汇总脚本把
+    "success 为 null 且无 environment_unavailable" 判成未完成，所以半截
+    summary 不会被读成通过。
+    """
+    api = evidence.get("sdk")
+    if api is None:
+        return
+    try:
+        (OUT / f"api{api}-summary.json").write_text(
+            json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except OSError:
+        # 落盘失败不能反过来毁掉取证本身
+        pass
+
+
 def record(step: str, ok: bool, detail: str = "", failure: str | None = None) -> None:
     evidence["checks"].append({"step": step, "ok": ok, "detail": detail})
     print(f"[{'OK' if ok else 'FAIL'}] {step} {detail}", flush=True)
     if not ok and failure:
         failures.append(failure)
         evidence["failures"].append(failure)
+    persist_progress()
 
 
 # 模拟器掉线前常常先抖一下（`adb: device offline` / `error: closed`）。
@@ -540,6 +560,9 @@ def write_summary(
 def main() -> int:
     api = sdk_int()
     evidence["sdk"] = api
+    # 先落一次基线：之后任何时刻进程被杀，磁盘上至少有一份带 api 号、
+    # success=null 的 summary，而不是什么都没有。
+    persist_progress()
     evidence["model"] = adb("shell", "getprop", "ro.product.model").strip()
     evidence["fingerprint"] = adb("shell", "getprop", "ro.build.fingerprint").strip()
     size_line = adb("shell", "wm", "size").strip()

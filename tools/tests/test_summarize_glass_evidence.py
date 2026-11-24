@@ -163,6 +163,48 @@ class GlassEvidenceClassificationTest(unittest.TestCase):
             viewer = write_viewer(root, 0)
             self.assertEqual(2, run_cli(summary, viewer))
 
+    def test_explicit_null_success_is_incomplete_not_pass(self):
+        """增量落盘的半截 summary（success=null）绝不能被读成通过。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary = root / "summary.json"
+            summary.write_text(
+                json.dumps(
+                    {
+                        "success": None,
+                        "checks": [{"step": "install debug apk", "ok": True}],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            viewer = write_viewer(root, 0)
+            code = run_cli(summary, viewer)
+            self.assertEqual(2, code, "半截 summary 必须是未完成，不是通过")
+
+    def test_missing_success_key_keeps_legacy_behaviour(self):
+        """更早的 summary 没有 success 字段：仍按失败数判，不制造假红。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary = write_summary(root, [{"step": "a", "ok": True}])
+            viewer = write_viewer(root, 0)
+            self.assertEqual(0, run_cli(summary, viewer))
+
+    def test_success_false_without_failed_checks_is_incomplete(self):
+        """探针自己判失败却没留失败项：证据自相矛盾，按未完成。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            summary = root / "summary.json"
+            summary.write_text(
+                json.dumps(
+                    {"success": False, "checks": [{"step": "a", "ok": True}]},
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            viewer = write_viewer(root, 0)
+            self.assertEqual(2, run_cli(summary, viewer))
+
 
 if __name__ == "__main__":
     unittest.main()
