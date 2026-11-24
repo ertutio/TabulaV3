@@ -1,0 +1,314 @@
+name: Verify liquid glass backdrop prototype
+
+on:
+  push:
+    branches: [feature/liquid-glass-material-2026-11-23]
+  pull_request:
+    branches: [master]
+    paths:
+      - 'app/src/main/java/com/tabula/v3/ui/components/PhysicalLiquidGlass.kt'
+      - 'app/src/main/java/com/tabula/v3/ui/components/liquidglass/**'
+      - 'app/src/debug/**'
+      - 'app/src/test/java/com/tabula/v3/ui/components/liquidglass/**'
+      - '.github/workflows/verify-liquid-glass-backdrop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: liquid-glass-backdrop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install Android SDK packages
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+
+      # Robolectric 首次运行要拉 `android-all`（约 100 MB）。CI runner 到
+      # Maven Central 偶发 429 / 连接重置，失败会表现为一批**与本 PR 无关**的
+      # Robolectric 测试报错（`MavenArtifactFetcher` → `IOException`），
+      # `fdf5151` 与 `41f928a` 两轮都是这样被判红的。
+      #
+      # 只"跑一次预热测试"不够：预热本身也走同一条网络，失败后依旧没缓存。
+      # 因此这里直接把 jar 下到 Robolectric 的本地仓库目录，多镜像 + 重试，
+      # 预置好了后续测试就完全离线。
+      - name: Prefetch Robolectric android-all
+        # 预取失败不阻断（后续测试会在有网时自己下载），但失败会在日志里可见。
+        continue-on-error: true
+        run: |
+          set -u
+          # 实测 artifact 名（本机 ~/.m2 里就是这个）：Robolectric 4.12.2 + sdk 34
+          # 用的是 instrumented 变体，带 `-i6` 后缀。
+          VERSION="14-robolectric-10818077-i6"
+          JAR="android-all-instrumented-$VERSION.jar"
+          DEST="$HOME/.m2/repository/org/robolectric/android-all-instrumented/$VERSION"
+          mkdir -p "$DEST"
+          POM="android-all-instrumented-$VERSION.pom"
+          for BASE in \
+            https://maven.aliyun.com/repository/central \
+            https://repo1.maven.org/maven2 \
+            https://repo.maven.apache.org/maven2 ; do
+            for attempt in 1 2 3 ; do
+              if curl -fsSL --retry 3 --retry-delay 2 --max-time 300 \
+                   -o "$DEST/$JAR" \
+                   "$BASE/org/robolectric/android-all-instrumented/$VERSION/$JAR" ; then
+                # Robolectric 的 MavenArtifactFetcher 会把 pom 一起校验，
+                # 只放 jar 不放 pom 时它仍然会去联网拉 pom 然后失败。
+                curl -fsSL --retry 3 --retry-delay 2 --max-time 60 \
+                     -o "$DEST/$POM" \
+                     "$BASE/org/robolectric/android-all-instrumented/$VERSION/$POM" || true
+                echo "fetched $JAR from $BASE (attempt $attempt)"
+                ls -la "$DEST"
+                exit 0
+              fi
+              echo "attempt $attempt failed on $BASE"
+              sleep 5
+            done
+          done
+          echo '::warning::android-all 预取全部失败（网络），Robolectric 测试可能因此报错'
+
+      - name: Run unit tests (debug + release)
+        run: |
+          # 只有在预取确实成功（jar 与 pom 都在）时才打开 offline：
+          # 否则 offline 会让缺件变成硬失败，比联网抖动更糟。
+          OFFLINE_FLAGS=""
+          VERSION="14-robolectric-10818077-i6"
+          DEST="$HOME/.m2/repository/org/robolectric/android-all-instrumented/$VERSION"
+          if [ -s "$DEST/android-all-instrumented-$VERSION.jar" ] && \
+             [ -s "$DEST/android-all-instrumented-$VERSION.pom" ]; then
+            OFFLINE_FLAGS="-Drobolectric.offline=true"
+            echo "android-all 已预置，本次以 offline 运行（不再联网）"
+          else
+            echo '::warning::android-all 未预置成功，本次允许联网（可能因网络抖动失败）'
+          fi
+          bash ./gradlew --no-daemon --stacktrace $OFFLINE_FLAGS \
+            :app:testDebugUnitTest :app:testReleaseUnitTest
+
+      - name: Assert backdrop prototype tests actually ran
+        run: |
+          python3 - <<'PY'
+          import glob, re, sys
+          # 逐类断言实跑条数：改名/删类都会让这里失败，避免"测试没跑却报绿"。
+          expected = {
+              "LiquidGlassAuditMarkerTest": 3,
+              "LiquidGlassBackdropInvalidationTest": 11,
+              "LiquidGlassBackdropPlanTest": 17,
+              "LiquidGlassBackdropRefractionTest": 26,
+              "LiquidGlassBackdropShaderContractTest": 5,
+              "LiquidGlassBackdropShapeTest": 8,
+              "LiquidGlassBackdropSizeContractTest": 13,
+              "LiquidGlassDisplacementOnlyControlTest": 3,
+              "LiquidGlassLayoutContractTest": 8,
+          }
+          found = {}
+          for path in glob.glob("app/build/test-results/testDebugUnitTest/*liquidglass*.xml"):
+              text = open(path, encoding="utf-8").read()
+              name = re.search(r'name="([^"]+)"', text).group(1).split(".")[-1]
+              tests = int(re.search(r'tests="(\d+)"', text).group(1))
+              failures = int(re.search(r'failures="(\d+)"', text).group(1))
+              errors = int(re.search(r'errors="(\d+)"', text).group(1))
+              found[name] = (tests, failures + errors)
+          ok = True
+          for name, count in expected.items():
+              actual = found.get(name)
+              if actual is None:
+                  print(f"MISSING {name}")
+                  ok = False
+              elif actual[0] < count or actual[1] != 0:
+                  print(f"UNEXPECTED {name} tests={actual[0]} failed={actual[1]}")
+                  ok = False
+              else:
+                  print(f"OK {name} tests={actual[0]}")
+          total = sum(v[0] for v in found.values())
+          print(f"liquidglass total tests={total}")
+          if total < 91:
+              print(f"EXPECTED at least 91 liquid glass tests, got {total}")
+              ok = False
+          sys.exit(0 if ok else 1)
+          PY
+
+      # 探针模块顶层 `from PIL import Image, ImageChops`；Pillow 原先只装在
+      # emulator job 里，导致 verify job 的探针单测全部 ModuleNotFoundError
+      # （run 45394017433）。这里与 emulator job 用同一版本。
+      - name: Install probe dependencies
+        run: python -m pip install --disable-pip-version-check Pillow==10.4.0
+
+      - name: Probe and evidence-summary scripts stay valid, with pinned result semantics
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/run-liquid-glass-preview-probe.py
+          python3 -m py_compile tools/summarize-glass-evidence.py
+          # 三态分类的单测：断言失败必须失败、环境中断必须不是通过。
+          python3 -m unittest discover -s tools/tests -p "test_summarize_glass_evidence.py" -v
+          # 模拟器取证脚本自身的退出码语义（不需要模拟器就能验证）。
+          python3 -m unittest discover -s tools/tests -p "test_emulator_evidence_script.py" -v
+          # 探针的三态收敛：环境中断必须写 api<N>-summary.json（已采集的检查项
+          # 不能因为掉线就丢），退出码必须是 2 而不是 1。run 45380937872 的
+          # API 33 就是 17 项全过后掉线，证据被整轮作废。
+          python3 -m unittest discover -s tools/tests -p "test_preview_probe_tristate.py" -v
+          # 顺序（设备测试先跑）与重试规则（断言失败不重试）。
+          python3 -m unittest discover -s tools/tests -p "test_evidence_order_and_retry.py" -v
+          # 脚本必须能被 dash 解析：android-emulator-runner 用的就是
+          # /usr/bin/sh（Ubuntu 上 = dash），不支持的语法会让脚本第一行就退出。
+          bash -n tools/run-emulator-evidence.sh
+          sh -n tools/run-emulator-evidence.sh
+
+      - name: Assemble debug and release
+        run: bash ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:assembleRelease
+
+      - name: Verify the debug preview entry exists only in debug
+        run: |
+          APK_DEBUG=app/build/outputs/apk/debug/app-debug.apk
+          APK_RELEASE=app/build/outputs/apk/release/app-release-unsigned.apk
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          "$AAPT" dump xmltree "$APK_DEBUG" AndroidManifest.xml > debug-manifest.txt
+          "$AAPT" dump xmltree "$APK_RELEASE" AndroidManifest.xml > release-manifest.txt
+          grep -F "LiquidGlassPreviewActivity" debug-manifest.txt
+          if grep -F "LiquidGlassPreviewActivity" release-manifest.txt; then
+            echo "debug preview leaked into release"
+            exit 1
+          fi
+          "$AAPT" dump badging "$APK_RELEASE" > release-badging.txt
+          grep -F "package: name='com.tabula.v3'" release-badging.txt
+          test -s app/build/outputs/mapping/release/mapping.txt
+          # 背景采样层是纯 Kotlin/AGSL，不引入新依赖，APK 体积不应明显增长
+          test "$(stat -c %s "$APK_RELEASE")" -lt 35000000
+
+      - name: Collect artifacts
+        if: always()
+        run: |
+          mkdir -p artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/TabulaV3-liquid-glass-debug.apk || true
+          cp app/build/outputs/apk/release/app-release-unsigned.apk artifacts/TabulaV3-liquid-glass-release-unsigned.apk || true
+          sha256sum artifacts/*.apk > artifacts/SHA256SUMS.txt || true
+
+      - name: Upload APKs and test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Tabula-liquid-glass-${{ github.sha }}
+          path: |
+            artifacts/
+            app/build/test-results/testDebugUnitTest/
+            app/build/test-results/testReleaseUnitTest/
+            app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: warn
+
+  # ===== 模拟器取证（明确标注为 EMULATOR 证据，不替代真机）=====
+  emulator-evidence:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        # 33 = 采样层最低门槛；35 = 生产入口实际生效的版本；31 = 应该仍走原有显示
+        api: [31, 33, 35]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: Tabula-liquid-glass-${{ github.sha }}
+          path: ci-artifacts/
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install probe dependencies
+        run: python -m pip install --disable-pip-version-check Pillow==10.4.0
+      - name: Place debug APK for the probe
+        run: |
+          set -euo pipefail
+          mkdir -p device-results
+          mkdir -p app/build/outputs/apk/debug
+          cp ci-artifacts/artifacts/TabulaV3-liquid-glass-debug.apk \
+             app/build/outputs/apk/debug/app-debug.apk
+          sha256sum app/build/outputs/apk/debug/app-debug.apk
+      # 模拟器实例在本 runner 上会偶发整体掉线（表现为
+      # `adb: device 'emulator-5554' not found`，随后所有命令失败）。
+      # 这种失败与采样层无关，因此不让它把整个 PR 判红；
+      # ===== 结果语义（本 job 的核心约束）=====
+      #
+      # 之前这里用 `continue-on-error: true`，后果是**断言失败也显示绿色**：
+      # 模拟器跑完了、某条检查 ok=false，job 依然是 success，只能靠人下载
+      # artifact 才能发现。这与"断言失败必须失败"直接冲突，已移除。
+      #
+      # 现在三态互不混淆：
+      #   0 通过 / 1 断言失败（实现问题）/ 2 环境中断或证据缺失（未完成）
+      # 断言失败**优先于**环境中断——真失败不能被"模拟器抖动"盖过去。
+      # 判定规则见 tools/summarize-glass-evidence.py，有单测钉住。
+      #
+      # 注意：`script:` 由 android-emulator-runner 用 `/usr/bin/sh`（dash）
+      # **逐行**执行，跨行变量与 `set -o pipefail` 都会炸，所以逻辑全在
+      # tools/run-emulator-evidence.sh 里，这里只留一行调用。
+      - name: Capture preview evidence on the emulator
+        id: probe
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 3072M
+          disk-size: 8G
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
+          disable-animations: true
+          script: API_LEVEL=${{ matrix.api }} bash tools/run-emulator-evidence.sh
+
+      - name: Summarize evidence outcome
+        if: always()
+        run: |
+          set -uo pipefail
+          set +e
+          python3 tools/summarize-glass-evidence.py \
+            --api "${{ matrix.api }}" \
+            --summary "device-results/api${{ matrix.api }}-summary.json" \
+            --viewer-exit "device-results/viewer-exit.txt" | tee device-results/verdict.txt
+          CODE=${PIPESTATUS[0]}
+          set -e
+
+          {
+            echo "### API ${{ matrix.api }} 取证结果"
+            case "$CODE" in
+              0) echo "✅ 全部检查通过。" ;;
+              1) echo "❌ **断言失败** —— 实现问题，必须修复，不是环境抖动。" ;;
+              *) echo "⚠️ **模拟器环境中断，取证未完成**（**不是通过**）。需重跑，不能据此宣称通过。" ;;
+            esac
+            echo ""
+            echo '```'
+            tail -4 device-results/verdict.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          case "$CODE" in
+            0) exit 0 ;;
+            1) echo "::error::API ${{ matrix.api }} 断言失败（实现问题）"; exit 1 ;;
+            *) echo "::error::API ${{ matrix.api }} 模拟器环境中断，取证未完成（不是通过）"; exit 2 ;;
+          esac
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: Tabula-liquid-glass-emulator-API${{ matrix.api }}
+          path: device-results/
+          if-no-files-found: warn
