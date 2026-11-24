@@ -139,6 +139,12 @@ jobs:
           sys.exit(0 if ok else 1)
           PY
 
+      # 探针模块顶层 `from PIL import Image, ImageChops`；Pillow 原先只装在
+      # emulator job 里，导致 verify job 的探针单测全部 ModuleNotFoundError
+      # （run 45394017433）。这里与 emulator job 用同一版本。
+      - name: Install probe dependencies
+        run: python -m pip install --disable-pip-version-check Pillow==10.4.0
+
       - name: Probe and evidence-summary scripts stay valid, with pinned result semantics
         run: |
           set -euo pipefail

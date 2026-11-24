@@ -35,8 +35,21 @@ def load_probe(tmp: Path):
     return module
 
 
+def _has_pillow() -> bool:
+    try:
+        import PIL  # noqa: F401
+    except ModuleNotFoundError:
+        return False
+    return True
+
+
 @unittest.skipIf(shutil.which("python3") is None and shutil.which("python") is None,
                  "需要 Python 解释器")
+@unittest.skipUnless(
+    _has_pillow(),
+    "探针模块顶层 import PIL；本环境未安装 Pillow 时跳过（不是实现问题）。"
+    "CI 的 verify job 会先 pip install Pillow==10.4.0。",
+)
 class ProbeTriStateTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
