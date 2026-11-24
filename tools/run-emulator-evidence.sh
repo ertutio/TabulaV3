@@ -88,7 +88,18 @@ if [ "$API_LEVEL" -ge 33 ]; then
   }
 
   wait_for_device
-  if install_apks; then
+
+  # 应用 APK 缺失是真的装不上；androidTest APK 缺失通常意味着**本分支没有
+  # 设备测试**（例如 #91 的 RecycleBinViewerBackdropDeviceTest 属于 #92）。
+  # 后者判 `na`：不冒充通过，也不假装"环境中断"把 PR 永远卡住。
+  if [ ! -f "$APK_TEST" ]; then
+    echo "viewer exit=na  # 本分支没有 androidTest APK（$APK_TEST 不存在）" \
+      | tee "$OUT_DIR/viewer-exit.txt"
+    VIEWER=0
+    SKIP_VIEWER=1
+  fi
+
+  if [ "${SKIP_VIEWER:-0}" -ne 1 ] && install_apks; then
     adb shell pm grant "$TEST_PKG" android.permission.READ_MEDIA_IMAGES 2>/dev/null
     adb shell pm grant "$TEST_PKG" android.permission.READ_MEDIA_VISUAL_USER_SELECTED 2>/dev/null
 
@@ -137,11 +148,13 @@ if [ "$API_LEVEL" -ge 33 ]; then
       fi
       ATTEMPT=$((ATTEMPT + 1))
     done
-  else
+  elif [ "${SKIP_VIEWER:-0}" -ne 1 ]; then
     echo "::error::安装 APK 失败，设备测试未执行（环境中断）"
     VIEWER=2
   fi
-  echo "viewer exit=$VIEWER" | tee "$OUT_DIR/viewer-exit.txt"
+  if [ "${SKIP_VIEWER:-0}" -ne 1 ]; then
+    echo "viewer exit=$VIEWER" | tee "$OUT_DIR/viewer-exit.txt"
+  fi
 else
   echo "viewer exit=na  # API $API_LEVEL < 33，无采样层" | tee "$OUT_DIR/viewer-exit.txt"
   VIEWER=0

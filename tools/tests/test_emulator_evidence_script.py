@@ -35,6 +35,13 @@ SCRIPT = ROOT / "tools" / "run-emulator-evidence.sh"
 BASH = shutil.which("bash")
 
 
+def apk_stub(tmp: Path, name: str) -> Path:
+    """空文件冒充 APK：脚本只检查存在性，安装由假 adb 负责。"""
+    path = tmp / name
+    path.write_bytes(b"")
+    return path
+
+
 def run(probe_exit: int, api_level: int, tmp: Path) -> tuple[int, str, dict]:
     env = dict(os.environ)
     env.update(
@@ -44,6 +51,10 @@ def run(probe_exit: int, api_level: int, tmp: Path) -> tuple[int, str, dict]:
             # 不等待设备：CI 上等满 30×2s 是对的，单测里是纯浪费
             # （曾经让 26 项跑成 756 秒）。
             "DEVICE_WAIT_SECONDS": "0",
+            # 造出两个假 APK：否则脚本会判"本分支没有 androidTest APK"→ na，
+            # 而这里要验的正是"有设备测试、但设备/断言出问题"的分支。
+            "APK_APP": str(apk_stub(tmp, "app-debug.apk")),
+            "APK_TEST": str(apk_stub(tmp, "app-debug-androidTest.apk")),
             # 假探针：不碰模拟器，只给出指定退出码
             "PROBE_CMD": f"bash -c 'exit {probe_exit}'",
         }
@@ -97,6 +108,33 @@ class EmulatorEvidenceExitSemanticsTest(unittest.TestCase):
             self.assertEqual(1, code, out)
             self.assertIn("result=assertion_failed", out)
             self.assertIn("viewer exit=2", files["viewer_exit"])
+
+    def test_missing_androidtest_apk_is_na_not_interrupted(self):
+        """本分支没有设备测试时写 na：不冒充通过，也不假装环境中断。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            env = dict(os.environ)
+            env.update(
+                {
+                    "API_LEVEL": "33",
+                    "OUT_DIR": str(root),
+                    "DEVICE_WAIT_SECONDS": "0",
+                    "PROBE_CMD": "bash -c 'exit 0'",
+                    "APK_APP": str(apk_stub(root, "app-debug.apk")),
+                    # 故意不给 androidTest APK
+                    "APK_TEST": str(root / "missing-androidTest.apk"),
+                }
+            )
+            proc = subprocess.run(
+                [BASH, str(SCRIPT)], cwd=str(ROOT), env=env, capture_output=True
+            )
+            out = ((proc.stdout or b"") + (proc.stderr or b"")).decode(
+                "utf-8", errors="replace"
+            )
+            viewer = (root / "viewer-exit.txt").read_text(encoding="utf-8")
+            self.assertIn("viewer exit=na", viewer)
+            self.assertEqual(0, proc.returncode, out)
+            self.assertIn("result=pass", out)
 
     def test_api33_without_device_is_incomplete_not_passed(self):
         """没有模拟器（本地跑）时必须报未完成，不能因为探针通过就绿。"""

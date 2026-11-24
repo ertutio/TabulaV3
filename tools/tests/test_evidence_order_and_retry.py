@@ -66,6 +66,8 @@ def run_script(env_extra: dict, tmp: Path) -> tuple[int, str]:
         "TIMEOUT_CMD": "",
         # 不等待设备就绪：CI 上等满 30×2s 是对的，单测里是纯浪费
         "DEVICE_WAIT_SECONDS": "0",
+        "APK_APP": str(apk_stub(tmp, "app-debug.apk")),
+        "APK_TEST": str(apk_stub(tmp, "app-debug-androidTest.apk")),
     })
     env.update(env_extra)
     proc = subprocess.run(
@@ -73,6 +75,13 @@ def run_script(env_extra: dict, tmp: Path) -> tuple[int, str]:
     )
     out = (proc.stdout or b"") + (proc.stderr or b"")
     return proc.returncode, out.decode("utf-8", errors="replace")
+
+
+def apk_stub(tmp: Path, name: str) -> Path:
+    """空文件冒充 APK：脚本只检查存在性，安装由假 adb 负责。"""
+    path = tmp / name
+    path.write_bytes(b"")
+    return path
 
 
 def bash_path(*entries: str) -> str:
