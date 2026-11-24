@@ -166,6 +166,23 @@ class RecycleBinViewerBackdropDeviceTest {
             assertEquals("前置：3 张夹具照片都要能被图库读到", 3, rows.size)
             RecycleBinManager.getInstance(ctx).addAllToRecycleBin(rows)
 
+            // ===== 实验室开关：必须在**首次启动之前**设好 =====
+            //
+            // `MainActivity` 在 `setContent` 里读一次这个偏好，之后不重读。
+            // 所以只有两个时机可选：
+            //   a) 启动前写入 → Activity 首次创建就带着正确的门控 ✅
+            //   b) 启动后再改 → 必须让 Activity 重建，而重建手段都有问题：
+            //      · `am force-stop` 会杀掉跑 instrumentation 的进程
+            //        （run 45460100076 `shortMsg=Process crashed.`）；
+            //      · HOME + `am start` 走 onNewIntent，不重建
+            //        （run 45464442907：Activity 停在 STOPPED 再不回来）；
+            //      · `--activity-clear-task` 会把测试正在交互的那个 Activity
+            //        收掉（run 45472515059：`MonitoringInstr: Finishing activity`
+            //        之后一路 STOPPED → 被杀）。
+            //
+            // debug 变体可写、release 恒 false（见 AppPreferences）。
+            AppPreferences(ctx).liquidGlassLabEnabled = productionGlassEnabled()
+
             // 走真实入口：图库 → 回收站 → 点开照片 → 全屏查看器
             ui.launch()
             ui.waitFor("回收站", timeoutMs = 45000)
@@ -208,35 +225,12 @@ class RecycleBinViewerBackdropDeviceTest {
 
             // ===== API 35+：真实生产入口启用液态玻璃，验证完整六步 =====
             //
-            // 实验室开关在 **debug 变体**可写（release 里 getter 恒为 false，
-            // 见 AppPreferences.liquidGlassLabEnabled）。设备测试跑的是
-            // debug APK，所以这里能真正打开生产门控；打不开的话六步断言
-            // 一条都验不到，只会反复报 DISABLED。
-            AppPreferences(ctx).liquidGlassLabEnabled = true
+            // 门控在**首次启动前**已经设好（见上面的夹具段），Activity 首次创建
+            // 就带着正确的值，因此这里不需要重启任何东西。
             assertTrue(
                 "前置：API 35+ 且开关打开时生产入口必须加载采样照片",
                 shouldLoadBackdropPhoto(liquidGlassEnabled = true, sdkInt = android.os.Build.VERSION.SDK_INT)
             )
-            // 开关写的是 SharedPreferences，MainActivity 在 setContent 时读一次，
-            // 所以要让它**重新创建**才生效。两个都不能用：
-            //   - `am force-stop`：instrumentation 就跑在这个进程里，强停等于自杀
-            //     （run 45460100076：`shortMsg=Process crashed.`）；
-            //   - 先 HOME 再 `am start`：Activity 还在任务栈里，`am start` 走
-            //     onNewIntent，不会重新 setContent（run 45464442907 就是这样，
-            //     MainActivity 进 STOPPED 后再没回来）。
-            //
-            // 用 CLEAR_TASK + NEW_TASK：清掉任务栈并重建 Activity，进程不动。
-            ui.shell(
-                "am start -n ${ctx.packageName}/com.tabula.v3.MainActivity " +
-                    "-a android.intent.action.MAIN " +
-                    "-c android.intent.category.LAUNCHER " +
-                    "--activity-clear-task --activity-new-task"
-            )
-            SystemClock.sleep(1200)
-            ui.waitFor("回收站", timeoutMs = 45000)
-            ui.tap("回收站")
-            ui.waitFor(BIN_COUNT_ANCHOR, timeoutMs = 45000)
-            openFirstPhoto()
 
             // ----- 1. 静止（翻页完成）：必须采样 -----
             val settled = awaitAudit { audit ->
