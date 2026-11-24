@@ -26,7 +26,9 @@
 #
 # ## 环境变量
 #
-#   API_LEVEL   目标 API（默认取 $API_LEVEL，缺省 33）
+#   API_LEVEL       目标 API（默认取 $API_LEVEL，缺省 33）
+#   VIEWER_ATTEMPTS 设备测试在环境中断时的尝试次数（默认 2；断言失败不重试）
+#   TIMEOUT_CMD     超时保护命令（默认 `timeout`；置空则不加超时，供本地单测）
 #   OUT_DIR     结果目录（默认 device-results）
 #   APK_APP     应用 APK 路径
 #   APK_TEST    androidTest APK 路径
@@ -42,17 +44,13 @@ PROBE_CMD="${PROBE_CMD:-python tools/run-liquid-glass-preview-probe.py}"
 TEST_PKG="com.tabula.v3.recyclebin.test"
 RUNNER="$TEST_PKG.test/androidx.test.runner.AndroidJUnitRunner"
 VIEWER_CLASS="com.tabula.v3.RecycleBinViewerBackdropDeviceTest"
+# 超时保护用哪个命令。默认 `timeout`（CI 上就是 coreutils 的那个）；
+# 本地单测置空即直接调用 adb——MSYS 的 timeout.exe 无法 exec shell 脚本。
+TIMEOUT_CMD="${TIMEOUT_CMD-timeout}"
 
 mkdir -p "$OUT_DIR"
 
-echo "=== API $API_LEVEL: 预览页探针 ==="
-# 用 `sh -c` 执行整串：PROBE_CMD 可能带参数或引号（测试里就传
-# `bash -c 'exit 1'`）。直接 `$PROBE_CMD` 会按空格拆开，引号被拆散。
-sh -c "$PROBE_CMD"
-PROBE=$?
-echo "probe exit=$PROBE"
-
-echo "=== API $API_LEVEL: 真实查看器设备测试 ==="
+echo "=== API $API_LEVEL: 真实查看器设备测试（先跑：会话越短越不容易掉线）==="
 VIEWER=0
 if [ "$API_LEVEL" -ge 33 ]; then
   # 采样层要求 API 33+。低版本写 `na`：不算通过，也不把合法矩阵项判成未完成。
@@ -61,30 +59,51 @@ if [ "$API_LEVEL" -ge 33 ]; then
     adb shell pm grant "$TEST_PKG" android.permission.READ_MEDIA_IMAGES 2>/dev/null
     adb shell pm grant "$TEST_PKG" android.permission.READ_MEDIA_VISUAL_USER_SELECTED 2>/dev/null
 
-    timeout 900s adb shell am instrument -w -r \
-      -e allowSyntheticMediaProbe true \
-      -e class "$VIEWER_CLASS" \
-      "$RUNNER" > "$OUT_DIR/instrumentation-viewer.txt" 2>&1
-    AM=$?
-    cat "$OUT_DIR/instrumentation-viewer.txt"
+    ATTEMPT=1
+    while [ "$ATTEMPT" -le "${VIEWER_ATTEMPTS:-2}" ]; do
+      echo "--- viewer attempt $ATTEMPT ---"
+      if [ -n "$TIMEOUT_CMD" ]; then
+        $TIMEOUT_CMD 900s adb shell am instrument -w -r \
+          -e allowSyntheticMediaProbe true \
+          -e class "$VIEWER_CLASS" \
+          "$RUNNER" > "$OUT_DIR/instrumentation-viewer.txt" 2>&1
+      else
+        adb shell am instrument -w -r \
+          -e allowSyntheticMediaProbe true \
+          -e class "$VIEWER_CLASS" \
+          "$RUNNER" > "$OUT_DIR/instrumentation-viewer.txt" 2>&1
+      fi
+      AM=$?
+      cat "$OUT_DIR/instrumentation-viewer.txt"
 
-    if [ "$AM" -eq 124 ]; then
-      echo "::error::真实查看器设备测试超时（900s），取证未完成"
+      if [ "$AM" -eq 124 ]; then
+        echo "::error::真实查看器设备测试超时（900s），取证未完成"
+        VIEWER=2
+        break
+      fi
+      if grep -q "FAILURES!!!" "$OUT_DIR/instrumentation-viewer.txt"; then
+        # 断言失败必须失败：这是实现问题，重跑没有意义
+        echo "::error::真实查看器设备测试断言失败（见 instrumentation-viewer.txt）"
+        VIEWER=1
+        break
+      fi
+      if grep -qE "^OK \([0-9]+ tests\)" "$OUT_DIR/instrumentation-viewer.txt"; then
+        echo "viewer device test: OK"
+        VIEWER=0
+        break
+      fi
+
+      # 没有结论：先看设备还在不在，等它回来再试一次
       VIEWER=2
-    elif grep -q "FAILURES!!!" "$OUT_DIR/instrumentation-viewer.txt"; then
-      # 断言失败必须失败：这是实现问题，不是环境问题
-      echo "::error::真实查看器设备测试断言失败（见 instrumentation-viewer.txt）"
-      VIEWER=1
-    elif grep -qE "^OK \([0-9]+ tests\)" "$OUT_DIR/instrumentation-viewer.txt"; then
-      echo "viewer device test: OK"
-      VIEWER=0
-    elif [ "$AM" -ne 0 ]; then
-      echo "::error::真实查看器设备测试未能执行完（am exit=$AM），取证未完成"
-      VIEWER=2
-    else
-      echo "::error::真实查看器设备测试没有产出 OK/FAILURES 结论，取证未完成"
-      VIEWER=2
-    fi
+      if [ "$ATTEMPT" -lt "${VIEWER_ATTEMPTS:-2}" ]; then
+        echo "::warning::设备测试没有产出结论（am exit=$AM），等设备恢复后重试"
+        adb wait-for-device
+        sleep 5
+      else
+        echo "::error::真实查看器设备测试未能执行完（am exit=$AM），取证未完成"
+      fi
+      ATTEMPT=$((ATTEMPT + 1))
+    done
   else
     echo "::error::安装 APK 失败，设备测试未执行（环境中断）"
     VIEWER=2
@@ -94,6 +113,13 @@ else
   echo "viewer exit=na  # API $API_LEVEL < 33，无采样层" | tee "$OUT_DIR/viewer-exit.txt"
   VIEWER=0
 fi
+
+echo "=== API $API_LEVEL: 预览页探针 ==="
+# 用 `sh -c` 执行整串：PROBE_CMD 可能带参数或引号（测试里就传
+# `bash -c 'exit 1'`）。直接 `$PROBE_CMD` 会按空格拆开，引号被拆散。
+sh -c "$PROBE_CMD"
+PROBE=$?
+echo "probe exit=$PROBE"
 
 echo "=== 合并结论 ==="
 echo "probe=$PROBE viewer=$VIEWER"

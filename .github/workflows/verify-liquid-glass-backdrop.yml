@@ -148,6 +148,12 @@ jobs:
           python3 -m unittest discover -s tools/tests -p "test_summarize_glass_evidence.py" -v
           # 模拟器取证脚本自身的退出码语义（不需要模拟器就能验证）。
           python3 -m unittest discover -s tools/tests -p "test_emulator_evidence_script.py" -v
+          # 探针的三态收敛：环境中断必须写 api<N>-summary.json（已采集的检查项
+          # 不能因为掉线就丢），退出码必须是 2 而不是 1。run 45380937872 的
+          # API 33 就是 17 项全过后掉线，证据被整轮作废。
+          python3 -m unittest discover -s tools/tests -p "test_preview_probe_tristate.py" -v
+          # 顺序（设备测试先跑）与重试规则（断言失败不重试）。
+          python3 -m unittest discover -s tools/tests -p "test_evidence_order_and_retry.py" -v
           # 脚本必须能被 dash 解析：android-emulator-runner 用的就是
           # /usr/bin/sh（Ubuntu 上 = dash），不支持的语法会让脚本第一行就退出。
           bash -n tools/run-emulator-evidence.sh

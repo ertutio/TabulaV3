@@ -62,17 +62,53 @@ def record(step: str, ok: bool, detail: str = "", failure: str | None = None) ->
         evidence["failures"].append(failure)
 
 
-def adb(*args: str, check: bool = True, timeout: int = 180) -> str:
-    proc = subprocess.run(
-        ["adb", *args],
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        timeout=timeout,
-    )
-    if check and proc.returncode != 0:
-        raise RuntimeError(f"adb {' '.join(args)} -> {proc.returncode}\n{proc.stdout}")
-    return proc.stdout
+# 模拟器掉线前常常先抖一下（`adb: device offline` / `error: closed`）。
+# 单次失败就抛，会让整轮取证作废——run 45380937872 的 API 33 就是这么丢的：
+# 17 项检查全过，第 18 次 dump 掉了一下，后面全没了。
+TRANSIENT_ADB = (
+    "device offline",
+    "device 'emulator-",
+    "not found",
+    "error: closed",
+    "protocol fault",
+    "connection reset",
+)
+
+
+def adb(
+    *args: str,
+    check: bool = True,
+    timeout: int = 180,
+    retries: int = 2,
+    settle: float = 2.0,
+) -> str:
+    """执行 adb；瞬时故障重试 `retries` 次，仍然失败才抛。
+
+    `retries=0` 用于"必须一次成功"的场景（如判断设备是否真的还在）。
+    """
+    last = ""
+    for attempt in range(retries + 1):
+        proc = subprocess.run(
+            ["adb", *args],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=timeout,
+        )
+        last = proc.stdout or ""
+        if proc.returncode == 0:
+            return last
+        transient = any(token in last for token in TRANSIENT_ADB)
+        if not transient or attempt >= retries:
+            if check:
+                raise RuntimeError(
+                    f"adb {' '.join(args)} -> {proc.returncode}\n{last}"
+                )
+            return last
+        # 等设备回来再试：模拟器重启后 serial 会重新出现
+        subprocess.run(["adb", "wait-for-device"], timeout=120)
+        time.sleep(settle)
+    return last
 
 
 def sdk_int() -> int:
@@ -188,7 +224,9 @@ def assert_app_alive(tag: str, step: str) -> bool:
 
 
 def ui_dump(tag: str) -> Path:
-    adb("shell", "uiautomator", "dump", "/sdcard/ui.xml")
+    # 重试 3 次：`uiautomator dump` 在模拟器高负载时经常第一次就返回 1
+    # （"could not get idle state"），不是设备没了。
+    adb("shell", "uiautomator", "dump", "/sdcard/ui.xml", retries=3, settle=1.5)
     local = OUT / f"{tag}-ui.xml"
     adb("pull", "/sdcard/ui.xml", str(local))
     adb("shell", "rm", "-f", "/sdcard/ui.xml")
@@ -411,11 +449,37 @@ def gfxinfo(label: str) -> dict:
     return stats
 
 
-def write_summary(api: int) -> None:
-    evidence["success"] = not failures
-    (OUT / f"api{api}-summary.json").write_text(
-        json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+def write_summary(
+    api: int | None,
+    success: bool | None = None,
+    env_error: str | None = None,
+) -> Path:
+    """写出本轮总结。`success=None` 表示"未完成"，与 True/False 严格区分。
+
+    **无论成功、失败还是环境中断都必须写出 `api<N>-summary.json`**：
+    汇总脚本（tools/summarize-glass-evidence.py）读的就是它，读不到就判
+    "证据缺失"。run 45380937872 里 17 项通过证据因为只写了
+    `error-summary.json` 而整轮作废，那是取证流程的错，不是环境的错。
+    """
+    if success is None:
+        evidence["success"] = None if env_error else (not failures)
+    else:
+        evidence["success"] = success
+    if env_error:
+        evidence["environment_unavailable"] = env_error
+
+    payload = json.dumps(evidence, ensure_ascii=False, indent=2)
+    if api is None:
+        path = OUT / "error-summary.json"
+    else:
+        path = OUT / f"api{api}-summary.json"
+    path.write_text(payload, encoding="utf-8")
+    if api is not None:
+        # 同时留一份 error-summary，方便 workflow 的 Flag environment interruption
+        # 步骤按文件名判断（那一版只看 error-summary.json）。
+        if env_error:
+            (OUT / "error-summary.json").write_text(payload, encoding="utf-8")
+    return path
 
 
 def main() -> int:
@@ -448,8 +512,7 @@ def main() -> int:
                main_ui.strip().splitlines()[-1] if main_ui.strip() else "",
                failure=None if started else "主界面在低版本上无法启动")
         evidence["sdk_gate"] = {"api": api, "notice_shown": gated, "main_started": started}
-        write_summary(api)
-        return 0 if not failures else 1
+        return api
 
     # ===== API 33+：真实采样验证 =====
 
@@ -888,9 +951,11 @@ def main() -> int:
     record("frame stats captured", bool(frames_on and frames_off),
            json.dumps(evidence["frame_stats"], ensure_ascii=False))
 
-    write_summary(api)
+    # 这里只采集。写出 summary 与决定退出码统一在 __main__ 里做：
+    # 环境中断时也必须落 api<N>-summary.json（见 write_summary 的说明），
+    # 而"是否有断言失败"只有那里能同时看到 failures 与 env_error。
     print(json.dumps(evidence, ensure_ascii=False, indent=2))
-    return 0 if not failures else 1
+    return api
 
 
 def tap_text(label: str, tag: str) -> bool:
@@ -944,21 +1009,61 @@ def color_continuity(image_path: Path, roi: tuple[int, int, int, int]) -> dict:
     }
 
 
+# ===== 退出码契约（与 tools/summarize-glass-evidence.py、workflow 对齐）=====
+#
+#   0 = 全部检查通过
+#   1 = 有断言失败（**必须**让 CI 变红，是实现问题）
+#   2 = 环境中断（模拟器掉线 / adb 失联 / 启动即崩），取证**未完成**
+#
+# 三种结局在 CI 上都表现为"job 不绿"，但只有 1 代表实现有问题；
+# 2 必须在 PR 上读成"未完成"而不是"通过"。
+EXIT_PASS = 0
+EXIT_ASSERTION_FAILED = 1
+EXIT_ENVIRONMENT_INTERRUPTED = 2
+
+
+def classify_exit(assertion_failed: bool, env_error: str | None) -> int:
+    """把一轮取证收敛成退出码。纯函数，便于离线单测。
+
+    断言失败优先：只要真有一条断言失败，就不能用"模拟器抖动"盖过去。
+    """
+    if assertion_failed:
+        return EXIT_ASSERTION_FAILED
+    if env_error:
+        return EXIT_ENVIRONMENT_INTERRUPTED
+    return EXIT_PASS
+
+
 if __name__ == "__main__":
+    env_error: str | None = None
+    api: int | None = None
     try:
-        sys.exit(main())
+        api = main()
     except EmulatorUnavailable as error:
-        # 模拟器自身故障：整轮取证标记为"未完成"，不把基础设施问题算成实现缺陷。
-        evidence["environment_unavailable"] = str(error)
-        evidence["success"] = None
-        (OUT / "error-summary.json").write_text(
-            json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        print(f"[ENV] 模拟器故障，本轮取证作废（不是实现缺陷）：{error}", flush=True)
-        raise
+        env_error = str(error)
+        print(f"[ENV] 模拟器故障，本轮取证未完成：{error}", flush=True)
     except Exception as error:  # noqa: BLE001
-        evidence["error"] = f"{type(error).__name__}: {error}"
-        (OUT / "error-summary.json").write_text(
-            json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        raise
+        # 其他异常（adb 掉线、启动失败、脚本自身错误）一律按环境中断处理：
+        # 不能因为"我们自己的脚本崩了"就说实现通过，也不能说实现失败。
+        env_error = f"{type(error).__name__}: {error}"
+        evidence["error"] = env_error
+        print(f"[ENV] 取证中断：{env_error}", flush=True)
+
+    code = classify_exit(assertion_failed=bool(failures), env_error=env_error)
+
+    # 关键：环境中断也要落 api<N>-summary.json，已采集的检查项不能丢。
+    # api 未知（连 getprop 都没跑成）时才退回 error-summary.json。
+    if api is None:
+        try:
+            api = sdk_int()
+            evidence["sdk"] = api
+        except Exception:  # noqa: BLE001
+            api = None
+    write_summary(api, success=(code == EXIT_PASS), env_error=env_error)
+
+    print(
+        f"probe api={api} checks={len(evidence['checks'])} "
+        f"failed={len(failures)} exit={code}",
+        flush=True,
+    )
+    sys.exit(code)
