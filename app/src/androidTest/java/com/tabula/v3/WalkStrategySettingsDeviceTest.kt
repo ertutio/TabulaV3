@@ -14,6 +14,7 @@ import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.RecommendMode
 import com.tabula.v3.data.preferences.WalkSamplingStrategy
 import com.tabula.v3.testsupport.BatchLogLine
+import com.tabula.v3.testsupport.MediaUriIdentity
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -402,7 +403,10 @@ class WalkStrategySettingsDeviceTest {
             beforeTexts.any { it.endsWith("张待整理") }
         )
 
-        val seededUris = inserted.map { it.toString() }.toSet()
+        // 归一成 (卷, id)：夹具写的是聚合外部卷 `external`，生产代码按
+        // VOLUME_NAME 重建 `external_primary`，同一行两种写法（run
+        // 45372299838 就是在这里判红的）。直接比 uri 字符串永远不等。
+        val seededUris = MediaUriIdentity.canonicalSet(inserted.map { it.toString() })
 
         // 前置：切策略前页面**自己**已经持有一批。
         //
@@ -415,10 +419,13 @@ class WalkStrategySettingsDeviceTest {
             "切换策略前卡片页必须已经持有批次（否则无法证明'换了'）",
             batchBefore
         )
-        val urisBefore = parseBatchUris(batchBefore!!)
+        val urisBeforeRaw = parseBatchUris(batchBefore!!)
+        val urisBefore = MediaUriIdentity.canonicalSet(urisBeforeRaw)
         assertTrue(
             "切换前页面持有的批次必须全部是本测试造的照片" +
-                "（多余项=${urisBefore - seededUris}）",
+                "（多余项=${urisBefore - seededUris}，无法解析=${
+                    MediaUriIdentity.unparsable(urisBeforeRaw)
+                }）",
             urisBefore.isNotEmpty() && urisBefore.all { it in seededUris }
         )
 
@@ -448,7 +455,8 @@ class WalkStrategySettingsDeviceTest {
             "切策略回到卡片页后，页面必须重新取批（边界之后没有 batch-site-4 行）",
             batchAfter
         )
-        val urisAfter = parseBatchUris(batchAfter!!)
+        val urisAfterRaw = parseBatchUris(batchAfter!!)
+        val urisAfter = MediaUriIdentity.canonicalSet(urisAfterRaw)
 
         // 1. 页面真的换了批
         assertNotEquals(
@@ -466,13 +474,16 @@ class WalkStrategySettingsDeviceTest {
         assertTrue("新批次不能为空（$batchAfter）", urisAfter.isNotEmpty())
         assertTrue(
             "新批次的每一项都必须是本测试造的照片（多余项=" +
-                "${urisAfter - seededUris}）",
-            urisAfter.all { uri -> uri in seededUris }
+                "${urisAfter - seededUris}，无法解析=${
+                    MediaUriIdentity.unparsable(urisAfterRaw)
+                }）",
+            urisAfter.isNotEmpty() && urisAfter.all { uri -> uri in seededUris }
         )
 
         // 3. 均衡策略在**页面批次**上生效：覆盖两个来源目录
         // 直接按 uri 回查 RELATIVE_PATH，不再经过文件名。
-        val sourceDirs = urisAfter.mapNotNull { uri -> relativePathOf(uri) }.toSet()
+        // 用生产侧原始 uri 回查（它们本身就是可解析的 content uri）。
+        val sourceDirs = urisAfterRaw.mapNotNull { uri -> relativePathOf(uri) }.toSet()
         assertEquals(
             "均衡策略下页面持有的批次必须覆盖两个来源目录" +
                 "（实际：$sourceDirs，批次=$urisAfter）",
