@@ -60,7 +60,13 @@ def fake_bin(tmp: Path, instrument_script: str) -> Path:
 
 def run_script(env_extra: dict, tmp: Path) -> tuple[int, str]:
     env = dict(os.environ)
-    env.update({"OUT_DIR": str(tmp / "out"), "API_LEVEL": "33", "TIMEOUT_CMD": ""})
+    env.update({
+        "OUT_DIR": str(tmp / "out"),
+        "API_LEVEL": "33",
+        "TIMEOUT_CMD": "",
+        # 不等待设备就绪：CI 上等满 30×2s 是对的，单测里是纯浪费
+        "DEVICE_WAIT_SECONDS": "0",
+    })
     env.update(env_extra)
     proc = subprocess.run(
         [BASH, str(SCRIPT)], cwd=str(ROOT), env=env, capture_output=True

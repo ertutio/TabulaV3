@@ -41,6 +41,9 @@ def run(probe_exit: int, api_level: int, tmp: Path) -> tuple[int, str, dict]:
         {
             "API_LEVEL": str(api_level),
             "OUT_DIR": str(tmp),
+            # 不等待设备：CI 上等满 30×2s 是对的，单测里是纯浪费
+            # （曾经让 26 项跑成 756 秒）。
+            "DEVICE_WAIT_SECONDS": "0",
             # 假探针：不碰模拟器，只给出指定退出码
             "PROBE_CMD": f"bash -c 'exit {probe_exit}'",
         }

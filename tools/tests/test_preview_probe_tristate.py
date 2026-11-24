@@ -17,6 +17,7 @@ run 45380937872 / 45384760411 的 API 33 暴露了两个连锁错误：
 
 import importlib.util
 import json
+import os
 import shutil
 import tempfile
 import unittest
@@ -55,6 +56,8 @@ class ProbeTriStateTest(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.probe = load_probe(self.tmp)
+        # 探针里的 wait_for_device 默认等 30s；单测不需要真的等。
+        os.environ["DEVICE_WAIT_SECONDS"] = "0"
 
     def tearDown(self):
         self._tmp.cleanup()

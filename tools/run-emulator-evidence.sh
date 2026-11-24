@@ -29,6 +29,7 @@
 #   API_LEVEL       目标 API（默认取 $API_LEVEL，缺省 33）
 #   VIEWER_ATTEMPTS 设备测试在环境中断时的尝试次数（默认 2；断言失败不重试）
 #   TIMEOUT_CMD     超时保护命令（默认 `timeout`；置空则不加超时，供本地单测）
+#   DEVICE_WAIT_SECONDS 等设备就绪的轮数上限（默认 30，每轮 2s；0 = 不等）
 #   OUT_DIR     结果目录（默认 device-results）
 #   APK_APP     应用 APK 路径
 #   APK_TEST    androidTest APK 路径
@@ -55,7 +56,39 @@ VIEWER=0
 if [ "$API_LEVEL" -ge 33 ]; then
   # 采样层要求 API 33+。低版本写 `na`：不算通过，也不把合法矩阵项判成未完成。
   VIEWER=2
-  if adb install -r -t "$APK_APP" && adb install -r -t "$APK_TEST"; then
+
+  # `Boot completed` 打印之后 adb 还要一小会儿才认设备，此时 install 直接
+  # 报 `device offline`（run 45400686137 的 API 35）。先等设备就绪，有上限。
+  # 等待上限可配：CI 用默认 30 次 × 2s；单测置 DEVICE_WAIT_SECONDS=0 立即返回。
+  wait_for_device() {
+    WAIT=0
+    while [ "$WAIT" -lt "${DEVICE_WAIT_SECONDS:-30}" ]; do
+      if adb get-state 2>/dev/null | grep -q device; then
+        return 0
+      fi
+      sleep 2
+      WAIT=$((WAIT + 1))
+    done
+    # 上限为 0 时也算"不等了"，返回当前状态而不是无条件失败
+    adb get-state 2>/dev/null | grep -q device
+  }
+
+  install_apks() {
+    install_attempt=1
+    while [ "$install_attempt" -le 3 ]; do
+      if adb install -r -t "$APK_APP" && adb install -r -t "$APK_TEST"; then
+        return 0
+      fi
+      echo "::warning::安装 APK 失败（第 $install_attempt 次），等设备就绪后重试"
+      wait_for_device
+      sleep 3
+      install_attempt=$((install_attempt + 1))
+    done
+    return 1
+  }
+
+  wait_for_device
+  if install_apks; then
     adb shell pm grant "$TEST_PKG" android.permission.READ_MEDIA_IMAGES 2>/dev/null
     adb shell pm grant "$TEST_PKG" android.permission.READ_MEDIA_VISUAL_USER_SELECTED 2>/dev/null
 
@@ -97,7 +130,7 @@ if [ "$API_LEVEL" -ge 33 ]; then
       VIEWER=2
       if [ "$ATTEMPT" -lt "${VIEWER_ATTEMPTS:-2}" ]; then
         echo "::warning::设备测试没有产出结论（am exit=$AM），等设备恢复后重试"
-        adb wait-for-device
+        wait_for_device
         sleep 5
       else
         echo "::error::真实查看器设备测试未能执行完（am exit=$AM），取证未完成"

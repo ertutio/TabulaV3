@@ -26,6 +26,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 import subprocess
@@ -75,6 +76,43 @@ TRANSIENT_ADB = (
 )
 
 
+def device_wait_seconds(default: float = 30.0) -> float:
+    """等待上限，可用 `DEVICE_WAIT_SECONDS` 覆盖（单测置 0）。"""
+    raw_value = os.environ.get("DEVICE_WAIT_SECONDS")
+    if raw_value is None:
+        return default
+    try:
+        return max(0.0, float(raw_value))
+    except ValueError:
+        return default
+
+
+def wait_for_device(seconds: float | None = None) -> bool:
+    """有上限地等设备进入 `device` 状态；等不到返回 False，**不抛异常**。
+
+    用来救场的调用不能自己变成新的失败点：模拟器掉线时
+    `adb wait-for-device` 会无限挂起，超时异常会把整轮取证打断。
+    """
+    if seconds is None:
+        seconds = device_wait_seconds()
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        try:
+            state = subprocess.run(
+                ["adb", "get-state"],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=10,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return False
+        if state.returncode == 0 and "device" in (state.stdout or ""):
+            return True
+        time.sleep(1.5)
+    return False
+
+
 def adb(
     *args: str,
     check: bool = True,
@@ -105,8 +143,10 @@ def adb(
                     f"adb {' '.join(args)} -> {proc.returncode}\n{last}"
                 )
             return last
-        # 等设备回来再试：模拟器重启后 serial 会重新出现
-        subprocess.run(["adb", "wait-for-device"], timeout=120)
+        # 等设备回来再试。**必须有上限且不抛**：模拟器真的没了的时候
+        # `adb wait-for-device` 会一直挂着，超时抛 TimeoutExpired 会把整轮
+        # 取证打断（run 45400686137 的 API 35 就是这样）。
+        wait_for_device(seconds=30)
         time.sleep(settle)
     return last
 
