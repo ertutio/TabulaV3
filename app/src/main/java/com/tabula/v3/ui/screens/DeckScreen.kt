@@ -194,7 +194,9 @@ fun DeckScreen(
     loadingTotal: Int = 0,
     topBarDisplayMode: TopBarDisplayMode = TopBarDisplayMode.INDEX,
     onRemove: (ImageFile) -> Unit,
-    onKeep: () -> Unit = {},
+    onKeep: (ImageFile) -> Unit = {},
+    // #90：批次真正切换到新的一批后回调，用于归档本轮统计、避免上一批进入下一批判断
+    onBatchAdvanced: () -> Unit = {},
     onNavigateToTrash: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAlbumDetail: (Album) -> Unit = {},
@@ -265,7 +267,11 @@ fun DeckScreen(
     pendingCleanupCount: Int = 0,
     onCleanupSourceImages: () -> Unit = {},
     // 暂存清理（路线图第 1 项）：进入按来源与存入时间整理的旧图清理
-    onOpenStagedCleanup: () -> Unit = {}
+    onOpenStagedCleanup: () -> Unit = {},
+    // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示
+    intentSourceName: String? = null,
+    onAcceptIntent: (() -> Unit)? = null,
+    onDismissIntent: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -649,6 +655,8 @@ fun DeckScreen(
                     currentIndex = 0
                     markedCount = 0
                     deckState = DeckState.BROWSING
+                    // #90：新批次真正装载成功后才归档上一批统计
+                    onBatchAdvanced()
                 } else {
                     deckState = DeckState.COMPLETED
                 }
@@ -1054,7 +1062,7 @@ fun DeckScreen(
                                 }
                             } else {
                                 if (newIndex > currentIndex) {
-                                    onKeep()
+                                    currentBatch.getOrNull(currentIndex)?.let(onKeep)
                                 }
                                 // 防止空列表时索引越界
                                 currentIndex = if (currentBatch.isEmpty()) {
@@ -1133,7 +1141,7 @@ fun DeckScreen(
                                 // 自动进入下一张
                                 if (currentIndex < currentBatch.lastIndex) {
                                     currentIndex++
-                                    onKeep()
+                                    // 归档在 onAlbumSelect 里单独记为成功行为
                                 }
                             }
                         },
@@ -1221,7 +1229,11 @@ fun DeckScreen(
                         // LIST_POPUP 模式：下滑触发图集选择弹层
                         onShowAlbumSelectionSheet = {
                             showAlbumSelectionSheet = true
-                        }
+                        },
+                        // 路线图 #83 第 7 项（审计 #90）：把意图提示透传到内容层
+                        intentSourceName = intentSourceName,
+                        onAcceptIntent = onAcceptIntent,
+                        onDismissIntent = onDismissIntent
                     )
                 }
             }
@@ -1308,7 +1320,7 @@ fun DeckScreen(
             },
             onNext = {
                 if (currentIndex < currentBatch.lastIndex) {
-                    onKeep()
+                    currentBatch.getOrNull(currentIndex)?.let(onKeep)
                     currentIndex++
                 }
             },
@@ -1831,6 +1843,12 @@ private fun DeckContent(
     onCardClick: (ImageFile, SourceRect) -> Unit,
     onTrashClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示。
+    // suggestSourceName 非空时显示「这轮再看几张这个相册？」；
+    // onAcceptIntent 接受后下一批优先该来源；onDismissIntent 忽略。
+    intentSourceName: String? = null,
+    onAcceptIntent: (() -> Unit)? = null,
+    onDismissIntent: (() -> Unit)? = null,
     onAlbumClick: (Album) -> Unit,
     onAddAlbumClick: (ImageFile?) -> Unit,  // 可选参数：待归档的图片
     onAlbumsClick: () -> Unit,
@@ -1915,6 +1933,17 @@ private fun DeckContent(
                 onAlbumCleanupDisplayModeToggle = onAlbumCleanupDisplayModeToggle,
                 onAlbumCleanupClick = onAlbumCleanupClick
             )
+
+            // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示。
+            // 只在用户确实在集中处理同一来源时出现；接受只影响下一批，
+            // 忽略则本次会话不再打扰。
+            if (intentSourceName != null && onAcceptIntent != null && onDismissIntent != null) {
+                com.tabula.v3.ui.components.RoundIntentBanner(
+                    intentSourceName = intentSourceName,
+                    onAcceptIntent = onAcceptIntent,
+                    onDismissIntent = onDismissIntent
+                )
+            }
 
             // 卡片堆叠区域
             // 固定标签模式下有双行标签，卡片位置较高；其他模式卡片可以更靠下
