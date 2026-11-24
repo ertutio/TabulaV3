@@ -92,6 +92,15 @@ class RecycleBinViewerBackdropDeviceTest {
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             ui.shellScript("pm grant ${ctx.packageName} ${Manifest.permission.READ_MEDIA_IMAGES} 2>&1")
         }
+
+        // 引导页必须跳过，否则 `ui.launch()` 之后停在引导/免责声明，
+        // 主界面起不来、等不到"回收站"锚点（run 45417285631：
+        // `timed out waiting for 回收站`）。同目录其它设备测试都显式设置这两项，
+        // 本测试原先漏了。
+        AppPreferences(ctx).apply {
+            hasCompletedOnboarding = true
+            hasAcknowledgedDisclaimer = true
+        }
     }
 
     @After
