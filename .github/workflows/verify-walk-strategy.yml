@@ -120,9 +120,19 @@ jobs:
             adb install -r device-apks/app-debug-androidTest.apk
             adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || true
             adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED || true
-            # 明确运行设置页策略设备测试，保存 instrumentation 输出
-            timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.WalkStrategySettingsDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-walk.txt 2>&1 || true
+            # 明确运行设置页策略设备测试，保存 instrumentation 输出。
+            #
+            # 注意：这里**不能**加 `|| true`——它会把 instrumentation 的非零退出码
+            # 吞掉，让"测试失败"和"测试通过"在 CI 上长得一样。现在失败就是失败，
+            # 诊断信息仍在后面的步骤里采集（那些步骤有自己的 `|| true`）。
+            timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.WalkStrategySettingsDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-walk.txt 2>&1
+            INSTRUMENT_EXIT=$?
             cat device-results/instrumentation-walk.txt
+            echo "instrumentation exit=$INSTRUMENT_EXIT" | tee device-results/instrumentation-exit.txt
+            if [ "$INSTRUMENT_EXIT" -ne 0 ]; then
+              echo "::error::WalkStrategySettingsDeviceTest 执行失败（exit=$INSTRUMENT_EXIT），详见 instrumentation-walk.txt"
+              exit "$INSTRUMENT_EXIT"
+            fi
             adb shell "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'" > device-results/window-focus.txt || true
             adb shell "cat /data/data/com.tabula.v3.recyclebin.test/files/diag-after-launch.txt" > device-results/diag-after-launch.txt 2>/dev/null || true
             adb shell "cat /data/data/com.tabula.v3.recyclebin.test/files/diag-timeout.txt" > device-results/diag-timeout.txt 2>/dev/null || true
@@ -135,7 +145,7 @@ jobs:
             # 汇总核对：类名、执行数量、失败数
             grep -E 'INSTRUMENTATION_STATUS: (class|numtests|test=)|OK \(|FAILURES' device-results/instrumentation-walk.txt > device-results/summary.txt
             cat device-results/summary.txt
-            # 精确断言：3 条用例，不允许"任意 OK"
+            # 精确断言：5 条用例（类内 @Test 数），不允许"任意 OK"
             grep -Fx 'OK (5 tests)' device-results/instrumentation-walk.txt
       - name: Summarise
         if: always()

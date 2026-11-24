@@ -4,7 +4,9 @@ import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.MediaStore
+import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -13,6 +15,8 @@ import com.tabula.v3.data.preferences.RecommendMode
 import com.tabula.v3.data.preferences.WalkSamplingStrategy
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -25,11 +29,20 @@ import java.util.UUID
  * 全程走真实界面入口：卡片页 → 设置（TopBar contentDescription="设置"）→
  * 「漫步来源策略」→ 选「均衡来源」/「原随机」→ 返回卡片页 → 换批。
  *
- * 判定用真实 RecommendationEngine 在相同偏好下的抽样分布（生产 seam），
- * 而不是断言 UI 文本——UI 只验证"选择已落到偏好"。
+ * 两个层次，分工明确：
+ * - `nextBatchSamplingActuallyReflectsChosenStrategy`：**引擎层**。设置页点击 →
+ *   偏好 → `RecommendationEngine` 分派；不经过卡片页。
+ * - `deckReloadsBatchAfterStrategySwitch`：**页面层**。读生产代码自己的
+ *   `currentBatch<-[batch-site-4]` 日志，断言卡片页持有的批次本身换了、且新批次
+ *   覆盖两个来源——不另调引擎顶替。
  */
 @RunWith(AndroidJUnit4::class)
 class WalkStrategySettingsDeviceTest {
+
+    private companion object {
+        /** logcat 过滤用的测试 TAG（边界标记与批次行一起 dump）。 */
+        const val TAG = "WalkStrategyDevice"
+    }
 
     private val ins = InstrumentationRegistry.getInstrumentation()
     private val ctx = ins.targetContext
@@ -242,9 +255,15 @@ class WalkStrategySettingsDeviceTest {
     }
 
     /**
-     * 审计要求（#89 二轮）：设置页切策略后，通过卡片页真实加载下一批，
-     * 用**可复现**的测试设计验证实际分派到了所选策略——不是只检查偏好值，
-     * 也不是只检查"批次非空"。
+     * **引擎层**策略分派：设置页切策略后，验证引擎在相同偏好下确实按所选策略出批。
+     *
+     * 说明（#89 三轮审计修正）：本用例**不经过卡片页**，它证明的是
+     * "设置页的点击 → 偏好 → 引擎分派"这一段。原先 KDoc 写的"通过卡片页真实
+     * 加载下一批"与实际行为不符，已改正。
+     *
+     * "卡片页真的消费了新批次"由同类的 `deckReloadsBatchAfterStrategySwitch`
+     * 负责——那条读生产代码自己的 `currentBatch<-[batch-site-4]` 日志，
+     * 断言的是页面持有的批次本身。两条分工明确，互不顶替。
      *
      * 为什么这次能做强断言：`SourceBalanceRules.balancedSample` 的**第一轮
      * 是确定性的**——只要 batchSize ≥ 来源桶数，它保证每个来源至少出现一张
@@ -337,12 +356,32 @@ class WalkStrategySettingsDeviceTest {
     }
 
     /**
-     * 卡片页真实换批：设置页切策略后回卡片页，**界面上的当前批次**
-     * 必须换成按新策略抽出的那一批（不是旧批次原地不动）。
+     * 卡片页真实换批：设置页切策略后回卡片页，**页面当前持有的批次**必须是
+     * 新策略下重取的那一批。
      *
-     * 审计点：不能只验证引擎被调用，要验证卡片页真的消费了新批次。
-     * 判据：切策略前后，卡片页顶部的索引/总数与当前卡片文件名发生变化，
-     * 且新批次来自全部来源（均衡覆盖保证）。
+     * ## 判定方式（#89 审计要求：不能另调引擎顶替）
+     *
+     * 直接读**生产代码自己的**批次日志：`DeckScreen.logBatchRows` 在每次
+     * `currentBatch = ...` 时打一行
+     *
+     * ```
+     * currentBatch<-[batch-site-4]: uri1:date1,uri2:date2,...
+     * ```
+     *
+     * 其中 `batch-site-4` 就是"推荐模式/策略变化 → 重取批"这条路径
+     * （`DeckScreen.kt` 的 `LaunchedEffect(recommendModeRefreshKey)`）。
+     *
+     * 断言链（全部落在页面侧数据上）：
+     * 1. 切策略**之前**的批次行 → 记下 id 集合 A；
+     * 2. 切策略**之后**出现新的 `batch-site-4` 行 → 记下 id 集合 B；
+     * 3. `A != B`（页面真的换了批，而不是原地不动）；
+     * 4. B 非空，且 B 的每个 id 都是本测试造的照片；
+     * 5. B 覆盖两个来源目录（Screenshots + Camera）——这是"均衡策略生效"
+     *    在**页面批次**上的直接证据，不需要再调引擎。
+     *
+     * 边界用 logcat 行序而非时间戳（同 `B2MediaAccessRevisionDeviceTest` 的
+     * 做法）：动作前先写一条边界标记，只认标记之后的批次行，避免把上一段
+     * 遗留行当成结果。
      */
     @Test
     fun deckReloadsBatchAfterStrategySwitch() = kotlinx.coroutines.runBlocking {
@@ -350,12 +389,25 @@ class WalkStrategySettingsDeviceTest {
         repeat(30) { insertPhoto("DCIM/Camera") }
 
         startApp()
-        // 前置条件：切换前卡片页必须在浏览状态（否则后面的"仍能浏览"没有意义）
         val beforeTexts = screenTexts()
         assertTrue(
             "切换策略前卡片页应已在浏览批次（屏幕：$beforeTexts）",
             beforeTexts.any { it.endsWith("张待整理") }
         )
+
+        // 前置：切策略前页面已持有一批（batch-site-4 的首次触发或其它 site 均可，
+        // 这里只要求"有一批"，具体 site 不重要——重点是切换之后必须出现新的）
+        val batchBefore = awaitBatchLine(timeoutMs = 15000)
+        assertNotNull(
+            "切换策略前卡片页必须已经持有批次（否则无法证明'换了'）",
+            batchBefore
+        )
+        val idsBefore = parseBatchIds(batchBefore!!)
+
+        // 写边界：只认这之后出现的批次行
+        val boundary = "ws-boundary:" + SystemClock.uptimeMillis()
+        Log.i(TAG, boundary)
+        SystemClock.sleep(300)
 
         tap("设置")
         waitFor("漫步来源策略")
@@ -369,40 +421,102 @@ class WalkStrategySettingsDeviceTest {
 
         tap("返回")
         waitFor("回收站", timeout = 25000)
-        android.os.SystemClock.sleep(3000)
 
-        // 卡片页必须重新加载出批次。
-        //
-        // 注意：顶栏默认显示**日期**（"2026 Nov"），不是 "x/y" 索引——
-        // 不能等索引文本（run 45220212349 就是判错了这个）。
-        // 卡片页在浏览状态的可靠锚点：底部「N 张待整理」+ 卡片文件名。
-        val afterTexts = screenTexts()
-        val afterRemaining = afterTexts.firstOrNull { it.endsWith("张待整理") }
-        assertTrue(
-            "切换策略回到卡片页后必须仍在浏览批次（屏幕：$afterTexts）",
-            afterRemaining != null
+        // 页面侧证据：边界之后必须出现一条新的 batch-site-4 行
+        val batchAfter = awaitBatchLineAfterBoundary(boundary, timeoutMs = 25000)
+        assertNotNull(
+            "切策略回到卡片页后，页面必须重新取批（边界之后没有 batch-site-4 行）",
+            batchAfter
         )
-        assertTrue(
-            "卡片页必须消费了新批次，不能停在空态（屏幕：$afterTexts）",
-            !afterTexts.contains("没有找到照片")
+        val idsAfter = parseBatchIds(batchAfter!!)
+
+        // 1. 页面真的换了批
+        assertNotEquals(
+            "页面批次必须变化，不能停在旧批次（before=$idsBefore after=$idsAfter）",
+            idsBefore,
+            idsAfter
         )
+
+        // 2. 新批次非空且全是本测试造的照片
+        assertTrue("新批次不能为空（$batchAfter）", idsAfter.isNotEmpty())
+        val seededNames = inserted.map { uri ->
+            ctx.contentResolver.query(
+                uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null
+            )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+        }.filterNotNull().toSet()
         assertTrue(
-            "卡片页必须显示照片文件名（屏幕：$afterTexts）",
-            afterTexts.any { it.startsWith("ws-") && it.endsWith(".jpg") }
+            "新批次的 id 必须都是本测试造的照片（after=$idsAfter seeded=$seededNames）",
+            idsAfter.all { id -> seededNames.any { it.contains(id) } }
         )
-        // 批次来源覆盖：均衡策略下当前批次应覆盖两个来源。
-        // 卡片页不直接暴露来源，改用引擎在相同偏好下的下一批做交叉验证，
-        // 确认"界面在浏览"与"引擎按均衡出批"同时成立。
-        AppPreferences(ctx).clearAllPickRecords()
-        val images = com.tabula.v3.data.repository.LocalImageRepository(ctx)
-            .loadAllData().allImages
-        val engine = com.tabula.v3.data.repository.RecommendationEngine.getInstance(ctx)
-        val batch = engine.getRecommendedBatch(images, 6)
-        val sources = batch.map {
-            com.tabula.v3.data.balance.SourceBalanceRules.sourceKeyOf(it)
+
+        // 3. 均衡策略在**页面批次**上生效：覆盖两个来源目录
+        val sourceDirs = idsAfter.mapNotNull { id ->
+            seededNames.firstOrNull { it.contains(id) }?.let { name ->
+                // 夹具文件名里不带目录，改用 MediaStore 查 RELATIVE_PATH
+                ctx.contentResolver.query(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    arrayOf(MediaStore.MediaColumns.RELATIVE_PATH),
+                    "${MediaStore.MediaColumns.DISPLAY_NAME} = ?",
+                    arrayOf(name), null
+                )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+            }
         }.toSet()
-        assertEquals("均衡策略下批次应覆盖全部 2 个来源", 2, sources.size)
+        assertEquals(
+            "均衡策略下页面持有的批次必须覆盖两个来源目录（实际：$sourceDirs）",
+            2,
+            sourceDirs.size
+        )
     }
+
+    // ==================== 页面批次日志（生产 seam） ====================
+
+    /** 生产批次重取日志锚（DeckScreen.logBatchRows；batch-site-4 = 推荐模式刷新）。 */
+    private val batchAnchor = "currentBatch<-[batch-site-4]:"
+
+    /** logcat 里最新一条 batch-site-4 行。 */
+    private fun awaitBatchLine(timeoutMs: Long): String? {
+        val end = SystemClock.uptimeMillis() + timeoutMs
+        while (SystemClock.uptimeMillis() < end) {
+            latestBatchLine()?.let { return it }
+            SystemClock.sleep(150)
+        }
+        return null
+    }
+
+    /** 只认边界之后的 batch-site-4 行（fail-closed：边界缺失则返回 null）。 */
+    private fun awaitBatchLineAfterBoundary(boundary: String, timeoutMs: Long): String? {
+        val end = SystemClock.uptimeMillis() + timeoutMs
+        while (SystemClock.uptimeMillis() < end) {
+            latestBatchLineAfter(boundary)?.let { return it }
+            SystemClock.sleep(150)
+        }
+        return null
+    }
+
+    private fun deckLogLines(): List<String> =
+        shell("logcat -d -s DeckScreen $TAG").lineSequence().toList()
+
+    private fun latestBatchLine(): String? =
+        deckLogLines().lastOrNull { it.contains(batchAnchor) }
+
+    private fun latestBatchLineAfter(boundary: String): String? {
+        val lines = deckLogLines()
+        // 边界行由 Log.i(TAG, "ws-boundary:<id>") 写入，同时出现在 TAG 过滤里
+        val markerIdx = lines.indexOfLast { it.contains(boundary) }
+        if (markerIdx < 0) return null
+        return lines.subList(markerIdx + 1, lines.size)
+            .lastOrNull { it.contains(batchAnchor) }
+    }
+
+    /** `uri:dateModified,...` → id 集合（uri 末段数字）。 */
+    private fun parseBatchIds(line: String): Set<String> =
+        line.substringAfter(batchAnchor, "")
+            .split(",")
+            .mapNotNull { entry ->
+                val id = entry.trim().substringBeforeLast(":").substringAfterLast("/", "")
+                if (id.matches(Regex("\\d+"))) id else null
+            }
+            .toSet()
 
     private fun screenTexts(): Set<String> {
         val root = ins.uiAutomation.rootInActiveWindow ?: return emptySet()
