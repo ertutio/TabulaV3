@@ -45,6 +45,7 @@ jobs:
       # 因此这里直接把 jar 下到 Robolectric 的本地仓库目录，多镜像 + 重试，
       # 预置好了后续测试就完全离线。
       - name: Prefetch Robolectric android-all
+        # 预取失败不阻断（后续测试会在有网时自己下载），但失败会在日志里可见。
         continue-on-error: true
         run: |
           set -u
@@ -138,8 +139,19 @@ jobs:
           sys.exit(0 if ok else 1)
           PY
 
-      - name: Probe script stays syntactically valid
-        run: python3 -m py_compile tools/run-liquid-glass-preview-probe.py
+      - name: Probe and evidence-summary scripts stay valid, with pinned result semantics
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/run-liquid-glass-preview-probe.py
+          python3 -m py_compile tools/summarize-glass-evidence.py
+          # 三态分类的单测：断言失败必须失败、环境中断必须不是通过。
+          python3 -m unittest discover -s tools/tests -p "test_summarize_glass_evidence.py" -v
+          # 模拟器取证脚本自身的退出码语义（不需要模拟器就能验证）。
+          python3 -m unittest discover -s tools/tests -p "test_emulator_evidence_script.py" -v
+          # 脚本必须能被 dash 解析：android-emulator-runner 用的就是
+          # /usr/bin/sh（Ubuntu 上 = dash），不支持的语法会让脚本第一行就退出。
+          bash -n tools/run-emulator-evidence.sh
+          sh -n tools/run-emulator-evidence.sh
 
       - name: Assemble debug and release
         run: bash ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:assembleRelease
@@ -222,13 +234,22 @@ jobs:
       # 模拟器实例在本 runner 上会偶发整体掉线（表现为
       # `adb: device 'emulator-5554' not found`，随后所有命令失败）。
       # 这种失败与采样层无关，因此不让它把整个 PR 判红；
-      # 真正的判定放在 `verify` job（单测 + 断言新增测试实跑 + 构建），
-      # 模拟器证据按矩阵逐项如实记录，掉线的那一项在 artifact 里可查。
-      # 注意：任何一项模拟器检查若不成立，具体检查条目会是 ok=false，
-      # 不会被"掉线放行"掩盖。
+      # ===== 结果语义（本 job 的核心约束）=====
+      #
+      # 之前这里用 `continue-on-error: true`，后果是**断言失败也显示绿色**：
+      # 模拟器跑完了、某条检查 ok=false，job 依然是 success，只能靠人下载
+      # artifact 才能发现。这与"断言失败必须失败"直接冲突，已移除。
+      #
+      # 现在三态互不混淆：
+      #   0 通过 / 1 断言失败（实现问题）/ 2 环境中断或证据缺失（未完成）
+      # 断言失败**优先于**环境中断——真失败不能被"模拟器抖动"盖过去。
+      # 判定规则见 tools/summarize-glass-evidence.py，有单测钉住。
+      #
+      # 注意：`script:` 由 android-emulator-runner 用 `/usr/bin/sh`（dash）
+      # **逐行**执行，跨行变量与 `set -o pipefail` 都会炸，所以逻辑全在
+      # tools/run-emulator-evidence.sh 里，这里只留一行调用。
       - name: Capture preview evidence on the emulator
         id: probe
-        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
           api-level: ${{ matrix.api }}
@@ -240,11 +261,39 @@ jobs:
           disk-size: 8G
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
           disable-animations: true
-          script: python tools/run-liquid-glass-preview-probe.py
-      - name: Emulator dropped out mid-probe
-        if: steps.probe.outcome == 'failure'
+          script: API_LEVEL=${{ matrix.api }} bash tools/run-emulator-evidence.sh
+
+      - name: Summarize evidence outcome
+        if: always()
         run: |
-          echo "::warning::API ${{ matrix.api }} 模拟器在取证中断开，该矩阵项不作为判定依据；详见 artifact。"
+          set -uo pipefail
+          set +e
+          python3 tools/summarize-glass-evidence.py \
+            --api "${{ matrix.api }}" \
+            --summary "device-results/api${{ matrix.api }}-summary.json" \
+            --viewer-exit "device-results/viewer-exit.txt" | tee device-results/verdict.txt
+          CODE=${PIPESTATUS[0]}
+          set -e
+
+          {
+            echo "### API ${{ matrix.api }} 取证结果"
+            case "$CODE" in
+              0) echo "✅ 全部检查通过。" ;;
+              1) echo "❌ **断言失败** —— 实现问题，必须修复，不是环境抖动。" ;;
+              *) echo "⚠️ **模拟器环境中断，取证未完成**（**不是通过**）。需重跑，不能据此宣称通过。" ;;
+            esac
+            echo ""
+            echo '```'
+            tail -4 device-results/verdict.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          case "$CODE" in
+            0) exit 0 ;;
+            1) echo "::error::API ${{ matrix.api }} 断言失败（实现问题）"; exit 1 ;;
+            *) echo "::error::API ${{ matrix.api }} 模拟器环境中断，取证未完成（不是通过）"; exit 2 ;;
+          esac
+
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
