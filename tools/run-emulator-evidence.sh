@@ -57,6 +57,17 @@ MODE="${MODE:-all}"
 
 mkdir -p "$OUT_DIR"
 
+# 兜底结论：先写"未完成"，后续任一分支成功再覆盖。
+#
+# 为什么：脚本可能在任何一步被打断（模拟器没起来、job 超时被 kill、
+# runner 回收），此时若一行都不写，汇总脚本只能报 `viewer(not-run)`，
+# 连"是设备测试失败还是根本没跑到"都分不清（run 45467668904 即此）。
+# 先落一份 2（未完成），任何真实结论都会把它覆盖掉。
+case "$MODE" in
+  probe) echo "viewer exit=na  # MODE=probe，本 job 不跑设备测试" > "$OUT_DIR/viewer-exit.txt" ;;
+  *)     echo "viewer exit=2  # 兜底：脚本未跑完（环境中断）" > "$OUT_DIR/viewer-exit.txt" ;;
+esac
+
 # 设备侧证据目录（测试自己写的失败现场）
 DEVICE_EVIDENCE_DIR="/sdcard/Android/data/$TEST_PKG/files/liquid-glass-failures"
 
