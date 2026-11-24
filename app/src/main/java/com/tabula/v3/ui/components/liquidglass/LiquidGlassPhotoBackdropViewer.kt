@@ -47,16 +47,23 @@ fun LiquidGlassPhotoBackdropViewer(
     backdropSpec: LiquidGlassBackdropSpec = LiquidGlassBackdropSpec.Default,
     state: LiquidGlassBackdropState = rememberLiquidGlassBackdropState(),
     content: @Composable BoxScope.() -> Unit,
-    topBar: @Composable BoxScope.(sampled: Boolean) -> Unit
+    topBar: @Composable BoxScope.(decision: ViewerBackdropDecision) -> Unit
 ): PhotoBackdropAttachment {
-    val sampled = shouldAttachPhotoBackdrop(
+    // 两层门控（接不接背景 / 此刻能不能采）收敛成一个值：
+    // **同一个 decision 同时驱动 UI 分支与审计行**，二者不可能分叉。
+    // 早期实现里 topBar 只收到一个 Boolean，审计行另外去读
+    // LiquidGlassBackdropState.lastPlan——而回退时玻璃节点根本不渲染，
+    // lastPlan 会停在上一轮采样结果上（详见 ViewerBackdropDecision 的注释）。
+    val decision = ViewerBackdropDecision.of(
         liquidGlassEnabled = liquidGlassEnabled,
         sdkInt = Build.VERSION.SDK_INT,
-        hasPhoto = photo != null
+        hasPhoto = photo != null,
+        viewerSync = backdropSpec.viewerSync
     )
-    // 查看器在翻页/放大/拖动时也要"不采样"：这与 shouldAttachPhotoBackdrop
-    // 的门控是两个层次——那个决定"要不要接背景"，这个决定"此刻能不能采"。
-    val viewerCanSample = backdropSpec.viewerSync?.canSample ?: true
+    val sampled = decision.attachGateReason == BackdropFallbackReason.NONE
+    // 查看器在翻页/放大/拖动时也要"不采样"：这与 attach 门控是两个层次
+    // ——那个决定"要不要接背景"，这个决定"此刻能不能采"。
+    val viewerCanSample = decision.syncReason?.let { it == BackdropFallbackReason.NONE } ?: true
 
     // 照片换了（翻页 / 重新解码）必须让采样层重画：只改绘制内容不改几何时，
     // 这是唯一会触发重画的信号。
@@ -95,21 +102,26 @@ fun LiquidGlassPhotoBackdropViewer(
                 // 翻页/缩放/拖动期间采样层会按 viewerSync 回退，顶栏按钮也必须
                 // 同步回到原始材质——否则按钮还挂着背景来源，会显示"采到旧照片"
                 // 的错位效果。
-                topBar(viewerCanSample)
+                topBar(decision)
             }
         } else {
-            topBar(false)
+            topBar(decision)
         }
     }
 
     return PhotoBackdropAttachment(
         state = state,
-        sampled = sampled && viewerCanSample
+        sampled = decision.sampling,
+        decision = decision
     )
 }
 
 /** [LiquidGlassPhotoBackdropViewer] 的返回结果：给调试预览输出审计标记用。 */
 data class PhotoBackdropAttachment(
     val state: LiquidGlassBackdropState,
-    val sampled: Boolean
+    val sampled: Boolean,
+    /** 本次渲染走的路径与原因；与 UI 分支同源，供调试预览与设备测试读取。 */
+    val decision: ViewerBackdropDecision = ViewerBackdropDecision(
+        attachGateReason = BackdropFallbackReason.NOT_DRAWN_YET
+    )
 )

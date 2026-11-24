@@ -112,7 +112,7 @@ import com.tabula.v3.ui.components.ActionIconButton
 import com.tabula.v3.ui.components.LocalLiquidGlassEnabled
 import com.tabula.v3.ui.components.MediaBadgeRow
 import com.tabula.v3.ui.components.MotionPhotoPlayer
-import com.tabula.v3.ui.components.liquidglass.BackdropAuditLine
+import com.tabula.v3.ui.components.liquidglass.ViewerBackdropAuditLine
 import com.tabula.v3.ui.components.liquidglass.LiquidGlassPhotoBackdropViewer
 import com.tabula.v3.ui.components.liquidglass.rememberLiquidGlassBackdropState
 import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropSpec
@@ -931,11 +931,15 @@ private fun FullScreenViewer(
                 }
             }
         },
-        topBar = { sampled ->
-            // 采样审计出口：把生产组件自己的方案暴露成一行 `AUDIT ...`。
-            // 只用于 debug 变体（设备测试读它来验证"翻页/放大/拖动时真的回退了"），
-            // release 里这个 Text 不渲染、也不参与任何布局。
-            BackdropAuditLine(state = backdropAuditState, viewerSync = viewerSync)
+        topBar = { decision ->
+            // 采样审计出口：整行由 decision 生成，而 decision 同时决定下面渲染
+            // 哪条分支——审计行与界面同源，不可能出现"读数说在采样、屏幕在回退"。
+            // 只用于 debug 变体；release 里不渲染、不参与布局。
+            ViewerBackdropAuditLine(
+                decision = decision,
+                state = backdropAuditState,
+                viewerSync = viewerSync
+            )
 
             // 顶部渐变遮罩 + 关闭按钮 + 页码
             Box(
@@ -949,7 +953,7 @@ private fun FullScreenViewer(
                     .statusBarsPadding()
                     .padding(horizontal = 8.dp, vertical = 8.dp)
             ) {
-                if (sampled) {
+                if (decision.sampling) {
                     // 真实生产接入：关闭按钮走液态玻璃，采到的就是它下面那张照片。
                     // 背景来源已由 LiquidGlassPhotoBackdropViewer 经 CompositionLocal 下发。
                     ActionIconButton(

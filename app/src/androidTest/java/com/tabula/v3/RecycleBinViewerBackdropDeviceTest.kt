@@ -1,6 +1,7 @@
 package com.tabula.v3
 
 import android.Manifest
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.os.SystemClock
@@ -13,6 +14,7 @@ import com.tabula.v3.data.repository.LocalImageRepository
 import com.tabula.v3.data.repository.RecycleBinManager
 import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.ui.components.liquidglass.BackdropFallbackReason
+import com.tabula.v3.ui.components.liquidglass.LIQUID_GLASS_BACKDROP_MIN_SDK
 import com.tabula.v3.ui.components.liquidglass.ViewerBackdropSync
 import com.tabula.v3.ui.components.liquidglass.shouldAttachPhotoBackdrop
 import com.tabula.v3.ui.components.liquidglass.shouldLoadBackdropPhoto
@@ -20,6 +22,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -32,35 +35,41 @@ import java.io.FileInputStream
  *
  * ## 为什么必须有这个测试
  *
- * 采样层是**另一份**静止的 `ContentScale.Fit` Bitmap（[LiquidGlassPhotoBackdropViewer]
- * 里画一次），而查看器的照片经 `HorizontalPager` 平移、`graphicsLayer{scale/translation}`
- * 缩放拖动。两者只在"没翻页、没放大、没拖动"时才是同一幅画面。此前只有
- * JVM 层的 `ViewerBackdropSync` 单测，**没有任何测试操作过真实查看器**——
- * 也就是说"真实页面上真的会回退"这件事从未被验证。
+ * 采样层是**另一份**静止的 `ContentScale.Fit` Bitmap，而查看器的照片经
+ * `HorizontalPager` 平移、`graphicsLayer{scale/translation}` 缩放拖动。
+ * 两者只在"没翻页、没放大、没拖动"时才是同一幅画面。此前只有 JVM 层的
+ * `ViewerBackdropSync` 单测，**没有任何测试操作过真实查看器**。
  *
- * ## 本测试做什么
+ * ## 生产门控（这决定了本测试在每个 API 上验什么）
  *
- * 操作**真实**的 `RecycleBinScreen` → `FullScreenViewer`（不是预览页、不是替身），
- * 覆盖四个状态并检查采样方案：
+ * `MainActivity` 里是 `liquidGlassEnabled = liquidGlassLabEnabled && SDK_INT >= 35`。
+ * 也就是说：
  *
- * | 场景 | 期望 |
- * | --- | --- |
- * | 静止（翻页完成） | `sampled=true`，`reason=NONE` |
- * | 翻页中 | `sampled=false`，`reason=VIEWER_SCROLLING` |
- * | 放大后 | `sampled=false`，`reason=VIEWER_TRANSFORMED` |
- * | 拖动后 | `sampled=false`，`reason=VIEWER_TRANSFORMED` |
+ * - **API 35+**：真实生产入口会启用液态玻璃 → 本测试验证完整六步
+ *   （静止采样 / 翻页回退 / 翻页后恢复 / 放大回退 / 拖动回退 / 复原后恢复）；
+ * - **API 33–34**：真实生产入口**按设计不启用**液态玻璃 → 本测试验证
+ *   **符合门控的回退**（`reason=DISABLED`，按钮走普通路径、不发起采样加载）。
+ *   底层采样能力由组件级/预览测试覆盖，**不在这里冒充"真实入口采样通过"**。
+ *
+ * 因此测试不会在 API 33 上假装验证了采样——那需要在预览页把门控强行打开，
+ * 而那不是生产入口。
  *
  * ## 采样方案怎么读出来
  *
- * 查看器把当前方案写进 `LiquidGlassBackdropState`，并由顶栏遮罩上的隐藏审计
- * 文本暴露成一行 `AUDIT ...`（与调试预览同格式，见 `auditMarkers`）。测试从
- * 无障碍树读这一行——读的是**生产组件自己的状态**，不是测试另算一遍。
+ * 顶栏的 `ViewerBackdropAuditLine` 输出的 `AUDIT ...` 行，**由驱动 UI 分支的
+ * 同一个 decision 生成**（`path=glass|fallback` 直接标明走了哪条路）。测试读
+ * 无障碍树里的这一行——读的是生产渲染决策，不是测试另算一遍。
  *
- * ## 环境前提
+ * ## 夹具为什么是 4 张（不是 3 张）
  *
- * - 模拟器（`allowSyntheticMediaProbe=true`、HARDWARE=ranchu/goldfish），
- *   与其它设备测试同口径；
- * - 需要 API 33+（采样层门槛）；低版本直接跳过并记录原因，不伪装通过。
+ * 早先版本造 3 张照片并**全部**移入回收站，于是普通图库为空。空图库时
+ * `DeckScreen` 进 `EmptyState`，而 `EmptyState` 里没有 TopBar——「回收站」
+ * 入口根本不存在，`waitFor("回收站")` 必然超时。run 45421997727 的
+ * `timed out waiting for 回收站` 就是这个原因。
+ *
+ * 注意：**空图库保留顶部栏是 #84 的功能修复（`166d236`），不属于 #92**。
+ * #92 这里只做两件事：夹具留一张照片在图库（让入口存在）、并把第 4 张也
+ * 纳入清理。空图库入口的回归由 #84 的组合分支验证。
  */
 @RunWith(AndroidJUnit4::class)
 class RecycleBinViewerBackdropDeviceTest {
@@ -75,28 +84,24 @@ class RecycleBinViewerBackdropDeviceTest {
     /** 查看器页码锚（FullScreenViewer 顶栏中央）。 */
     private val PAGE_ANCHOR = Regex("^\\d+ / \\d+$")
 
-    /** 审计行前缀（`auditMarkers` 的输出形状）。 */
+    /** 审计行前缀。 */
     private val AUDIT_PREFIX = "AUDIT "
 
     private val seeded = mutableListOf<String>()
 
+    /** 生产门控是否会在本机启用液态玻璃（与 MainActivity 同一判据）。 */
+    private fun productionGlassEnabled(): Boolean =
+        android.os.Build.VERSION.SDK_INT >= 35
+
     @Before
     fun requireEmulator() {
-        // 与 FullRecoveryUi/PartialSelectionUi 同口径：合成媒体探针必须显式开启，
-        // 且必须是模拟器——真机不跑（会写真实相册）。
         check(InstrumentationRegistry.getArguments().getString("allowSyntheticMediaProbe") == "true")
         check(android.os.Build.HARDWARE in setOf("ranchu", "goldfish"))
 
-        // 权限自备，不依赖 CI 在外部 pm grant：
-        // 少一个"外部前置没做 → 测试红了但看不出原因"的失败模式。
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             ui.shellScript("pm grant ${ctx.packageName} ${Manifest.permission.READ_MEDIA_IMAGES} 2>&1")
         }
 
-        // 引导页必须跳过，否则 `ui.launch()` 之后停在引导/免责声明，
-        // 主界面起不来、等不到"回收站"锚点（run 45417285631：
-        // `timed out waiting for 回收站`）。同目录其它设备测试都显式设置这两项，
-        // 本测试原先漏了。
         AppPreferences(ctx).apply {
             hasCompletedOnboarding = true
             hasAcknowledgedDisclaimer = true
@@ -105,10 +110,6 @@ class RecycleBinViewerBackdropDeviceTest {
 
     @After
     fun cleanup() {
-        // 必须是块体函数：`= runBlocking { ... }` 会让返回类型变成最后一句的类型
-        // （这里是 List<Unit>），JUnit4 报
-        //   Invalid test class ... Method cleanup() should be void
-        // 并拒绝加载整个测试类——六步断言一条都不会执行。
         kotlinx.coroutines.runBlocking {
             runCatching {
                 val manager = RecycleBinManager.getInstance(ctx)
@@ -135,125 +136,199 @@ class RecycleBinViewerBackdropDeviceTest {
     @Test
     fun viewerBackdropFallsBackWhileScrollingZoomingAndPanning() {
         kotlinx.coroutines.runBlocking {
-        // API 门槛：采样层要求 33+。低于门槛时这条测试没有意义——
-        // 明确跳过并记录，而不是让它"碰巧通过"。
-        if (android.os.Build.VERSION.SDK_INT < 33) {
-            Log.i(TAG, "skip: API ${android.os.Build.VERSION.SDK_INT} < 33，采样层不存在")
-            return@runBlocking
-        }
+            if (android.os.Build.VERSION.SDK_INT < LIQUID_GLASS_BACKDROP_MIN_SDK) {
+                Log.i(TAG, "skip: API ${android.os.Build.VERSION.SDK_INT} < $LIQUID_GLASS_BACKDROP_MIN_SDK")
+                return@runBlocking
+            }
 
-        // 实验室开关必须打开，否则生产入口根本不会接背景
-        AppPreferences(ctx).liquidGlassLabEnabled = true
-        assertTrue(
-            "前置：开关打开且 API 达标时必须加载采样照片",
-            shouldLoadBackdropPhoto(liquidGlassEnabled = true, sdkInt = android.os.Build.VERSION.SDK_INT)
-        )
+            // ===== 夹具：4 张，3 张进回收站、1 张留在图库 =====
+            //
+            // 留一张在图库是**必需**的：全空图库时 DeckScreen 进 EmptyState，
+            // 那里没有 TopBar，「回收站」入口不存在（run 45421997727 的超时）。
+            // 空图库入口本身由 #84 修（166d236），不在本 PR 范围。
+            val allNames = (1..4).map { index ->
+                val uri = FullRecoveryStateContract.seedPhoto(ctx, index)
+                val name = requireNotNull(
+                    ctx.contentResolver.query(
+                        uri,
+                        arrayOf(android.provider.MediaStore.MediaColumns.DISPLAY_NAME),
+                        null, null, null
+                    )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+                )
+                seeded += name
+                name
+            }
+            // 第 4 张留在图库（不加入回收站）
+            val binNames = allNames.take(3)
 
-        // 造 3 张照片并移入回收站，让查看器有可翻的页
-        val names = (1..3).map { index ->
-            val uri = FullRecoveryStateContract.seedPhoto(ctx, index)
-            val name = requireNotNull(
-                ctx.contentResolver.query(
-                    uri,
-                    arrayOf(android.provider.MediaStore.MediaColumns.DISPLAY_NAME),
-                    null, null, null
-                )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+            val rows = LocalImageRepository(ctx).loadAllData().allImages
+                .filter { row -> binNames.any { row.displayName == it } }
+            assertEquals("前置：3 张夹具照片都要能被图库读到", 3, rows.size)
+            RecycleBinManager.getInstance(ctx).addAllToRecycleBin(rows)
+
+            // 走真实入口：图库 → 回收站 → 点开照片 → 全屏查看器
+            ui.launch()
+            ui.waitFor("回收站", timeoutMs = 45000)
+            ui.tap("回收站")
+            ui.waitFor(BIN_COUNT_ANCHOR, timeoutMs = 45000)
+            openFirstPhoto()
+
+            if (!productionGlassEnabled()) {
+                // ===== API 33–34：验证**符合生产门控的回退** =====
+                //
+                // 生产入口在这些版本上不启用液态玻璃，所以正确的行为是：
+                // 顶栏走普通按钮、不采样、不发起采样图片加载。
+                // 这里**不**验证底层采样能力——那需要绕过生产门控，属于预览/组件测试。
+                val fallback = awaitAudit { it["sampled"] == "false" }
+                assertNotNull(
+                    "API ${android.os.Build.VERSION.SDK_INT}：生产门控关闭时必须回退" +
+                        "（实际：${latestAuditText()}）",
+                    fallback
+                )
+                assertEquals(
+                    "回退原因必须是 DISABLED（生产门控未开启），不是别的分支",
+                    BackdropFallbackReason.DISABLED.name,
+                    fallback!!["reason"]
+                )
+                assertEquals(
+                    "按钮必须走回退路径（path=fallback）",
+                    "fallback",
+                    fallback["path"]
+                )
+                assertFalse(
+                    "门控关闭时不得加载采样照片",
+                    shouldLoadBackdropPhoto(
+                        liquidGlassEnabled = false,
+                        sdkInt = android.os.Build.VERSION.SDK_INT
+                    )
+                )
+                Log.i(TAG, "API ${android.os.Build.VERSION.SDK_INT}: 按生产门控回退，已验证")
+                return@runBlocking
+            }
+
+            // ===== API 35+：真实生产入口启用液态玻璃，验证完整六步 =====
+            assertTrue(
+                "前置：API 35+ 时生产入口必须启用液态玻璃",
+                shouldLoadBackdropPhoto(liquidGlassEnabled = true, sdkInt = android.os.Build.VERSION.SDK_INT)
             )
-            seeded += name
-            name
+
+            // ----- 1. 静止（翻页完成）：必须采样 -----
+            val settled = awaitAudit { audit ->
+                audit["sampled"] == "true" && audit["reason"] == "NONE"
+            }
+            assertNotNull(
+                "翻页完成、未缩放未拖动时必须采样（实际：${latestAuditText()}）",
+                settled
+            )
+            assertEquals("静止时不应有回退原因", "NONE", settled!!["reason"])
+            assertEquals("静止时按钮必须走玻璃路径", "glass", settled["path"])
+
+            // ----- 2. 翻页中：必须回退，且页码真的变了 -----
+            val pageBefore = currentPageNumber()
+            val scrolling = swipeAndReadMidScroll()
+            assertNotNull("翻页中必须回退（实际：${latestAuditText()}）", scrolling)
+            assertEquals(
+                "翻页中的回退原因必须是 VIEWER_SCROLLING",
+                BackdropFallbackReason.VIEWER_SCROLLING.name,
+                scrolling!!["reason"]
+            )
+            assertEquals("翻页中不能继续采样", "false", scrolling["sampled"])
+            assertEquals("翻页中按钮必须走回退路径", "fallback", scrolling["path"])
+
+            // 页码真的变了：证明这次滑动确实翻了页，而不是"原地震动"就通过
+            val pageAfter = awaitPageNumberChange(pageBefore, timeoutMs = 8000)
+            assertNotEquals(
+                "翻页必须真的改变页码（滑动前后都是 $pageBefore，说明没翻过去）",
+                pageBefore,
+                pageAfter
+            )
+
+            // ----- 3. 翻页完成后：必须恢复采样 -----
+            val afterSwipe = awaitAudit { audit ->
+                audit["sampled"] == "true" && audit["reason"] == "NONE"
+            }
+            assertNotNull(
+                "翻页完成后必须恢复采样，不能永久回退（实际：${latestAuditText()}）",
+                afterSwipe
+            )
+            assertEquals("恢复后必须回到玻璃路径", "glass", afterSwipe!!["path"])
+
+            // ----- 4. 放大后：必须回退 -----
+            doubleTapCenter()
+            val zoomed = awaitAudit { audit ->
+                audit["sampled"] == "false" &&
+                    audit["reason"] == BackdropFallbackReason.VIEWER_TRANSFORMED.name
+            }
+            assertNotNull(
+                "放大后必须回退为 VIEWER_TRANSFORMED（实际：${latestAuditText()}）",
+                zoomed
+            )
+            assertEquals("放大后按钮必须走回退路径", "fallback", zoomed!!["path"])
+            val zoomedScale = zoomed["scale"]?.toFloatOrNull() ?: 1f
+            assertTrue(
+                "放大态必须真的放大（scale=$zoomedScale，应 >1.05）",
+                zoomedScale > 1.05f
+            )
+
+            // ----- 5. 拖动后：必须回退，且平移量真的非零 -----
+            //
+            // 只断言 "sampled=false" 是不够的：如果一直停在放大态，
+            // 那条断言即使拖动没生效也会通过。必须证明 pan 真的变了。
+            val panBefore = zoomed["pan"] ?: "(0.0,0.0)"
+            dragOnce()
+            val panned = awaitAudit { audit ->
+                audit["sampled"] == "false" &&
+                    audit["reason"] == BackdropFallbackReason.VIEWER_TRANSFORMED.name &&
+                    audit["pan"] != panBefore
+            }
+            assertNotNull(
+                "拖动后必须产生非零位移且保持回退（pan 前=$panBefore 后=${latestAuditText()}）",
+                panned
+            )
+            assertNotEquals(
+                "拖动必须真的改变平移量（前后都是 $panBefore，说明拖动没生效）",
+                panBefore,
+                panned!!["pan"]
+            )
+
+            // ----- 6. 复原原比例后：必须恢复采样 -----
+            doubleTapCenter()
+            val restored = awaitAudit { audit ->
+                audit["sampled"] == "true" && audit["reason"] == "NONE"
+            }
+            assertNotNull(
+                "缩回原比例后必须恢复采样（实际：${latestAuditText()}）",
+                restored
+            )
+            assertEquals("恢复后必须回到玻璃路径", "glass", restored!!["path"])
         }
-        val rows = LocalImageRepository(ctx).loadAllData().allImages
-            .filter { row -> names.any { row.displayName == it } }
-        assertEquals("前置：3 张夹具照片都要能被图库读到", 3, rows.size)
-        RecycleBinManager.getInstance(ctx).addAllToRecycleBin(rows)
-
-        // 走真实入口：图库 → 回收站 → 点开照片 → 全屏查看器
-        ui.launch()
-        ui.waitFor("回收站", timeoutMs = 30000)
-        ui.tap("回收站")
-        ui.waitFor(BIN_COUNT_ANCHOR, timeoutMs = 30000)
-        openFirstPhoto()
-
-        // ===== 1. 静止（翻页完成）：必须采样 =====
-        val settled = awaitAudit { audit ->
-            audit["sampled"] == "true" && audit["reason"] == "NONE"
-        }
-        assertNotNull(
-            "翻页完成、未缩放未拖动时必须采样（实际：${latestAuditText()}）",
-            settled
-        )
-        assertEquals("静止时不应有回退原因", "NONE", settled!!["reason"])
-
-        // ===== 2. 翻页中：必须回退 =====
-        // 用一次跨屏滑动制造"正在翻页"。滑动结束后 pager 会吸附到整页，
-        // 因此"翻页中"的判定必须在滑动进行中读取。
-        val scrolling = swipeAndReadMidScroll()
-        assertNotNull(
-            "翻页中必须回退（实际：${latestAuditText()}）",
-            scrolling
-        )
-        assertEquals(
-            "翻页中的回退原因必须是 VIEWER_SCROLLING",
-            BackdropFallbackReason.VIEWER_SCROLLING.name,
-            scrolling!!["reason"]
-        )
-        assertEquals("翻页中不能继续采样", "false", scrolling["sampled"])
-
-        // ===== 3. 翻页完成后：必须恢复采样 =====
-        val afterSwipe = awaitAudit { audit ->
-            audit["sampled"] == "true" && audit["reason"] == "NONE"
-        }
-        assertNotNull(
-            "翻页完成后必须恢复采样，不能永久回退（实际：${latestAuditText()}）",
-            afterSwipe
-        )
-
-        // ===== 4. 放大后：必须回退 =====
-        doubleTapCenter()
-        val zoomed = awaitAudit { audit ->
-            audit["sampled"] == "false" &&
-                audit["reason"] == BackdropFallbackReason.VIEWER_TRANSFORMED.name
-        }
-        assertNotNull(
-            "放大后必须回退为 VIEWER_TRANSFORMED（实际：${latestAuditText()}）",
-            zoomed
-        )
-
-        // ===== 5. 拖动后：必须回退 =====
-        // 放大态下才有可拖动的余量（生产 clampOffset 在 scale=1 时把偏移钳到 0）
-        dragOnce()
-        val panned = awaitAudit { audit ->
-            audit["sampled"] == "false" &&
-                audit["reason"] == BackdropFallbackReason.VIEWER_TRANSFORMED.name
-        }
-        assertNotNull(
-            "拖动后必须保持回退为 VIEWER_TRANSFORMED（实际：${latestAuditText()}）",
-            panned
-        )
-
-        // ===== 6. 双指缩回原比例后：必须恢复采样 =====
-        // 这条是"回退不是永久状态"的反向证明
-        doubleTapCenter()
-        val restored = awaitAudit { audit ->
-            audit["sampled"] == "true" && audit["reason"] == "NONE"
-        }
-        assertNotNull(
-            "缩回原比例后必须恢复采样（实际：${latestAuditText()}）",
-            restored
-        )
-    }
     }
 
     // ==================== 真实 UI 驱动 ====================
 
     private fun openFirstPhoto() {
-        // 回收站列表里点第一张照片 → 进入全屏查看器（列表页没有"恢复"，
-        // 恢复只在点开后的查看器底部，见 #84 交接记录）
         val node = ui.waitFor(seeded.first(), timeoutMs = 30000)
         val bounds = Rect().also { node.getBoundsInScreen(it) }
         check(!bounds.isEmpty) { "照片格 bounds 为空" }
         ui.shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
         awaitText(PAGE_ANCHOR, timeoutMs = 20000)
+    }
+
+    /** 当前页码（`3 / 5` 里的 3）；读不到返回 -1。 */
+    private fun currentPageNumber(): Int {
+        val node = findText(PAGE_ANCHOR) ?: return -1
+        return node.text?.toString()?.substringBefore(' ')?.toIntOrNull() ?: -1
+    }
+
+    /** 等页码离开 [from]；超时返回当前页码（调用方据此断言"没变"）。 */
+    private fun awaitPageNumberChange(from: Int, timeoutMs: Long): Int {
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        while (SystemClock.uptimeMillis() < deadline) {
+            val now = currentPageNumber()
+            if (now > 0 && now != from) return now
+            SystemClock.sleep(100)
+        }
+        return currentPageNumber()
     }
 
     /**
@@ -282,12 +357,11 @@ class RecycleBinViewerBackdropDeviceTest {
             SystemClock.sleep(30)
         }
         swiper.join(5000)
-        // 滑动可能把页面停在中间；等它吸附完成，后续步骤才有确定起点
         SystemClock.sleep(1200)
         return hit
     }
 
-    /** 双击画面中心 → 放大到 3x（生产 `doubleTapScale`）。 */
+    /** 双击画面中心 → 放大（生产 `doubleTapScale`）。 */
     private fun doubleTapCenter() {
         val (x, y) = screenCenter()
         ui.shell("input tap $x $y")
@@ -313,7 +387,6 @@ class RecycleBinViewerBackdropDeviceTest {
 
     // ==================== 审计行读取 ====================
 
-    /** 无障碍树里最新的 `AUDIT ...` 行。 */
     private fun latestAuditText(): String? {
         val node = auditNodes().firstOrNull() ?: return null
         val raw = node.text?.toString()?.takeIf { it.startsWith(AUDIT_PREFIX) }
@@ -330,8 +403,6 @@ class RecycleBinViewerBackdropDeviceTest {
 
     private fun collectAudit(node: AccessibilityNodeInfo?, out: MutableList<AccessibilityNodeInfo>) {
         if (node == null) return
-        // 生产侧把审计行同时写进 text 与 contentDescription：
-        // 透明 1sp 文本在部分系统上不进 text，但 contentDescription 一定可读。
         val text = node.text?.toString()
         val desc = node.contentDescription?.toString()
         if ((text != null && text.startsWith(AUDIT_PREFIX)) ||
@@ -342,7 +413,12 @@ class RecycleBinViewerBackdropDeviceTest {
         for (i in 0 until node.childCount) collectAudit(node.getChild(i), out)
     }
 
-    /** `AUDIT sampled=true reason=NONE glass=... ` → map。 */
+    /**
+     * `AUDIT sampled=.. reason=.. path=.. glass=.. pan=(x,y) ..` → map。
+     *
+     * `pan=(12.5,-3.0)` 这类带括号/逗号的值会按 `=` 切开后原样保留，
+     * 因此可以直接做"前后不相等"的比较。
+     */
     private fun readAudit(): Map<String, String>? {
         val line = latestAuditText() ?: return null
         val parsed = mutableMapOf<String, String>()
@@ -355,7 +431,6 @@ class RecycleBinViewerBackdropDeviceTest {
         return parsed.takeIf { it.containsKey("sampled") }
     }
 
-    /** 轮询直到审计行满足条件；超时返回 null（调用方按红灯处理）。 */
     private fun awaitAudit(
         timeoutMs: Long = 8000,
         predicate: (Map<String, String>) -> Boolean
@@ -390,18 +465,69 @@ class RecycleBinViewerBackdropDeviceTest {
         return null
     }
 
+    // ==================== 失败取证 ====================
+
+    /**
+     * 失败现场：截图 + 无障碍树 + 前台 Activity + 权限 + logcat。
+     *
+     * 写进 `getExternalFilesDir(null)/liquid-glass-failures/`，由
+     * `tools/run-emulator-evidence.sh` 在失败时整体拉回 CI artifact。
+     * 没有这些，"超时"只能靠猜（上一轮就是这样）。
+     */
     private fun saveEvidence(tag: String) {
         val dir = File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "liquid-glass-failures")
             .apply { mkdirs() }
-        ins.uiAutomation.takeScreenshot()?.let { bitmap ->
-            try {
-                dir.resolve("$tag-${SystemClock.uptimeMillis()}.png").outputStream().use {
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        val stamp = SystemClock.uptimeMillis()
+
+        // 截图
+        runCatching {
+            ins.uiAutomation.takeScreenshot()?.let { bitmap ->
+                try {
+                    dir.resolve("$tag-$stamp.png").outputStream().use {
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+                    }
+                } finally {
+                    bitmap.recycle()
                 }
-            } finally {
-                bitmap.recycle()
             }
         }
+
+        // 无障碍树（含每条文本，用于判断停在哪个界面）
+        runCatching {
+            val sb = StringBuilder()
+            fun walk(node: AccessibilityNodeInfo?, depth: Int) {
+                if (node == null || depth > 25) return
+                if (node.isVisibleToUser) {
+                    val rect = Rect().also { node.getBoundsInScreen(it) }
+                    sb.append("  ".repeat(depth))
+                        .append(node.className).append(" text=").append(node.text)
+                        .append(" desc=").append(node.contentDescription)
+                        .append(" bounds=").append(rect.toShortString())
+                        .append('\n')
+                }
+                for (i in 0 until node.childCount) walk(node.getChild(i), depth + 1)
+            }
+            walk(ins.uiAutomation.rootInActiveWindow, 0)
+            dir.resolve("$tag-$stamp-tree.txt").writeText(sb.toString())
+        }
+
+        // 前台 Activity + 权限状态
+        runCatching {
+            val focus = ui.shell("dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'")
+            val grants = ui.shell(
+                "dumpsys package ${ctx.packageName} | grep -E 'READ_MEDIA|READ_EXTERNAL'"
+            )
+            dir.resolve("$tag-$stamp-focus.txt").writeText("$focus\n$grants")
+        }
+
+        // logcat + crash buffer
+        runCatching {
+            val main = ui.shell("logcat -d -v threadtime")
+            val crash = ui.shell("logcat -d -b crash -v threadtime")
+            dir.resolve("$tag-$stamp-logcat.txt").writeText("$main\n=== crash ===\n$crash")
+        }
+
+        Log.i(TAG, "evidence saved: $tag (dir=$dir)")
     }
 
     companion object {

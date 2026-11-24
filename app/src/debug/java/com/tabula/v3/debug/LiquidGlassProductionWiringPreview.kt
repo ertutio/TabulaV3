@@ -89,7 +89,7 @@ fun LiquidGlassProductionWiringPreview(
                         // 真实页面里这里是 HorizontalPager；预览里背景已是照片，留空
                         Box(modifier = Modifier.fillMaxSize())
                     },
-                    topBar = { sampled -> ProductionTopBar(sampled = sampled) }
+                    topBar = { decision -> ProductionTopBar(sampled = decision.sampling) }
                 ).sampled
             }
 

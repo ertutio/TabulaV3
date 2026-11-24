@@ -199,7 +199,29 @@ fun shouldAttachPhotoBackdrop(
     liquidGlassEnabled: Boolean,
     sdkInt: Int,
     hasPhoto: Boolean
-): Boolean = liquidGlassEnabled &&
-    sdkInt >= LIQUID_GLASS_BACKDROP_MIN_SDK &&
-    hasPhoto
+): Boolean = photoBackdropAttachReason(
+    liquidGlassEnabled = liquidGlassEnabled,
+    sdkInt = sdkInt,
+    hasPhoto = hasPhoto
+) == BackdropFallbackReason.NONE
+
+/**
+ * 第 1 层门控的**原因**版本：不只回答"要不要接背景"，还回答"为什么不接"。
+ *
+ * 查看器需要把原因原样报进审计行，否则设备测试只能看到 `sampled=false`，
+ * 分不清是"开关关着""系统不支持"还是"照片没解码出来"——三种都是合法回退，
+ * 但只有最后一种会随照片加载完成而自愈。
+ *
+ * 判定顺序与 [shouldAttachPhotoBackdrop] 完全一致（后者就是它的布尔投影）。
+ */
+fun photoBackdropAttachReason(
+    liquidGlassEnabled: Boolean,
+    sdkInt: Int,
+    hasPhoto: Boolean
+): BackdropFallbackReason = when {
+    !liquidGlassEnabled -> BackdropFallbackReason.DISABLED
+    sdkInt < LIQUID_GLASS_BACKDROP_MIN_SDK -> BackdropFallbackReason.UNSUPPORTED_API
+    !hasPhoto -> BackdropFallbackReason.NO_BACKDROP
+    else -> BackdropFallbackReason.NONE
+}
 

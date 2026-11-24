@@ -42,6 +42,34 @@ def apk_stub(tmp: Path, name: str) -> Path:
     return path
 
 
+def fake_adb(tmp: Path) -> Path:
+    """假 adb：install/get-state 一律成功，其他输出为空。
+
+    本机没有模拟器，真 adb 每次调用都要等 1-2 秒（`no devices found`），
+    这套测试会从秒级变成分钟级甚至卡住。
+    """
+    bindir = tmp / "bin"
+    bindir.mkdir(exist_ok=True)
+    adb = bindir / "adb"
+    adb.write_text(
+        "#!/bin/sh\n"
+        'case "$1" in\n'
+        "  get-state) echo device ;;\n"
+        "esac\n"
+        "exit 0\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    adb.chmod(0o755)
+    return bindir
+
+
+def bash_path(*entries: str) -> str:
+    """拼 bash 能用的 PATH（Windows 上 os.pathsep 是 `;`，bash 只认 `:`）。"""
+    parts = [str(Path(e)).replace("\\", "/") for e in entries if e]
+    return ":".join(parts)
+
+
 def run(probe_exit: int, api_level: int, tmp: Path) -> tuple[int, str, dict]:
     env = dict(os.environ)
     env.update(
@@ -57,6 +85,10 @@ def run(probe_exit: int, api_level: int, tmp: Path) -> tuple[int, str, dict]:
             "APK_TEST": str(apk_stub(tmp, "app-debug-androidTest.apk")),
             # 假探针：不碰模拟器，只给出指定退出码
             "PROBE_CMD": f"bash -c 'exit {probe_exit}'",
+            # 只试一次安装：这里验的是退出码语义，不是重试策略
+            "INSTALL_ATTEMPTS": "1",
+            # 假 adb：本机没有设备，真 adb 每次调用都要等（曾让这套测试卡住）
+            "PATH": bash_path(fake_adb(tmp), os.environ.get("PATH", "").replace(";", ":")),
         }
     )
     # 用 bytes 收输出：Windows 上 bash 子进程的 stdout 偶尔拿不到文本流
