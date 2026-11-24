@@ -6,6 +6,9 @@ on:
       - feature/staged-cleanup-2026-11-23
       - feature/recent-albums-2026-11-23
       - feature/burst-selection-2026-11-23
+      - feature/duplicate-versions-2026-11-23
+      - feature/source-balance-2026-11-23
+      - feature/round-intent-2026-11-23
   workflow_dispatch:
 
 permissions:
