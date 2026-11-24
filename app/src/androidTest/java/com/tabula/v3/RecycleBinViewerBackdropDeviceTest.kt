@@ -95,27 +95,36 @@ class RecycleBinViewerBackdropDeviceTest {
     }
 
     @After
-    fun cleanup() = kotlinx.coroutines.runBlocking {
-        runCatching {
-            val manager = RecycleBinManager.getInstance(ctx)
-            val rows = manager.loadRecycleBin().filter { row ->
-                seeded.any { row.displayName.startsWith(it) }
+    fun cleanup() {
+        // 必须是块体函数：`= runBlocking { ... }` 会让返回类型变成最后一句的类型
+        // （这里是 List<Unit>），JUnit4 报
+        //   Invalid test class ... Method cleanup() should be void
+        // 并拒绝加载整个测试类——六步断言一条都不会执行。
+        kotlinx.coroutines.runBlocking {
+            runCatching {
+                val manager = RecycleBinManager.getInstance(ctx)
+                val rows = manager.loadRecycleBin().filter { row ->
+                    seeded.any { row.displayName.startsWith(it) }
+                }
+                if (rows.isNotEmpty()) {
+                    manager.removeAllFromRecycleBin(rows, permanentlyRemoved = true)
+                }
             }
-            if (rows.isNotEmpty()) manager.removeAllFromRecycleBin(rows, permanentlyRemoved = true)
-        }
-        runCatching {
-            seeded.forEach { prefix ->
-                ctx.contentResolver.delete(
-                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?",
-                    arrayOf("$prefix%")
-                )
+            runCatching {
+                seeded.forEach { prefix ->
+                    ctx.contentResolver.delete(
+                        android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?",
+                        arrayOf("$prefix%")
+                    )
+                }
             }
+            Unit
         }
     }
 
     @Test
-    fun viewerBackdropFallsBackWhileScrollingZoomingAndPanning() =
+    fun viewerBackdropFallsBackWhileScrollingZoomingAndPanning() {
         kotlinx.coroutines.runBlocking {
         // API 门槛：采样层要求 33+。低于门槛时这条测试没有意义——
         // 明确跳过并记录，而不是让它"碰巧通过"。
@@ -223,6 +232,7 @@ class RecycleBinViewerBackdropDeviceTest {
             "缩回原比例后必须恢复采样（实际：${latestAuditText()}）",
             restored
         )
+    }
     }
 
     // ==================== 真实 UI 驱动 ====================

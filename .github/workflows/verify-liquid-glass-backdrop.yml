@@ -177,6 +177,14 @@ jobs:
 
       # 真实查看器设备测试（RecycleBinViewerBackdropDeviceTest）需要 androidTest APK。
       # 之前这个 workflow 完全不跑 androidTest——新增的测试写了但没有任何 CI 覆盖。
+      # JUnit4 要求 @Test/@Before/@After 返回 void。Kotlin 表达式体
+      # （`fun cleanup() = runBlocking { }`）编得过，但真跑时报
+      # `Invalid test class ... should be void` 并拒绝加载**整个类**——
+      # 六步断言一条都不执行（run 45408968334）。assembleDebugAndroidTest
+      # 抓不到，只有模拟器真跑才炸，所以在这里做源码级闸门。
+      - name: AndroidTest lifecycle methods must be block bodies
+        run: python3 tools/check_androidtest_signatures.py
+
       - name: Assemble instrumented APK
         run: bash ./gradlew --no-daemon --stacktrace :app:assembleDebugAndroidTest
 
