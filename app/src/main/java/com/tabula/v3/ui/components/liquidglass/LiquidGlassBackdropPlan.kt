@@ -61,7 +61,21 @@ enum class BackdropFallbackReason {
     OUT_OF_SOURCE_BOUNDS,
 
     /** 还没画过一帧（调试预览首帧的初始值，不代表真实结论） */
-    NOT_DRAWN_YET
+    NOT_DRAWN_YET,
+
+    /**
+     * 查看器正在翻页：屏幕上的照片与采样层里那张不是同一幅。
+     *
+     * 采样层是静止的 `ContentScale.Fit` 绘制，而查看器用 `HorizontalPager` 平移
+     * 整页照片；两者在滚动期间必然错位。继续显示就是"错位采样"，因此必须回退。
+     */
+    VIEWER_SCROLLING,
+
+    /**
+     * 查看器处于放大或拖动状态：照片经 `graphicsLayer{scale/translation}` 变换，
+     * 采样层没有对应变换，边缘折射采到的会是"未放大的那张照片"。
+     */
+    VIEWER_TRANSFORMED
 }
 
 /** 采样层效果的运行状态；与"方案成立"分开报告，避免把未生效当成已生效。 */
@@ -132,9 +146,22 @@ fun planBackdropSample(
     glassBoundsInWindow: IntRect?,
     sourceBoundsInWindow: IntRect?,
     paddingPx: Int,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    /**
+     * 调用方（查看器）声明"此刻背景采样能否与屏幕照片保持一致"。
+     *
+     * 为 null 表示调用方不参与这个判断（调试预览、面板等静态场景）。
+     * 非 null 且不可采样时，按 [ViewerBackdropSync.fallbackReason] 回退——
+     * 这是"翻页/放大/拖动时不能继续显示错位采样"的落点。
+     */
+    viewerSync: ViewerBackdropSync? = null
 ): BackdropSamplePlan {
     if (!enabled) return BackdropSamplePlan.original(BackdropFallbackReason.DISABLED)
+    if (viewerSync != null && !viewerSync.canSample) {
+        return BackdropSamplePlan.original(
+            viewerSync.fallbackReason ?: BackdropFallbackReason.VIEWER_TRANSFORMED
+        )
+    }
     if (sdkInt < LIQUID_GLASS_BACKDROP_MIN_SDK) {
         return BackdropSamplePlan.original(BackdropFallbackReason.UNSUPPORTED_API)
     }

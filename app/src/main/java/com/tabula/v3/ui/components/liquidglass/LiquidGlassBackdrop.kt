@@ -363,7 +363,10 @@ class LiquidGlassBackdropSampling internal constructor(
             glassBoundsInWindow = glassBoundsState,
             sourceBoundsInWindow = source.boundsOrNull(),
             paddingPx = padding,
-            enabled = spec.enabled
+            enabled = spec.enabled,
+            // 查看器在翻页/放大/拖动时声明"此刻不可保证一致"，这里据此回退，
+            // 而不是继续显示一张与屏幕错位的采样。
+            viewerSync = spec.viewerSync
         )
         SideEffect { source.reportPlan(plan, glassBoundsState, isPrimary) }
 

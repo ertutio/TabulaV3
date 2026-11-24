@@ -2,7 +2,11 @@ name: Verify liquid glass backdrop prototype
 
 on:
   push:
-    branches: [feature/liquid-glass-material-2026-11-23]
+    branches:
+      - feature/liquid-glass-material-2026-11-23
+      # 堆叠分支（#92）：生产接线验证必须在它自己的 HEAD 上跑，
+      # 否则 #92 的探针改动没有任何 CI 覆盖。
+      - feature/liquid-glass-topbar-actions-2026-11-23
   pull_request:
     branches: [master]
     paths:
@@ -45,7 +49,6 @@ jobs:
       # 因此这里直接把 jar 下到 Robolectric 的本地仓库目录，多镜像 + 重试，
       # 预置好了后续测试就完全离线。
       - name: Prefetch Robolectric android-all
-        # 预取失败不阻断（后续测试会在有网时自己下载），但失败会在日志里可见。
         continue-on-error: true
         run: |
           set -u
@@ -108,9 +111,13 @@ jobs:
               "LiquidGlassBackdropRefractionTest": 26,
               "LiquidGlassBackdropShaderContractTest": 5,
               "LiquidGlassBackdropShapeTest": 8,
-              "LiquidGlassBackdropSizeContractTest": 13,
-              "LiquidGlassDisplacementOnlyControlTest": 3,
-              "LiquidGlassLayoutContractTest": 8,
+              "LiquidGlassBackdropSizeContractTest": 14,
+              "LiquidGlassCompactControlTest": 6,
+              "LiquidGlassDisplacementOnlyControlTest": 4,
+              "LiquidGlassLayoutContractTest": 10,
+              "LiquidGlassPhotoBackdropTest": 12,
+              "LiquidGlassViewerBackdropSyncTest": 19,
+              "LiquidGlassBackdropLoadGateTest": 6,
           }
           found = {}
           for path in glob.glob("app/build/test-results/testDebugUnitTest/*liquidglass*.xml"):
@@ -133,8 +140,8 @@ jobs:
                   print(f"OK {name} tests={actual[0]}")
           total = sum(v[0] for v in found.values())
           print(f"liquidglass total tests={total}")
-          if total < 91:
-              print(f"EXPECTED at least 91 liquid glass tests, got {total}")
+          if total < 141:
+              print(f"EXPECTED at least 141 liquid glass tests, got {total}")
               ok = False
           sys.exit(0 if ok else 1)
           PY
@@ -168,6 +175,11 @@ jobs:
       - name: Assemble debug and release
         run: bash ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:assembleRelease
 
+      # 真实查看器设备测试（RecycleBinViewerBackdropDeviceTest）需要 androidTest APK。
+      # 之前这个 workflow 完全不跑 androidTest——新增的测试写了但没有任何 CI 覆盖。
+      - name: Assemble instrumented APK
+        run: bash ./gradlew --no-daemon --stacktrace :app:assembleDebugAndroidTest
+
       - name: Verify the debug preview entry exists only in debug
         run: |
           APK_DEBUG=app/build/outputs/apk/debug/app-debug.apk
@@ -191,6 +203,8 @@ jobs:
         run: |
           mkdir -p artifacts
           cp app/build/outputs/apk/debug/app-debug.apk artifacts/TabulaV3-liquid-glass-debug.apk || true
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
+             artifacts/TabulaV3-liquid-glass-androidTest.apk || true
           cp app/build/outputs/apk/release/app-release-unsigned.apk artifacts/TabulaV3-liquid-glass-release-unsigned.apk || true
           sha256sum artifacts/*.apk > artifacts/SHA256SUMS.txt || true
 
@@ -215,7 +229,7 @@ jobs:
         # 33 = 采样层最低门槛；35 = 生产入口实际生效的版本；31 = 应该仍走原有显示
         api: [31, 33, 35]
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -240,26 +254,30 @@ jobs:
           set -euo pipefail
           mkdir -p device-results
           mkdir -p app/build/outputs/apk/debug
+          mkdir -p app/build/outputs/apk/androidTest/debug
           cp ci-artifacts/artifacts/TabulaV3-liquid-glass-debug.apk \
              app/build/outputs/apk/debug/app-debug.apk
           sha256sum app/build/outputs/apk/debug/app-debug.apk
-      # 模拟器实例在本 runner 上会偶发整体掉线（表现为
-      # `adb: device 'emulator-5554' not found`，随后所有命令失败）。
-      # 这种失败与采样层无关，因此不让它把整个 PR 判红；
+          cp ci-artifacts/artifacts/TabulaV3-liquid-glass-androidTest.apk \
+             app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          sha256sum app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+
       # ===== 结果语义（本 job 的核心约束）=====
       #
       # 之前这里用 `continue-on-error: true`，后果是**断言失败也显示绿色**：
       # 模拟器跑完了、某条检查 ok=false，job 依然是 success，只能靠人下载
-      # artifact 才能发现。这与"断言失败必须失败"直接冲突，已移除。
+      # artifact 才能发现。这与"断言失败必须失败"直接冲突。
       #
-      # 现在三态互不混淆：
-      #   0 通过 / 1 断言失败（实现问题）/ 2 环境中断或证据缺失（未完成）
-      # 断言失败**优先于**环境中断——真失败不能被"模拟器抖动"盖过去。
-      # 判定规则见 tools/summarize-glass-evidence.py，有单测钉住。
+      # 现在分三段，语义互不混淆：
       #
-      # 注意：`script:` 由 android-emulator-runner 用 `/usr/bin/sh`（dash）
-      # **逐行**执行，跨行变量与 `set -o pipefail` 都会炸，所以逻辑全在
-      # tools/run-emulator-evidence.sh 里，这里只留一行调用。
+      # 1. 探针退出码 0  → 所有断言通过 → **通过**
+      # 2. 探针退出码 1  → 有断言失败     → **失败**（step 直接红，job 红）
+      # 3. 探针退出码 2  → 环境中断（模拟器掉线/adb 失联）
+      #                   → step 仍红，但**另写一条明确标注**，并把结论写进
+      #                     job summary；这一项在 PR 上表现为"未完成"，不是
+      #                     "通过"。允许重跑，但绝不冒充成功。
+      #
+      # 探针侧的退出码契约见 tools/run-liquid-glass-preview-probe.py 末尾。
       - name: Capture preview evidence on the emulator
         id: probe
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
@@ -273,12 +291,23 @@ jobs:
           disk-size: 8G
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
           disable-animations: true
+          # 逻辑在 tools/run-emulator-evidence.sh 里，不写在这里：
+          # android-emulator-runner 用 `/usr/bin/sh`（dash）逐行执行，
+          # 跨行变量和 `set -o pipefail` 都会炸（run 45368399281 即此）。
+          # 显式 bash：脚本用了 [[ ]] 之外仍是 POSIX 语法，但用 bash 能保证
+          # 行为确定。逻辑全在脚本里，见文件头的踩坑记录。
           script: API_LEVEL=${{ matrix.api }} bash tools/run-emulator-evidence.sh
+
 
       - name: Summarize evidence outcome
         if: always()
         run: |
           set -uo pipefail
+          # 三态结论由 tools/summarize-glass-evidence.py 判定，规则有单测钉住：
+          #   0 = 探针 + 真实查看器设备测试都通过
+          #   1 = 有断言失败（实现问题，必须修）
+          #   2 = 环境中断 / 证据缺失（**未完成，不是通过**）
+          # 断言失败优先于环境中断，避免真失败被"模拟器抖动"掩盖。
           set +e
           python3 tools/summarize-glass-evidence.py \
             --api "${{ matrix.api }}" \
@@ -290,7 +319,7 @@ jobs:
           {
             echo "### API ${{ matrix.api }} 取证结果"
             case "$CODE" in
-              0) echo "✅ 全部检查通过。" ;;
+              0) echo "✅ 探针与真实查看器设备测试全部通过。" ;;
               1) echo "❌ **断言失败** —— 实现问题，必须修复，不是环境抖动。" ;;
               *) echo "⚠️ **模拟器环境中断，取证未完成**（**不是通过**）。需重跑，不能据此宣称通过。" ;;
             esac
@@ -312,3 +341,15 @@ jobs:
           name: Tabula-liquid-glass-emulator-API${{ matrix.api }}
           path: device-results/
           if-no-files-found: warn
+
+      # 明确区分"环境中断"：模拟器掉线时 adb 失联，探针会写
+      # environment_unavailable 并以退出码 2 结束。这一条**不掩盖**上一条的红色，
+      # 只是把原因标注清楚，避免读者把它误读成实现缺陷。
+      - name: Flag environment interruption
+        if: always()
+        run: |
+          ERR_FILE=device-results/error-summary.json
+          if [ -f "$ERR_FILE" ] && grep -q 'environment_unavailable' "$ERR_FILE"; then
+            echo "::warning::API ${{ matrix.api }} 模拟器环境中断，本轮取证未完成——未完成不等于通过"
+            echo "⚠️ API ${{ matrix.api }}：模拟器环境中断，取证**未完成**（不是通过）" >> "$GITHUB_STEP_SUMMARY"
+          fi

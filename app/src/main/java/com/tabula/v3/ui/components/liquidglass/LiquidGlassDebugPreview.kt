@@ -15,7 +15,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Photo
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -26,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,6 +42,9 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tabula.v3.ui.components.ActionIconButton
+import com.tabula.v3.ui.components.LocalLiquidGlassBackdrop
+import com.tabula.v3.ui.components.LocalLiquidGlassEnabled
 import com.tabula.v3.ui.components.PhysicalLiquidGlassBox
 import com.tabula.v3.ui.components.PhysicalLiquidGlassConfig
 
@@ -164,11 +171,56 @@ fun LiquidGlassDebugPreview(
                 background = background
             )
 
+            // 顶部操作按钮的真实接入形态：走**生产组件** LiquidGlassPhotoBackdropViewer
+            // 的同一套门控与 CompositionLocal 下发，而不是另写一份近似实现。
+            // 预览里 photo 传 null（背景是画出来的网格/照片），因此这里直接用
+            // 生产门控函数的等价输入：开关打开 + API 达标 → 可以采样。
+            CompositionLocalProvider(
+                // 折射关闭时**不提供背景来源**：否则按钮会用自己的
+                // `forCompactControl()` spec 继续采样，读数显示
+                // `sampled=true glass=126x126`，让"折射关闭后应回退"这条
+                // 断言永远失败。预览页的"折射开关"必须同时关掉主面板与按钮，
+                // 否则它就不是一个可用的对照开关。
+                LocalLiquidGlassBackdrop provides if (refractionOn) state else null,
+                // 预览里强制走玻璃路径，保证顶部按钮接入可见
+                LocalLiquidGlassEnabled provides true
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopEnd)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    ActionIconButton(
+                        icon = Icons.Outlined.Share,
+                        contentDescription = "分享（顶栏按钮接入示例）",
+                        onClick = {},
+                        backgroundColor = Color.White.copy(alpha = 0.9f),
+                        iconColor = Color.Black
+                    )
+                    ActionIconButton(
+                        icon = Icons.Outlined.Delete,
+                        contentDescription = "回收站（顶栏按钮接入示例）",
+                        onClick = {},
+                        backgroundColor = Color.White.copy(alpha = 0.9f),
+                        iconColor = Color.Black
+                    )
+                    ActionIconButton(
+                        icon = Icons.Outlined.Settings,
+                        contentDescription = "设置（顶栏按钮接入示例）",
+                        onClick = {},
+                        backgroundColor = Color.White.copy(alpha = 0.9f),
+                        iconColor = Color.Black
+                    )
+                }
+            }
+
             // 玻璃节点 + 前景文字图标：全部在背景图层之外
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 40.dp)
+                    .padding(horizontal = 24.dp, vertical = 96.dp)
                     .align(Alignment.TopCenter)
             ) {
                 PhysicalLiquidGlassBox(
