@@ -222,7 +222,75 @@ class IntentOutboundBoundaryTest {
         parsed.keys().forEach { key -> assertTrue("非预期字段 $key", key in allowed) }
     }
 
-    // ==================== 8. 残留检查 ====================
+    // ==================== 8. 值边界不明确 ====================
+
+    @Test
+    fun chineseSecretSplitBySpaceIsDroppedEntirely() {
+        // 空格把中文值拆成两截：边界不唯一 → 整行留本地
+        listOf(
+            "取件码 甲乙 丙丁",
+            "密码 春天 来了",
+            "取件码 张 三 丰"
+        ).forEach { line ->
+            val payload = payloadFor(line)
+            listOf("甲乙", "丙丁", "春天", "来了", "张三", "三丰").forEach { secret ->
+                assertNotInPayload(secret, payload, "空格拆开的中文值 $line")
+            }
+            assertTrue(
+                "整行必须判为不可判定：$line",
+                IntentTextSanitizer.sanitizeLine(line).undecidable
+            )
+        }
+    }
+
+    @Test
+    fun asciiSecretSplitBySpaceIsDroppedEntirely() {
+        val payload = payloadFor("验证码 12 34 56")
+        listOf("12", "34", "56").forEach { fragment ->
+            // 短数字片段即使出现也只能出现在「5分钟」这类安全上下文里；
+            // 这里断言原始的三段拼不起来
+            if (payload != null) {
+                assertFalse(
+                    "不得发出被拆开的验证码片段：$payload",
+                    payload.contains("12 34") || payload.contains("34 56")
+                )
+            }
+        }
+        assertTrue(IntentTextSanitizer.sanitizeLine("验证码 12 34 56").undecidable)
+    }
+
+    @Test
+    fun secretFollowedByNaturalLanguageKeepsTheLine() {
+        // 值的边界**明确**（后面是自然语言），因此除值以外的文字可以保留
+        val line = IntentTextSanitizer.sanitizeLine("验证码 4471，请在页面上输入")
+        assertFalse("边界明确时不该丢整行：${line.text}", line.undecidable)
+        assertFalse(line.text.contains("4471"))
+        assertTrue("提示语应保留：${line.text}", line.text.contains("请在页面上输入"))
+    }
+
+    @Test
+    fun secretOnlyLineIsDroppedButItsNeighboursAreKept() {
+        // 只有「字段 + 值」的行没有任何可外发内容 → 丢弃（tooThin 规则）
+        assertTrue(IntentTextSanitizer.sanitizeLine("取件码 8-2-1024。").undecidable)
+
+        // 同一张图里无关的行仍要保留：证明丢的是片段，不是整张
+        val snippet = IntentTextSanitizer.sanitizeForAssistant(
+            listOf("取件码 8-2-1024。", "示例驿站 · 合成网点", "已取件")
+        )
+        assertTrue("值不得外发：${snippet.lines}", snippet.lines.none { it.contains("8-2-1024") })
+        assertTrue("无关行应保留：${snippet.lines}", snippet.lines.any { it.contains("示例驿站") })
+    }
+
+    @Test
+    fun safeDeadlineUnaffectedByBoundaryRule() {
+        // 正向回归：没有敏感字段的行不受边界规则影响
+        val payload = payloadFor("活动已于 2026-11-10 23:59 结束", "有效期至 2026年11月01日")
+        assertTrue("截止日期必须保留：$payload", payload?.contains("2026-11-10") == true)
+        assertTrue("中文日期必须保留：$payload", payload?.contains("2026年11月01日") == true)
+        assertFalse(IntentTextSanitizer.sanitizeLine("活动已于 2026-11-10 结束").undecidable)
+    }
+
+    // ==================== 9. 残留检查 ====================
 
     @Test
     fun maskLeavingLongAlphanumericResidueDropsTheLine() {

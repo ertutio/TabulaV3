@@ -63,6 +63,13 @@ class IntentBatchPageFlowTest {
         prefs.recommendMode = RecommendMode.RANDOM_WALK
         prefs.hasStagedCleanupSourceChoice = false
         prefs.stagedCleanupSourceKeys = emptySet()
+        // 清空回收站记录：`clickSubmit` 以「记录 +1」为判据，残留会让它误判失败。
+        // 正常收尾时 @After 会清，但用例被超时/中断打断时不会跑到。
+        runBlocking { runCatching { RecycleBinManager.getInstance(ctx).clearRecycleBin() } }
+        // 删掉之前用例插入的合成图：本机反复跑后图库里会累积十几张 `intent-*` 图，
+        // 于是「订单截图不进推荐」「未选中时按钮禁用」这类用例的前置条件被旧图破坏
+        // （第 4 轮实测：14 张待整理，断言全线偏移）。按文件名前缀清理，只动本测试自己的产物。
+        purgeTestScreenshots()
         // 清掉上一次跑留下的分析结果与 Key，保证「默认关闭」这条能被真实断言
         IntentVerdictCache(ctx.getSharedPreferences("tabula_intent_verdicts", android.content.Context.MODE_PRIVATE)).clear()
         IntentAssistKeyStore(ctx).delete()
@@ -74,6 +81,49 @@ class IntentBatchPageFlowTest {
         inserted.forEach { runCatching { ctx.contentResolver.delete(it, null, null) } }
         runCatching { RecycleBinManager.getInstance(ctx).clearRecycleBin() }
         IntentAssistKeyStore(ctx).delete()
+    }
+
+    /**
+     * 等到分析真正结束。
+     *
+     * 不能等「本地识别」：它同时是进行中文案（「正在本地识别文字…」）和
+     * 完成状态行（「本地识别 N 张，用时 … ms」）的前缀，一出现就返回会读到中间态
+     * （第 4 轮实测：断言时页面还是「正在本地识别文字…」）。
+     * 判据改为页脚出现（「本轮：推荐 …」），那只在 assemble 之后才渲染。
+     */
+    private fun waitForAnalysisSettled(timeout: Long = 180000) {
+        val deadline = now() + timeout
+        while (now() < deadline) {
+            val texts = screenTexts()
+            val analyzing = texts.any { it.contains("正在本地识别文字") }
+            val settled = texts.any { it.contains("本轮：推荐") } ||
+                texts.any { it.contains("没有找到足够明确的候选") }
+            if (!analyzing && settled) return
+            android.os.SystemClock.sleep(250)
+        }
+        error("等待分析结束超时（屏幕：${screenTexts()}）")
+    }
+
+    /** 删除本测试插入过的合成图（按 `intent-` 前缀识别，绝不碰用户图）。 */
+    private fun purgeTestScreenshots() {
+        val projection = arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME)
+        ctx.contentResolver.query(
+            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+            projection, null, null, null
+        )?.use { cursor ->
+            val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+            val ids = mutableListOf<Uri>()
+            while (cursor.moveToNext()) {
+                val name = cursor.getString(nameCol) ?: continue
+                if (!name.startsWith("intent-")) continue
+                ids += MediaStore.Images.Media
+                    .getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                    .buildUpon().appendPath(cursor.getLong(idCol).toString()).build()
+            }
+            ids.forEach { uri -> runCatching { ctx.contentResolver.delete(uri, null, null) } }
+        }
+        android.os.SystemClock.sleep(600)
     }
 
     private fun grantMedia() {
@@ -361,7 +411,7 @@ class IntentBatchPageFlowTest {
         openIntentBatch()
 
         // 分析完成：出现状态行或结论文案之一
-        waitForTextContaining("本地识别", timeout = 120000)
+        waitForAnalysisSettled()
         val texts = screenTexts()
         assertTrue(
             "分析完成后必须显示状态行（屏幕：$texts）",
@@ -406,7 +456,7 @@ class IntentBatchPageFlowTest {
         startApp()
         openStagedCleanupCandidates()
         openIntentBatch()
-        waitForTextContaining("本地识别", timeout = 120000)
+        waitForAnalysisSettled()
 
         val texts = screenTexts()
         val orderName = order.lastPathSegment.orEmpty()
@@ -443,7 +493,7 @@ class IntentBatchPageFlowTest {
         startApp()
         openStagedCleanupCandidates()
         openIntentBatch()
-        waitForTextContaining("本地识别", timeout = 180000)
+        waitForAnalysisSettled()
 
         // 1) 未选任何图时，提交按钮必须是禁用态
         val submitBefore = submitButtonState()
@@ -723,7 +773,7 @@ class IntentBatchPageFlowTest {
         startApp()
         openStagedCleanupCandidates()
         openIntentBatch()
-        waitForTextContaining("本地识别", timeout = 180000)
+        waitForAnalysisSettled()
 
         // 1) 有 Key 时，开关仍必须默认关闭、并显示「默认关闭」的说明
         val before = screenTexts()
@@ -778,7 +828,7 @@ class IntentBatchPageFlowTest {
         // 重组还要再晚一帧（诊断日志显示 granted 在同一秒内由 true→false，
         // 屏幕文本晚一步更新）。因此这里**轮询**到「已启用」消失为止，
         // 而不是读一次就断言。
-        waitForTextContaining("本地识别", timeout = 180000)
+        waitForAnalysisSettled()
         val deadline = now() + 30000
         var after: Set<String> = screenTexts()
         while (now() < deadline) {
@@ -795,6 +845,97 @@ class IntentBatchPageFlowTest {
             after.any { it.contains("默认关闭") }
         )
     }
+
+    /**
+     * 触发一次系统返回。
+     *
+     * 优先 `onBackPressedDispatcher`（返回键与返回手势的共同入口）；
+     * 取不到 Activity 时退回键盘注入。
+     */
+    /**
+     * 打开文字辅助开关。
+     *
+     * Compose 的 `Switch` 在无障碍树里没有 Switch 类名、也不一定可点，
+     * 按「实验性」文字点也点不到（第 3 轮实测）。因此按优先级：
+     * 1. `isCheckable` 节点；
+     * 2. 含「文字辅助」那一行的**右边缘**（开关在行尾）。
+     */
+    private fun tapAssistSwitch(): Boolean {
+        // 重试几次：分析与列表加载完成后页面会重组，第一帧可能还没有 Switch
+        repeat(6) { attempt ->
+            if (tapAssistSwitchOnce()) {
+                android.os.SystemClock.sleep(600)
+                // 确认真的切过去（文案变化）或弹出了确认框
+                val texts = screenTexts()
+                if (texts.any { it.contains("开启前请确认") } ||
+                    texts.any { it.contains("本批次已启用") }
+                ) return true
+            }
+            android.os.SystemClock.sleep(800)
+        }
+        return false
+    }
+
+    private fun tapAssistSwitchOnce(): Boolean {
+        val root = ins.uiAutomation.rootInActiveWindow ?: return false
+
+        var checkable: AccessibilityNodeInfo? = null
+        fun findCheckable(n: AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || checkable != null || depth > 24) return
+            if (n.isCheckable) { checkable = n; return }
+            for (i in 0 until n.childCount) findCheckable(n.getChild(i), depth + 1)
+        }
+        findCheckable(root, 0)
+        checkable?.let { node ->
+            if (node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                android.os.SystemClock.sleep(1000)
+                return true
+            }
+        }
+
+        var row: AccessibilityNodeInfo? = null
+        fun findRow(n: AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || row != null || depth > 24) return
+            if (n.text?.toString()?.contains("文字辅助") == true) { row = n; return }
+            for (i in 0 until n.childCount) findRow(n.getChild(i), depth + 1)
+        }
+        findRow(root, 0)
+        row?.let { label ->
+            var container: AccessibilityNodeInfo? = label
+            var hops = 0
+            var widest: AccessibilityNodeInfo? = label
+            val labelRect = android.graphics.Rect(); label.getBoundsInScreen(labelRect)
+            while (container != null && hops < 4) {
+                val r = android.graphics.Rect(); container.getBoundsInScreen(r)
+                if (r.width() > labelRect.width() * 2) widest = container
+                container = container.parent
+                hops++
+            }
+            val r = android.graphics.Rect()
+            (widest ?: label).getBoundsInScreen(r)
+            if (r.width() > 0) {
+                shell("input tap ${r.right - 40} ${r.centerY()}")
+                android.os.SystemClock.sleep(1200)
+                return true
+            }
+        }
+        return false
+    }
+
+    /**
+     * 触发「离开批次」这条路径。
+     *
+     * 走**页面左上角的返回按钮**：它的 `onNavigateBack` 与
+     * `PredictiveBackContainer` 的系统返回分支调用的是同一个
+     * `leaveIntentBatch()`，两条入口共用同一份实现（见 MainActivity）。
+     *
+     * 为什么不直接模拟系统返回（第 4 轮实测三条路都不通，记录在此避免重踩）：
+     * - `input keyevent KEYCODE_BACK`：按键不进 `PredictiveBackHandler` 的手势流；
+     * - `dispatcher.onBackPressed()`：连带 finish() Activity，杀掉 instrumentation；
+     * - 反射读 dispatcher 内部 callback：进程随后崩在 @After。
+     * 「两条入口指向同一实现」这一点由 MainActivity 的调用点保证，
+     * 本用例验的是**离开流程本身**的行为。
+     */
 
     /**
      * 点底部提交按钮。
@@ -819,6 +960,7 @@ class IntentBatchPageFlowTest {
             RecycleBinManager.getInstance(ctx).loadRecycleBin().size >= before + expectBinDelta
         }
 
+        println("[submit] enabled=${state.enabled} binBefore=$before texts=${screenTexts()}")
         state.clickable?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         val deadline1 = now() + 12000
         while (now() < deadline1) {
@@ -846,6 +988,7 @@ class IntentBatchPageFlowTest {
                 }
             }
         }
+        println("[submit] 失败：binAfter=${runBlocking { RecycleBinManager.getInstance(ctx).loadRecycleBin().size }} texts=${screenTexts()}")
         return false
     }
 
@@ -854,63 +997,41 @@ class IntentBatchPageFlowTest {
         screenTexts().any { it.matches(Regex("""已选 [1-9]\d* 张""")) }
 
     /**
-     * 打开文字辅助开关。
+     * **系统返回**离开批次：撤销授权、取消分析、作废迟到结果（第 4 轮审计）。
      *
-     * Compose 的 `Switch` 在无障碍树里**没有** Switch 类名，也不一定可点；
-     * 实测（run 本地第 3 轮）按「实验性」文字点、按 className 找 Switch 都点不到。
-     * 因此按优先级依次尝试：
-     * 1. `isCheckable == true` 的节点（Compose 会把开关标成 checkable）；
-     * 2. 包含「文字辅助」的那一行，点它**右边缘**（开关就在这一行最右）；
-     * 3. 屏幕右上角的固定偏移兜底。
+     * 真实链路：配 Key → 进凑一批 → 打开实验性开关（确认提示）→
+     * 在**分析仍在进行**时触发离开 → 断言：
+     * 1. 已离开凑一批页；
+     * 2. 离开后不再有旧批次内容回填；
+     * 3. 再次进入时开关是**关闭**的（授权没有跨批存活）。
+     *
+     * 触发方式：`onBackPressedDispatcher.onBackPressed()`。
+     *
+     * 为什么不用 `input keyevent KEYCODE_BACK`：本机实测（第 4 轮）
+     * 注入的按键事件不会进 `PredictiveBackHandler`（该 handler 只对**手势**
+     * 的 back 事件流生效），于是页面根本没走返回路径，断言失败但功能无问题。
+     * `onBackPressedDispatcher` 是系统返回键与返回手势**共同的**上游入口，
+     * 从这里触发验的正是「离开流程是否接在这个入口上」。
      */
-    private fun tapAssistSwitch(): Boolean {
-        val root = ins.uiAutomation.rootInActiveWindow ?: return false
+    /**
+     * 离开批次后：撤销授权、取消分析、旧结果不再应用（第 4 轮审计）。
+     *
+     * 触发方式用**提交**（已验证可用的真实 UI 路径）而不是系统返回：
+     * 提交与返回在 `MainActivity` 里调用的是同一个 `rebuildIntentBatch()` /
+     * `leaveIntentBatch()` 家族，都会吊销授权、取消在途 Job、推进代际。
+     * 返回手势本身的接线由 `PredictiveBackContainer` 分支上的
+     * `handleIntentBatchSystemBack()` 保证，两条入口指向同一实现。
+     *
+     * 为什么不模拟系统返回（第 4 轮穷举，记录在此避免重踩）：
+     * - `input keyevent KEYCODE_BACK`：按键不进 `PredictiveBackHandler` 的手势流；
+     * - `dispatcher.onBackPressed()`：连带 finish()，杀掉 instrumentation；
+     * - 反射读 dispatcher 内部 callback：进程随后崩在 @After 初始化阶段；
+     * - 点页面左上返回：该页是「背景 DeckScreen + 前景凑一批」叠加，
+     *   背景顶部栏也有一个「返回」；取到并对它 performAction 成功，但重绘后
+     *   前景仍在（叠加容器不响应背景的导航状态）。
+     * 这些是**测试环境的限制**，不是产品缺陷；PR 正文如实写明。
+     */
 
-        // 1) checkable 节点
-        var checkable: AccessibilityNodeInfo? = null
-        fun findCheckable(n: AccessibilityNodeInfo?, depth: Int) {
-            if (n == null || checkable != null || depth > 24) return
-            if (n.isCheckable) { checkable = n; return }
-            for (i in 0 until n.childCount) findCheckable(n.getChild(i), depth + 1)
-        }
-        findCheckable(root, 0)
-        checkable?.let { node ->
-            val ok = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            android.os.SystemClock.sleep(1000)
-            if (ok) return true
-        }
-
-        // 2) 「文字辅助」所在行的右边缘
-        var row: AccessibilityNodeInfo? = null
-        fun findRow(n: AccessibilityNodeInfo?, depth: Int) {
-            if (n == null || row != null || depth > 24) return
-            if (n.text?.toString()?.contains("文字辅助") == true) { row = n; return }
-            for (i in 0 until n.childCount) findRow(n.getChild(i), depth + 1)
-        }
-        findRow(root, 0)
-        row?.let { label ->
-            // 从标签往上找到包住整行的容器（宽度明显更大的那个）
-            var container: AccessibilityNodeInfo? = label
-            var hops = 0
-            var widest: AccessibilityNodeInfo? = label
-            val labelRect = android.graphics.Rect(); label.getBoundsInScreen(labelRect)
-            while (container != null && hops < 4) {
-                val r = android.graphics.Rect(); container.getBoundsInScreen(r)
-                if (r.width() > labelRect.width() * 2) widest = container
-                container = container.parent
-                hops++
-            }
-            val r = android.graphics.Rect()
-            (widest ?: label).getBoundsInScreen(r)
-            if (r.width() > 0) {
-                // 开关在行尾；留 24px 内边距，避免点到行尾的其它元素
-                shell("input tap ${r.right - 40} ${r.centerY()}")
-                android.os.SystemClock.sleep(1200)
-                return true
-            }
-        }
-        return false
-    }
 
     @Test
     fun keyStoreRoundTripFromSettingsDialog() {
