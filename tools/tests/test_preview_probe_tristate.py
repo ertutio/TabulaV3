@@ -115,6 +115,29 @@ class ProbeTriStateTest(unittest.TestCase):
         self.assertTrue((self.tmp / "error-summary.json").is_file())
         self.assertFalse((self.tmp / "apiNone-summary.json").exists())
 
+    def test_sampling_requires_ready_and_expanded_bounds(self):
+        audit = {"sampled": "true", "effect": "Ok", "host": "1080x931",
+                 "glass": "954x420", "origin": "(63,130)", "pad": "20",
+                 "layer": "994x460", "hostdraw": "1", "layerdraw": "1"}
+        self.assertTrue(self.probe.sampling_in_bounds(audit))
+        self.assertFalse(self.probe.sampling_in_bounds({**audit, "host": "828x679"}))
+        self.assertFalse(self.probe.sampling_in_bounds({**audit, "origin": "(10,130)"}))
+        self.assertFalse(self.probe.sampling_in_bounds({**audit, "sampled": "false"}))
+        self.assertFalse(self.probe.sampling_in_bounds({**audit, "effect": "Pending"}))
+        for key in ("hostdraw", "layerdraw"):
+            self.assertFalse(self.probe.sampling_in_bounds({**audit, key: "0"}))
+            missing = dict(audit)
+            del missing[key]
+            self.assertFalse(self.probe.sampling_in_bounds(missing))
+        self.assertFalse(self.probe.sampling_in_bounds({**audit, "layer": "0x0"}))
+        self.assertFalse(self.probe.sampling_in_bounds({**audit, "layer": "954x420"}))
+
+    def test_zero_or_missing_frames_are_not_evidence(self):
+        for value in ("0", "", "N/A"):
+            self.assertFalse(self.probe.has_rendered_frames({"Total frames rendered": value}))
+        self.assertFalse(self.probe.has_rendered_frames({}))
+        self.assertTrue(self.probe.has_rendered_frames({"Total frames rendered": "2"}))
+
     def test_transient_adb_errors_are_recognised(self):
         # adb 抖动识别表：这些是"等一下再试"，不是"设备真的没了"
         for text in (

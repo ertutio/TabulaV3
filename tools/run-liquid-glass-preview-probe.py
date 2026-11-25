@@ -466,6 +466,32 @@ def glass_roi_from_audit(audit: dict, screen: tuple[int, int]) -> tuple[int, int
     return (left, top, right, bottom)
 
 
+def sampling_in_bounds(audit: dict | None) -> bool:
+    if not audit or audit.get("sampled") != "true" or audit.get("effect") != "Ok":
+        return False
+    host, glass = as_size(audit, "host"), as_size(audit, "glass")
+    layer = as_size(audit, "layer")
+    try:
+        x, y = (int(v) for v in audit["origin"].strip("()").split(","))
+        pad = int(audit["pad"])
+        return bool(host and glass and layer and pad >= 0
+                    and all(v > 0 for v in (*host, *glass, *layer))
+                    and layer == (glass[0] + 2 * pad, glass[1] + 2 * pad)
+                    and as_int(audit, "hostdraw") > 0 and as_int(audit, "layerdraw") > 0
+                    and x - pad >= 0 and y - pad >= 0
+                    and x + glass[0] + pad <= host[0]
+                    and y + glass[1] + pad <= host[1])
+    except (KeyError, ValueError, TypeError):
+        return False
+
+
+def has_rendered_frames(stats: dict) -> bool:
+    try:
+        return int(stats.get("Total frames rendered", "0")) > 0
+    except (TypeError, ValueError):
+        return False
+
+
 def gfxinfo(label: str) -> dict:
     adb("shell", "dumpsys", "gfxinfo", PACKAGE, "reset")
     adb("shell", "input", "swipe", "540", "700", "540", "1100", "600")
@@ -936,38 +962,54 @@ def main() -> int:
                json.dumps(photo_diff),
                failure=None if ok else "合成照片上玻璃区域内没有折射变化")
 
-    # 7b. 尺寸相关背景 + 宿主缩放：玻璃内外必须连续（不是按玻璃尺寸重算）
-    start_preview(
-        refraction=True, photo=False, backdrop="SizeDependent",
-        host_scale=60, offset_y=120,
-    )
-    size_shot = screenshot(f"api{api}-size-dependent")
-    size_audit = parse_audit(ui_dump(f"api{api}-size-dependent"))
+    # 7b. 分别验证宿主过小时回退，以及足够大时的采样连续性。
+    start_preview(refraction=True, photo=False, backdrop="SizeDependent",
+                  host_scale=60, offset_y=120)
+    small_audit = parse_audit(ui_dump(f"api{api}-size-small"))
+    small_ok = bool(small_audit) and small_audit.get("sampled") == "false" and small_audit.get("reason") == "OUT_OF_SOURCE_BOUNDS"
+    evidence["size_dependent_small_host"] = small_audit
+    record("size dependent small host falls back", small_ok,
+           json.dumps(small_audit), failure=None if small_ok else "小宿主未报告越界回退")
+
+    start_preview(refraction=True, photo=False, backdrop="SizeDependent",
+                  host_scale=100, offset_y=120)
+    # 连续两次读到相同几何和绘制计数，才采集测量截图。
+    stable_audit = None
+    previous = None
+    keys = ("sampled", "effect", "host", "glass", "origin", "screen", "layer", "pad", "hostdraw", "layerdraw")
+    for attempt in range(6):
+        current = parse_audit(ui_dump(f"api{api}-size-ready-{attempt}"))
+        signature = tuple(current.get(k) for k in keys) if current else None
+        if sampling_in_bounds(current) and signature == previous:
+            stable_audit = current
+            break
+        previous = signature if sampling_in_bounds(current) else None
+        time.sleep(1)
+    size_audit = stable_audit
     size_roi = glass_roi_from_audit(size_audit, screen) if size_audit else None
     size_host = as_size(size_audit, "host")
     size_glass = as_size(size_audit, "glass")
-    if size_roi is not None and size_host and size_glass:
-        # 判据：玻璃内部的平均色必须与"紧贴玻璃上方的背景"接近——
-        # 若采样层用玻璃尺寸重画了渐变，两侧色调会出现台阶
-        continuity = color_continuity(size_shot, size_roi)
-        evidence["size_dependent_continuity"] = {
-            "roi": list(size_roi),
-            "host": size_host,
-            "glass": size_glass,
-            **continuity,
-        }
-        ok = continuity["delta"] <= 18.0
-        record(
-            "size dependent background is continuous across the glass edge",
-            ok,
-            json.dumps(continuity),
-            failure=None if ok
-            else f"玻璃内外色调台阶 {continuity['delta']:.1f}，采样层可能用了玻璃尺寸重绘",
-        )
+    if size_roi is not None and size_roi[1] >= 12 and size_host and size_glass:
+        size_shot = screenshot(f"api{api}-size-dependent")
+        after_shot = parse_audit(ui_dump(f"api{api}-size-after-screenshot"))
+        after_signature = tuple(after_shot.get(k) for k in keys) if after_shot else None
+        if not sampling_in_bounds(after_shot) or after_signature != signature:
+            record("size dependent background is continuous across the glass edge", False,
+                   json.dumps({"before": size_audit, "after": after_shot}),
+                   failure="截图后采样状态或布局发生变化，无法测量连续性")
+        else:
+            continuity = color_continuity(size_shot, size_roi)
+            evidence["size_dependent_continuity"] = {
+                "roi": list(size_roi), "host": size_host, "glass": size_glass,
+                "audit": size_audit, "screenshot": size_shot.name, **continuity,
+            }
+            ok = continuity["delta"] <= 18.0
+            record("size dependent background is continuous across the glass edge", ok,
+                   json.dumps(continuity), failure=None if ok else
+                   f"玻璃内外色调台阶 {continuity['delta']:.1f}，采样层可能用了玻璃尺寸重绘")
     else:
         record("size dependent background is continuous across the glass edge", False,
-               "无法定位玻璃区域或缺少 host/glass 尺寸",
-               failure="尺寸相关背景的连续性无法验证")
+               json.dumps(size_audit), failure="采样未就绪、未稳定或外扩区域不在宿主内")
 
     # ===== 8. 改尺寸后仍能采样 =====
 
@@ -989,7 +1031,7 @@ def main() -> int:
     start_preview(refraction=True, photo=True, backdrop="Photo")
     frames_on = gfxinfo(f"api{api}-refraction-on")
     evidence["frame_stats"] = {"refraction_off": frames_off, "refraction_on": frames_on}
-    record("frame stats captured", bool(frames_on and frames_off),
+    record("frame stats captured", has_rendered_frames(frames_on) and has_rendered_frames(frames_off),
            json.dumps(evidence["frame_stats"], ensure_ascii=False))
 
     # 这里只采集。写出 summary 与决定退出码统一在 __main__ 里做：
