@@ -241,12 +241,15 @@ class DeckScreenPendingDeleteBoundaryTest {
     }
 
     /**
-     * 左右滑（保留/前进）推进一张。
+     * 向左滑（下一张）推进一张。
      *
-     * 阈值是**屏幕宽**的 25%（`CardStack.swipeThresholdPx = screenWidthPx * 0.25`），
-     * 按卡片宽度算够不到。但按屏宽算位移时起点会贴到屏幕边缘、命中系统
-     * 手势返回区（run 45588532477 把应用切回了桌面）。折中：位移取屏宽 30%，
-     * 以**卡片中心**为锚点左右展开，并夹在卡片横向范围内，既过阈值又不碰边缘。
+     * 阈值为**屏幕宽**的 25%，或速度超过 800px/s（`CardStack` HORIZONTAL 收尾）。
+     * 向左滑（dragOffsetX < 0）是"下一张"，且**始终允许**——越过最后一张会
+     * 直接进完成页（`if (direction > 0 || ...)`）。
+     *
+     * 位移同时按屏宽和"卡片内可用宽度"取小值：既尽量过阈值，又不让起手点
+     * 贴到屏幕边缘（那会命中系统返回手势，run 45588532477 把应用切回桌面）。
+     * 速度也给足：260ms 内走完，保证 velocityX 是最强的那一档。
      */
     private fun advanceCard(): Boolean {
         val before = currentCardName()
@@ -259,11 +262,15 @@ class DeckScreenPendingDeleteBoundaryTest {
         }
         val card = findCard(root, 0) ?: return false
         val b = android.graphics.Rect().also { card.getBoundsInScreen(it) }
-        val cx = b.centerX(); val cy = b.centerY()
-        val half = (ctx.resources.displayMetrics.widthPixels * 0.15f).toInt()
-        val startX = (cx + half).coerceAtMost(b.right - 4)
-        val endX = (cx - half).coerceAtLeast(b.left + 4)
-        shell("input swipe $startX $cy $endX $cy 260")
+        val cy = b.centerY()
+
+        val screenBased = (ctx.resources.displayMetrics.widthPixels * 0.30f).toInt()
+        val cardBased = (b.width() * 0.80f).toInt()
+        val travel = minOf(screenBased, cardBased).coerceAtLeast(24)
+        // 一律从卡片右侧往左滑：终点在卡片中心左侧，起点不贴屏幕右缘
+        val startX = b.right - 8
+        val endX = (startX - travel).coerceAtLeast(b.left + 4)
+        shell("input swipe $startX $cy $endX $cy 200")
 
         val end = now() + 5000
         while (now() < end) {
