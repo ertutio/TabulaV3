@@ -228,7 +228,11 @@ class DeckScreenPendingDeleteBoundaryTest {
         val b = android.graphics.Rect().also { card.getBoundsInScreen(it) }
         val cx = b.centerX(); val cy = b.centerY()
         val travel = (ctx.resources.displayMetrics.heightPixels * 0.30f).toInt()
-        shell("input swipe $cx ${cy + travel / 3} $cx ${cy - travel} 450")
+        // 终点钳进屏幕内：越过 0 或落进状态栏区域都不稳。起点从卡片中心略下
+        // 开始，保证整段都在竖向安全区内。
+        val startY = minOf(cy + travel / 3, b.bottom - 8)
+        val endY = maxOf(startY - travel, 8)
+        shell("input swipe $cx $startY $cx $endY 450")
         sleep(900)
         return true
     }
@@ -252,7 +256,10 @@ class DeckScreenPendingDeleteBoundaryTest {
         val card = findCard(root, 0) ?: return false
         val b = android.graphics.Rect().also { card.getBoundsInScreen(it) }
         val cx = b.centerX(); val cy = b.centerY()
-        val travel = (ctx.resources.displayMetrics.widthPixels * 0.40f).toInt()
+        // 必须在**卡片内部**滑动：按屏宽算会从 ~90% 处起手，那正好落在
+        // 系统手势导航的右侧返回区，滑一下就把应用切回桌面
+        // （run 45588532477 的界面文案直接变成 launcher 图标）。
+        val travel = (b.width() * 0.32f).toInt()
         shell("input swipe ${cx + travel} $cy ${cx - travel} $cy 300")
 
         // 等这次滑动真正生效（卡片换了，或本批已经滑完）
@@ -383,6 +390,7 @@ class DeckScreenPendingDeleteBoundaryTest {
         assertTrue(
             "前置：需要走到批次完成页才能换批" +
                 "（卡片=${currentCardName()}，剩余卡=${visibleCardNames().size}，" +
+                "前台包=${ins.uiAutomation.rootInActiveWindow?.packageName}，" +
                 "界面文案=${screenTexts().filter { it.length <= 6 }}）",
             find("再来一组") != null
         )
