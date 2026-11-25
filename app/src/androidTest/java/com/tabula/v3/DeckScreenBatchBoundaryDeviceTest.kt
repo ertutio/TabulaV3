@@ -79,7 +79,8 @@ class DeckScreenBatchBoundaryDeviceTest {
     @After
     fun cleanUp() {
         inserted.forEach { runCatching { ctx.contentResolver.delete(it, null, null) } }
-        runCatching { shell("am force-stop ${ctx.packageName}") }
+        // 不要 am force-stop 目标应用：instrumentation 与目标跑在同一进程组，
+        // 强杀目标会把测试进程一起带走（表现为 "Process crashed"）。
     }
 
     // ==================== 夹具与界面驱动 ====================
@@ -197,13 +198,20 @@ class DeckScreenBatchBoundaryDeviceTest {
         sleep(2500)
     }
 
-    /** 回前台：真实的 mediaAccessRevision++ 入口（onResume → checkPermission(true)）。 */
+    /**
+     * 回前台：真实的 mediaAccessRevision++ 入口（onResume → checkPermission(true)）。
+     *
+     * 用 [Instrumentation.startActivitySync] 重新前置同一个 MainActivity，
+     * 由系统投递 onPause→onResume，从而走 `applyAccessLevel(foregroundRefresh
+     * = true)`。**不要**在这里用 KEYCODE_HOME：模拟器上 HOME 会把测试进程
+     * 一并挤到后台，instrumentation 随后被回收（run 45568721398 的
+     * "Process crashed"），而且 HOME 本身也不改变权限级别。
+     */
     private fun foregroundAgain() {
-        shell("input keyevent KEYCODE_HOME")
-        sleep(1200)
-        val intent = Intent(ctx, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK)
-        ctx.startActivity(intent)
+        activity = ins.startActivitySync(
+            Intent(ctx, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        )
         sleep(3000)
         assertTrue("回到卡片页失败", waitFor("回收站", timeout = 30000))
     }
