@@ -109,9 +109,9 @@ class DeckScreenRoundIntentEntryTest {
     fun hintIsSuppressedAfterAcceptInSameRound() = runBlocking {
         val all = library
         val session = sessionHandling(listOf(100L, 101L, 102L, 103L), all)
-        val eligible = engine.eligibleNextBatchCandidates(
-            allImages = all.filterNot { it.id in setOf(100L, 101L, 102L, 103L) }
-        )
+        // 显式候选：设备上的 pick 记录跨测试累积，不能拿它当本用例的输入
+        val eligible = listOf(photo(120, "DCIM/Screenshots/")) +
+            (1L..5L).map { photo(it, "DCIM/Camera/") }
         assertEquals(shots, RoundSessionRules.shouldSuggest(session, ::sourceOf, eligible))
 
         // 接受后立刻再判定：同一轮不得再弹同一提示
@@ -126,21 +126,24 @@ class DeckScreenRoundIntentEntryTest {
         val handledIds = listOf(100L, 101L, 102L, 103L)
         val session = sessionHandling(handledIds, all)
 
-        // 图库里已没有这 4 张
-        val remaining = all.filterNot { it.id in handledIds }
-        val eligible = engine.eligibleNextBatchCandidates(remaining)
+        // 会话记录自带来源快照，与照片还在不在池子里无关。
+        // 这里用**显式候选**（不经设备上的冷却/屏蔽状态）钉住这一条：
+        // 设备上的 pick 记录是跨测试累积的持久状态，用它判定会把本用例
+        // 变成"取决于上一轮跑了什么"，那不是这条规则要保证的东西。
+        val remainingShot = photo(120, "DCIM/Screenshots/")
+        val explicitEligible = listOf(remainingShot) +
+            (1L..5L).map { photo(it, "DCIM/Camera/") }
 
         assertEquals(
             "已处理照片即使离开图库，仍要能凭会话记录认出来源",
             shots,
-            RoundSessionRules.shouldSuggest(session, ::sourceOf, eligible)
+            RoundSessionRules.shouldSuggest(session, ::sourceOf, explicitEligible)
         )
 
-        // 同来源彻底下线后不再提示
-        val noShotRows = all.filterNot { sourceOf(it) == shots }
+        // 同来源彻底没有候选后不再提示
         assertNull(
             RoundSessionRules.shouldSuggest(
-                session, ::sourceOf, engine.eligibleNextBatchCandidates(noShotRows)
+                session, ::sourceOf, (1L..5L).map { photo(it, "DCIM/Camera/") }
             )
         )
     }
@@ -156,15 +159,17 @@ class DeckScreenRoundIntentEntryTest {
         }
 
         // 候选池扣掉当前批次 → 只剩相机，同来源没有批外候选
-        val onlyInBatch = engine.eligibleNextBatchCandidates(all, currentBatch = batch)
+        val onlyInBatch = RoundCandidateRules.eligibleForNextBatch(
+            allImages = all, currentBatch = batch
+        )
         assertNull(
             "只有当前批次内的同来源照片时不提示",
             RoundSessionRules.shouldSuggest(session, ::sourceOf, onlyInBatch)
         )
 
         // 批外补一张截图 → 可以提示
-        val withOutOfBatch = engine.eligibleNextBatchCandidates(
-            all + photo(999, "DCIM/Screenshots/"), currentBatch = batch
+        val withOutOfBatch = RoundCandidateRules.eligibleForNextBatch(
+            allImages = all + photo(999, "DCIM/Screenshots/"), currentBatch = batch
         )
         assertEquals(
             "确有批外候选时可以提示",
@@ -265,8 +270,9 @@ class DeckScreenRoundIntentEntryTest {
         )
         assertTrue(
             "当前批次内的身份不能算下一批候选",
-            engine.eligibleNextBatchCandidates(all, currentBatch = listOf(cooled))
-                .none { it.mediaIdentityKey() == cooled.mediaIdentityKey() }
+            RoundCandidateRules.eligibleForNextBatch(
+                allImages = all, currentBatch = listOf(cooled)
+            ).none { it.mediaIdentityKey() == cooled.mediaIdentityKey() }
         )
     }
 }
