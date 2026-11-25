@@ -48,6 +48,11 @@ class DeckScreenRoundIntentEntryTest {
             .edit().clear().commit()
         prefs.recommendMode = RecommendMode.RANDOM_WALK
         prefs.walkSamplingStrategy = WalkSamplingStrategy.UNIFORM
+        // pick 冷却池存在**另一个** SharedPreferences 文件里，清 tabula_prefs
+        // 不会带走它。同进程内前一个用例抽过的照片会留在冷却中，
+        // 于是"第一批应全来自意图来源"会因为可用池被冷却削掉而偶发失败
+        // （run 45582372748 实测）。每个用例从干净冷却池开始。
+        prefs.clearAllPickRecords()
         engine = RecommendationEngine(context)
         engine.clearRoundIntent()
     }
