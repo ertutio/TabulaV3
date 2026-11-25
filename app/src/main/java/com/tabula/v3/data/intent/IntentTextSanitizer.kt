@@ -46,9 +46,19 @@ object IntentTextSanitizer {
         val maskedLineCount: Int,
         val droppedLineCount: Int,
         /** 是否至少有一行被丢弃——报告里要如实写出这个边界。 */
-        val hadUndecidableLines: Boolean
+        val hadUndecidableLines: Boolean,
+        /**
+         * 这张截图（= 这一组 OCR 行）里**是否出现过敏感字段**。
+         *
+         * 为 true 时**整张图都不进文字辅助**：无法确认字段值没有跨行延续，
+         * 也无法证明同图其余行与该秘密无关。调用方必须读这个位，而不是只看 [lines]。
+         */
+        val containsSecretField: Boolean = false
     ) {
         val isEmpty: Boolean get() = lines.isEmpty()
+
+        /** 这张截图是否可以交给文字辅助。 */
+        val sendable: Boolean get() = !containsSecretField && lines.isNotEmpty()
     }
 
     /** 敏感字段名。命中即整行留在本地。 */
@@ -227,22 +237,33 @@ object IntentTextSanitizer {
         maxLines: Int = 12,
         maxCharsPerLine: Int = 40
     ): SanitizedSnippet {
+        // 先整体扫一遍：任何一行命中敏感字段，这张截图就整张不进辅助。
+        //
+        // 为什么是「整张」而不是「那一行」：字段值可能跨行延续
+        // （首行 `验证码 4471` + 次行 `8899`），也可能与同图其它行纠缠。
+        // 逐行扣留无法证明其余行与该秘密无关，所以直接放弃整张——
+        // 这张图走本地 OCR + 规则结果，其余截图仍可按批辅助。
+        val containsSecret = lines.any { raw ->
+            raw.isNotBlank() && SECRET_KEY_REGEX.containsMatchIn(raw.trim())
+        }
+        if (containsSecret) {
+            return SanitizedSnippet(
+                lines = emptyList(),
+                maskedLineCount = 0,
+                droppedLineCount = lines.count { it.isNotBlank() },
+                hadUndecidableLines = true,
+                containsSecretField = true
+            )
+        }
+
         var maskedCount = 0
         var dropped = 0
         val kept = mutableListOf<String>()
-        var previousHadDanglingKey = false
 
         for (raw in lines) {
             if (raw.isBlank()) continue
-            if (previousHadDanglingKey) {
-                // 上一行的字段值落到了这一行：整行属于受影响的片段
-                dropped++
-                previousHadDanglingKey = false
-                continue
-            }
             if (kept.size >= maxLines) { dropped++; continue }
             val line = sanitizeLine(raw)
-            previousHadDanglingKey = line.danglingSecretKey
             if (line.undecidable) { dropped++; continue }
             if (line.text.isBlank()) { dropped++; continue }
             if (line.masked) maskedCount++
@@ -252,7 +273,8 @@ object IntentTextSanitizer {
             lines = kept,
             maskedLineCount = maskedCount,
             droppedLineCount = dropped,
-            hadUndecidableLines = dropped > 0
+            hadUndecidableLines = dropped > 0,
+            containsSecretField = false
         )
     }
 

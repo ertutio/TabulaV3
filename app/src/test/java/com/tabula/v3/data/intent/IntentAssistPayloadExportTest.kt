@@ -73,17 +73,22 @@ class IntentAssistPayloadExportTest {
         val transport = RecordingTransport()
         val assist = DeepSeekTextAssist(keyStore(withKey = true), true, transport)
         assist.classify(snippet("【某平台】活动通知", "验证码 123456，5分钟内有效"))
+        // 命中字段 → 整张图零外发（本轮把守卫从「行级」提到「图级」）
+        assertEquals("含字段词的整张图零请求", 0, transport.payloads.size)
+
+        // 干净的同批图仍可辅助
+        assist.classify(snippet("【某平台】活动通知", "满199减30"))
         assertEquals(1, transport.payloads.size)
         val payload = transport.payloads.first()
         assertFalse("验证码不得出现", payload.contains("123456"))
-        assertFalse("被扣留行里的有效期也不得外发", payload.contains("5分钟"))
-        assertTrue("同批的无关行仍应保留：$payload", payload.contains("【某平台】活动通知"))
     }
 
     // ==================== 2. OCR 错读的链接 ====================
 
     @Test
     fun ocrGarbledLinkNeverReachesTheRequest() = kotlinx.coroutines.runBlocking {
+        // 这一组里有「提取码」字段词 → 整张图不进入辅助，因此零请求。
+        // 链接掩码本身由下一个用例（无字段词的图）单独覆盖。
         val transport = RecordingTransport()
         val assist = DeepSeekTextAssist(keyStore(withKey = true), true, transport)
         assist.classify(
@@ -93,17 +98,17 @@ class IntentAssistPayloadExportTest {
                 "复制链接 https:Wpan.example.com/s/XyZ98765"
             )
         )
-        assertEquals(1, transport.payloads.size)
+        assertEquals("含字段词的整张图零请求", 0, transport.payloads.size)
+        // 无字段词的图：只掩链接，其余文字照发
+        assist.classify(
+            snippet("季度汇报模板.pptx", "复制链接 https:Wpan.example.com/s/XyZ98765")
+        )
+        assertEquals("干净图应发出一次", 1, transport.payloads.size)
         val payload = transport.payloads.first()
         listOf("pan.example.com", "XyZ98765", "https:W", "https://").forEach { secret ->
             assertFalse("请求体不得包含链接片段 $secret：$payload", payload.contains(secret))
         }
-        // 注意：「提取码已过期」这一行现在会被丢弃——字段后紧跟「已过期」会被当成值定位
-        // 的一部分，而我们宁可不发也不猜。换一种不触发字段规则的表述来验证「失效状态可保留」。
-        assertTrue(
-            "链接本身已被掩掉：$payload",
-            !payload.contains("pan.example.com") && !payload.contains("XyZ98765")
-        )
+        assertTrue("普通文件名应保留：$payload", payload.contains("季度汇报模板.pptx"))
     }
 
     // ==================== 3. 安全截止日期必须保留 ====================
