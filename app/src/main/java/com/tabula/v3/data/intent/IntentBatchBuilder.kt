@@ -85,10 +85,9 @@ object IntentBatchBuilder {
         return classified.map { item ->
             if (item.verdict.recommendation != IntentRecommendation.UNCERTAIN) return@map item
             val snippet = IntentTextSanitizer.sanitizeForAssistant(item.input.ocrLines)
-            // 只丢弃「无法判定的那几行」，不因为同图里有一行不可判定就整张不发。
-            // 安全性由逐行掩码保证；整张丢弃会让绝大多数真实截图都进不了辅助，
-            // 与「按批辅助分类」的设计目的相反。
-            if (snippet.isEmpty) return@map item
+            // 命中敏感字段的截图整张不进辅助（值可能跨行延续，见 SanitizedSnippet.containsSecretField）。
+            // 其余截图仍按批辅助；不合格的这张走本地 OCR + 规则结果。
+            if (!snippet.sendable) return@map item
             when (val suggestion = assist.classify(snippet)) {
                 is AssistSuggestion -> if (suggestion.stale) item else when (suggestion.recommendation) {
                     IntentRecommendation.KEEP -> item.copy(
@@ -201,7 +200,13 @@ data class IntentCandidateInput(
     val precomputedVerdict: IntentVerdict? = null
 )
 
-/** 文字辅助（DeepSeek）的最小接口——默认不实现，不注册就是关闭。 */
+/**
+ * **文字辅助**的最小接口——默认不实现，不注册就是关闭。
+ *
+ * 与图片辅助的分界见 [IntentAssistCapability]：本接口只处理**已脱敏的文字**，
+ * 且类型上不具备图片字节 / `Uri` / 路径的槽位，所以「把图塞进文字客户端」
+ * 在这里写不出来。图片能力本轮不可用，将来也必须走**逐图、独立**授权。
+ */
 interface TextAssist {
     val isEnabled: Boolean
 

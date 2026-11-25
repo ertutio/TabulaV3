@@ -133,20 +133,25 @@ class IntentOutboundBoundaryTest {
     // ==================== 3. 跨行值拦截 ====================
 
     @Test
-    fun fieldOnItsOwnLineDropsTheFollowingLine() {
+    fun fieldOnItsOwnLineDropsTheWholeScreenshot() {
+        // 值跨行 → 这张截图整张不发（连带同图无关行）
         val snippet = IntentTextSanitizer.sanitizeForAssistant(
             listOf("【示例平台】", "验证码", "123456", "5分钟内有效")
         )
-        assertTrue("字段行不得外发：${snippet.lines}", snippet.lines.none { it == "验证码" })
-        assertTrue("值所在行不得外发：${snippet.lines}", snippet.lines.none { it.contains("123456") })
-        assertTrue("无关行仍应保留：${snippet.lines}", snippet.lines.any { it.contains("5分钟") })
+        assertTrue("应标记为含敏感字段", snippet.containsSecretField)
+        assertFalse("不能交给辅助", snippet.sendable)
+        assertTrue("片段应为空：${snippet.lines}", snippet.lines.isEmpty())
     }
 
     @Test
-    fun crossLineChineseValueIsDropped() {
-        val payload = payloadFor("提取码", "甲乙丙丁", "有效期至 2026-11-02")
-        assertNotInPayload("甲乙丙丁", payload, "跨行中文值")
-        assertTrue("独立的安全截止日期应保留：$payload", payload?.contains("2026-11-02") == true)
+    fun crossLineChineseValueDropsTheWholeScreenshot() {
+        // 同一张图里既有字段又有日期：整张不发（日期也随之不发）
+        assertEquals("整张图零外发", null, payloadFor("提取码", "甲乙丙丁", "有效期至 2026-11-02"))
+
+        // 另一张**没有**字段的图，日期照发——证明扣留是逐图而非逐批
+        val clean = payloadFor("满99减10", "有效期至 2026-11-02")
+        assertTrue("干净图上的日期应保留：$clean", clean?.contains("2026-11-02") == true)
+        assertNotInPayload("甲乙丙丁", clean, "跨行中文值")
     }
 
     @Test
@@ -156,6 +161,90 @@ class IntentOutboundBoundaryTest {
         )
         assertTrue(snippet.lines.none { it.contains("1234") })
         assertTrue(snippet.lines.none { it.contains("5678") })
+    }
+
+    // ==================== 3b. 整张图级扣留（本轮重点） ====================
+
+    @Test
+    fun partialValueOnFirstLineWithContinuationIsZeroOutbound() {
+        // 关键回归：首行已有部分值，下一行还有续值 —— 整张图零外发
+        val cases = listOf(
+            listOf("验证码 4471", "8899", "请勿转发"),
+            listOf("取件码 8-2", "1024", "示例驿站"),
+            listOf("提取码 3f9k", "AbCd1234", "复制链接"),
+            listOf("密码 Abc1", "2345", "仅自己可见")
+        )
+        cases.forEach { lines ->
+            val payload = payloadFor(*lines.toTypedArray())
+            assertEquals("首行部分值 + 续值时必须零外发：$lines", null, payload)
+            val snippet = IntentTextSanitizer.sanitizeForAssistant(lines)
+            assertTrue("整张图应被标记为含敏感字段：$lines", snippet.containsSecretField)
+            assertFalse("不能交给辅助：$lines", snippet.sendable)
+            assertTrue("片段应为空：$lines", snippet.isEmpty)
+        }
+    }
+
+    @Test
+    fun wholeScreenshotIsHeldBackEvenIfOnlyOneLineHasAField() {
+        // 同一张图里只要有一行命中字段，其余看起来无害的行也不发
+        val lines = listOf("【示例平台】活动通知", "满199减30", "验证码 4471", "活动已于 2026-11-10 结束")
+        assertEquals("整张图零外发", null, payloadFor(*lines.toTypedArray()))
+
+        val snippet = IntentTextSanitizer.sanitizeForAssistant(lines)
+        assertTrue(snippet.containsSecretField)
+        assertFalse(snippet.sendable)
+        assertTrue("被扣留时片段必须为空：${snippet.lines}", snippet.lines.isEmpty())
+    }
+
+    @Test
+    fun otherScreenshotsInTheSameBatchStillGoThrough() {
+        // 只有命中字段的那张被扣留；同批其它截图仍可辅助（不是整批停）
+        val secretShot = IntentTextSanitizer.sanitizeForAssistant(listOf("验证码 4471", "8899"))
+        val cleanShot = IntentTextSanitizer.sanitizeForAssistant(
+            listOf("满199减30", "活动已于 2026-11-10 23:59 结束")
+        )
+        assertFalse("含字段的那张不发", secretShot.sendable)
+        assertTrue("干净的那张要发", cleanShot.sendable)
+        assertEquals(secretShot.isEmpty, true)
+        assertTrue(cleanShot.lines.isNotEmpty())
+    }
+
+    @Test
+    fun boundaryAnalysisReviewsOnlyUncertainCandidates() = kotlinx.coroutines.runBlocking {
+        // builder 层面：含字段的图不被送去辅助，干净的图会
+        val now = 1_796_000_000_000L
+        fun photo(id: Long) = com.tabula.v3.data.model.ImageFile(
+            id = id,
+            uri = android.net.Uri.parse("content://media/external_primary/images/media/$id"),
+            displayName = "s$id.png",
+            dateModified = now,
+            size = 1000L + id,
+            width = 720, height = 1280,
+            bucketDisplayName = "Screenshots",
+            volumeName = "external_primary",
+            relativePath = "DCIM/Screenshots/",
+            dateAdded = now - 10L * 86_400_000L
+        )
+        val seen = mutableListOf<List<String>>()
+        val assist = object : TextAssist {
+            override val isEnabled = true
+            override suspend fun classify(
+                snippet: IntentTextSanitizer.SanitizedSnippet
+            ): AssistSuggestion {
+                seen += snippet.lines
+                return AssistSuggestion(IntentRecommendation.LOWER_PRIORITY, "低优先级")
+            }
+        }
+        val candidates = listOf(
+            IntentCandidateInput(photo(1), photo(1).dateAdded, listOf("验证码 4471", "8899", "请勿转发"), 0.9f),
+            IntentCandidateInput(photo(2), photo(2).dateAdded, listOf("某视频平台", "复制链接", "扫码观看"), 0.9f)
+        )
+        IntentBatchBuilder.refineWithAssist(IntentBatchBuilder.classifyAll(candidates, now), assist)
+        assertEquals("只应有一次辅助调用（干净的那张）", 1, seen.size)
+        assertTrue(
+            "送出的内容不得来自含字段的图：${seen.first()}",
+            seen.first().none { it.contains("4471") || it.contains("8899") }
+        )
     }
 
     // ==================== 4. 正向：独立的安全截止日期 ====================
@@ -177,14 +266,16 @@ class IntentOutboundBoundaryTest {
     }
 
     @Test
-    fun safeDeadlineInSameBatchSurvivesWhenAnotherLineIsHeldBack() {
-        // 同批里有一行被扣留，不影响安全日期那一行
-        val payload = payloadFor(
-            "验证码 4471，请在页面上输入",
-            "活动已于 2026-11-10 23:59 结束"
+    fun safeDeadlineOnItsOwnScreenshotIsStillSent() {
+        // 同**批**里另一张图被扣留，不影响这张干净图上的安全日期
+        assertEquals(
+            "含字段的那张零外发",
+            null,
+            payloadFor("验证码 4471，请在页面上输入", "活动已于 2026-11-10 23:59 结束")
         )
-        assertNotInPayload("4471", payload, "被扣留的字段行")
-        assertTrue("同批的安全日期仍应发送：$payload", payload?.contains("2026-11-10") == true)
+        val clean = payloadFor("活动已于 2026-11-10 23:59 结束")
+        assertTrue("干净图上的日期应发送：$clean", clean?.contains("2026-11-10") == true)
+        assertNotInPayload("4471", clean, "被扣留的字段值")
     }
 
     @Test
