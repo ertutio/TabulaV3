@@ -1297,15 +1297,12 @@ fun LabScreen(
                     iconTint = Color(0xFF667EEA), // 靛蓝紫
                     title = "液态玻璃主题",
                     textColor = textColor,
-                    checked = false, // 功能未完善，强制关闭
+                    checked = isAndroid15OrAbove && liquidGlassLabEnabled,
                     onCheckedChange = { enabled ->
-                        if (enabled) {
-                            // 功能未完善，显示提示
-                            HapticFeedback.lightTap(context)
-                            Toast.makeText(context, "该功能还未完善", Toast.LENGTH_SHORT).show()
-                        }
+                        HapticFeedback.lightTap(context)
+                        onLiquidGlassLabEnabledChange(enabled)
                     },
-                    enabled = true // 允许点击以显示提示
+                    enabled = isAndroid15OrAbove
                 )
                 
                 // 液态玻璃说明
@@ -1316,9 +1313,13 @@ fun LabScreen(
                         .padding(bottom = 12.dp)
                 ) {
                     Text(
-                        text = "该功能还在开发中，敬请期待",
+                        text = if (isAndroid15OrAbove) {
+                            "实验性效果，默认关闭，可随时切换。"
+                        } else {
+                            "液态玻璃需要 Android 15 或更高版本，当前使用普通样式。"
+                        },
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFFF9F0A).copy(alpha = 0.8f) // 警告色
+                        color = secondaryTextColor.copy(alpha = 0.7f)
                     )
                 }
             }

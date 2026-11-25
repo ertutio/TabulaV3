@@ -105,7 +105,7 @@ class EvidenceOrderAndRetryTest(unittest.TestCase):
         self._tmp.cleanup()
 
     def test_device_test_runs_before_the_preview_probe(self):
-        bindir = fake_bin(self.tmp, 'echo "OK (6 tests)"')
+        bindir = fake_bin(self.tmp, 'echo "OK (1 test)"')
         code, out = run_script(
             {
                 "PATH": bash_path(bindir, os.environ.get("PATH", "").replace(";", ":")),

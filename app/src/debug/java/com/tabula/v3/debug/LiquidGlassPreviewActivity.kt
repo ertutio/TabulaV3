@@ -46,10 +46,22 @@ class LiquidGlassPreviewActivity : ComponentActivity() {
         val backdropKind = intent.getStringExtra(EXTRA_BACKDROP)
             ?.let { name -> DebugBackdropKind.entries.firstOrNull { it.name == name } }
         val hostScalePercent = intent.getIntExtra(EXTRA_HOST_SCALE_PERCENT, 100)
+        // 生产接线预览：同一个 Activity 用 extra 切换，探针不必再开一个入口
+        val productionWiring = intent.getBooleanExtra(EXTRA_PRODUCTION_WIRING, false)
+        val labSwitchOn = intent.getBooleanExtra(EXTRA_LAB_SWITCH, true)
+        val photoAvailable = intent.getBooleanExtra(EXTRA_PHOTO_AVAILABLE, true)
 
         setContent {
             if (Build.VERSION.SDK_INT < LIQUID_GLASS_BACKDROP_MIN_SDK) {
                 SdkTooLowNotice()
+            } else if (productionWiring) {
+                LiquidGlassProductionWiringPreview(
+                    modifier = Modifier.fillMaxSize(),
+                    labSwitchOn = labSwitchOn,
+                    photoAvailable = photoAvailable,
+                    photoOffsetX = offsetX.toInt(),
+                    photoOffsetY = offsetY.toInt()
+                )
             } else {
                 LiquidGlassDebugPreview(
                     modifier = Modifier.fillMaxSize(),
@@ -87,6 +99,15 @@ class LiquidGlassPreviewActivity : ComponentActivity() {
 
         /** 宿主缩放百分比（30~100）。宿主与玻璃尺寸不同才能验证尺寸契约。 */
         const val EXTRA_HOST_SCALE_PERCENT = "hostScale"
+
+        /** true 时渲染**生产接线**预览（LiquidGlassPhotoBackdropViewer 本体）。 */
+        const val EXTRA_PRODUCTION_WIRING = "productionWiring"
+
+        /** 生产入口的实验室开关；false 时整条接线不生效。 */
+        const val EXTRA_LAB_SWITCH = "labSwitch"
+
+        /** false 时模拟"背景来源不可用"（照片被删 / 解码失败）。 */
+        const val EXTRA_PHOTO_AVAILABLE = "photoAvailable"
     }
 }
 

@@ -1,6 +1,7 @@
 package com.tabula.v3.ui.screens
 
 import android.content.pm.ActivityInfo
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
@@ -40,6 +41,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
@@ -87,13 +89,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -103,9 +108,18 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.di.CoilSetup
+import com.tabula.v3.ui.components.ActionIconButton
 import com.tabula.v3.ui.components.LocalLiquidGlassEnabled
 import com.tabula.v3.ui.components.MediaBadgeRow
 import com.tabula.v3.ui.components.MotionPhotoPlayer
+import com.tabula.v3.ui.components.liquidglass.ViewerBackdropAuditLine
+import com.tabula.v3.ui.components.liquidglass.LiquidGlassPhotoBackdropViewer
+import com.tabula.v3.ui.components.liquidglass.rememberLiquidGlassBackdropState
+import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropSpec
+import com.tabula.v3.ui.components.liquidglass.ViewerBackdropSync
+import com.tabula.v3.ui.components.liquidglass.shouldLoadBackdropPhoto
+import com.tabula.v3.ui.components.liquidglass.rememberBackdropPhoto
+import com.tabula.v3.ui.components.liquidglass.topScrimHeightPx
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import com.tabula.v3.ui.theme.TabulaColors
 import com.tabula.v3.ui.util.DragSelectState
@@ -684,6 +698,9 @@ private data class ViewerState(val initialIndex: Int)
 
 /**
  * 全屏图片查看器 - 支持左右滑动切换图片
+ *
+ * 背景采样接入点：照片由 [LiquidGlassPhotoBackdropViewer] 铺底并下发背景来源，
+ * 顶部关闭按钮据此走液态玻璃；门控不满足时按钮回退成接入前的原始样式。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -712,6 +729,9 @@ private fun FullScreenViewer(
     
     // 多指触摸状态 - 用于立即禁用 Pager 滑动，避免缩放回弹
     var isMultiTouchActive by remember { mutableStateOf(false) }
+
+    // 当前页面的平移量（拖动）。采样层没有对应变换，因此拖动期间必须回退。
+    var currentPagePan by remember { mutableStateOf(Offset.Zero) }
     
     // 当前显示的图片
     val currentIndex = pagerState.currentPage
@@ -721,6 +741,7 @@ private fun FullScreenViewer(
         // 切换到新页面时，重置多指触摸状态和缩放状态
         isMultiTouchActive = false
         currentPageZoom = 1f
+        currentPagePan = Offset.Zero
     }
     val displayImage = images.getOrNull(currentIndex)
 
@@ -736,146 +757,237 @@ private fun FullScreenViewer(
         }
     }
 
-    Box(
+    // ========== 背景采样层（液态玻璃顶部按钮的真实生产接入点）==========
+    // 叠在照片之上的是真实用户照片，而不是纯色：顶部关闭按钮走玻璃路径时，
+    // 采样层采到的就是这张照片，边缘折射可见。
+    //
+    // 接入形态由 LiquidGlassPhotoBackdropViewer 统一给出——调试预览跑的是
+    // **同一段**代码，因此模拟器取证覆盖的就是生产接线本身。
+    val liquidGlassEnabled = LocalLiquidGlassEnabled.current
+    val density = LocalDensity.current
+
+    // **门控必须在加载之前**：早期实现先无条件 rememberBackdropPhoto(...)，
+    // 再用 shouldAttachPhotoBackdrop 决定要不要接背景——功能关闭或系统不支持时
+    // 仍然白白发了一次 Coil 请求（解码 + 内存占用）。现在关着就不把 data
+    // 交给加载器，请求根本不会发出。
+    val backdropGateOpen = shouldLoadBackdropPhoto(
+        liquidGlassEnabled = liquidGlassEnabled,
+        sdkInt = Build.VERSION.SDK_INT
+    )
+    val backdropPhoto = rememberBackdropPhoto(
+        data = if (backdropGateOpen) displayImage?.uri else null,
+        maxWidthPx = if (backdropGateOpen) {
+            LocalConfiguration.current.screenWidthDp *
+                density.density.toInt().coerceAtLeast(1)
+        } else {
+            0
+        }
+    )
+
+    // 采样层与屏幕照片能否保持一致：翻页中、放大、拖动时都不行，必须回退。
+    // 这是"不能继续显示错位采样"的落点（判定逻辑见 ViewerBackdropSync）。
+    val viewerSync = ViewerBackdropSync(
+        pagerSettled = !pagerState.isScrollInProgress &&
+            pagerState.currentPageOffsetFraction == 0f,
+        scale = currentPageZoom,
+        panX = currentPagePan.x,
+        panY = currentPagePan.y
+    )
+    val backdropSpec = remember(viewerSync) {
+        LiquidGlassBackdropSpec.Default.copy(viewerSync = viewerSync)
+    }
+
+    // 采样状态提到调用方持有：顶栏的审计出口要读它（设备测试据此验证回退）。
+    val backdropAuditState = rememberLiquidGlassBackdropState()
+    // 顶部遮罩也必须画进背景：否则玻璃采到的是没被压暗的照片，比周围亮一截，
+    // 会被误读成折射算错。数值与屏幕上的遮罩同源。
+    val statusBarInsetPx = WindowInsets.statusBars
+        .asPaddingValues()
+        .calculateTopPadding()
+        .value * density.density
+    val scrimHeightPx = topScrimHeightPx(
+        statusBarInsetPx = statusBarInsetPx,
+        buttonHeightPx = 48.dp.value * density.density,
+        verticalPaddingPx = 8.dp.value * density.density
+    )
+
+    LiquidGlassPhotoBackdropViewer(
+        photo = backdropPhoto,
+        liquidGlassEnabled = liquidGlassEnabled,
+        scrimHeightPx = scrimHeightPx,
+        backdropSpec = backdropSpec,
+        state = backdropAuditState,
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        // 使用 HorizontalPager 实现左右滑动
-        // 当图片放大或双指触摸时禁用滑动，避免缩放回弹
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-            userScrollEnabled = !isMultiTouchActive && currentPageZoom <= 1.05f,
-            key = { images.getOrNull(it)?.mediaIdentityKey() ?: it.toString() },
-            // 添加 flingBehavior 确保滑动后对齐到页面，防止卡在两图之间
-            flingBehavior = PagerDefaults.flingBehavior(
+            .background(Color.Black),
+        content = {
+            // 使用 HorizontalPager 实现左右滑动
+            // 当图片放大或双指触摸时禁用滑动，避免缩放回弹
+            HorizontalPager(
                 state = pagerState,
-                snapPositionalThreshold = 0.35f  // 滑动超过35%就切换到下一页
-            )
-        ) { pageIndex ->
-            val pageImage = images.getOrNull(pageIndex)
-            if (pageImage != null) {
-                RecycleBinImagePage(
-                    image = pageImage,
-                    imageLoader = imageLoader,
-                    showHdr = showHdr,
-                    showMotionPhoto = showMotionPhoto,
-                    playMotionSound = playMotionSound,
-                    motionSoundVolume = motionSoundVolume,
-                    onDismiss = onDismiss,
-                    window = window,
-                    originalColorMode = originalColorMode,
-                    onZoomChanged = { zoom ->
-                        // 只更新当前页面的缩放状态
-                        if (pageIndex == pagerState.currentPage) {
-                            currentPageZoom = zoom
+                modifier = Modifier.fillMaxSize(),
+                userScrollEnabled = !isMultiTouchActive && currentPageZoom <= 1.05f,
+                key = { images.getOrNull(it)?.mediaIdentityKey() ?: it.toString() },
+                // 添加 flingBehavior 确保滑动后对齐到页面，防止卡在两图之间
+                flingBehavior = PagerDefaults.flingBehavior(
+                    state = pagerState,
+                    snapPositionalThreshold = 0.35f  // 滑动超过35%就切换到下一页
+                )
+            ) { pageIndex ->
+                val pageImage = images.getOrNull(pageIndex)
+                if (pageImage != null) {
+                    RecycleBinImagePage(
+                        image = pageImage,
+                        imageLoader = imageLoader,
+                        showHdr = showHdr,
+                        showMotionPhoto = showMotionPhoto,
+                        playMotionSound = playMotionSound,
+                        motionSoundVolume = motionSoundVolume,
+                        onDismiss = onDismiss,
+                        window = window,
+                        originalColorMode = originalColorMode,
+                        onZoomChanged = { zoom ->
+                            // 只更新当前页面的缩放状态
+                            if (pageIndex == pagerState.currentPage) {
+                                currentPageZoom = zoom
+                            }
+                        },
+                        onMultiTouchChanged = { isMultiTouch ->
+                            // 只更新当前页面的多指触摸状态
+                            if (pageIndex == pagerState.currentPage) {
+                                isMultiTouchActive = isMultiTouch
+                            }
+                        },
+                        onPanChanged = { pan ->
+                            // 只更新当前页面的平移量
+                            if (pageIndex == pagerState.currentPage) {
+                                currentPagePan = pan
+                            }
                         }
-                    },
-                    onMultiTouchChanged = { isMultiTouch ->
-                        // 只更新当前页面的多指触摸状态
-                        if (pageIndex == pagerState.currentPage) {
-                            isMultiTouchActive = isMultiTouch
-                        }
+                    )
+                }
+            }
+
+            // 底部操作栏
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))
+                        )
+                    )
+                    .navigationBarsPadding()
+                    .padding(24.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    // 恢复按钮
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White.copy(alpha = 0.15f))
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                            .combinedClickable(onClick = { displayImage?.let { onRestore(it) } })
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Restore,
+                            contentDescription = "恢复",
+                            tint = TabulaColors.SuccessGreen,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Text(
+                            text = "恢复",
+                            color = Color.White,
+                            fontSize = 12.sp
+                        )
                     }
-                )
-            }
-        }
-
-        // 顶部渐变遮罩 + 关闭按钮 + 页码
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color.Black.copy(alpha = 0.5f), Color.Transparent)
-                    )
-                )
-                .statusBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 8.dp)
-        ) {
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier.align(Alignment.CenterStart)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Close,
-                    contentDescription = "关闭",
-                    tint = Color.White
-                )
-            }
-            
-            Text(
-                text = "${currentIndex + 1} / ${images.size}",
-                color = Color.White,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.align(Alignment.Center)
-            )
-        }
-
-        // 底部操作栏
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))
-                    )
-                )
-                .navigationBarsPadding()
-                .padding(24.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                // 恢复按钮
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(alpha = 0.15f))
-                        .padding(horizontal = 24.dp, vertical = 12.dp)
-                        .combinedClickable(onClick = { displayImage?.let { onRestore(it) } })
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Restore,
-                        contentDescription = "恢复",
-                        tint = TabulaColors.SuccessGreen,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Text(
-                        text = "恢复",
-                        color = Color.White,
-                        fontSize = 12.sp
-                    )
-                }
                 
-                // 删除按钮
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(alpha = 0.15f))
-                        .padding(horizontal = 24.dp, vertical = 12.dp)
-                        .combinedClickable(onClick = { displayImage?.let { onDelete(it) } })
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.DeleteForever,
-                        contentDescription = "彻底删除",
-                        tint = TabulaColors.DangerRed,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Text(
-                        text = "删除",
-                        color = Color.White,
-                        fontSize = 12.sp
-                    )
+                    // 删除按钮
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White.copy(alpha = 0.15f))
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                            .combinedClickable(onClick = { displayImage?.let { onDelete(it) } })
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.DeleteForever,
+                            contentDescription = "彻底删除",
+                            tint = TabulaColors.DangerRed,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Text(
+                            text = "删除",
+                            color = Color.White,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
             }
+        },
+        topBar = { decision ->
+            // 采样审计出口：整行由 decision 生成，而 decision 同时决定下面渲染
+            // 哪条分支——审计行与界面同源，不可能出现"读数说在采样、屏幕在回退"。
+            // 只用于 debug 变体；release 里不渲染、不参与布局。
+            ViewerBackdropAuditLine(
+                decision = decision,
+                state = backdropAuditState,
+                viewerSync = viewerSync,
+                page = currentIndex + 1
+            )
+
+            // 顶部渐变遮罩 + 关闭按钮 + 页码
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Black.copy(alpha = 0.5f), Color.Transparent)
+                        )
+                    )
+                    .statusBarsPadding()
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+            ) {
+                if (decision.sampling) {
+                    // 真实生产接入：关闭按钮走液态玻璃，采到的就是它下面那张照片。
+                    // 背景来源已由 LiquidGlassPhotoBackdropViewer 经 CompositionLocal 下发。
+                    ActionIconButton(
+                        icon = Icons.Outlined.Close,
+                        contentDescription = "关闭",
+                        onClick = onDismiss,
+                        backgroundColor = Color.White.copy(alpha = 0.9f),
+                        iconColor = Color.White,
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    )
+                } else {
+                    // 回退路径：与接入前逐像素一致的原始按钮
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "关闭",
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                Text(
+                    text = "${currentIndex + 1} / ${images.size}",
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
         }
-    }
+    )
 }
 
 /**
@@ -903,7 +1015,8 @@ private fun RecycleBinImagePage(
     window: android.view.Window?,
     originalColorMode: Int,
     onZoomChanged: (Float) -> Unit = {},
-    onMultiTouchChanged: (Boolean) -> Unit = {}
+    onMultiTouchChanged: (Boolean) -> Unit = {},
+    onPanChanged: (Offset) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -927,6 +1040,12 @@ private fun RecycleBinImagePage(
     // 当缩放变化时通知父组件
     LaunchedEffect(currentScale) {
         onZoomChanged(currentScale)
+    }
+
+    // 平移变化同样要上报：查看器的拖动是 graphicsLayer 变换，
+    // 采样层没有对应变换，父组件据此在拖动期间回退背景采样。
+    LaunchedEffect(currentOffset) {
+        onPanChanged(currentOffset)
     }
 
     fun clampOffset(
@@ -1161,7 +1280,9 @@ private fun RecycleBinImagePage(
                             isPressing = false
                         },
                         onDoubleTap = { tapOffset ->
-                            val targetScale = if (currentScale > 1.2f) minScale else doubleTapScale
+                            val tapScale = animatedScale.value
+                            val tapOffsetNow = Offset(animatedOffsetX.value, animatedOffsetY.value)
+                            val targetScale = if (tapScale > 1.2f) minScale else doubleTapScale
                             if (zoomSize.width <= 0f || zoomSize.height <= 0f) {
                                 scope.launch {
                                     animatedScale.animateTo(
@@ -1177,8 +1298,8 @@ private fun RecycleBinImagePage(
                                 animateToOriginalScale()
                             } else {
                                 val center = Offset(zoomSize.width / 2f, zoomSize.height / 2f)
-                                val scaleChange = targetScale / currentScale
-                                val newOffset = (currentOffset + (tapOffset - center) * (1 - scaleChange))
+                                val scaleChange = targetScale / tapScale
+                                val newOffset = (tapOffsetNow + (tapOffset - center) * (1 - scaleChange))
                                 val clampedOffset = clampOffset(newOffset, targetScale, zoomSize)
                                 scope.launch {
                                     launch {

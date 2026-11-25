@@ -881,34 +881,140 @@ class LiquidGlassBackdropInvalidationTest {
             IntRect(0, 0, 1080, 1800),
             20
         )
-        state.reportPlan(panelPlan, IntRect(63, 105, 63 + 954, 105 + 420), panel.isPrimary)
-        state.reportPlan(buttonPlan, IntRect(16, 24, 16 + 126, 24 + 126), button.isPrimary)
+        state.reportPlan(panel, panelPlan, IntRect(63, 105, 1017, 525), BackdropEffectHealth.Failed, null)
+        state.reportPlan(button, buttonPlan, IntRect(16, 24, 142, 150), BackdropEffectHealth.Ok, Any())
+        state.reportEffectHealth(BackdropEffectHealth.Ok)
 
         assertEquals("审计读数必须是面板的方案", panelPlan, state.lastPlan)
         assertEquals(954, state.lastPlan.glassWidthPx)
         assertEquals(IntRect(63, 105, 1017, 525), state.lastGlassWindow)
+        assertEquals(BackdropEffectHealth.Failed, state.primaryEffectHealth)
+        assertEquals(BackdropEffectHealth.Ok, state.effectHealth)
     }
 
     @Test
-    fun `a non primary fallback still writes the reading so the panel is not masked`() {
+    fun `a primary fallback still writes the reading so the panel is not masked`() {
         // 折射关闭时主面板判 DISABLED（不采样），按钮若还在采样，它的读数
         // 会盖住主面板的回退结果——实测出现 `sampled=true glass=126x126`，
         // 看起来像"主面板还在采样"。回退读数必须优先。
         val state = LiquidGlassBackdropState()
+        val spec = LiquidGlassBackdropSpec.Default
+        val panel = LiquidGlassBackdropSampling(state, spec)
+        val button = LiquidGlassBackdropSampling(state, spec)
+        val panelBounds = IntRect(63, 105, 1017, 525)
+        val buttonBounds = IntRect(42, 160, 168, 286)
+        panel.onGlassPositioned(panelBounds)
+        button.onGlassPositioned(buttonBounds)
         val panelFallback = BackdropSamplePlan.original(BackdropFallbackReason.DISABLED)
-        state.reportPlan(panelFallback, IntRect(63, 105, 1017, 525), isPrimary = true)
+        state.reportPlan(panel, panelFallback, panelBounds, BackdropEffectHealth.Unknown, null)
 
         val buttonSampled = planBackdropSample(
             35, true, true,
-            IntRect(42, 160, 42 + 126, 160 + 126),
+            buttonBounds,
             IntRect(0, 0, 1080, 1800),
             11
         )
         // 按钮不是主玻璃 → 无论采样成功还是回退，都不写读数
-        state.reportPlan(buttonSampled, IntRect(42, 160, 168, 286), isPrimary = false)
+        state.reportPlan(button, buttonSampled, buttonBounds, BackdropEffectHealth.Ok, Any())
 
         assertEquals(BackdropFallbackReason.DISABLED, state.lastPlan.reason)
         assertFalse(state.lastPlan.useSampledBackdrop)
+    }
+
+    @Test
+    fun `a remounted glass publishes its own plan and draws after the old primary leaves`() {
+        val state = LiquidGlassBackdropState()
+        val spec = LiquidGlassBackdropSpec.Default
+        val original = LiquidGlassBackdropSampling(state, spec)
+        val replacement = LiquidGlassBackdropSampling(state, spec)
+        val bounds = IntRect(42, 160, 168, 286)
+        val sampled = planBackdropSample(35, true, true, bounds, IntRect(0, 0, 1080, 1800), 11)
+        val firstDraw = Any()
+        val secondDraw = Any()
+
+        original.onGlassPositioned(bounds)
+        state.reportPlan(original, sampled, bounds, BackdropEffectHealth.Ok, firstDraw)
+        original.recordLayerDraw(3, firstDraw)
+        assertEquals(sampled, state.lastPlan)
+        assertEquals(BackdropEffectHealth.Ok, state.primaryEffectHealth)
+        assertTrue(state.primaryHasDrawnCurrentPlan)
+        assertEquals(1, state.primaryLayerDrawCount)
+        assertEquals(3, state.primaryLastLayerDrawRevision)
+
+        state.removeSampling(original)
+        state.reportPlan(original, sampled, bounds, BackdropEffectHealth.Ok, firstDraw)
+        state.reportPlan(replacement, sampled, bounds, BackdropEffectHealth.Ok, secondDraw)
+        assertFalse(original.isPrimary)
+        assertFalse(replacement.isPrimary)
+        assertEquals(BackdropFallbackReason.NOT_DRAWN_YET, state.lastPlan.reason)
+        assertNull(state.lastGlassWindow)
+        assertEquals(BackdropEffectHealth.Unknown, state.primaryEffectHealth)
+        assertFalse(state.primaryHasDrawnCurrentPlan)
+
+        replacement.onGlassPositioned(bounds)
+        state.reportPlan(replacement, sampled, bounds, BackdropEffectHealth.Ok, secondDraw)
+        assertTrue(replacement.isPrimary)
+        assertEquals(bounds, state.lastGlassWindow)
+        assertEquals(sampled, state.lastPlan)
+        assertEquals(0, state.primaryLayerDrawCount)
+        assertEquals(-1, state.primaryLastLayerDrawRevision)
+        assertFalse(state.primaryHasDrawnCurrentPlan)
+
+        replacement.recordLayerDraw(4, secondDraw)
+        assertEquals(1, state.primaryLayerDrawCount)
+        assertEquals(4, state.primaryLastLayerDrawRevision)
+        assertEquals(2, state.layerDrawCount)
+        assertTrue(state.primaryHasDrawnCurrentPlan)
+    }
+
+    @Test
+    fun `a rebuilt plan requires its own successful effect and draw at the same source revision`() {
+        val state = LiquidGlassBackdropState()
+        val button = LiquidGlassBackdropSampling(state, LiquidGlassBackdropSpec.Default)
+        val sourceBounds = IntRect(0, 0, 1080, 1800)
+        val firstBounds = IntRect(42, 160, 168, 286)
+        val secondBounds = IntRect(52, 170, 178, 296)
+        val firstPlan = planBackdropSample(35, true, true, firstBounds, sourceBounds, 11)
+        val secondPlan = planBackdropSample(35, true, true, secondBounds, sourceBounds, 11)
+        val firstDraw = Any()
+        val secondDraw = Any()
+        val revision = state.revision
+
+        button.onGlassPositioned(firstBounds)
+        state.reportPlan(button, firstPlan, firstBounds, BackdropEffectHealth.Ok, firstDraw)
+        button.recordLayerDraw(revision, firstDraw)
+        assertTrue(state.primaryHasDrawnCurrentPlan)
+
+        button.onGlassPositioned(secondBounds)
+        state.reportPlan(button, secondPlan, secondBounds, BackdropEffectHealth.Failed, null)
+        assertEquals(secondPlan, state.lastPlan)
+        assertEquals(BackdropEffectHealth.Failed, state.primaryEffectHealth)
+        assertFalse(state.primaryHasDrawnCurrentPlan)
+
+        state.reportPlan(button, secondPlan, secondBounds, BackdropEffectHealth.Ok, secondDraw)
+        assertEquals(revision, state.primaryLastLayerDrawRevision)
+        assertFalse(state.primaryHasDrawnCurrentPlan)
+        button.recordLayerDraw(revision, secondDraw)
+        assertTrue(state.primaryHasDrawnCurrentPlan)
+    }
+
+    @Test
+    fun `removing the largest glass promotes an already positioned glass`() {
+        val state = LiquidGlassBackdropState()
+        val spec = LiquidGlassBackdropSpec.Default
+        val panel = LiquidGlassBackdropSampling(state, spec)
+        val firstButton = LiquidGlassBackdropSampling(state, spec)
+        val secondButton = LiquidGlassBackdropSampling(state, spec)
+        panel.onGlassPositioned(IntRect(63, 105, 1017, 525))
+        firstButton.onGlassPositioned(IntRect(42, 160, 168, 286))
+        secondButton.onGlassPositioned(IntRect(180, 160, 306, 286))
+        assertTrue(panel.isPrimary)
+
+        state.removeSampling(panel)
+        assertTrue(firstButton.isPrimary)
+        secondButton.onGlassPositioned(IntRect(181, 160, 307, 286))
+        assertTrue(firstButton.isPrimary)
+        assertFalse(secondButton.isPrimary)
     }
 
     @Test
@@ -979,5 +1085,71 @@ class LiquidGlassAuditMarkerTest {
         markers.removePrefix("AUDIT ").split(" ").forEach { token ->
             assertTrue("token 必须含 =: $token", token.contains("="))
         }
+    }
+}
+
+/**
+ * 顶部操作按钮的采样参数与门控。
+ *
+ * 48dp 的按钮不能沿用面板参数，也不能在没人提供背景/未达门槛时启用采样。
+ */
+class LiquidGlassCompactControlTest {
+
+    @Test
+    fun `compact control uses a narrower refraction band than the panel default`() {
+        val panel = LiquidGlassBackdropSpec.Default
+        val compact = panel.forCompactControl()
+        assertTrue(
+            "小按钮的折射带必须比面板窄",
+            compact.refractionHeightDp.value < panel.refractionHeightDp.value
+        )
+        assertTrue(
+            "小按钮的最大位移必须比面板小",
+            compact.refractionAmountDp.value < panel.refractionAmountDp.value
+        )
+    }
+
+    @Test
+    fun `compact control keeps dispersion restrained`() {
+        val compact = LiquidGlassBackdropSpec(dispersion = 0.9f).forCompactControl()
+        assertTrue("小按钮不应出现强烈彩虹边", compact.dispersion <= 0.08f)
+    }
+
+    @Test
+    fun `compact control preserves the enabled flag`() {
+        assertFalse(LiquidGlassBackdropSpec.Off.forCompactControl().enabled)
+        assertTrue(LiquidGlassBackdropSpec.Default.forCompactControl().enabled)
+    }
+
+    @Test
+    fun `compact control padding fits inside the top bar inset`() {
+        // 采样外扩 = max(模糊, 位移)/2。顶栏横向内边距是 8dp；外扩超过它时，
+        // 按钮左/右边缘会永远判 OUT_OF_SOURCE_BOUNDS，采样形同虚设。
+        val compact = LiquidGlassBackdropSpec.Default.forCompactControl()
+        listOf(1f, 2f, 2.75f, 3f, 3.5f, 4f).forEach { density ->
+            val pad = backdropPaddingPx(compact.resolve(density))
+            val insetPx = 8f * density
+            assertTrue(
+                "density=$density 时外扩 ${pad}px 超过顶栏内边距 ${insetPx}px",
+                pad <= insetPx
+            )
+        }
+    }
+
+    @Test
+    fun `panel default padding still covers the blur kernel`() {
+        // 面板不受顶栏留白限制，外扩仍应覆盖半个模糊核
+        val panel = LiquidGlassBackdropSpec.Default.resolve(2.75f)
+        val pad = backdropPaddingPx(panel)
+        assertTrue(pad >= (panel.blurRadiusPx / 2f) - 0.5f)
+    }
+
+    @Test
+    fun `sampling requires lab switch, api gate and a real backdrop`() {
+        assertTrue(shouldSampleCompactControl(true, 35, true))
+        assertTrue(shouldSampleCompactControl(true, 33, true))
+        assertFalse("实验室开关关闭时不采样", shouldSampleCompactControl(false, 35, true))
+        assertFalse("API 32 不采样", shouldSampleCompactControl(true, 32, true))
+        assertFalse("没有背景来源不采样", shouldSampleCompactControl(true, 35, false))
     }
 }

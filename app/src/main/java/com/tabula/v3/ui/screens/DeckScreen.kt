@@ -2273,7 +2273,7 @@ private fun LoadingState(
         ) {
             // Logo
             Image(
-                painter = painterResource(id = R.drawable.logo),
+                painter = coil.compose.rememberAsyncImagePainter(model = R.drawable.logo),
                 contentDescription = "Tabula Logo",
                 modifier = Modifier.size(100.dp)
             )
@@ -2332,7 +2332,7 @@ private fun EmptyState() {
         ) {
             // Logo
             Image(
-                painter = painterResource(id = R.drawable.logo),
+                painter = coil.compose.rememberAsyncImagePainter(model = R.drawable.logo),
                 contentDescription = "Tabula Logo",
                 modifier = Modifier.size(120.dp)
             )

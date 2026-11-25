@@ -55,12 +55,32 @@ evidence = {
 failures: list[str] = []
 
 
+def persist_progress() -> None:
+    """把当前证据落盘，`success` 留 null 表示"还在跑"。
+
+    进程被 SIGKILL 时这是唯一能留下已采集检查项的路径。汇总脚本把
+    "success 为 null 且无 environment_unavailable" 判成未完成，所以半截
+    summary 不会被读成通过。
+    """
+    api = evidence.get("sdk")
+    if api is None:
+        return
+    try:
+        (OUT / f"api{api}-summary.json").write_text(
+            json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except OSError:
+        # 落盘失败不能反过来毁掉取证本身
+        pass
+
+
 def record(step: str, ok: bool, detail: str = "", failure: str | None = None) -> None:
     evidence["checks"].append({"step": step, "ok": ok, "detail": detail})
     print(f"[{'OK' if ok else 'FAIL'}] {step} {detail}", flush=True)
     if not ok and failure:
         failures.append(failure)
         evidence["failures"].append(failure)
+    persist_progress()
 
 
 # 模拟器掉线前常常先抖一下（`adb: device offline` / `error: closed`）。
@@ -337,8 +357,8 @@ def screenshot(name: str, attempts: int = 3) -> Path:
 
 
 def start_preview(
-    refraction: bool,
-    photo: bool,
+    refraction: bool = True,
+    photo: bool = False,
     offset_y: int = 0,
     offset_x: int = 0,
     height_dp: int = 160,
@@ -347,6 +367,9 @@ def start_preview(
     shape: str = "RoundedRect",
     backdrop: str | None = None,
     host_scale: int = 100,
+    production_wiring: bool = False,
+    lab_switch: bool = True,
+    photo_available: bool = True,
 ) -> None:
     adb("shell", "am", "force-stop", PACKAGE)
     args = [
@@ -365,6 +388,13 @@ def start_preview(
         args += ["--es", "backdrop", backdrop]
     if diag_blur:
         args += ["--ez", "diagBlur", "true"]
+
+    if production_wiring:
+        args += [
+            "--ez", "productionWiring", "true",
+            "--ez", "labSwitch", "true" if lab_switch else "false",
+            "--ez", "photoAvailable", "true" if photo_available else "false",
+        ]
     out = adb(*args, check=False)
     if "Error" in out or "Exception" in out:
         # 启动就失败（崩溃 / Activity 找不到）：立刻把 logcat 与崩溃段落盘，
@@ -378,6 +408,11 @@ def start_preview(
     time.sleep(2.5)
     # 启动后确认预览页真的在前台（而不是闪一下崩掉）
     assert_app_alive("after-start", "preview 启动")
+
+
+def audit_of(tag: str) -> tuple[dict | None, Path]:
+    dump = ui_dump(tag)
+    return parse_audit(dump), dump
 
 
 def pixel_diff(a: Path, b: Path, out_prefix: str, roi: tuple[int, int, int, int] | None) -> dict:
@@ -552,6 +587,9 @@ def write_summary(
 def main() -> int:
     api = sdk_int()
     evidence["sdk"] = api
+    # 先落一次基线：之后任何时刻进程被杀，磁盘上至少有一份带 api 号、
+    # success=null 的 summary，而不是什么都没有。
+    persist_progress()
     evidence["model"] = adb("shell", "getprop", "ro.product.model").strip()
     evidence["fingerprint"] = adb("shell", "getprop", "ro.build.fingerprint").strip()
     size_line = adb("shell", "wm", "size").strip()
@@ -582,6 +620,125 @@ def main() -> int:
         return api
 
     # ===== API 33+：真实采样验证 =====
+
+    # ===== 0. 生产接线（先跑）=====
+    #
+    # 这一段渲染的是 LiquidGlassPhotoBackdropViewer —— 回收站全屏查看器实际
+    # 跑的就是它。放在**最前面**是因为模拟器会中途掉线（多轮实测：跑到
+    # 第 7~17 项就断），而这一段是本 PR 的核心交付物，必须优先拿到证据。
+
+
+    start_preview(production_wiring=True, lab_switch=True, photo_available=True)
+    wiring_on_shot = screenshot(f"api{api}-wiring-on")
+    wiring_on, wiring_on_dump = audit_of(f"api{api}-wiring-on")
+    evidence["production_wiring_on"] = wiring_on
+    wiring_on_ok = (
+        bool(wiring_on)
+        and wiring_on.get("sampled") == "true"
+        and wiring_on.get("effect") == "Ok"
+    )
+    record(
+        "production wiring samples the photo behind the top buttons",
+        wiring_on_ok,
+        json.dumps(wiring_on, ensure_ascii=False) if wiring_on else wiring_on_dump.name,
+        failure=None if wiring_on_ok
+        else "生产接线没有建立采样层：顶部按钮拿不到背景来源",
+    )
+
+    # 顶部按钮在状态栏之下：外扩必须仍落在背景来源内，否则会回退
+    wiring_host = as_size(wiring_on, "host")
+    wiring_glass = as_size(wiring_on, "glass")
+    wiring_reason = (wiring_on or {}).get("reason")
+    wiring_geometry_ok = (
+        wiring_reason == "NONE"
+        and wiring_host is not None
+        and wiring_glass is not None
+        and wiring_host != wiring_glass
+    )
+    record(
+        "production wiring reports a sampled plan with distinct host/glass sizes",
+        wiring_geometry_ok,
+        f"reason={wiring_reason} host={wiring_host} glass={wiring_glass}",
+        failure=None if wiring_geometry_ok
+        else "生产接线的采样方案不成立（可能是顶部按钮外扩越界）",
+    )
+
+    # 背景移动：只平移合成照片的内容，采样必须重新对齐且画面连续
+    wiring_roi = glass_roi_from_audit(wiring_on, screen) if wiring_on else None
+    start_preview(
+        production_wiring=True,
+        lab_switch=True,
+        photo_available=True,
+        offset_y=240,
+    )
+    wiring_moved_shot = screenshot(f"api{api}-wiring-moved")
+    wiring_moved, wiring_moved_dump = audit_of(f"api{api}-wiring-moved")
+    evidence["production_wiring_moved"] = wiring_moved
+    wiring_moved_ok = (
+        bool(wiring_moved)
+        and wiring_moved.get("sampled") == "true"
+        and (wiring_moved.get("reason") == "NONE")
+    )
+    record(
+        "production wiring stays aligned after the background moves",
+        wiring_moved_ok,
+        json.dumps(wiring_moved, ensure_ascii=False) if wiring_moved else wiring_moved_dump.name,
+        failure=None if wiring_moved_ok
+        else "背景移动后生产接线不再采样或对齐失败",
+    )
+    # 背景移动的像素判据用**按钮之外**的区域：按钮是 48dp 的小圆角方块，
+    # 它下面那块照片在 240px 平移下可能仍是近似纯色（实测按钮 ROI 内变化 0 像素）。
+    # 用整屏下半部（照片主体）判定"背景真的动了"，才是这条要证明的事。
+    if wiring_roi is not None:
+        left, top, right, bottom = wiring_roi
+        body_roi = (0, min(screen[1] - 1, bottom + 40), screen[0], screen[1])
+        moved_diff = pixel_diff(
+            wiring_on_shot, wiring_moved_shot, f"api{api}-wiring-moved", body_roi
+        )
+        (OUT / f"api{api}-wiring-moved-diff.json").write_text(
+            json.dumps(moved_diff, indent=2), encoding="utf-8")
+        evidence["production_wiring_moved_diff"] = moved_diff
+        evidence["production_wiring_moved_roi"] = list(body_roi)
+        moved_ok = moved_diff.get("changed_pixels", 0) >= 200
+        record(
+            "moving the background changes the picture under the buttons",
+            moved_ok,
+            json.dumps(moved_diff),
+            failure=None if moved_ok
+            else "背景移动后照片主体画面没变：采样层还在用旧内容",
+        )
+
+    # 开关关闭：必须完全回退（sampled=false / reason=DISABLED）
+    start_preview(production_wiring=True, lab_switch=False, photo_available=True)
+    wiring_off_shot = screenshot(f"api{api}-wiring-switch-off")
+    wiring_off, wiring_off_dump = audit_of(f"api{api}-wiring-switch-off")
+    evidence["production_wiring_switch_off"] = wiring_off
+    wiring_off_ok = bool(wiring_off) and wiring_off.get("sampled") == "false"
+    record(
+        "production wiring falls back when the lab switch is off",
+        wiring_off_ok,
+        json.dumps(wiring_off, ensure_ascii=False) if wiring_off else wiring_off_dump.name,
+        failure=None if wiring_off_ok
+        else "实验室开关关闭后生产接线仍在采样",
+    )
+
+    # 来源不可用：同样必须完全回退
+    start_preview(production_wiring=True, lab_switch=True, photo_available=False)
+    wiring_no_photo_shot = screenshot(f"api{api}-wiring-no-photo")
+    wiring_no_photo, wiring_no_photo_dump = audit_of(f"api{api}-wiring-no-photo")
+    evidence["production_wiring_no_photo"] = wiring_no_photo
+    wiring_no_photo_ok = (
+        bool(wiring_no_photo) and wiring_no_photo.get("sampled") == "false"
+    )
+    record(
+        "production wiring falls back when the photo source is unavailable",
+        wiring_no_photo_ok,
+        json.dumps(wiring_no_photo, ensure_ascii=False) if wiring_no_photo
+        else wiring_no_photo_dump.name,
+        failure=None if wiring_no_photo_ok
+        else "照片来源不可用时生产接线仍在采样",
+    )
+
 
     # 1. 折射开：必须 sampled=true 且 effect=Ok
     start_preview(refraction=True, photo=False)
@@ -1099,7 +1256,8 @@ def color_continuity(image_path: Path, roi: tuple[int, int, int, int]) -> dict:
 #   2 = 环境中断（模拟器掉线 / adb 失联 / 启动即崩），取证**未完成**
 #
 # 三种结局在 CI 上都表现为"job 不绿"，但只有 1 代表实现有问题；
-# 2 必须在 PR 上读成"未完成"而不是"通过"。
+# 2 必须在 PR 上读成"未完成"而不是"通过"——这正是之前 `continue-on-error`
+# 抹掉的信息。
 EXIT_PASS = 0
 EXIT_ASSERTION_FAILED = 1
 EXIT_ENVIRONMENT_INTERRUPTED = 2
@@ -1117,12 +1275,16 @@ def classify_exit(assertion_failed: bool, env_error: str | None) -> int:
     return EXIT_PASS
 
 
+# 注意：#92 原来在这里有独立的 `dump_summary()`，环境中断时只写
+# error-summary.json —— 那正是"17 项通过证据被整轮作废"的成因。已统一到
+# 上面的 `write_summary()`：任何出口都写 api<N>-summary.json。
 if __name__ == "__main__":
     env_error: str | None = None
     api: int | None = None
     try:
         api = main()
     except EmulatorUnavailable as error:
+        # 模拟器自身故障：取证未完成，不算实现缺陷，但**也绝不判通过**。
         env_error = str(error)
         print(f"[ENV] 模拟器故障，本轮取证未完成：{error}", flush=True)
     except Exception as error:  # noqa: BLE001

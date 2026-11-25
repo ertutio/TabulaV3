@@ -309,15 +309,12 @@ class AppPreferences(context: Context) {
         set(value) = prefs.edit().putInt(KEY_TAGS_PER_ROW, value.coerceIn(4, 10)).apply()
 
     /**
-     * 液态玻璃实验室功能开关（仅在 Android 15+ 生效）
-     * 注意：该功能还未完善，暂时强制关闭
+     * 保存用户对液态玻璃实验功能的选择，默认关闭。
+     * 界面只在 Android 15 及以上应用此偏好。
      */
     var liquidGlassLabEnabled: Boolean
-        get() = false // 功能未完善，强制返回 false
-        set(value) {
-            // 功能未完善，不保存启用状态
-            // prefs.edit().putBoolean(KEY_LIQUID_GLASS_LAB_ENABLED, value).apply()
-        }
+        get() = prefs.getBoolean(KEY_LIQUID_GLASS_LAB_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_LIQUID_GLASS_LAB_ENABLED, value).apply()
 
     /**
      * 是否已完成引导流程

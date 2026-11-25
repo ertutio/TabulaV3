@@ -1,0 +1,42 @@
+INSTRUMENTATION_STATUS: class=com.tabula.v3.RecycleBinViewerBackdropDeviceTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stream=
+com.tabula.v3.RecycleBinViewerBackdropDeviceTest:
+INSTRUMENTATION_STATUS: test=viewerBackdropFallsBackWhileScrollingZoomingAndPanning
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.tabula.v3.RecycleBinViewerBackdropDeviceTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stack=java.lang.IllegalStateException: UiAutomationService android.accessibilityservice.IAccessibilityServiceClient$Stub$Proxy@5f977calready registered!
+	at android.os.Parcel.createExceptionOrNull(Parcel.java:3430)
+	at android.os.Parcel.createException(Parcel.java:3406)
+	at android.os.Parcel.readException(Parcel.java:3389)
+	at android.os.Parcel.readException(Parcel.java:3331)
+	at android.app.IUiAutomationConnection$Stub$Proxy.connect(IUiAutomationConnection.java:550)
+	at android.app.UiAutomation.connectWithTimeout(UiAutomation.java:390)
+	at android.app.Instrumentation.getUiAutomation(Instrumentation.java:2629)
+	at android.app.Instrumentation.getUiAutomation(Instrumentation.java:2573)
+	at com.tabula.v3.PartialSelectionUi.uiAutomation(PartialSelectionUi.kt:132)
+	at com.tabula.v3.RecycleBinViewerBackdropDeviceTest.requireSyntheticMediaPermission(RecycleBinViewerBackdropDeviceTest.kt:128)
+
+INSTRUMENTATION_STATUS: stream=
+Error in viewerBackdropFallsBackWhileScrollingZoomingAndPanning(com.tabula.v3.RecycleBinViewerBackdropDeviceTest):
+java.lang.IllegalStateException: UiAutomationService android.accessibilityservice.IAccessibilityServiceClient$Stub$Proxy@5f977calready registered!
+	at android.os.Parcel.createExceptionOrNull(Parcel.java:3430)
+	at android.os.Parcel.createException(Parcel.java:3406)
+	at android.os.Parcel.readException(Parcel.java:3389)
+	at android.os.Parcel.readException(Parcel.java:3331)
+	at android.app.IUiAutomationConnection$Stub$Proxy.connect(IUiAutomationConnection.java:550)
+	at android.app.UiAutomation.connectWithTimeout(UiAutomation.java:390)
+	at android.app.Instrumentation.getUiAutomation(Instrumentation.java:2629)
+	at android.app.Instrumentation.getUiAutomation(Instrumentation.java:2573)
+	at com.tabula.v3.PartialSelectionUi.uiAutomation(PartialSelectionUi.kt:132)
+	at com.tabula.v3.RecycleBinViewerBackdropDeviceTest.requireSyntheticMediaPermission(RecycleBinViewerBackdropDeviceTest.kt:128)
+
+INSTRUMENTATION_STATUS: test=viewerBackdropFallsBackWhileScrollingZoomingAndPanning
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_RESULT: shortMsg=Process crashed.
+INSTRUMENTATION_CODE: 0

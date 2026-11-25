@@ -30,6 +30,8 @@
 #   VIEWER_ATTEMPTS 设备测试在环境中断时的尝试次数（默认 2；断言失败不重试）
 #   TIMEOUT_CMD     超时保护命令（默认 `timeout`；置空则不加超时，供本地单测）
 #   DEVICE_WAIT_SECONDS 等设备就绪的轮数上限（默认 30，每轮 2s；0 = 不等）
+#   MODE            跑哪一段：viewer / probe / all（默认 all）
+#   INSTALL_ATTEMPTS 装 APK 的尝试次数（默认 3；单测置 1）
 #   OUT_DIR     结果目录（默认 device-results）
 #   APK_APP     应用 APK 路径
 #   APK_TEST    androidTest APK 路径
@@ -48,12 +50,69 @@ VIEWER_CLASS="com.tabula.v3.RecycleBinViewerBackdropDeviceTest"
 # 超时保护用哪个命令。默认 `timeout`（CI 上就是 coreutils 的那个）；
 # 本地单测置空即直接调用 adb——MSYS 的 timeout.exe 无法 exec shell 脚本。
 TIMEOUT_CMD="${TIMEOUT_CMD-timeout}"
+# 跑哪一段：viewer（真实查看器设备测试）/ probe（预览页探针）/ all（两段都跑）。
+# 拆开是为了在 workflow 里各用一次 emulator-runner：长探针会话会先把模拟器
+# 耗尽，排在后面的设备测试永远跑不到（见 API 35 的历史记录）。
+MODE="${MODE:-all}"
 
 mkdir -p "$OUT_DIR"
 
+# 兜底结论：先写"未完成"，后续任一分支成功再覆盖。
+#
+# 为什么：脚本可能在任何一步被打断（模拟器没起来、job 超时被 kill、
+# runner 回收），此时若一行都不写，汇总脚本只能报 `viewer(not-run)`，
+# 连"是设备测试失败还是根本没跑到"都分不清（run 45467668904 即此）。
+# 先落一份 2（未完成），任何真实结论都会把它覆盖掉。
+case "$MODE" in
+  probe) echo "viewer exit=na  # MODE=probe，本 job 不跑设备测试" > "$OUT_DIR/viewer-exit.txt" ;;
+  *)     echo "viewer exit=2  # 兜底：脚本未跑完（环境中断）" > "$OUT_DIR/viewer-exit.txt" ;;
+esac
+
+# 设备侧证据目录（测试自己写的失败现场）
+DEVICE_EVIDENCE_DIR="/sdcard/Android/data/$TEST_PKG/files/liquid-glass-failures"
+
+# 失败时把设备侧证据拉回来：截图 + 无障碍树 + 前台 Activity + 权限 + logcat。
+# 拉不到不算失败（测试可能压根没跑到写证据那一步），但会明确标注。
+diagnostic_adb() {
+  if [ -n "$TIMEOUT_CMD" ]; then
+    "$TIMEOUT_CMD" -k 5s 15s adb "$@"
+  else
+    adb "$@"
+  fi
+}
+
+pull_device_evidence() {
+  REASON="$1"
+  mkdir -p "$OUT_DIR/device-evidence"
+  echo "=== 拉取设备侧证据（$REASON）==="
+
+  # 1. 测试自己写的失败现场
+  if diagnostic_adb pull "$DEVICE_EVIDENCE_DIR" "$OUT_DIR/device-evidence/" 2>&1; then
+    echo "device evidence pulled"
+  else
+    echo "::warning::设备侧证据目录拉取失败（测试可能没跑到写证据那一步）"
+  fi
+
+  # 2. 前台 Activity + 权限状态（与测试写的独立留一份，便于快速判读）
+  diagnostic_adb shell "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'" \
+    > "$OUT_DIR/device-evidence/window-focus.txt" 2>&1
+  diagnostic_adb shell "dumpsys package $TEST_PKG | grep -E 'READ_MEDIA|READ_EXTERNAL'" \
+    > "$OUT_DIR/device-evidence/grants.txt" 2>&1
+
+  # 3. logcat（主缓冲 + crash 缓冲）
+  diagnostic_adb logcat -d -v threadtime > "$OUT_DIR/device-evidence/logcat.txt" 2>&1
+  diagnostic_adb logcat -d -b crash -v threadtime > "$OUT_DIR/device-evidence/logcat-crash.txt" 2>&1
+
+  ls -la "$OUT_DIR/device-evidence/" 2>/dev/null || true
+}
+
 echo "=== API $API_LEVEL: 真实查看器设备测试（先跑：会话越短越不容易掉线）==="
 VIEWER=0
-if [ "$API_LEVEL" -ge 33 ]; then
+if [ "$MODE" = "probe" ]; then
+  # 本 job 只跑预览探针：设备测试按设计不跑，写 na（不冒充通过，也不假装未完成）
+  echo "viewer exit=na  # MODE=$MODE，本 job 不跑设备测试" | tee "$OUT_DIR/viewer-exit.txt"
+  VIEWER=0
+elif [ "$API_LEVEL" -ge 33 ]; then
   # 采样层要求 API 33+。低版本写 `na`：不算通过，也不把合法矩阵项判成未完成。
   VIEWER=2
 
@@ -75,7 +134,7 @@ if [ "$API_LEVEL" -ge 33 ]; then
 
   install_apks() {
     install_attempt=1
-    while [ "$install_attempt" -le 3 ]; do
+    while [ "$install_attempt" -le "${INSTALL_ATTEMPTS:-3}" ]; do
       if adb install -r -t "$APK_APP" && adb install -r -t "$APK_TEST"; then
         return 0
       fi
@@ -118,20 +177,24 @@ if [ "$API_LEVEL" -ge 33 ]; then
           "$RUNNER" > "$OUT_DIR/instrumentation-viewer.txt" 2>&1
       fi
       AM=$?
+      cp "$OUT_DIR/instrumentation-viewer.txt" "$OUT_DIR/instrumentation-viewer-attempt-$ATTEMPT.txt"
       cat "$OUT_DIR/instrumentation-viewer.txt"
 
       if [ "$AM" -eq 124 ]; then
         echo "::error::真实查看器设备测试超时（900s），取证未完成"
+        pull_device_evidence "viewer-timeout"
         VIEWER=2
         break
       fi
       if grep -q "FAILURES!!!" "$OUT_DIR/instrumentation-viewer.txt"; then
-        # 断言失败必须失败：这是实现问题，重跑没有意义
+        # 断言失败必须失败：这是实现问题，重跑没有意义。
+        # 但**必须**把现场拉回来，否则"为什么失败"只能靠猜。
         echo "::error::真实查看器设备测试断言失败（见 instrumentation-viewer.txt）"
+        pull_device_evidence "viewer-assertion-failed"
         VIEWER=1
         break
       fi
-      if grep -qE "^OK \([0-9]+ tests\)" "$OUT_DIR/instrumentation-viewer.txt"; then
+      if [ "$AM" -eq 0 ] && grep -qE "^OK \(1 tests?\)[[:space:]]*$" "$OUT_DIR/instrumentation-viewer.txt"; then
         echo "viewer device test: OK"
         VIEWER=0
         break
@@ -160,12 +223,23 @@ else
   VIEWER=0
 fi
 
-echo "=== API $API_LEVEL: 预览页探针 ==="
-# 用 `sh -c` 执行整串：PROBE_CMD 可能带参数或引号（测试里就传
-# `bash -c 'exit 1'`）。直接 `$PROBE_CMD` 会按空格拆开，引号被拆散。
-sh -c "$PROBE_CMD"
-PROBE=$?
-echo "probe exit=$PROBE"
+PROBE=0
+if [ "$MODE" = "viewer" ]; then
+  # 本 job 只跑设备测试：探针按设计不跑。写一份"本 job 未执行"的 summary，
+  # 汇总脚本据此判未完成——而不是把"没跑"当成通过。
+  echo "probe exit=na  # MODE=$MODE，本 job 不跑预览探针"
+  PROBE=0
+else
+  echo "=== API $API_LEVEL: 预览页探针 ==="
+  # 用 `sh -c` 执行整串：PROBE_CMD 可能带参数或引号（测试里就传
+  # `bash -c 'exit 1'`）。直接 `$PROBE_CMD` 会按空格拆开，引号被拆散。
+  sh -c "$PROBE_CMD"
+  PROBE=$?
+  echo "probe exit=$PROBE"
+  if [ "$PROBE" -ne 0 ]; then
+    pull_device_evidence "probe-exit-$PROBE"
+  fi
+fi
 
 echo "=== 合并结论 ==="
 echo "probe=$PROBE viewer=$VIEWER"

@@ -1,0 +1,264 @@
+{
+  "evidence_kind": "EMULATOR",
+  "note": "本目录全部为模拟器（CI emulator）采集，不代表真机表现。",
+  "sdk": 33,
+  "checks": [
+    {
+      "step": "install debug apk",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "refraction on reports sampled=true",
+      "ok": true,
+      "detail": "{\"sampled\": \"true\", \"reason\": \"NONE\", \"glass\": \"954x420\", \"origin\": \"(63,105)\", \"layer\": \"960x426\", \"pad\": \"3\", \"host\": \"1080x931\", \"screen\": \"(63,233)\", \"hostdraw\": \"2\", \"layerdraw\": \"1\", \"rev\": \"2\", \"shape\": \"圆角矩形\", \"effect\": \"Ok\"}"
+    },
+    {
+      "step": "refraction on reports effect=Ok",
+      "ok": true,
+      "detail": "Ok"
+    },
+    {
+      "step": "host and glass sizes are distinct and layer = glass + 2*pad",
+      "ok": true,
+      "detail": "host=(1080, 931) glass=(954, 420) layer=(960, 426) pad=3"
+    },
+    {
+      "step": "refraction off falls back to original materials",
+      "ok": true,
+      "detail": "{\"sampled\": \"false\", \"reason\": \"NOT_DRAWN_YET\", \"glass\": \"0x0\", \"origin\": \"(0,0)\", \"layer\": \"0x0\", \"pad\": \"0\", \"host\": \"1080x931\", \"hostdraw\": \"1\", \"layerdraw\": \"0\", \"rev\": \"2\", \"shape\": \"圆角矩形\", \"effect\": \"Unknown\"}"
+    },
+    {
+      "step": "glass region located",
+      "ok": true,
+      "detail": "(63, 233, 1017, 653)"
+    },
+    {
+      "step": "refraction changes pixels inside the glass region",
+      "ok": true,
+      "detail": "{\"comparable\": true, \"roi\": [63, 233, 1017, 653], \"region_width\": 954, \"region_height\": 420, \"changed_pixels\": 105711, \"region_pixels\": 400680, \"changed_ratio\": 0.263829, \"bbox_in_roi\": [0, 0, 954, 420], \"changed_pixels_whole_screen\": 151919}"
+    },
+    {
+      "step": "diagnostic blur reaches the glass region",
+      "ok": true,
+      "detail": "{\"comparable\": true, \"roi\": [63, 233, 1017, 653], \"region_width\": 954, \"region_height\": 420, \"changed_pixels\": 390743, \"region_pixels\": 400680, \"changed_ratio\": 0.9752, \"bbox_in_roi\": [0, 0, 954, 420], \"changed_pixels_whole_screen\": 401940}"
+    },
+    {
+      "step": "still scene stops drawing (draw counters unchanged)",
+      "ok": true,
+      "detail": "hostdraw 2->2 layerdraw 1->1"
+    },
+    {
+      "step": "switching the background repaints the sampling layer",
+      "ok": true,
+      "detail": "layerdraw 1 -> 2"
+    },
+    {
+      "step": "moving the pattern repaints the sampling layer",
+      "ok": true,
+      "detail": "layerdraw 2 -> 3"
+    },
+    {
+      "step": "changing the host size either repaints or falls back deterministically",
+      "ok": true,
+      "detail": "layerdraw 3 -> 4, host (1080, 931) -> (1016, 867), sampled=true reason=NONE"
+    },
+    {
+      "step": "shrinking the host below the glass falls back instead of sampling outside",
+      "ok": true,
+      "detail": "host (1016, 867) -> (828, 679), sampled=false reason=OUT_OF_SOURCE_BOUNDS"
+    },
+    {
+      "step": "host size change is picked up by the sampling plan",
+      "ok": true,
+      "detail": "host (1080, 931) -> (1016, 867)"
+    },
+    {
+      "step": "displacement-only comparison keeps sampling geometry identical",
+      "ok": true,
+      "detail": "weak={'sampled': 'true', 'reason': 'NONE', 'glass': '954x420', 'origin': '(63,105)', 'layer': '960x426', 'pad': '3', 'host': '1080x931', 'screen': '(63,233)', 'hostdraw': '2', 'layerdraw': '1', 'rev': '2', 'shape': '圆角矩形', 'effect': 'Ok'} strong={'sampled': 'true', 'reason': 'NONE', 'glass': '954x420', 'origin': '(63,105)', 'layer': '960x426', 'pad': '3', 'host': '1080x931', 'screen': '(63,233)', 'hostdraw': '2', 'layerdraw': '1', 'rev': '2', 'shape': '圆角矩形', 'effect': 'Ok'}"
+    },
+    {
+      "step": "displacement change moves pixels at the glass edge",
+      "ok": true,
+      "detail": "{\"comparable\": true, \"roi\": [63, 233, 1017, 293], \"region_width\": 954, \"region_height\": 60, \"changed_pixels\": 1660, \"region_pixels\": 57240, \"changed_ratio\": 0.029001, \"bbox_in_roi\": [0, 0, 954, 60], \"changed_pixels_whole_screen\": 43177}"
+    },
+    {
+      "step": "displacement change leaves the glass center essentially untouched",
+      "ok": true,
+      "detail": "{\"comparable\": true, \"roi\": [349, 359, 731, 527], \"region_width\": 382, \"region_height\": 168, \"changed_pixels\": 0, \"region_pixels\": 64176, \"changed_ratio\": 0.0, \"bbox_in_roi\": null, \"changed_pixels_whole_screen\": 43177}"
+    }
+  ],
+  "failures": [],
+  "model": "sdk_gphone64_x86_64",
+  "fingerprint": "google/sdk_gphone64_x86_64/emu64x:13/TE1A.240213.009/12342917:userdebug/dev-keys",
+  "screen": [
+    1080,
+    2400
+  ],
+  "audit_refraction_on": {
+    "sampled": "true",
+    "reason": "NONE",
+    "glass": "954x420",
+    "origin": "(63,105)",
+    "layer": "960x426",
+    "pad": "3",
+    "host": "1080x931",
+    "screen": "(63,233)",
+    "hostdraw": "2",
+    "layerdraw": "1",
+    "rev": "2",
+    "shape": "圆角矩形",
+    "effect": "Ok"
+  },
+  "size_contract": {
+    "host": [
+      1080,
+      931
+    ],
+    "glass": [
+      954,
+      420
+    ],
+    "layer": [
+      960,
+      426
+    ],
+    "pad": 3
+  },
+  "audit_refraction_off": {
+    "sampled": "false",
+    "reason": "NOT_DRAWN_YET",
+    "glass": "0x0",
+    "origin": "(0,0)",
+    "layer": "0x0",
+    "pad": "0",
+    "host": "1080x931",
+    "hostdraw": "1",
+    "layerdraw": "0",
+    "rev": "2",
+    "shape": "圆角矩形",
+    "effect": "Unknown"
+  },
+  "audit_refraction_off_note": "读数来自顶栏按钮（glass=(0, 0)）；主面板已回退，只是它不写读数",
+  "glass_roi": [
+    63,
+    233,
+    1017,
+    653
+  ],
+  "diagnostic_blur": {
+    "comparable": true,
+    "roi": [
+      63,
+      233,
+      1017,
+      653
+    ],
+    "region_width": 954,
+    "region_height": 420,
+    "changed_pixels": 390743,
+    "region_pixels": 400680,
+    "changed_ratio": 0.9752,
+    "bbox_in_roi": [
+      0,
+      0,
+      954,
+      420
+    ],
+    "changed_pixels_whole_screen": 401940
+  },
+  "still_draw_counts": {
+    "before": {
+      "host": 2,
+      "layer": 1
+    },
+    "after": {
+      "host": 2,
+      "layer": 1
+    }
+  },
+  "background_switch": {
+    "before": 1,
+    "after": 2
+  },
+  "pattern_move": {
+    "before": 2,
+    "after": 3
+  },
+  "host_resize": {
+    "layerdraw": {
+      "before": 3,
+      "after": 4
+    },
+    "host": {
+      "before": [
+        1080,
+        931
+      ],
+      "after": [
+        1016,
+        867
+      ]
+    },
+    "reason": "NONE",
+    "sampled": "true"
+  },
+  "host_shrink": {
+    "host": [
+      828,
+      679
+    ],
+    "sampled": "false",
+    "reason": "OUT_OF_SOURCE_BOUNDS"
+  },
+  "displacement_only_premise": {
+    "blur": "2dp (forDisplacementComparison)",
+    "amounts_dp": [
+      2,
+      12
+    ]
+  },
+  "displacement_only": {
+    "edge": {
+      "comparable": true,
+      "roi": [
+        63,
+        233,
+        1017,
+        293
+      ],
+      "region_width": 954,
+      "region_height": 60,
+      "changed_pixels": 1660,
+      "region_pixels": 57240,
+      "changed_ratio": 0.029001,
+      "bbox_in_roi": [
+        0,
+        0,
+        954,
+        60
+      ],
+      "changed_pixels_whole_screen": 43177
+    },
+    "center": {
+      "comparable": true,
+      "roi": [
+        349,
+        359,
+        731,
+        527
+      ],
+      "region_width": 382,
+      "region_height": 168,
+      "changed_pixels": 0,
+      "region_pixels": 64176,
+      "changed_ratio": 0.0,
+      "bbox_in_roi": null,
+      "changed_pixels_whole_screen": 43177
+    }
+  },
+  "error": "RuntimeError: adb shell uiautomator dump /sdcard/ui.xml -> 1\nadb: device 'emulator-5554' not found\n",
+  "success": false,
+  "environment_unavailable": "RuntimeError: adb shell uiautomator dump /sdcard/ui.xml -> 1\nadb: device 'emulator-5554' not found\n"
+}
