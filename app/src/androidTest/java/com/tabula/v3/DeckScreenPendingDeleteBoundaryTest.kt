@@ -74,9 +74,6 @@ class DeckScreenPendingDeleteBoundaryTest {
         prefs.walkSamplingStrategy = WalkSamplingStrategy.UNIFORM
         prefs.swipeStyle = SwipeStyle.SHUFFLE
         prefs.batchSize = 3          // 小批次：容易滑到最后一张
-        // 用生产自带的「下一张」控件推进批次：SHUFFLE 样式下左右滑是"切牌循环"，
-        // 不是"保留并前进"，用它翻批会原地打转（run 45590253575 停在同一张卡）。
-        prefs.quickActionButtonEnabled = true
         prefs.clearAllPickRecords()
         RecommendationEngine.getInstance(ctx).clearRoundIntent()
         runBlocking { runCatching { RecycleBinManager.getInstance(ctx).clearRecycleBin() } }
@@ -368,6 +365,9 @@ class DeckScreenPendingDeleteBoundaryTest {
         // 翻批（横滑要么够不到阈值、要么踩到系统返回手势把应用切走）
         repeat(4) { insertPhoto("DCIM/Screenshots") }
         repeat(4) { insertPhoto("DCIM/Camera") }
+        // 必须在 startApp **之前**写：MainActivity 用
+        // `remember { mutableIntStateOf(preferences.batchSize) }` 在组合期读一次，
+        // 启动后再改偏好不会影响这一批的大小（run 45599279603 实测）。
         prefs.batchSize = 1
         startApp()
         PendingDeleteTestHook.reset()
