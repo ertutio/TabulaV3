@@ -62,6 +62,15 @@ class ProbeTriStateTest(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
+    def test_system_anr_does_not_become_a_missing_audit_assertion(self):
+        dump = self.tmp / "window.xml"
+        dump.write_text("""<node package="android" text="System UI isn't responding"/>""")
+        with self.assertRaises(self.probe.EmulatorUnavailable):
+            self.probe.parse_audit(dump)
+
+        dump.write_text("""<node package="com.android.systemui" text="Status bar"/>""")
+        self.assertIsNone(self.probe.parse_audit(dump))
+
     def test_all_pass_writes_api_summary_with_success_true(self):
         self.probe.record("some check", True, "detail")
         code = self.probe.classify_exit(assertion_failed=False, env_error=None)
