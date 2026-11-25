@@ -20,7 +20,6 @@ import com.tabula.v3.ui.components.liquidglass.shouldAttachPhotoBackdrop
 import com.tabula.v3.ui.components.liquidglass.shouldLoadBackdropPhoto
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -88,6 +87,7 @@ class RecycleBinViewerBackdropDeviceTest {
     private val AUDIT_PREFIX = "AUDIT "
 
     private val seeded = mutableListOf<String>()
+    private var originalLiquidGlassLabEnabled: Boolean? = null
 
     /** 生产门控是否会在本机启用液态玻璃（与 MainActivity 同一判据）。 */
     private fun productionGlassEnabled(): Boolean =
@@ -163,6 +163,9 @@ class RecycleBinViewerBackdropDeviceTest {
             }
             Unit
         }
+        originalLiquidGlassLabEnabled?.let { enabled ->
+            AppPreferences(ctx).liquidGlassLabEnabled = enabled
+        }
     }
 
     @Test
@@ -213,8 +216,11 @@ class RecycleBinViewerBackdropDeviceTest {
             //        收掉（run 45472515059：`MonitoringInstr: Finishing activity`
             //        之后一路 STOPPED → 被杀）。
             //
-            // debug 变体可写、release 恒 false（见 AppPreferences）。
-            AppPreferences(ctx).liquidGlassLabEnabled = productionGlassEnabled()
+            // 各版本都开启偏好，以验证低版本回退由系统版本门槛触发。
+            val preferences = AppPreferences(ctx)
+            originalLiquidGlassLabEnabled = preferences.liquidGlassLabEnabled
+            preferences.liquidGlassLabEnabled = true
+            assertTrue("启动前必须读到开启的液态玻璃偏好", AppPreferences(ctx).liquidGlassLabEnabled)
 
             // 走真实入口：图库 → 回收站 → 点开照片 → 全屏查看器
             ui.launch()
@@ -226,8 +232,7 @@ class RecycleBinViewerBackdropDeviceTest {
             if (!productionGlassEnabled()) {
                 // ===== API 33–34：验证**符合生产门控的回退** =====
                 //
-                // 生产入口在这些版本上不启用液态玻璃，所以正确的行为是：
-                // 顶栏走普通按钮、不采样、不发起采样图片加载。
+                // 即使偏好已开启，旧版 Android 的顶栏仍应走普通按钮路径。
                 // 这里**不**验证底层采样能力——那需要绕过生产门控，属于预览/组件测试。
                 val fallback = awaitAudit { it["sampled"] == "false" }
                 assertNotNull(
@@ -244,13 +249,6 @@ class RecycleBinViewerBackdropDeviceTest {
                     "按钮必须走回退路径（path=fallback）",
                     "fallback",
                     fallback["path"]
-                )
-                assertFalse(
-                    "门控关闭时不得加载采样照片",
-                    shouldLoadBackdropPhoto(
-                        liquidGlassEnabled = false,
-                        sdkInt = android.os.Build.VERSION.SDK_INT
-                    )
                 )
                 Log.i(TAG, "API ${android.os.Build.VERSION.SDK_INT}: 按生产门控回退，已验证")
                 return@runBlocking
