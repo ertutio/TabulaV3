@@ -66,15 +66,18 @@ class IntentAssistPayloadExportTest {
     }
 
     @Test
-    fun secretMixedWithSafeCopyIsMaskedNotLeaked() = kotlinx.coroutines.runBlocking {
+    fun secretMixedWithSafeCopyIsHeldBackEntirely() = kotlinx.coroutines.runBlocking {
+        // 第 6 轮口径变了：含敏感字段的**整行**留在本地，不再「掩掉值、其余照发」。
+        // 因此同一行的「5分钟内有效」也不再外发——它与秘密同处一行，
+        // 我们无法证明两者无关（值可能被 OCR 拆开或粘连）。
         val transport = RecordingTransport()
         val assist = DeepSeekTextAssist(keyStore(withKey = true), true, transport)
         assist.classify(snippet("【某平台】活动通知", "验证码 123456，5分钟内有效"))
         assertEquals(1, transport.payloads.size)
         val payload = transport.payloads.first()
         assertFalse("验证码不得出现", payload.contains("123456"))
-        // 「5分钟内有效」是有效期依据，应保留
-        assertTrue("有效期应保留：$payload", payload.contains("5分钟"))
+        assertFalse("被扣留行里的有效期也不得外发", payload.contains("5分钟"))
+        assertTrue("同批的无关行仍应保留：$payload", payload.contains("【某平台】活动通知"))
     }
 
     // ==================== 2. OCR 错读的链接 ====================
