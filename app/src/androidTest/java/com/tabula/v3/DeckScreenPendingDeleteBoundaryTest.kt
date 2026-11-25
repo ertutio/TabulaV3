@@ -74,6 +74,9 @@ class DeckScreenPendingDeleteBoundaryTest {
         prefs.walkSamplingStrategy = WalkSamplingStrategy.UNIFORM
         prefs.swipeStyle = SwipeStyle.SHUFFLE
         prefs.batchSize = 3          // 小批次：容易滑到最后一张
+        // 用生产自带的「下一张」控件推进批次：SHUFFLE 样式下左右滑是"切牌循环"，
+        // 不是"保留并前进"，用它翻批会原地打转（run 45590253575 停在同一张卡）。
+        prefs.quickActionButtonEnabled = true
         prefs.clearAllPickRecords()
         RecommendationEngine.getInstance(ctx).clearRoundIntent()
         runBlocking { runCatching { RecycleBinManager.getInstance(ctx).clearRecycleBin() } }
@@ -238,38 +241,26 @@ class DeckScreenPendingDeleteBoundaryTest {
     }
 
     /**
-     * 在当前卡片上左右滑（保留），用于把批次翻完而不触发删除。
+     * 用生产自带的「下一张」控件推进到下一张卡（等同保留）。
      *
-     * 删除路径会覆盖待删除记录，所以"只想推进批次"时必须用保留手势。
-     * 滑完等卡片真的换了（名字变化或出现完成页）再返回，避免盲等导致
-     * 下一张还没上来就继续滑、结果全部打在同一个位置上。
+     * 不用左右滑：SHUFFLE 样式下左右滑是"切牌循环"，卡片会被插回底部，
+     * 翻不动批次（run 45590253575 实测停在同一张）。也不再用上滑——上滑是
+     * 删除，会覆盖待删除记录，这正是本组用例要保住的东西。
+     *
+     * @return 是否点到了「下一张」
      */
-    private fun keepSwipe(): Boolean {
+    private fun advanceCard(): Boolean {
         val before = currentCardName()
-        val root = ins.uiAutomation.rootInActiveWindow ?: return false
-        fun findCard(n: AccessibilityNodeInfo?, depth: Int): AccessibilityNodeInfo? {
-            if (n == null || depth > 24) return null
-            if (n.contentDescription?.toString()?.matches(Regex("pd-[0-9a-f]{8}\\.jpg")) == true) return n
-            for (i in 0 until n.childCount) findCard(n.getChild(i), depth + 1)?.let { return it }
-            return null
-        }
-        val card = findCard(root, 0) ?: return false
-        val b = android.graphics.Rect().also { card.getBoundsInScreen(it) }
-        val cx = b.centerX(); val cy = b.centerY()
-        // 必须在**卡片内部**滑动：按屏宽算会从 ~90% 处起手，那正好落在
-        // 系统手势导航的右侧返回区，滑一下就把应用切回桌面
-        // （run 45588532477 的界面文案直接变成 launcher 图标）。
-        val travel = (b.width() * 0.32f).toInt()
-        shell("input swipe ${cx + travel} $cy ${cx - travel} $cy 300")
-
-        // 等这次滑动真正生效（卡片换了，或本批已经滑完）
-        val end = now() + 5000
+        val node = find("下一张") ?: return false
+        tapNode(node)
+        val end = now() + 4000
         while (now() < end) {
             if (find("再来一组") != null) return true
             val after = currentCardName()
             if (after != null && after != before) return true
             sleep(120)
         }
+        // 没换卡也算"点到了"，交给上层循环判断
         return true
     }
 
@@ -379,7 +370,7 @@ class DeckScreenPendingDeleteBoundaryTest {
         // 用左右滑（保留）把这一批剩下的卡翻完，推进到完成页。
         var guard = 0
         while (guard++ < 16 && find("再来一组") == null) {
-            if (!keepSwipe()) break
+            if (!advanceCard()) break
         }
         // 卡都滑光了（cards=null）到完成页渲染出来之间有动画窗口，
         // 这段必须等足，不能因为"看不到卡片"就断定前置失败。
