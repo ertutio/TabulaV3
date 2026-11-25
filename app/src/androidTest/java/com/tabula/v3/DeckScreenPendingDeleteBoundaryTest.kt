@@ -207,20 +207,42 @@ class DeckScreenPendingDeleteBoundaryTest {
         return walk(root, 0)
     }
 
-    private fun swipeUp() {
-        val root = ins.uiAutomation.rootInActiveWindow ?: return
+    /**
+     * 在当前卡片上上滑触发删除。
+     *
+     * 阈值是**屏幕高**的 8%（`CardStack.deleteThresholdPx = screenHeightPx * 0.08`），
+     * 屏幕比卡片高得多，所以位移必须按屏幕算，不能按卡片高度算；另有 800px/s
+     * 的速度阈值兜底，450ms 的时长让它稳定过线，也不会被判成点击。
+     *
+     * @return 是否找到卡片并发起了滑动
+     */
+    private fun swipeUp(): Boolean {
+        val root = ins.uiAutomation.rootInActiveWindow ?: return false
         fun findCard(n: AccessibilityNodeInfo?, depth: Int): AccessibilityNodeInfo? {
             if (n == null || depth > 24) return null
             if (n.contentDescription?.toString()?.matches(Regex("pd-[0-9a-f]{8}\\.jpg")) == true) return n
             for (i in 0 until n.childCount) findCard(n.getChild(i), depth + 1)?.let { return it }
             return null
         }
-        val card = findCard(root, 0) ?: return
+        val card = findCard(root, 0) ?: return false
         val b = android.graphics.Rect().also { card.getBoundsInScreen(it) }
         val cx = b.centerX(); val cy = b.centerY()
-        val dy = (b.height() * 0.42f).toInt()
-        shell("input swipe $cx ${cy + dy} $cx ${cy - dy} 220")
-        sleep(700)
+        val travel = (ctx.resources.displayMetrics.heightPixels * 0.30f).toInt()
+        shell("input swipe $cx ${cy + travel / 3} $cx ${cy - travel} 450")
+        sleep(900)
+        return true
+    }
+
+    /** 等撤销提示出现，返回其文案（删除给"已移入回收站"，归类给"已添加到"）。 */
+    private fun awaitUndoLabel(timeoutMs: Long = 6000): String? {
+        val end = now() + timeoutMs
+        while (now() < end) {
+            if (find("撤销") != null) {
+                return listOf("已移入回收站", "已添加到").firstOrNull { find(it) != null } ?: "撤销"
+            }
+            sleep(120)
+        }
+        return null
     }
 
     private fun deckLogLines(): List<String> =
@@ -278,8 +300,11 @@ class DeckScreenPendingDeleteBoundaryTest {
         assertNotNull("前置：界面上那张卡要能对应到 MediaStore 行", victimKey)
 
         // ---- 步骤 1：上滑发起删除（凭证在这一刻绑定） ----
-        swipeUp()
-        assertTrue("上滑后应出现撤销提示", find("撤销") != null)
+        assertTrue("前置：需要能在当前卡片上发起上滑", swipeUp())
+        assertEquals(
+            "上滑必须走删除路径（撤销提示应为『已移入回收站』）",
+            "已移入回收站", awaitUndoLabel()
+        )
 
         // ---- 步骤 2：撤销期内换批，强制断言新批已实际装载 ----
         var guard = 0
@@ -341,7 +366,11 @@ class DeckScreenPendingDeleteBoundaryTest {
         val key = keyOf(cardName!!)
         assertNotNull(key)
 
-        swipeUp()
+        assertTrue("前置：需要能在当前卡片上发起上滑", swipeUp())
+        assertEquals(
+            "上滑必须走删除路径（撤销提示应为『已移入回收站』）",
+            "已移入回收站", awaitUndoLabel()
+        )
         // 不换批：等撤销期结束，删除在同批内完成
         val end = now() + 20000
         var decision: PendingDeleteTestHook.Decision? = null
@@ -379,8 +408,11 @@ class DeckScreenPendingDeleteBoundaryTest {
         }
         assertNotNull(victimKey)
 
-        swipeUp()
-        assertTrue("上滑后应出现撤销提示", find("撤销") != null)
+        assertTrue("前置：需要能在当前卡片上发起上滑", swipeUp())
+        assertEquals(
+            "上滑必须走删除路径（撤销提示应为『已移入回收站』）",
+            "已移入回收站", awaitUndoLabel()
+        )
         tap("撤销")
 
         // 等过撤销期（3s）再加余量
@@ -404,7 +436,8 @@ class DeckScreenPendingDeleteBoundaryTest {
 
         val first = currentCardName()
         assertNotNull("前置：需要至少两张卡", first)
-        swipeUp()
+        assertTrue("前置：需要能在当前卡片上发起上滑", swipeUp())
+        assertEquals("上滑必须走删除路径", "已移入回收站", awaitUndoLabel())
         val second = currentCardName()
         if (second == null) return   // 单卡批次：跳过（前置不足，不算失败）
 
