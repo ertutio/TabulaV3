@@ -363,27 +363,40 @@ class DeckScreenPendingDeleteBoundaryTest {
         // 上滑删除它会直接把批次清空 → 进完成页，而待删除记录仍在撤销期内。
         // 这样"旧批发起删除 → 撤销期内换批"用一次手势就成立，不必再靠横滑
         // 翻批（横滑要么够不到阈值、要么踩到系统返回手势把应用切走）
-        repeat(4) { insertPhoto("DCIM/Screenshots") }
-        repeat(4) { insertPhoto("DCIM/Camera") }
+        // 只放一批的量：batchSize 的 setter 会 coerceIn(5, 50)，1 会被夹成 5，
+        // 所以"本批最后一张"要靠把这一批的 5 张**全部**上滑删掉来实现。
+        repeat(5) { insertPhoto("DCIM/Screenshots") }
         // 必须在 startApp **之前**写：MainActivity 用
         // `remember { mutableIntStateOf(preferences.batchSize) }` 在组合期读一次，
         // 启动后再改偏好不会影响这一批的大小（run 45599279603 实测）。
-        prefs.batchSize = 1
+        prefs.batchSize = 5
         startApp()
         PendingDeleteTestHook.reset()
 
-        val cardName = currentCardName()
-        assertNotNull("前置：卡片页必须已渲染卡片", cardName)
-        val victimKey = keyOf(cardName!!)
-        assertNotNull("前置：界面上那张卡要能对应到 MediaStore 行", victimKey)
+        assertNotNull("前置：卡片页必须已渲染卡片", currentCardName())
 
-        // ---- 步骤 1：上滑删掉这一批的最后（也是唯一）一张 ----
-        // 凭证在**这一刻**绑定，随后批次被清空进入完成页。
-        assertTrue("前置：需要能在当前卡片上发起上滑", swipeUp())
-        assertEquals(
-            "上滑必须走删除路径（撤销提示应为『已移入回收站』）",
-            "已移入回收站", awaitUndoLabel()
-        )
+        // ---- 步骤 1：把这一批逐张上滑删掉，最后一张会把批次送进完成页 ----
+        // 每次上滑都会把**上一张**的待删除记录提前提交（onRemove 里先
+        // commitPendingDelete），所以只有**最后一张**的记录活到撤销超时——
+        // 那正是本用例要观察的那条：它在换批之后才完成。
+        // 每张删之前记下它的身份，循环结束后 victimKey 就是最后那张。
+        var victimKey: String? = null
+        var deleted = 0
+        var guardSwipe = 0
+        while (guardSwipe++ < 10 && find("再来一组") == null) {
+            val name = currentCardName() ?: break
+            victimKey = keyOf(name)
+            if (!swipeUp()) break
+            assertEquals(
+                "上滑必须走删除路径（撤销提示应为『已移入回收站』）",
+                "已移入回收站", awaitUndoLabel()
+            )
+            deleted++
+            // 等这一张的退场动画，下一张才会成为"当前卡"
+            sleep(300)
+        }
+        assertTrue("前置：至少要删掉一张", deleted >= 1)
+        assertNotNull("前置：最后一张的身份要能解析", victimKey)
 
         // ---- 步骤 2：撤销期内换批，强制断言新批已实际装载 ----
         val doneEnd = now() + 12000
