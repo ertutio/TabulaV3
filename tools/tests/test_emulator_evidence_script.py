@@ -55,6 +55,7 @@ def fake_adb(tmp: Path) -> Path:
         "#!/bin/sh\n"
         'case "$1" in\n'
         "  get-state) echo device ;;\n"
+        '  shell) if [ "$2" = am ] && [ "$3" = instrument ]; then printf "%s\\n" "$FAKE_VIEWER_RESULT"; fi ;;\n'
         "esac\n"
         "exit 0\n",
         encoding="utf-8",
@@ -70,11 +71,14 @@ def bash_path(*entries: str) -> str:
     return ":".join(parts)
 
 
-def run(probe_exit: int, api_level: int, tmp: Path) -> tuple[int, str, dict]:
+def run(probe_exit: int, api_level: int, tmp: Path, viewer_result: str = "") -> tuple[int, str, dict]:
     env = dict(os.environ)
     env.update(
         {
             "API_LEVEL": str(api_level),
+            "MODE": "both",
+            "FAKE_VIEWER_RESULT": viewer_result,
+            "VIEWER_ATTEMPTS": "1",
             "OUT_DIR": str(tmp),
             # 不等待设备：CI 上等满 30×2s 是对的，单测里是纯浪费
             # （曾经让 26 项跑成 756 秒）。
@@ -120,6 +124,19 @@ class EmulatorEvidenceExitSemanticsTest(unittest.TestCase):
             self.assertIn("result=pass", out)
             # API<33 没有采样层：写 na，既不是通过也不是未完成
             self.assertIn("viewer exit=na", files["viewer_exit"])
+
+    def test_accepts_one_completed_viewer_test(self):
+        for summary in ("OK (1 test)", "OK (1 tests)"):
+            with self.subTest(summary=summary), tempfile.TemporaryDirectory() as tmp:
+                code, out, files = run(0, 35, Path(tmp), viewer_result=summary)
+                self.assertEqual(0, code, out)
+                self.assertIn("viewer exit=0", files["viewer_exit"])
+
+    def test_zero_viewer_tests_is_incomplete(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, out, files = run(0, 35, Path(tmp), viewer_result="OK (0 tests)")
+            self.assertEqual(2, code, out)
+            self.assertIn("viewer exit=2", files["viewer_exit"])
 
     def test_probe_assertion_failure_exits_one(self):
         with tempfile.TemporaryDirectory() as tmp:

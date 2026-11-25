@@ -185,7 +185,7 @@ elif [ "$API_LEVEL" -ge 33 ]; then
         VIEWER=1
         break
       fi
-      if grep -qE "^OK \([0-9]+ tests\)" "$OUT_DIR/instrumentation-viewer.txt"; then
+      if [ "$AM" -eq 0 ] && grep -qE "^OK \(1 tests?\)[[:space:]]*$" "$OUT_DIR/instrumentation-viewer.txt"; then
         echo "viewer device test: OK"
         VIEWER=0
         break
