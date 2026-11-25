@@ -394,7 +394,7 @@ jobs:
           cores: 2
           ram-size: 3072M
           disk-size: 8G
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -no-metrics
           disable-animations: true
           # MODE=probe：只跑预览探针。设备测试在这个 job 里写 na（按设计不跑），
           # 不冒充通过也不假装未完成。
