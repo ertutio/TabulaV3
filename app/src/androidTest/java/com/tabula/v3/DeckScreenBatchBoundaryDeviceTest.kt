@@ -213,7 +213,22 @@ class DeckScreenBatchBoundaryDeviceTest {
         sleep(1200)
         shell("am start -n ${ctx.packageName}/com.tabula.v3.MainActivity")
         sleep(3000)
-        assertTrue("回到卡片页失败", waitFor("回收站", timeout = 30000))
+        // 锚点放宽：批次被清空时卡片页可能进入完成态，顶栏锚点仍在；
+        // 图库被清空时则是空态界面。任一可见即视为回到应用。
+        assertTrue(
+            "回到卡片页失败（回收站/再来一组/空态均未出现）",
+            waitForAny(listOf("回收站", "再来一组"), timeout = 30000)
+        )
+    }
+
+    private fun waitForAny(labels: List<String>, timeout: Long): Boolean {
+        val end = now() + timeout
+        while (now() < end) {
+            if (labels.any { find(it) != null }) return true
+            dismissSystemDialogIfAny()
+            sleep(150)
+        }
+        return false
     }
 
     private fun swipeCard(delete: Boolean): Boolean {
@@ -409,9 +424,23 @@ class DeckScreenBatchBoundaryDeviceTest {
         val visible = visibleCardNames()
         assertTrue("前置：页面必须已经持有卡片（实际=$visible）", visible.isNotEmpty())
 
-        // 全部从 MediaStore 删除 → 下次快照里这些行全部消失
-        inserted.forEach { uri -> runCatching { ctx.contentResolver.delete(uri, null, null) } }
-        inserted.clear()
+        // 只删除**当前批次里那几张**：整批行全部失效，但图库仍有照片，
+        // 自动装批一定能取到新的一批（若把整个图库删空，卡片页进入空态，
+        // 就观察不到"自动装批"这条路径了——run 45571257970 实测）。
+        val doomed = inserted.filter { uri ->
+            val name = runCatching {
+                ctx.contentResolver.query(
+                    uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null
+                )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+            }.getOrNull()
+            name != null && name in visible
+        }
+        assertTrue(
+            "前置：可见卡片必须能对应到夹具（visible=$visible）",
+            doomed.isNotEmpty()
+        )
+        doomed.forEach { uri -> runCatching { ctx.contentResolver.delete(uri, null, null) } }
+        inserted.removeAll(doomed)
 
         // 真实自动装批入口：回前台
         val b = boundary("bb-autorefill")
