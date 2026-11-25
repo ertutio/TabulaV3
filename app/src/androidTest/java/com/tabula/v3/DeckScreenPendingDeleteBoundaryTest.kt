@@ -241,26 +241,37 @@ class DeckScreenPendingDeleteBoundaryTest {
     }
 
     /**
-     * 用生产自带的「下一张」控件推进到下一张卡（等同保留）。
+     * 左右滑（保留/前进）推进一张。
      *
-     * 不用左右滑：SHUFFLE 样式下左右滑是"切牌循环"，卡片会被插回底部，
-     * 翻不动批次（run 45590253575 实测停在同一张）。也不再用上滑——上滑是
-     * 删除，会覆盖待删除记录，这正是本组用例要保住的东西。
-     *
-     * @return 是否点到了「下一张」
+     * 阈值是**屏幕宽**的 25%（`CardStack.swipeThresholdPx = screenWidthPx * 0.25`），
+     * 按卡片宽度算够不到。但按屏宽算位移时起点会贴到屏幕边缘、命中系统
+     * 手势返回区（run 45588532477 把应用切回了桌面）。折中：位移取屏宽 30%，
+     * 以**卡片中心**为锚点左右展开，并夹在卡片横向范围内，既过阈值又不碰边缘。
      */
     private fun advanceCard(): Boolean {
         val before = currentCardName()
-        val node = find("下一张") ?: return false
-        tapNode(node)
-        val end = now() + 4000
+        val root = ins.uiAutomation.rootInActiveWindow ?: return false
+        fun findCard(n: AccessibilityNodeInfo?, depth: Int): AccessibilityNodeInfo? {
+            if (n == null || depth > 24) return null
+            if (n.contentDescription?.toString()?.matches(Regex("pd-[0-9a-f]{8}\\.jpg")) == true) return n
+            for (i in 0 until n.childCount) findCard(n.getChild(i), depth + 1)?.let { return it }
+            return null
+        }
+        val card = findCard(root, 0) ?: return false
+        val b = android.graphics.Rect().also { card.getBoundsInScreen(it) }
+        val cx = b.centerX(); val cy = b.centerY()
+        val half = (ctx.resources.displayMetrics.widthPixels * 0.15f).toInt()
+        val startX = (cx + half).coerceAtMost(b.right - 4)
+        val endX = (cx - half).coerceAtLeast(b.left + 4)
+        shell("input swipe $startX $cy $endX $cy 260")
+
+        val end = now() + 5000
         while (now() < end) {
             if (find("再来一组") != null) return true
             val after = currentCardName()
             if (after != null && after != before) return true
             sleep(120)
         }
-        // 没换卡也算"点到了"，交给上层循环判断
         return true
     }
 
