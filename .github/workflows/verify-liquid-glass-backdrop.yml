@@ -290,7 +290,7 @@ jobs:
           cores: 2
           ram-size: 3072M
           disk-size: 8G
-          emulator-options: -no-window -gpu ${{ matrix.api == 35 && 'swiftshader -feature -Vulkan' || 'swiftshader_indirect' }} -no-snapshot -noaudio -no-boot-anim -no-metrics
+          emulator-options: -no-window -gpu ${{ matrix.api == 35 && 'swiftshader' || 'swiftshader_indirect' }} -no-snapshot -noaudio -no-boot-anim -no-metrics
           disable-animations: true
           script: API_LEVEL=${{ matrix.api }} MODE=viewer bash tools/run-emulator-evidence.sh
 
