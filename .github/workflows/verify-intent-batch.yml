@@ -2,7 +2,9 @@ name: Verify intent batch on emulator
 
 on:
   push:
-    branches: [feature/intent-batch-ocr-2026-11-25]
+    branches:
+      - feature/intent-batch-ocr-2026-11-25
+      - feature/intent-opencode-go-2026-11-25
   workflow_dispatch:
 
 permissions:
