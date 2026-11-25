@@ -113,8 +113,22 @@ class RecycleBinViewerBackdropDeviceTest {
             "真机运行需显式 -e allowRealDevice true（HARDWARE=${android.os.Build.HARDWARE}）"
         }
 
+        // 权限用 UiAutomation 的**专用 API** 授予，不走 `pm grant` 子进程：
+        //
+        // `shellScript()` 会触发 `getUiAutomation()`，而 run 2026-11-25 12:49
+        // （API 37 真机）证明"第一次获取"正是出问题的那一步
+        // （`already registered!` → `finish()` 里 `disconnect() while connecting`）。
+        // AOSP 的 `UiAutomation.warnIfBetterCommand()` 也明确建议用
+        // `grantRuntimePermission()` 而不是 `pm grant`。
+        //
+        // 这样 `@Before` 不再用 shell 子进程做权限，把"首次 UiAutomation 获取"
+        // 从权限授予里剥离；获取本身仍会发生在这一行，但走的是专用 API，
+        // 且失败会以 `SecurityException` 明确报出，不会被子进程读取掩盖。
         if (android.os.Build.VERSION.SDK_INT >= 33) {
-            ui.shellScript("pm grant ${ctx.packageName} ${Manifest.permission.READ_MEDIA_IMAGES} 2>&1")
+            ui.uiAutomation().grantRuntimePermission(
+                ctx.packageName,
+                Manifest.permission.READ_MEDIA_IMAGES
+            )
         }
 
         AppPreferences(ctx).apply {
