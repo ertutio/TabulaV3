@@ -94,9 +94,24 @@ class RecycleBinViewerBackdropDeviceTest {
         android.os.Build.VERSION.SDK_INT >= 35
 
     @Before
-    fun requireEmulator() {
+    fun requireSyntheticMediaPermission() {
         check(InstrumentationRegistry.getArguments().getString("allowSyntheticMediaProbe") == "true")
-        check(android.os.Build.HARDWARE in setOf("ranchu", "goldfish"))
+
+        // 硬件门槛：默认仍只允许模拟器（本类会往真实相册写合成样图）。
+        //
+        // 真机验证需要显式再给一个开关 `allowRealDevice=true`：
+        // 只放宽硬件检查，**不动** allowSyntheticMediaProbe 这道闸——两个都要给，
+        // 避免任何一次真机跑是"顺手"发生的。
+        //
+        // 夹具安全性已逐条核对：只创建 4 张 fullrec-* 样图到
+        // Pictures/FullRecoveryFixtures/，只把这 4 张加进回收站，@After 只按
+        // seeded 前缀删除，全程不做全库扫描/归档/批量删除。
+        val isEmulator = android.os.Build.HARDWARE in setOf("ranchu", "goldfish")
+        val realDeviceAllowed =
+            InstrumentationRegistry.getArguments().getString("allowRealDevice") == "true"
+        check(isEmulator || realDeviceAllowed) {
+            "真机运行需显式 -e allowRealDevice true（HARDWARE=${android.os.Build.HARDWARE}）"
+        }
 
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             ui.shellScript("pm grant ${ctx.packageName} ${Manifest.permission.READ_MEDIA_IMAGES} 2>&1")

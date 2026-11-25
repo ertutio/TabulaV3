@@ -125,7 +125,14 @@ internal object PartialSelectionUi {
 
     fun launch() {
         check(InstrumentationRegistry.getArguments().getString("allowSyntheticMediaProbe") == "true")
-        check(android.os.Build.HARDWARE in setOf("ranchu", "goldfish"))
+        // 硬件门槛与 RecycleBinViewerBackdropDeviceTest 同口径：默认只允许模拟器，
+        // 真机需显式 `-e allowRealDevice true`（两道闸都要给）。
+        val isEmulator = android.os.Build.HARDWARE in setOf("ranchu", "goldfish")
+        val realDeviceAllowed =
+            InstrumentationRegistry.getArguments().getString("allowRealDevice") == "true"
+        check(isEmulator || realDeviceAllowed) {
+            "真机运行需显式 -e allowRealDevice true（HARDWARE=${android.os.Build.HARDWARE}）"
+        }
         shell("am start -n ${ctx.packageName}/com.tabula.v3.MainActivity")
     }
 
