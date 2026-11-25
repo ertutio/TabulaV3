@@ -1,0 +1,4 @@
+[API 33] probe: probe(checks=23,failed=0,env=0,success=legacy)
+[API 33] viewer: viewer(exit=1)
+[API 33] assertion_failed=True env_error=False -> exit 1
+[API 33] detail=probe(checks=23,failed=0,env=0,success=legacy); viewer(exit=1)

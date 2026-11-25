@@ -197,6 +197,34 @@ class AppPreferences(context: Context) {
         }
 
     /**
+     * 随机漫步的抽样策略（审计意见 #89）。
+     *
+     * 两个可选值：
+     * - [WalkSamplingStrategy.UNIFORM]：**原随机**——纯均匀随机，改动前的行为
+     * - [WalkSamplingStrategy.SOURCE_BALANCED]：按来源分桶、平方根权重
+     *
+     * 默认值必须是 [WalkSamplingStrategy.UNIFORM]：审计要求"验证默认值和
+     * 升级后的既有用户行为"——老用户升级后不读这条键，拿到的必须是他们
+     * 熟悉的那套抽样，否则等于悄悄改变产品行为。
+     *
+     * 键名里带 v1：将来若要换默认值，用新键名而不是改这条，避免把
+     * 已经显式选过 UNIFORM 的用户一起改掉。
+     */
+    var walkSamplingStrategy: WalkSamplingStrategy
+        get() {
+            val value = prefs.getString(
+                KEY_WALK_SAMPLING_STRATEGY,
+                WalkSamplingStrategy.UNIFORM.name
+            )
+            return runCatching {
+                WalkSamplingStrategy.valueOf(value ?: WalkSamplingStrategy.UNIFORM.name)
+            }.getOrDefault(WalkSamplingStrategy.UNIFORM)
+        }
+        set(value) {
+            prefs.edit().putString(KEY_WALK_SAMPLING_STRATEGY, value.name).apply()
+        }
+
+    /**
      * 上次已知的图片数量（用于小组件检测新增照片）
      */
     var lastKnownImageCount: Int
@@ -281,15 +309,12 @@ class AppPreferences(context: Context) {
         set(value) = prefs.edit().putInt(KEY_TAGS_PER_ROW, value.coerceIn(4, 10)).apply()
 
     /**
-     * 液态玻璃实验室功能开关（仅在 Android 15+ 生效）
-     * 注意：该功能还未完善，暂时强制关闭
+     * 保存用户对液态玻璃实验功能的选择，默认关闭。
+     * 界面只在 Android 15 及以上应用此偏好。
      */
     var liquidGlassLabEnabled: Boolean
-        get() = false // 功能未完善，强制返回 false
-        set(value) {
-            // 功能未完善，不保存启用状态
-            // prefs.edit().putBoolean(KEY_LIQUID_GLASS_LAB_ENABLED, value).apply()
-        }
+        get() = prefs.getBoolean(KEY_LIQUID_GLASS_LAB_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_LIQUID_GLASS_LAB_ENABLED, value).apply()
 
     /**
      * 是否已完成引导流程
@@ -1227,6 +1252,7 @@ class AppPreferences(context: Context) {
         private const val KEY_TOTAL_REVIEWED = "total_reviewed"
         private const val KEY_TOTAL_DELETED = "total_deleted"
         private const val KEY_RECOMMEND_MODE = "recommend_mode"
+        private const val KEY_WALK_SAMPLING_STRATEGY = "walk_sampling_strategy"
         private const val KEY_LAST_KNOWN_IMAGE_COUNT = "last_known_image_count"
         private const val KEY_FLUID_CLOUD_ENABLED = "fluid_cloud_enabled"
         private const val KEY_PENDING_BATCH_REMAINING = "pending_batch_remaining"
@@ -1333,6 +1359,17 @@ enum class TopBarDisplayMode {
 enum class RecommendMode {
     RANDOM_WALK,    // 随机漫步 - 真正随机，带冷却期
     SIMILAR         // 相似推荐 - 优先推荐相似照片
+}
+
+/**
+ * 随机漫步抽样策略（审计意见 #89）。
+ *
+ * UNIFORM 是改动前就有的行为，也是默认值——老用户升级后行为不变。
+ * SOURCE_BALANCED 是按来源分桶的均衡抽样，需要用户显式选择。
+ */
+enum class WalkSamplingStrategy {
+    UNIFORM,           // 原随机：纯均匀随机
+    SOURCE_BALANCED    // 均衡来源：按来源分桶、平方根权重
 }
 
 /**

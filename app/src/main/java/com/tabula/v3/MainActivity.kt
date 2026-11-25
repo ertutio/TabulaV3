@@ -58,9 +58,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.balance.RoundIntentRules
+import com.tabula.v3.data.balance.StagedSourceDisplayName
+import com.tabula.v3.data.balance.SourceBalanceRules
+import com.tabula.v3.data.balance.RoundSessionRules
+import com.tabula.v3.data.balance.ArchiveIdentityRules
+import com.tabula.v3.data.balance.DeferredActionLedger
+import com.tabula.v3.data.balance.PendingDelete
+import com.tabula.v3.data.balance.SessionBatchIds
+import com.tabula.v3.data.balance.Ticket
 import com.tabula.v3.BuildConfig
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.CardStyleMode
+import com.tabula.v3.data.preferences.RecommendMode
 import com.tabula.v3.data.preferences.SourceImageDeletionStrategy
 import com.tabula.v3.data.preferences.SwipeStyle
 import com.tabula.v3.data.preferences.TagSelectionMode
@@ -72,6 +82,7 @@ import com.tabula.v3.data.repository.LocalImageRepository
 import com.tabula.v3.data.repository.copyImagesResultMessage
 import com.tabula.v3.data.repository.moveImagesResultMessage
 import com.tabula.v3.data.repository.matchesSameMediaIdentity
+import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.partitionByConfirmedIdentity
 import com.tabula.v3.data.repository.projectSnapshot
 import com.tabula.v3.data.repository.RecycleBinManager
@@ -519,6 +530,19 @@ fun TabulaApp(
     var stagedCleanupSkippedKeys by remember {
         mutableStateOf(preferences.stagedCleanupSkippedIdentityKeys)
     }
+    // ========== 本轮整理意图（路线图第 7 项 / 审计 #90） ==========
+    // 全部是会话级状态：进程重启即归零，符合"只在当前整理会话内有效"。
+    var intentSuggestion by remember { mutableStateOf<String?>(null) }
+    var intentDismissed by remember { mutableStateOf(false) }
+    // #90：只统计成功处理的行为（保留/归档/删除），撤销与失败要回退
+    var roundSession by remember { mutableStateOf(RoundSessionRules.Session()) }
+    // #90：卡片页当前实际持有的批次（由 DeckScreen 回报），用于候选池与提示判定
+    var currentDeckBatch by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
+    // #90 第四轮：会话与批次的稳定标识。延迟动作（删除撤销期满、归档待提交）
+    // 在**发起时**绑定它，完成时再比对——旧批的动作不往新批记账。
+    var sessionBatchIds by remember { mutableStateOf(SessionBatchIds()) }
+    // 当前推荐模式（跟随设置切换；意图只在随机漫步的普通整理模式下生效）
+    var currentRecommendMode by remember { mutableStateOf(preferences.recommendMode) }
 
     // ========== 图片数据状态 ==========
     var allImages by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
@@ -538,6 +562,43 @@ fun TabulaApp(
     val albumManager = remember { AlbumManager.getInstance(context) }
     val recommendationEngine = remember { RecommendationEngine.getInstance(context) }
     val albumCleanupEngine = remember { AlbumCleanupEngine.getInstance(context) }
+
+    /**
+     * 重置本轮整理意图的全部状态（审计 #90）。
+     *
+     * 审计要求：进入或退出专清、切换推荐模式、离开卡片页时，**统计、提示、
+     * 已接受来源与待消费意图**都要一起清掉。只清一半（例如只清提示）会让
+     * 上一个模式的来源偏好漏进下一个模式。
+     */
+    fun resetRoundIntentState() {
+        roundSession = RoundSessionRules.endSession()
+        intentSuggestion = null
+        intentDismissed = false
+        recommendationEngine.clearRoundIntent()
+        // 换会话：之前绑定的 ticket 全部作废，延迟动作不会记进新会话
+        sessionBatchIds = sessionBatchIds.newSession()
+    }
+
+    /**
+     * 真正换批（#90 第四轮审计）：手动「再来一组」与旧批全部失效后的自动重取
+     * 走同一个边界——清掉上一批统计与旧提示，并换一个批次标识。
+     *
+     * 删单张卡片、撤销、同批快照刷新都**不走**这里（见 [BatchChange]）。
+     */
+    fun advanceBatchBoundary() {
+        roundSession = RoundSessionRules.nextBatch(roundSession)
+        intentSuggestion = null
+        sessionBatchIds = sessionBatchIds.newBatch()
+    }
+
+    /**
+     * 绑定**发起这一刻**的会话与批次标识（#90 第四轮审计）。
+     *
+     * 延迟动作（归档待提交、删除撤销期满）必须带着它一路走到提交点，
+     * 而不是在提交点再读当前值——那时可能已经换批了。
+     */
+    fun capturedTicket(): Ticket = Ticket.None.capture(sessionBatchIds)
+
     val albums by albumManager.albums.collectAsState()
     val albumMappings by albumManager.mappings.collectAsState()
     val excludedAlbumCount by albumManager.excludedAlbumCount.collectAsState()
@@ -549,6 +610,12 @@ fun TabulaApp(
     // 图集清理模式状态（提升到 TabulaApp 级别，避免导航时丢失）
     var isAlbumCleanupMode by remember { mutableStateOf(false) }
     var selectedCleanupAlbum by remember { mutableStateOf<Album?>(null) }
+
+    // #90：模式隔离的单一判据——只有随机漫步的**普通整理模式**才记录、
+    // 展示、接受本轮意图。进入或退出专清、切到相似推荐时这套状态全部清掉。
+    val tracksRoundIntent =
+        currentRecommendMode == RecommendMode.RANDOM_WALK && !isAlbumCleanupMode
+
     
     // 刷新图集清理信息的回调
     fun refreshAlbumCleanupInfos() {
@@ -568,6 +635,72 @@ fun TabulaApp(
     // ========== 推荐模式刷新触发器 ==========
     // 用于在设置中切换推荐模式后，返回主页时刷新批次
     var recommendModeRefreshKey by remember { mutableIntStateOf(0) }
+
+    // #90：切换专清 / 相似推荐 / 换推荐模式 / 退出整理时，清理本轮的
+    // 统计、提示、已接受来源与待消费意图。意图是会话级的：这些切换代表
+    // "新一轮整理"，不能继承上一轮的来源偏好。
+    //
+    // 审计第三轮：这里必须清**全部**四项。之前只清统计和提示、漏了
+    // `currentDeckBatch` 与待消费意图，切模式后再回到卡片页，旧批次仍被
+    // 当作"当前批次"，候选池因此把该来源的可用照片算成批内照片。
+    LaunchedEffect(recommendModeRefreshKey) {
+        resetRoundIntentState()
+        currentDeckBatch = emptyList()
+        currentRecommendMode = preferences.recommendMode
+    }
+    // 进入/退出专清模式：同一个隔离动作（审计要求双向都要清）
+    LaunchedEffect(isAlbumCleanupMode) {
+        resetRoundIntentState()
+        currentDeckBatch = emptyList()
+    }
+    LaunchedEffect(currentScreen) {
+        if (currentScreen != AppScreen.DECK) {
+            resetRoundIntentState()
+            currentDeckBatch = emptyList()
+        }
+    }
+
+    /**
+     * 按**用户实际处理行为**评估是否提示本轮整理意图（审计 #90）。
+     *
+     * 触发条件（全部满足才提示）：
+     * - 当前是随机漫步的普通整理模式（专清 / 相似推荐下不提示）
+     * - 主来源至少 3 张成功处理记录，且 ≥60%
+     * - 该来源在**下一批候选**里仍有批外照片——候选池与抽样同口径：
+     *   扣屏蔽图集、扣冷却、扣当前批次（[RoundCandidateRules]）
+     * - 本轮没有接受过同一来源、用户也没忽略过
+     *
+     * 候选池用 RecommendationEngine.eligibleNextBatchCandidates 求，不再
+     * 自己拿 imagesForSorting 猜——"照片还在池子里"不等于"下一批抽得到"。
+     */
+    LaunchedEffect(
+        roundSession,
+        intentDismissed,
+        imagesForSorting,
+        currentDeckBatch,
+        currentRecommendMode,
+        isAlbumCleanupMode
+    ) {
+        // 模式隔离：只在随机漫步的普通整理模式判定与展示
+        val inPlainRandomWalk =
+            currentRecommendMode == RecommendMode.RANDOM_WALK && !isAlbumCleanupMode
+        if (!inPlainRandomWalk || intentDismissed || roundSession.isEmpty()) {
+            intentSuggestion = null
+            return@LaunchedEffect
+        }
+        val eligible = recommendationEngine.eligibleNextBatchCandidates(
+            allImages = imagesForSorting.filterNot { image ->
+                deletedImages.any { it.mediaIdentityKey() == image.mediaIdentityKey() }
+            },
+            currentBatch = currentDeckBatch
+        )
+        intentSuggestion = RoundSessionRules.shouldSuggest(
+            session = roundSession,
+            sourceKeyOf = { SourceBalanceRules.sourceKeyOf(it) },
+            eligibleImages = eligible,
+            dismissed = intentDismissed
+        )
+    }
     
     // ========== 原图删除提醒状态 ==========
     var showSourceImageDeletionDialog by remember { mutableStateOf(false) }
@@ -937,34 +1070,106 @@ fun TabulaApp(
         )
     }
 
-    fun commitPendingArchiveWithFeedback(actionId: String) {
+    /**
+     * #90：提交归档并记录成功行为。
+     *
+     * 审计要求：不要把 actionId 当照片 ID。完整媒体身份来自 PendingArchive
+     * 的 (imageUri 卷, imageId)，且**只在归档真实成功**（COMMITTED）时记账。
+     *
+     * #90 第四轮：记账还要看**发起时的会话与批次**（`action.intentTicket`）。
+     * 归档是延迟提交的——换批之后才完成的旧动作仍然照原逻辑复制文件、更新
+     * 图库，但**不往新批次记账**：那会让新批次的来源判断带上用户在这一批
+     * 根本没碰过的相册。
+     *
+     * @param action 从 getLastPendingArchive() 取出的真实待归档项
+     * @param snapshot 提交前的照片快照，用于按完整身份匹配真实 ImageFile
+     */
+    fun commitPendingArchiveWithFeedback(
+        action: AlbumManager.PendingArchive,
+        snapshot: List<ImageFile> = allImages + deletedImages
+    ) {
         scope.launch {
-            when (albumManager.commitPendingArchive(actionId)) {
+            // 从 PendingArchive 的 (imageUri 卷, imageId) 解析完整身份
+            val archivedImage = ArchiveIdentityRules.findInSnapshot(action, snapshot)
+
+            val outcome = albumManager.commitPendingArchive(action.id)
+            // 记账决策走 DeferredActionLedger（测试与生产同一条路径）：
+            // 只有 COMMITTED 且发起时的会话/批次仍有效才计入
+            if (tracksRoundIntent) {
+                roundSession = DeferredActionLedger.onArchiveCommitted(
+                    session = roundSession,
+                    archivedImage = archivedImage,
+                    action = action,
+                    outcome = outcome,
+                    currentIds = sessionBatchIds
+                )
+            }
+            when (outcome) {
+                AlbumManager.ArchiveCommitOutcome.COMMITTED -> Unit  // 记账已在上面处理
                 AlbumManager.ArchiveCommitOutcome.COPY_FAILED ->
                     Toast.makeText(context, "归档失败，照片未复制", Toast.LENGTH_LONG).show()
-                else -> {}
+                AlbumManager.ArchiveCommitOutcome.NOT_CLAIMED ->
+                    android.util.Log.w("TabulaApp", "Archive action not claimed (already committed/cancelled): ${action.id}")
             }
         }
     }
 
     val deckContent: @Composable () -> Unit = {
-        DeckScreen(
-            // 使用 imagesForSorting（排除已归类到 Tabula 图集的照片）
+        DeckScreen(            // 使用 imagesForSorting（排除已归类到 Tabula 图集的照片）
             // 这样已归类的照片不会再次出现在待整理列表中
             allImages = imagesForSorting,
             allImagesForCleanup = allImages,
             batchSize = currentBatchSize,
             isLoading = isLoading,
             topBarDisplayMode = currentTopBarMode,
-            onKeep = {
+            onKeep = { kept: ImageFile ->
                 preferences.totalReviewedCount++
+                // #90：成功保留也计入本轮统计（只在随机漫步普通整理模式）
+                if (tracksRoundIntent) {
+                    roundSession = RoundSessionRules.record(
+                        roundSession, kept, RoundSessionRules.HandledAction.KEEP
+                    )
+                }
             },
-            onRemove = { image ->
+            // #90：真正换批（手动「再来一组」/ 旧批全失效后自动重取）——
+            // 清上一批统计与旧提示，并换批次标识
+            onBatchAdvanced = {
+                advanceBatchBoundary()
+            },
+            // #90：卡片页回报它实际持有的批次——候选池与提示判定都以它为准
+            onBatchChanged = { batch -> currentDeckBatch = batch },
+            // #90 第五轮：上滑发起删除时用于绑定凭证（当前会话/批次）
+            currentIntentTicket = { capturedTicket() },
+            onRemove = { pending ->
+                // #90 第五轮：凭证由卡片的待删除记录带下来（上滑那一刻绑定的），
+                // 这里**不再**重取当前批次——撤销超时/被顶掉时可能已经换批，
+                // 重取会把旧批的动作记到新批统计上。
+                val image = pending.image
+                val deleteTicket = pending.ticket
                 scope.launch {
                     try {
                         recycleBinManager.addToRecycleBin(image)
                         albumCleanupEngine.recordUserRemovedImage(image)
                         val persisted = recycleBinManager.loadRecycleBin()
+                        // 写成功后才记账；只有发起时那批仍有效才计入
+                        val beforeKeys = roundSession.currentBatchIdentityKeys
+                        if (tracksRoundIntent) {
+                            roundSession = DeferredActionLedger.onDeletePersisted(
+                                session = roundSession,
+                                pending = DeferredActionLedger.Pending(image, deleteTicket),
+                                currentIds = sessionBatchIds
+                            )
+                        }
+                        // #90 第五轮（仅 DEBUG）：登记本次记账决策，供设备用例
+                        // 观察生产侧真实结果——规则函数本身测不出接线错误。
+                        PendingDeleteTestHook.record(
+                            imageKey = image.mediaIdentityKey(),
+                            ticket = deleteTicket,
+                            currentSession = sessionBatchIds.sessionId,
+                            currentBatch = sessionBatchIds.batchId,
+                            recorded = image.mediaIdentityKey() in roundSession.currentBatchIdentityKeys &&
+                                image.mediaIdentityKey() !in beforeKeys
+                        )
                         // 即时状态与刷新后的投影同口径：按媒体身份（卷, ID）过滤，
                         // 跨卷同数值 ID 的其他照片不受本次回收影响。
                         allImages = allImages.filterNot { row -> persisted.any { it.matchesSameMediaIdentity(row) } }
@@ -977,6 +1182,13 @@ fun TabulaApp(
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
+                        // 失败回退：这张不计入本轮。同样只有发起时那批仍然有效
+                        // 才回退——换批后撤销旧动作不能删掉新批次里的记录
+                        roundSession = DeferredActionLedger.onDeleteFailed(
+                            session = roundSession,
+                            pending = DeferredActionLedger.Pending(image, deleteTicket),
+                            currentIds = sessionBatchIds
+                        )
                         Log.e("TabulaApp", "Could not mark photo for deletion", e)
                         Toast.makeText(context, "未能保存回收站记录，照片仍保留在待整理照片中", Toast.LENGTH_LONG).show()
                     }
@@ -999,12 +1211,21 @@ fun TabulaApp(
                      // 先提交之前的 pending action（如果有）
                      // 这样快速连续归档时，前一个会被自动提交
                      albumManager.getLastPendingArchive()?.let {
-                         commitPendingArchiveWithFeedback(it.id)
+                         commitPendingArchiveWithFeedback(it)
                      }
                      
-                     // 加入新的 pending action（不立即复制）
+                     // 加入新的 pending action（不立即复制）。
+                     // #90 第四轮：把**发起这一刻**的会话/批次标识绑进动作，
+                     // 等 Snackbar 超时才提交时才有得比对——不能等到提交那一刻
+                     // 再去读当前批次，那时可能已经换批了。
                      val album = albums.find { it.id == albumId }
-                     albumManager.queueImageToAlbum(imageId, imageUri, albumId, album?.name ?: albumId)
+                     albumManager.queueImageToAlbum(
+                         imageId = imageId,
+                         imageUri = imageUri,
+                         albumId = albumId,
+                         albumName = album?.name ?: albumId,
+                         intentTicket = capturedTicket()
+                     )
                  }
             },
             onCreateAlbum = { name, color, emoji ->
@@ -1024,13 +1245,19 @@ fun TabulaApp(
                     try {
                         // 先提交之前的 pending action（如果有）
                         albumManager.getLastPendingArchive()?.let {
-                            commitPendingArchiveWithFeedback(it.id)
+                            commitPendingArchiveWithFeedback(it)
                         }
                         
                         // 1. 创建图集
                         val newAlbum = albumManager.createAlbum(name, color, emoji)
                         // 2. 将图片加入待归档队列
-                        albumManager.queueImageToAlbum(image.id, image.uri.toString(), newAlbum.id, newAlbum.name)
+                        albumManager.queueImageToAlbum(
+                            imageId = image.id,
+                            imageUri = image.uri.toString(),
+                            albumId = newAlbum.id,
+                            albumName = newAlbum.name,
+                            intentTicket = capturedTicket()
+                        )
                     } catch (e: Exception) {
                         Log.e("TabulaApp", "Failed to create album and classify: $name", e)
                         withContext(Dispatchers.Main) {
@@ -1049,7 +1276,7 @@ fun TabulaApp(
                 scope.launch {
                     // Snackbar 消失时提交归档，执行真正的复制
                     albumManager.getLastPendingArchive()?.let {
-                        commitPendingArchiveWithFeedback(it.id)
+                        commitPendingArchiveWithFeedback(it)
                     }
                 }
             },
@@ -1071,6 +1298,36 @@ fun TabulaApp(
             },
             // 推荐模式刷新触发器（切换算法时刷新批次）
             recommendModeRefreshKey = recommendModeRefreshKey,
+            // 路线图 #83 第 7 项（审计 #90）：本轮整理意图。
+            // 提示在批次装载后由 userHandledBatch 计算——只有用户真的在处理
+            // 某个来源时才出现，而不是一进卡片页就弹。
+            // 路线图 #83 第 7 项（审计 #90）：本轮整理意图。
+            // 只在本轮确实在处理同一来源、且下一批抽得到时才展示。
+            intentSourceName = if (tracksRoundIntent) {
+                intentSuggestion?.let { key -> StagedSourceDisplayName.of(key) }
+            } else {
+                null
+            },
+            onAcceptIntent = {
+                // 只在普通随机漫步模式接受；其它模式下这里根本不该出现提示
+                intentSuggestion?.takeIf { tracksRoundIntent }?.let { key ->
+                    recommendationEngine.acceptRoundIntent(key)
+                    // 同一轮里不再对同一来源重复提示（避免接受后又弹一次）
+                    roundSession = RoundSessionRules.markAccepted(roundSession, key)
+                    intentSuggestion = null
+                    intentDismissed = false
+                    Toast.makeText(
+                        context,
+                        "下一批优先「${StagedSourceDisplayName.of(key)}」",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            onDismissIntent = {
+                // 忽略：本次会话不再提示（不写偏好、不写意图，重启后重新评估）
+                intentDismissed = true
+                intentSuggestion = null
+            },
             // 从冷却池移除照片的回调（切换算法时移除未浏览的照片；
             // C1/T03-DECKCOOLDOWN：按完整媒体身份键移除）
             onRemoveFromCooldown = { unviewedImages ->
