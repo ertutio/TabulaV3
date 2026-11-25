@@ -7,6 +7,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -155,14 +156,18 @@ class LiquidGlassBackdropState {
         invalidateContent()
     }
 
-    private var planState by mutableStateOf(
-        BackdropSamplePlan.original(BackdropFallbackReason.NOT_DRAWN_YET)
+    private data class PrimaryReading(
+        val plan: BackdropSamplePlan = BackdropSamplePlan.original(BackdropFallbackReason.NOT_DRAWN_YET),
+        val glassWindow: IntRect? = null,
+        val effectHealth: BackdropEffectHealth = BackdropEffectHealth.Unknown,
+        val drawKey: Any? = null
     )
+
+    private var primaryReading by mutableStateOf(PrimaryReading())
     private var effectState by mutableStateOf<BackdropEffectHealth>(BackdropEffectHealth.Unknown)
 
     /** 玻璃节点最近一次在窗口坐标系中的矩形；供审计标记输出**屏幕坐标**。 */
-    var lastGlassWindow: IntRect? = null
-        private set
+    val lastGlassWindow: IntRect? get() = primaryReading.glassWindow
 
     /**
      * 最近一次采样方案（可被调试预览读取并显示）。
@@ -173,53 +178,65 @@ class LiquidGlassBackdropState {
      * **只记录"主玻璃"**：同一个背景来源可以被多个玻璃节点共享（例如主面板 +
      * 顶栏那排 48dp 按钮）。若每个节点都写，最后绘制的那个会把读数覆盖掉——
      * 模拟器取证里就出现过 `sampled=true glass=126x126`（那是按钮的尺寸），
-     * 把主面板的读数挤掉了。见 [reportPlan] 的 `isPrimary` 参数。
+     * 把主面板的读数挤掉了。见 [reportPlan]。
      */
-    val lastPlan: BackdropSamplePlan get() = planState
+    val lastPlan: BackdropSamplePlan get() = primaryReading.plan
 
-    /** 采样层的实际渲染健康度：用于区分"方案说采样了但效果没建起来"。 */
+    /** 和当前主节点的方案一起发布的效果构建结果。 */
+    val primaryEffectHealth: BackdropEffectHealth get() = primaryReading.effectHealth
+    internal val primaryDrawKey: Any? get() = primaryReading.drawKey
+
+    /** 共享诊断，保留任一采样层的最近效果构建结果。 */
     val effectHealth: BackdropEffectHealth get() = effectState
 
-    /** 面积最大的玻璃节点（主玻璃）；用于决定谁写审计读数。 */
-    private var primarySampling: LiquidGlassBackdropSampling? = null
-    private var primaryArea: Long = -1L
+    /** 已布局节点的当前面积。主节点变更会让接任节点重新上报。 */
+    private val glassAreas = linkedMapOf<LiquidGlassBackdropSampling, Long>()
+    private var primarySampling by mutableStateOf<LiquidGlassBackdropSampling?>(null)
+
+    /** 当前主节点自己的绘制读数，采样句柄重新挂载后从零开始。 */
+    val primaryLayerDrawCount: Int get() = primarySampling?.layerDrawCount ?: 0
+    val primaryLastLayerDrawRevision: Int get() = primarySampling?.lastLayerDrawRevision ?: -1
+    val primaryHasDrawnCurrentPlan: Boolean
+        get() {
+            val drawKey = primaryReading.drawKey ?: return false
+            return primarySampling?.lastLayerDrawKey === drawKey
+        }
 
     internal fun reportGlassArea(sampling: LiquidGlassBackdropSampling, areaPx: Long) {
-        val current = primarySampling
-        if (current === sampling) {
-            // 自己面积变了：保持自己是主玻璃（除非有更大的节点已登记）
-            if (areaPx > primaryArea) primaryArea = areaPx
-            return
-        }
-        if (areaPx > primaryArea) {
-            primaryArea = areaPx
-            primarySampling = sampling
-            current?.isPrimary = false
-            sampling.isPrimary = true
-        } else {
-            sampling.isPrimary = false
+        if (glassAreas.put(sampling, areaPx) != areaPx) updatePrimarySampling()
+    }
+
+    internal fun removeSampling(sampling: LiquidGlassBackdropSampling) {
+        glassAreas.remove(sampling)
+        if (primarySampling === sampling) {
+            updatePrimarySampling()
         }
     }
 
+    internal fun isPrimarySampling(sampling: LiquidGlassBackdropSampling): Boolean =
+        primarySampling === sampling
+
+    private fun updatePrimarySampling() {
+        val largest = glassAreas.maxByOrNull { it.value }
+        val current = primarySampling
+        // 同面积时保留当前主节点，避免多个顶栏按钮互相覆盖读数。
+        if (largest != null && current != null && largest.value == glassAreas[current]) return
+        val next = largest?.key
+        if (current === next) return
+
+        primarySampling = next
+        primaryReading = PrimaryReading()
+    }
+
     internal fun reportPlan(
+        sampling: LiquidGlassBackdropSampling,
         plan: BackdropSamplePlan,
         glassBoundsInWindow: IntRect?,
-        isPrimary: Boolean
+        effectHealth: BackdropEffectHealth,
+        drawKey: Any?
     ) {
-        // 只有主玻璃写审计读数。非主玻璃（顶栏那排 48dp 按钮）不写，但它仍然
-        // 报告自己的健康度（见 reportEffectHealth），否则"按钮效果建不起来"
-        // 会被静默吞掉。
-        if (!isPrimary) return
-
-        // 主玻璃一旦回退（`!plan.useSampledBackdrop`），读数必须停在这次回退上，
-        // 不能被之后别的节点的成功读数覆盖。实测就是这样：折射关闭后主面板判
-        // DISABLED，但读数显示 `sampled=true glass=126x126`（按钮尺寸），
-        // 探针因此误判"主面板还在采样"。
-        //
-        // 反过来，回退状态可以被后来的**采样成功**解除（例如重新开启折射），
-        // 所以这里不需要 sticky 标记：主玻璃自己下一次 reportPlan 就会覆盖。
-        lastGlassWindow = glassBoundsInWindow
-        if (planState != plan) planState = plan
+        if (!isPrimarySampling(sampling)) return
+        primaryReading = PrimaryReading(plan, glassBoundsInWindow, effectHealth, drawKey)
     }
 
     internal fun reportEffectHealth(health: BackdropEffectHealth) {
@@ -303,18 +320,25 @@ internal fun androidx.compose.ui.geometry.Rect.toIntRect(): IntRect = IntRect(
  */
 class LiquidGlassBackdropSampling internal constructor(
     private val source: LiquidGlassBackdropState,
-    private val spec: LiquidGlassBackdropSpec,
-    /**
-     * 是否是"主玻璃"（负责向审计读数写方案的那个节点）。
-     *
-     * 同一个背景来源会被多个玻璃节点共享：主面板 + 顶栏那排 48dp 按钮。
-     * 每个节点都写读数时，最后绘制的那个会覆盖前面——实测出现过
-     * `glass=126x126`（按钮尺寸）把主面板读数挤掉，探针因此误判"回退失败"。
-     * 约定：**面积最大的那个节点是主玻璃**，由 [rememberLiquidGlassBackdropSampling]
-     * 在布局阶段比较面积后确定。
-     */
-    internal var isPrimary: Boolean = true
+    private val spec: LiquidGlassBackdropSpec
 ) {
+    internal val isPrimary: Boolean get() = source.isPrimarySampling(this)
+
+    private val layerDraws = AtomicInteger(0)
+    private val layerDrawRevision = AtomicInteger(-1)
+    internal val layerDrawCount: Int get() = layerDraws.get()
+    internal val lastLayerDrawRevision: Int get() = layerDrawRevision.get()
+    @Volatile
+    internal var lastLayerDrawKey: Any? = null
+        private set
+
+    internal fun recordLayerDraw(revision: Int, drawKey: Any) {
+        layerDrawRevision.set(revision)
+        lastLayerDrawKey = drawKey
+        layerDraws.incrementAndGet()
+        source.recordLayerDraw(revision)
+    }
+
     internal var glassBoundsState by mutableStateOf<IntRect?>(null)
 
     internal fun onGlassPositioned(bounds: IntRect) {
@@ -356,11 +380,12 @@ class LiquidGlassBackdropSampling internal constructor(
         density: Density
     ) {
         val padding = paddingPx(density.density)
+        val glassBounds = glassBoundsState
         val plan = planBackdropSample(
             sdkInt = Build.VERSION.SDK_INT,
             hasBackdropSource = source.hasContent,
             isRoundedRectShape = isBackdropShapeSupported(shape),
-            glassBoundsInWindow = glassBoundsState,
+            glassBoundsInWindow = glassBounds,
             sourceBoundsInWindow = source.boundsOrNull(),
             paddingPx = padding,
             enabled = spec.enabled,
@@ -368,8 +393,6 @@ class LiquidGlassBackdropSampling internal constructor(
             // 而不是继续显示一张与屏幕错位的采样。
             viewerSync = spec.viewerSync
         )
-        SideEffect { source.reportPlan(plan, glassBoundsState, isPrimary) }
-
         val appearance = spec.resolve(density.density)
         // 圆角半径由**玻璃实际尺寸**夹取（圆形正是取到短边一半），
         // 与 shader 里的夹取保持一致；尺寸变化会让 remember 键失效并重建效果。
@@ -395,16 +418,11 @@ class LiquidGlassBackdropSampling internal constructor(
                 }
             }
         }
-        SideEffect {
-            source.reportEffectHealth(
-                when {
-                    !plan.useSampledBackdrop -> BackdropEffectHealth.Unknown
-                    effect != null -> BackdropEffectHealth.Ok
-                    else -> BackdropEffectHealth.Failed
-                }
-            )
+        val health = when {
+            !plan.useSampledBackdrop -> BackdropEffectHealth.Unknown
+            effect != null -> BackdropEffectHealth.Ok
+            else -> BackdropEffectHealth.Failed
         }
-
         val placement = backdropContentPlacement(
             plan = plan,
             sourceWidthPx = source.sourceSize.width,
@@ -416,6 +434,15 @@ class LiquidGlassBackdropSampling internal constructor(
         // 早期版本在这里提前 return，导致 Layout 用错的下标测量内容，
         // wrapContent 塌成 0，界面上看不到内容却不报错。
         val active = effect != null && placement != null
+        // 来源版本不一定随几何或效果变化，单独标记本次采样配置。
+        val drawKey = remember(plan, effect, placement) { Any() }
+        val reportPrimary = isPrimary
+        SideEffect {
+            if (reportPrimary) {
+                source.reportPlan(this, plan, glassBounds, health, drawKey.takeIf { active })
+            }
+            source.reportEffectHealth(health)
+        }
         val sourceSize = if (placement != null) {
             Size(placement.sourceWidthPx.toFloat(), placement.sourceHeightPx.toFloat())
         } else {
@@ -441,9 +468,7 @@ class LiquidGlassBackdropSampling internal constructor(
                     // 在绘制阶段读版本号与背景 lambda：两者都是状态，
                     // 任一变化都会把这一笔绘制标脏并重画一次。
                     val revision = source.revision
-                    val content = source.content
-                    source.recordLayerDraw(revision)
-                    if (content == null) return@drawBehind
+                    val content = source.content ?: return@drawBehind
                     if (spec.diagnosticBlurOnly) {
                         for (i in 0 until 24) {
                             drawRect(
@@ -452,13 +477,14 @@ class LiquidGlassBackdropSampling internal constructor(
                                 size = Size(size.width / 24f, size.height)
                             )
                         }
-                        return@drawBehind
+                    } else {
+                        translate(placement.translateX, placement.translateY) {
+                            // 背景在自己的**来源尺寸**坐标系里局部重绘；
+                            // 这里不带录屏截图，也不采玻璃自身。
+                            content(FixedSizeDrawScope(this, sourceSize))
+                        }
                     }
-                    translate(placement.translateX, placement.translateY) {
-                        // 背景在自己的**来源尺寸**坐标系里局部重绘；
-                        // 这里不带录屏截图，也不采玻璃自身。
-                        content(FixedSizeDrawScope(this, sourceSize))
-                    }
+                    recordLayerDraw(revision, drawKey)
                 }
         )
     }
@@ -492,9 +518,13 @@ fun rememberLiquidGlassBackdropSampling(
 ): LiquidGlassBackdropSampling? {
     if (state == null || !spec.enabled) return null
     if (Build.VERSION.SDK_INT < LIQUID_GLASS_BACKDROP_MIN_SDK) return null
-    return remember(state, spec) {
+    val sampling = remember(state, spec) {
         LiquidGlassBackdropSampling(state, spec)
     }
+    DisposableEffect(sampling) {
+        onDispose { state.removeSampling(sampling) }
+    }
+    return sampling
 }
 
 /**

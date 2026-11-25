@@ -938,7 +938,8 @@ private fun FullScreenViewer(
             ViewerBackdropAuditLine(
                 decision = decision,
                 state = backdropAuditState,
-                viewerSync = viewerSync
+                viewerSync = viewerSync,
+                page = currentIndex + 1
             )
 
             // 顶部渐变遮罩 + 关闭按钮 + 页码
@@ -1279,7 +1280,9 @@ private fun RecycleBinImagePage(
                             isPressing = false
                         },
                         onDoubleTap = { tapOffset ->
-                            val targetScale = if (currentScale > 1.2f) minScale else doubleTapScale
+                            val tapScale = animatedScale.value
+                            val tapOffsetNow = Offset(animatedOffsetX.value, animatedOffsetY.value)
+                            val targetScale = if (tapScale > 1.2f) minScale else doubleTapScale
                             if (zoomSize.width <= 0f || zoomSize.height <= 0f) {
                                 scope.launch {
                                     animatedScale.animateTo(
@@ -1295,8 +1298,8 @@ private fun RecycleBinImagePage(
                                 animateToOriginalScale()
                             } else {
                                 val center = Offset(zoomSize.width / 2f, zoomSize.height / 2f)
-                                val scaleChange = targetScale / currentScale
-                                val newOffset = (currentOffset + (tapOffset - center) * (1 - scaleChange))
+                                val scaleChange = targetScale / tapScale
+                                val newOffset = (tapOffsetNow + (tapOffset - center) * (1 - scaleChange))
                                 val clampedOffset = clampOffset(newOffset, targetScale, zoomSize)
                                 scope.launch {
                                     launch {

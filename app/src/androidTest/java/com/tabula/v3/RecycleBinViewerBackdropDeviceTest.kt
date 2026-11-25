@@ -124,7 +124,10 @@ class RecycleBinViewerBackdropDeviceTest {
         // 这样 `@Before` 不再用 shell 子进程做权限，把"首次 UiAutomation 获取"
         // 从权限授予里剥离；获取本身仍会发生在这一行，但走的是专用 API，
         // 且失败会以 `SecurityException` 明确报出，不会被子进程读取掩盖。
-        if (android.os.Build.VERSION.SDK_INT >= 33) {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            ctx.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
             ui.uiAutomation().grantRuntimePermission(
                 ctx.packageName,
                 Manifest.permission.READ_MEDIA_IMAGES
@@ -185,6 +188,7 @@ class RecycleBinViewerBackdropDeviceTest {
                     )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
                 )
                 seeded += name
+                writeTexturedPhoto(uri, index)
                 name
             }
             // 第 4 张留在图库（不加入回收站）
@@ -262,8 +266,9 @@ class RecycleBinViewerBackdropDeviceTest {
             )
 
             // ----- 1. 静止（翻页完成）：必须采样 -----
+            val initialPage = currentPageNumber()
             val settled = awaitAudit { audit ->
-                audit["sampled"] == "true" && audit["reason"] == "NONE"
+                samplingReady(audit) && audit["page"] == initialPage.toString()
             }
             assertNotNull(
                 "翻页完成、未缩放未拖动时必须采样（实际：${latestAuditText()}）",
@@ -271,6 +276,7 @@ class RecycleBinViewerBackdropDeviceTest {
             )
             assertEquals("静止时不应有回退原因", "NONE", settled!!["reason"])
             assertEquals("静止时按钮必须走玻璃路径", "glass", settled["path"])
+            captureReadyEvidence("initial")
 
             // ----- 2. 翻页中：必须回退，且页码真的变了 -----
             val pageBefore = currentPageNumber()
@@ -294,13 +300,14 @@ class RecycleBinViewerBackdropDeviceTest {
 
             // ----- 3. 翻页完成后：必须恢复采样 -----
             val afterSwipe = awaitAudit { audit ->
-                audit["sampled"] == "true" && audit["reason"] == "NONE"
+                samplingReady(audit) && audit["page"] == pageAfter.toString()
             }
             assertNotNull(
                 "翻页完成后必须恢复采样，不能永久回退（实际：${latestAuditText()}）",
                 afterSwipe
             )
             assertEquals("恢复后必须回到玻璃路径", "glass", afterSwipe!!["path"])
+            captureReadyEvidence("after-swipe")
 
             // ----- 4. 放大后：必须回退 -----
             doubleTapCenter()
@@ -323,12 +330,15 @@ class RecycleBinViewerBackdropDeviceTest {
             //
             // 只断言 "sampled=false" 是不够的：如果一直停在放大态，
             // 那条断言即使拖动没生效也会通过。必须证明 pan 真的变了。
-            val panBefore = zoomed["pan"] ?: "(0.0,0.0)"
+            val panBefore = zoomed["pan"]
+            val panBeforeValue = parsePan(panBefore)
+            assertNotNull("放大状态必须报告有效平移坐标", panBeforeValue)
             dragOnce()
             val panned = awaitAudit { audit ->
                 audit["sampled"] == "false" &&
                     audit["reason"] == BackdropFallbackReason.VIEWER_TRANSFORMED.name &&
-                    audit["pan"] != panBefore
+                    audit["page"] == pageAfter.toString() &&
+                    parsePan(audit["pan"])?.let { it != panBeforeValue } == true
             }
             assertNotNull(
                 "拖动后必须产生非零位移且保持回退（pan 前=$panBefore 后=${latestAuditText()}）",
@@ -343,14 +353,68 @@ class RecycleBinViewerBackdropDeviceTest {
             // ----- 6. 复原原比例后：必须恢复采样 -----
             doubleTapCenter()
             val restored = awaitAudit { audit ->
-                audit["sampled"] == "true" && audit["reason"] == "NONE"
+                samplingReady(audit) && audit["page"] == pageAfter.toString()
             }
             assertNotNull(
                 "缩回原比例后必须恢复采样（实际：${latestAuditText()}）",
                 restored
             )
             assertEquals("恢复后必须回到玻璃路径", "glass", restored!!["path"])
+            captureReadyEvidence("restored")
         }
+    }
+
+    /** Rewrite only the uniquely named fixture just created by seedPhoto. */
+    private fun writeTexturedPhoto(uri: android.net.Uri, index: Int) {
+        val bitmap = Bitmap.createBitmap(600, 1200, Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = android.graphics.Canvas(bitmap)
+            val paint = android.graphics.Paint()
+            canvas.drawColor(android.graphics.Color.rgb(35 * index, 45, 150 - 20 * index))
+            for (stripe in 0 until 12) {
+                paint.color = if ((stripe + index) % 2 == 0) android.graphics.Color.WHITE else android.graphics.Color.BLACK
+                val x = stripe * 50f
+                canvas.drawRect(x, 0f, x + 25f + index * 4f, 400f, paint)
+            }
+            paint.color = android.graphics.Color.rgb(240, 55 * index, 35)
+            canvas.drawCircle(75f + index * 100f, 200f, 60f, paint)
+            requireNotNull(ctx.contentResolver.openOutputStream(uri, "wt")).use {
+                check(bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it))
+            }
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /** Save only when the visible viewer image is one of this run's fixtures. */
+    private fun captureReadyEvidence(stage: String) {
+        val (centerX, centerY) = screenCenter()
+        fun hasVisibleFixture(node: AccessibilityNodeInfo?): Boolean {
+            if (node == null) return false
+            val bounds = Rect().also { node.getBoundsInScreen(it) }
+            if (node.isVisibleToUser && bounds.contains(centerX, centerY) &&
+                seeded.any { it == node.contentDescription?.toString() }) return true
+            return (0 until node.childCount).any { hasVisibleFixture(node.getChild(it)) }
+        }
+        check(findText(PAGE_ANCHOR) != null && hasVisibleFixture(ins.uiAutomation.rootInActiveWindow)) {
+            "Refusing screenshot: viewer fixture identity not visible"
+        }
+        val audit = requireNotNull(latestAuditText())
+        Log.i(TAG, "$stage AUDIT $audit")
+        val dir = File(requireNotNull(ctx.getExternalFilesDir(null)), "liquid-glass-ready")
+        check(dir.isDirectory || dir.mkdirs())
+        val auditFile = dir.resolve("audit.txt")
+        if (stage == "initial") auditFile.writeText("")
+        auditFile.appendText("$stage AUDIT $audit\n")
+        val bitmap = requireNotNull(ins.uiAutomation.takeScreenshot())
+        try {
+            dir.resolve("$stage.png").outputStream().use {
+                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+            }
+        } finally {
+            bitmap.recycle()
+        }
+        Log.i(TAG, "$stage screenshot=${dir.resolve("$stage.png")}")
     }
 
     // ==================== 真实 UI 驱动 ====================
@@ -413,9 +477,20 @@ class RecycleBinViewerBackdropDeviceTest {
     /** 双击画面中心 → 放大（生产 `doubleTapScale`）。 */
     private fun doubleTapCenter() {
         val (x, y) = screenCenter()
-        ui.shell("input tap $x $y")
-        SystemClock.sleep(80)
-        ui.shell("input tap $x $y")
+        repeat(2) {
+            val downTime = SystemClock.uptimeMillis()
+            val down = android.view.MotionEvent.obtain(downTime, downTime, android.view.MotionEvent.ACTION_DOWN, x.toFloat(), y.toFloat(), 0)
+            val up = android.view.MotionEvent.obtain(downTime, downTime + 30, android.view.MotionEvent.ACTION_UP, x.toFloat(), y.toFloat(), 0)
+            try {
+                check(ins.uiAutomation.injectInputEvent(down, true))
+                SystemClock.sleep(30)
+                check(ins.uiAutomation.injectInputEvent(up, true))
+            } finally {
+                down.recycle()
+                up.recycle()
+            }
+            SystemClock.sleep(80)
+        }
         SystemClock.sleep(600)
     }
 
@@ -478,6 +553,29 @@ class RecycleBinViewerBackdropDeviceTest {
             }
         }
         return parsed.takeIf { it.containsKey("sampled") }
+    }
+
+    private fun parsePan(value: String?): Pair<Float, Float>? {
+        if (value == null || !value.startsWith('(') || !value.endsWith(')')) return null
+        val parts = value.substring(1, value.length - 1).split(',')
+        if (parts.size != 2) return null
+        val x = parts[0].toFloatOrNull() ?: return null
+        val y = parts[1].toFloatOrNull() ?: return null
+        return if (x.isFinite() && y.isFinite()) x to y else null
+    }
+
+    private fun samplingReady(audit: Map<String, String>): Boolean {
+        fun positiveSize(key: String): Boolean {
+            val parts = audit[key]?.split('x') ?: return false
+            return parts.size == 2 && parts.all { (it.toIntOrNull() ?: 0) > 0 }
+        }
+        return audit["sampled"] == "true" && audit["ready"] == "true" && audit["path"] == "glass" &&
+            audit["reason"] == "NONE" && audit["plan"] == "SAMPLED" &&
+            audit["planreason"] == "NONE" && positiveSize("glass") &&
+            positiveSize("layer") && audit["effect"] == "Ok" &&
+            audit["drawplan"] == "true" &&
+            (audit["buttondraw"]?.toIntOrNull() ?: 0) > 0 &&
+            audit["drawrev"] == audit["rev"] && audit["rev"]?.toIntOrNull() != null
     }
 
     private fun awaitAudit(
