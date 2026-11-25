@@ -362,8 +362,13 @@ class DeckScreenPendingDeleteBoundaryTest {
      */
     @Test
     fun pendingDeleteFromOldBatchLandsInRecycleBinButNotInNewBatchStats() {
+        // 每次跑都是一批全新夹具；batchSize=1 让"这批最后一张"就是唯一那张，
+        // 上滑删除它会直接把批次清空 → 进完成页，而待删除记录仍在撤销期内。
+        // 这样"旧批发起删除 → 撤销期内换批"用一次手势就成立，不必再靠横滑
+        // 翻批（横滑要么够不到阈值、要么踩到系统返回手势把应用切走）
         repeat(4) { insertPhoto("DCIM/Screenshots") }
         repeat(4) { insertPhoto("DCIM/Camera") }
+        prefs.batchSize = 1
         startApp()
         PendingDeleteTestHook.reset()
 
@@ -372,7 +377,8 @@ class DeckScreenPendingDeleteBoundaryTest {
         val victimKey = keyOf(cardName!!)
         assertNotNull("前置：界面上那张卡要能对应到 MediaStore 行", victimKey)
 
-        // ---- 步骤 1：上滑发起删除（凭证在这一刻绑定） ----
+        // ---- 步骤 1：上滑删掉这一批的最后（也是唯一）一张 ----
+        // 凭证在**这一刻**绑定，随后批次被清空进入完成页。
         assertTrue("前置：需要能在当前卡片上发起上滑", swipeUp())
         assertEquals(
             "上滑必须走删除路径（撤销提示应为『已移入回收站』）",
@@ -380,24 +386,11 @@ class DeckScreenPendingDeleteBoundaryTest {
         )
 
         // ---- 步骤 2：撤销期内换批，强制断言新批已实际装载 ----
-        // 注意：这里**不能**再上滑——上滑会走 onRemove，把当前待删除记录
-        // 提前提交并覆盖掉（那正是另一条用例要验的路径），被观察的凭证就没了。
-        // 用左右滑（保留）把这一批剩下的卡翻完，推进到完成页。
-        var guard = 0
-        while (guard++ < 16 && find("再来一组") == null) {
-            if (!advanceCard()) break
-        }
-        // 卡都滑光了（cards=null）到完成页渲染出来之间有动画窗口，
-        // 这段必须等足，不能因为"看不到卡片"就断定前置失败。
-        if (find("再来一组") == null) {
-            val waitDone = now() + 15000
-            while (now() < waitDone && find("再来一组") == null) sleep(200)
-        }
+        val doneEnd = now() + 12000
+        while (now() < doneEnd && find("再来一组") == null) sleep(150)
         assertTrue(
-            "前置：需要走到批次完成页才能换批" +
-                "（卡片=${currentCardName()}，剩余卡=${visibleCardNames().size}，" +
-                "前台包=${ins.uiAutomation.rootInActiveWindow?.packageName}，" +
-                "界面文案=${screenTexts().filter { it.length <= 6 }}）",
+            "删掉本批最后一张后应进入完成页（卡片=${currentCardName()}，" +
+                "前台包=${ins.uiAutomation.rootInActiveWindow?.packageName}）",
             find("再来一组") != null
         )
 
