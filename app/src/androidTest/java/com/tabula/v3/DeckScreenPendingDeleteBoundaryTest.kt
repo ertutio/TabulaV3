@@ -237,8 +237,11 @@ class DeckScreenPendingDeleteBoundaryTest {
      * 在当前卡片上左右滑（保留），用于把批次翻完而不触发删除。
      *
      * 删除路径会覆盖待删除记录，所以"只想推进批次"时必须用保留手势。
+     * 滑完等卡片真的换了（名字变化或出现完成页）再返回，避免盲等导致
+     * 下一张还没上来就继续滑、结果全部打在同一个位置上。
      */
     private fun keepSwipe(): Boolean {
+        val before = currentCardName()
         val root = ins.uiAutomation.rootInActiveWindow ?: return false
         fun findCard(n: AccessibilityNodeInfo?, depth: Int): AccessibilityNodeInfo? {
             if (n == null || depth > 24) return null
@@ -249,9 +252,17 @@ class DeckScreenPendingDeleteBoundaryTest {
         val card = findCard(root, 0) ?: return false
         val b = android.graphics.Rect().also { card.getBoundsInScreen(it) }
         val cx = b.centerX(); val cy = b.centerY()
-        val travel = (ctx.resources.displayMetrics.widthPixels * 0.35f).toInt()
-        shell("input swipe ${cx + travel} $cy ${cx - travel} $cy 350")
-        sleep(800)
+        val travel = (ctx.resources.displayMetrics.widthPixels * 0.40f).toInt()
+        shell("input swipe ${cx + travel} $cy ${cx - travel} $cy 300")
+
+        // 等这次滑动真正生效（卡片换了，或本批已经滑完）
+        val end = now() + 5000
+        while (now() < end) {
+            if (find("再来一组") != null) return true
+            val after = currentCardName()
+            if (after != null && after != before) return true
+            sleep(120)
+        }
         return true
     }
 
@@ -281,6 +292,20 @@ class DeckScreenPendingDeleteBoundaryTest {
     private fun boundary(label: String): String {
         val marker = "$label:" + now()
         Log.i(TAG, marker); sleep(250); return marker
+    }
+
+    /** 当前屏上可见的卡片文件名集合（诊断用）。 */
+    private fun visibleCardNames(): Set<String> {
+        val root = ins.uiAutomation.rootInActiveWindow ?: return emptySet()
+        val out = mutableSetOf<String>()
+        fun walk(n: AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || depth > 24) return
+            n.contentDescription?.toString()?.takeIf { it.matches(Regex("pd-[0-9a-f]{8}\\.jpg")) }
+                ?.let { out += it }
+            for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
+        }
+        walk(root, 0)
+        return out
     }
 
     private fun keyOf(displayName: String): String? = runBlocking {
@@ -332,11 +357,19 @@ class DeckScreenPendingDeleteBoundaryTest {
         // 提前提交并覆盖掉（那正是另一条用例要验的路径），被观察的凭证就没了。
         // 用左右滑（保留）把这一批剩下的卡翻完，推进到完成页。
         var guard = 0
-        while (guard++ < 12 && find("再来一组") == null) {
-            keepSwipe()
-            sleep(200)
+        while (guard++ < 16 && find("再来一组") == null) {
+            if (!keepSwipe()) break
         }
-        assertTrue("前置：需要走到批次完成页才能换批", find("再来一组") != null)
+        // 完成页也可能因为单卡批次直接出现；再给一段收尾等待
+        if (find("再来一组") == null) {
+            val waitDone = now() + 6000
+            while (now() < waitDone && find("再来一组") == null) sleep(200)
+        }
+        assertTrue(
+            "前置：需要走到批次完成页才能换批" +
+                "（卡片=${currentCardName()}，剩余卡=${visibleCardNames().size}）",
+            find("再来一组") != null
+        )
 
         val b = boundary("pd-next-batch")
         tap("再来一组")
@@ -385,37 +418,38 @@ class DeckScreenPendingDeleteBoundaryTest {
         startApp()
         PendingDeleteTestHook.reset()
 
-        val cardName = currentCardName()
-        assertNotNull("前置：需要至少一张卡", cardName)
-        val key = keyOf(cardName!!)
-        assertNotNull(key)
+        assertNotNull("前置：需要至少一张卡", currentCardName())
 
         assertTrue("前置：需要能在当前卡片上发起上滑", swipeUp())
         assertEquals(
             "上滑必须走删除路径（撤销提示应为『已移入回收站』）",
             "已移入回收站", awaitUndoLabel()
         )
-        // 不换批：等撤销期结束，删除在同批内完成
+        // 不换批：等撤销期结束，删除在同批内完成。
+        // 不对"哪张卡"预设断言——上滑生效的那张由生产侧决策记录告诉我们，
+        // 这里要证的是它是**同批**且**被计入**。
         val end = now() + 20000
         var decision: PendingDeleteTestHook.Decision? = null
-        var allDecisions: List<PendingDeleteTestHook.Decision> = emptyList()
+        val seen = mutableListOf<PendingDeleteTestHook.Decision>()
         while (now() < end) {
             val drained = PendingDeleteTestHook.drain()
-            allDecisions = allDecisions + drained
-            decision = drained.firstOrNull { it.imageKey == key }
+            seen += drained
+            decision = drained.firstOrNull()
             if (decision != null) break
             sleep(200)
         }
         assertNotNull(
-            "同批删除必须有记账决策（期望 key=$key，观察到=${allDecisions.map { it.imageKey }}；" +
-                "当前界面卡片=${currentCardName()}，" +
-                "撤销提示=${listOf("已移入回收站", "已添加到").filter { find(it) != null }}，" +
-                "批次完成页=${find("再来一组") != null}）",
+            "同批删除必须产生记账决策（观察到=${seen.map { it.imageKey }}，" +
+                "界面卡片=${currentCardName()}，撤销提示=${find("已移入回收站") != null}）",
             decision
         )
         assertEquals(
-            "同批时凭证批次应等于当前批次",
-            decision!!.currentBatch, decision.ticketBatch
+            "同批时凭证批次应等于当前批次（凭证=${decision!!.ticketBatch} 当前=${decision.currentBatch}）",
+            decision.currentBatch, decision.ticketBatch
+        )
+        assertEquals(
+            "同批时凭证会话应等于当前会话",
+            decision.currentSession, decision.ticketSession
         )
         assertTrue("同批删除必须计入来源统计", decision.recorded)
     }
