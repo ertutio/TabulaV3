@@ -270,6 +270,41 @@ class DeckScreenCardFlowTest {
             )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
         }.getOrNull()
 
+    /**
+     * 保证"下一批"真能抽到截图：清冷却 + 必要时补图。
+     *
+     * 卡片页每装载一批就把该批照片记入冷却池（`recordImagesPickedByIdentity`），
+     * 而意图只作用于**已扣冷却**的可用池。滑了几批之后截图可能全在冷却里，
+     * 那样第一批只会有相机——那是冷却规则在生效，不是意图失效。所以这里
+     * 在换批前把冷却清空，并确认截图数量够一批。
+     */
+    private fun ensureScreenshotsAvailable(minCount: Int) {
+        AppPreferences(ctx).clearAllPickRecords()
+        var remaining = countScreenshots()
+        var guard = 0
+        while (remaining < minCount && guard < 40) {
+            insertPhoto("DCIM/Screenshots")
+            guard++
+            sleep(200)
+            remaining = countScreenshots()
+        }
+        check(remaining >= minCount) {
+            "截图目录里可用照片不足一批（需要 $minCount，实际 $remaining）"
+        }
+    }
+
+    /** 当前 MediaStore 里 Pictures/DCIM/Screenshots 的照片数。 */
+    private fun countScreenshots(): Int =
+        runCatching {
+            ctx.contentResolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                arrayOf(MediaStore.MediaColumns._ID),
+                "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?",
+                arrayOf("Pictures/DCIM/Screenshots%"),
+                null
+            )?.use { it.count } ?: 0
+        }.getOrDefault(0)
+
     private fun boundary(label: String): String {
         val marker = "$label:" + now()
         Log.i(TAG, marker)
@@ -314,8 +349,11 @@ class DeckScreenCardFlowTest {
         val engine = RecommendationEngine.getInstance(ctx)
         assertTrue("接受提示后引擎应持有待消费意图", engine.roundIntent.isActive)
 
-        // 第一批：必须由页面换批装载
+        // 第一批：必须由页面换批装载。
+        // 换批前清冷却并确认截图够一批：意图只作用于已扣冷却的可用池，
+        // 把截图留在冷却里会让"批次里没有截图"看起来像意图没生效。
         finishBatch()
+        ensureScreenshotsAvailable(minCount = 2)
         val firstBoundary = boundary("ri-first")
         tap("再来一组")
         val firstLine = awaitBatchLineAfter(firstBoundary, site = null, timeoutMs = 30000)
@@ -372,12 +410,16 @@ class DeckScreenCardFlowTest {
         tap("推荐模式")
         waitFor("相似推荐")
         tap("相似推荐")
-        sleep(800)
-        shell("input keyevent KEYCODE_BACK")
-        sleep(800)
-        shell("input keyevent KEYCODE_BACK")
-        sleep(1500)
-        waitFor("回收站", timeout = 25000)
+        sleep(1200)
+        // 返回卡片页：用界面自己的返回入口（contentDescription="返回"），
+        // 不靠 KEYCODE_BACK 数次数——返回栈深度取决于从哪一层进来。
+        repeat(3) {
+            if (find("返回") != null) {
+                tap("返回")
+                sleep(1000)
+            }
+        }
+        waitFor("回收站", timeout = 30000)
 
         assertFalse(
             "切换推荐模式后待消费意图必须清空",
@@ -414,6 +456,9 @@ class DeckScreenCardFlowTest {
         assertFalse("忽略不得写入引擎意图", engine.roundIntent.isActive)
 
         finishBatch()
+        // 与接受路径同口径：清冷却，否则"下一批没有截图"是冷却规则的结果，
+        // 无法区分它和"忽略改动了策略"。
+        ensureScreenshotsAvailable(minCount = 1)
         val b = boundary("ri-dismiss")
         tap("再来一组")
         val line = awaitBatchLineAfter(b, site = null, timeoutMs = 30000)
