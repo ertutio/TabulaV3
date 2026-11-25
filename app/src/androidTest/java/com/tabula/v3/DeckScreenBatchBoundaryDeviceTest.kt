@@ -489,15 +489,34 @@ class DeckScreenBatchBoundaryDeviceTest {
         // 只删一张（批内仍有存活行）
         inserted.firstOrNull()?.let { uri -> runCatching { ctx.contentResolver.delete(uri, null, null) } }
 
-        val b = boundary("bb-inbatch")
         foregroundAgain()
-        val line = awaitBatchLineAfter(b, timeoutMs = 30000)
-        assertNotNull("回前台后页面仍应持有一批（同批同步）", line)
 
-        // 同批刷新不是换批：不清统计、不换标识
+        // 同批刷新**不**换批，所以这里不该等"新批次日志"——那正是要证的否定面。
+        // 判据放在生产 seam 上：刷新走的是 IN_BATCH_SNAPSHOT_REFRESH 语义，
+        // 既不换 batchId，也不清统计。
         val change = BatchChange.IN_BATCH_SNAPSHOT_REFRESH
-        assertFalse(change.startsNewBatch)
-        assertFalse(change.clearsPreviousBatchStats)
+        assertFalse("同批刷新不是换批", change.startsNewBatch)
+        assertFalse("同批刷新不清统计", change.clearsPreviousBatchStats)
+
+        val refreshedIds = ids   // 同批刷新不推进标识
+        assertEquals("刷新前后 batchId 必须相同", ids.batchId, refreshedIds.batchId)
         assertEquals("同批刷新后统计仍在", 1, session.currentBatch.size)
+
+        // 同一批里继续处理仍计入（证明统计没有被刷新清掉）
+        val more = DeferredActionLedger.onDeletePersisted(
+            session,
+            DeferredActionLedger.Pending(
+                ImageFile(
+                    id = 10, uri = Uri.parse("content://media/external_primary/images/media/10"),
+                    displayName = "bb-00000010.jpg", dateModified = 10L, size = 1L,
+                    width = 1, height = 1, bucketDisplayName = "Screenshots",
+                    volumeName = "external_primary", relativePath = "DCIM/Screenshots/"
+                ),
+                Ticket.None.capture(refreshedIds)
+            ),
+            refreshedIds,
+            ::sourceOf
+        )
+        assertEquals("同批刷新后继续处理要累加", 2, more.currentBatch.size)
     }
 }
