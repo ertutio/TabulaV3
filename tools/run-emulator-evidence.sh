@@ -169,6 +169,7 @@ elif [ "$API_LEVEL" -ge 33 ]; then
           "$RUNNER" > "$OUT_DIR/instrumentation-viewer.txt" 2>&1
       fi
       AM=$?
+      cp "$OUT_DIR/instrumentation-viewer.txt" "$OUT_DIR/instrumentation-viewer-attempt-$ATTEMPT.txt"
       cat "$OUT_DIR/instrumentation-viewer.txt"
 
       if [ "$AM" -eq 124 ]; then
