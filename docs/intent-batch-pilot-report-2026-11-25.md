@@ -322,12 +322,33 @@ python tools/intent-samples/run_deepseek_pilot.py \
 | `./gradlew :app:assembleDebug :app:assembleDebugAndroidTest` | SUCCESSFUL |
 | `./gradlew :app:testDebugUnitTest --tests "...IntentAssistPayloadExportTest"` | 导出 40 条 payload 到 `app/build/intent-pilot/payloads.json`，离线断言全过 |
 | `python tools/intent-samples/run_deepseek_pilot.py` | 40 请求 / 40 成功 / 4,023 tokens |
-| `adb shell am instrument -e class com.tabula.v3.IntentSampleOcrDeviceTest ...` | **OK (6 tests)**，模拟器 API 36 x86_64 |
-| `adb shell am instrument -e class com.tabula.v3.IntentBatchPageFlowTest ...` | **OK (5 tests)**，`-gpu host`；1 条用例改为数据层验证（见 §9.1） |
+| `adb shell am instrument -e class com.tabula.v3.IntentSampleOcrDeviceTest ...` | 本地 **OK (6 tests)**；CI **OK (6 tests)** |
+| `adb shell am instrument -e class com.tabula.v3.IntentBatchPageFlowTest ...` | 本地 **OK (5 tests)**（`-gpu host`）；CI **OK (5 tests)**（`-gpu swiftshader`）；其中 1 条用例为数据层验证（见 §9.1） |
 | `python tools/intent-samples/verify_samples.py` | 50 张全部通过（数量/尺寸/体积/一致性/确定性） |
 
 设备：本地 AVD `intent94`（API 36 / google_apis / x86_64 / 1080×2400 / 420dpi），
-`emulator -no-window -no-snapshot -gpu swiftshader_indirect`。
+`emulator -no-window -no-snapshot -gpu swiftshader_indirect`（页面链路测试崩过，改 `-gpu host` 后通过）。
+
+### CI
+
+workflow `Verify intent batch on emulator`（`.github/workflows/verify-intent-batch.yml`），
+run [45572470246](https://github.com/ertutio/TabulaV3/actions/runs/45572470246) ——
+**build: success / device: success**。
+
+CI 上的实测数字（`IntentBatch-build-*` artifact）：
+
+| 项 | 值 |
+| --- | --- |
+| 单测 | `classes=80 tests=554 failures=0 errors=0 skipped=0` |
+| intent 包单测 | `intent_tests=83 intent_failures=0` |
+| `app-debug.apk` | 111,765,389 字节 |
+| `app-debug-androidTest.apk` | 5,727,434 字节 |
+| OCR 设备测试 | `OK (6 tests)` |
+| 页面链路测试 | `OK (5 tests)` |
+| CI 上 OCR 端到端 | 50 张 / 识别出文字 46 张 / 应清 29 / 推荐 25 / **不一致 2** / 平均 **1062 ms/张**（CI runner 是 2 核 + swiftshader，比本地慢约 2.4 倍） |
+
+> **性能口径**：单张耗时在三种环境下分别是本地 x86_64（432–583 ms）、
+> CI 2 核 runner（1062 ms）。真机 arm64 仍未测——这条不因为 CI 跑通就消失。
 
 ---
 
@@ -348,9 +369,10 @@ python tools/intent-samples/run_deepseek_pilot.py \
    开 `-openmp` 变体或降采样可能更快，未验证。
 6. **`event-vote-01` / `hard-rotate-01` 的 OCR 失败未修**：倾斜、艺术字与行切分
    是引擎层面问题，本轮不用规则去绕（绕了会把「看不清」写成「已过期」）。
-7. **模拟器稳定性**：`swiftshader_indirect` 下跑页面链路测试时模拟器进程崩过 3 次
-   （`0xC0000005`），换 `-gpu host` 后 5/5 通过。CI 用的是 `-gpu swiftshader`，
-   是否同样稳定由 CI 结果判定，本地不代答。
+7. **模拟器稳定性（已由 CI 判定）**：本地 `swiftshader_indirect` 下跑页面链路测试时
+   模拟器进程崩过 3 次（`0xC0000005`），换 `-gpu host` 后 5/5 通过；
+   **CI 用 `-gpu swiftshader` 也跑出 `OK (5 tests)`**，因此那不是功能缺陷，
+   而是本地 GPU 后端问题。
 8. **撤销语义**：设备测试断言的是「移入回收站后可恢复」（`removeFromRecycleBin`），
    没有覆盖「卡片页上滑删除的撤销条」——#94 复用的是同一个 `RecycleBinManager`，
    但撤销条属于卡片页，#90 也在改那块，刻意不碰。
