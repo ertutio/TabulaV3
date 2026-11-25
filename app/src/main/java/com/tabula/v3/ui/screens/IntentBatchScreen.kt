@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.tabula.v3.data.intent.IntentAssistService
 import com.tabula.v3.data.intent.IntentBatch
 import com.tabula.v3.data.intent.IntentCandidate
 import com.tabula.v3.data.intent.IntentCategory
@@ -88,6 +89,19 @@ fun IntentBatchContent(
     assistEnabledForBatch: Boolean,
     /** 用户是否已经看过「只发送脱敏文字」的明确说明并同意打开（打开前必须确认）。 */
     assistNoticeAcknowledged: Boolean,
+    /**
+     * 当前选用的服务。默认 DeepSeek，保持既有调用点不必立刻改签名。
+     *
+     * 界面显示的是这个值，而不是界面自己记的一份：服务与授权一样只允许一个事实来源。
+     */
+    assistService: IntentAssistService = IntentAssistService.DEFAULT,
+    /**
+     * 每个服务各自的 Key 是否已配置。缺省为空集合时退回只看 [assistKeyConfigured]，
+     * 保证旧调用点（只传一个布尔）行为不变。
+     */
+    assistKeyConfiguredByService: Map<IntentAssistService, Boolean> = emptyMap(),
+    /** 用户切换服务。实现方负责吊销本批授权并按关闭态重跑本地分析。 */
+    onSelectAssistService: (IntentAssistService) -> Unit = {},
     onToggleAssistForBatch: (Boolean) -> Unit,
     onAcknowledgeAssistNotice: () -> Unit,
     onOpenAssistSettings: () -> Unit,
@@ -108,6 +122,10 @@ fun IntentBatchContent(
     val imageLoader = remember(context) { CoilSetup.getImageLoader(context) }
     // 「开启前确认」对话框：每次进页面回到 false，不跨批次记住。
     var showAssistNotice by remember { mutableStateOf(false) }
+    // 「切换服务会撤销本批授权」的提示条：切完显示一次，用户下次操作即消失。
+    var serviceSwitchNotice by remember { mutableStateOf(false) }
+    // 当前服务自己的 Key 状态：优先用按服务的那张表，缺省时退回旧参数。
+    val serviceKeyConfigured = assistKeyConfiguredByService[assistService] ?: assistKeyConfigured
 
     Column(
         modifier = Modifier
@@ -137,10 +155,12 @@ fun IntentBatchContent(
 
         // ---------- 文字辅助（实验性，默认关闭，只在本批次生效） ----------
         //
-        // 三条必须让用户看见的事：
+        // 四条必须让用户看见的事：
         // 1. 标「实验性」——它不是默认路径，本地 OCR + 规则才是；
         // 2. 打开前明确说明「只发送必要的脱敏 OCR 文字」，用户确认后才允许打开；
-        // 3. 每次进入新批次都恢复关闭（由调用方保证），界面这里只反映当前状态。
+        // 3. 每次进入新批次都恢复关闭（由调用方保证），界面这里只反映当前状态；
+        // 4. **服务可选**（DeepSeek / OpenCode Go），各用各的 Key；换服务 = 换外发对象，
+        //    本批授权必须回收，界面在此明确写出来。
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("文字辅助", color = textColor, fontSize = 13.sp)
@@ -160,8 +180,8 @@ fun IntentBatchContent(
                     Text("设置 Key", color = accent, fontSize = 12.sp)
                 }
                 Switch(
-                    checked = assistEnabledForBatch && assistKeyConfigured && assistNoticeAcknowledged,
-                    enabled = assistAvailable && assistKeyConfigured,
+                    checked = assistEnabledForBatch && serviceKeyConfigured && assistNoticeAcknowledged,
+                    enabled = assistAvailable && serviceKeyConfigured,
                     onCheckedChange = { want ->
                         HapticFeedback.lightTap(context)
                         if (!want) {
@@ -175,16 +195,71 @@ fun IntentBatchContent(
                     }
                 )
             }
+
+            // ---- 服务选择（两个选项，各管各的 Key）----
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("服务", color = secondary, fontSize = 11.sp)
+                Spacer(Modifier.width(8.dp))
+                IntentAssistService.entries.forEach { service ->
+                    val isCurrent = service == assistService
+                    val hasKey = assistKeyConfiguredByService[service] ?: (isCurrent && assistKeyConfigured)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .padding(end = 6.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(
+                                if (isCurrent) accent.copy(alpha = 0.12f) else Color.Transparent
+                            )
+                            .clickable(enabled = assistAvailable && !isCurrent) {
+                                HapticFeedback.lightTap(context)
+                                // 换服务 → 调用方吊销本批授权并重跑本地分析（关闭态）
+                                serviceSwitchNotice = true
+                                onSelectAssistService(service)
+                            }
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            service.displayName,
+                            color = if (isCurrent) accent else secondary,
+                            fontSize = 11.sp,
+                            fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                        if (hasKey) {
+                            Spacer(Modifier.width(3.dp))
+                            Text("•", color = accent, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+
             Text(
                 when {
                     !assistAvailable -> "本地 OCR 与规则照常可用；此处未提供文字辅助实现"
-                    !assistKeyConfigured -> "未配置 Key。默认路径是本地 OCR + 规则，不需要它"
+                    !serviceKeyConfigured ->
+                        // 保留「未配置 Key」这个连续短语：既有页面流程测试按它断言
+                        // （IntentBatchPageFlowTest.assistSwitchIsOffByDefaultAndBlockedWithoutKey）。
+                        "未配置 Key（当前服务 ${assistService.displayName}）。" +
+                            "默认路径是本地 OCR + 规则，不需要它"
                     assistEnabledForBatch -> "本批次已启用：只发送脱敏后的文字片段，不发原图"
-                    else -> "默认关闭。开启后只向 DeepSeek 发送必要的脱敏 OCR 文字"
+                    else -> "默认关闭。开启后只向 ${assistService.displayName} 发送必要的脱敏 OCR 文字"
                 },
                 color = secondary,
                 fontSize = 11.sp
             )
+            Text(
+                "默认关闭、按批授权；只发送脱敏文字，不发原图。" +
+                    "当前服务 ${assistService.displayName}（Key 与另一服务独立存放）。",
+                color = secondary,
+                fontSize = 10.sp
+            )
+            if (serviceSwitchNotice) {
+                Text(
+                    "切换会撤销本批授权，需要重新开启。",
+                    color = warn,
+                    fontSize = 10.sp
+                )
+            }
         }
 
         if (showAssistNotice) {
@@ -194,7 +269,7 @@ fun IntentBatchContent(
                 text = {
                     Column {
                         Text(
-                            "开启后，仅当本地规则判断证据不足时，才会向 DeepSeek 发送" +
+                            "开启后，仅当本地规则判断证据不足时，才会向 ${assistService.displayName} 发送" +
                                 "**必要的脱敏 OCR 文字片段**（已掩掉验证码、提取码、链接、手机号、订单号）。",
                             fontSize = 13.sp
                         )
@@ -494,22 +569,43 @@ internal fun categoryLabel(category: IntentCategory): String = when (category) {
 }
 
 /**
- * 文字辅助的 Key 管理对话框。
+ * 文字辅助的 Key 管理对话框（**按服务**）。
  *
  * 行为对齐 #94 方案：可单独重填、更换、删除；删除后本地规则照常工作，
  * 不阻塞任何本地功能。输入框不回显已存内容（只显示「已配置」状态）。
+ *
+ * ## 多服务（本次新增）
+ *
+ * 两个服务各有独立 Key 文件，因此对话框**逐服务显示状态、逐服务写入/删除**：
+ * 在这里删掉 Go 的 Key 不会影响 DeepSeek 的那份（反之亦然）。用户不需要先切服务
+ * 才能管理另一家的 Key——但只有当前服务的 Key 会真正被用于外发。
+ *
+ * 参数保持向后兼容：不传 [services] / [onSaveForService] 时退化成单服务语义
+ * （#95 的调用点行为不变）。
  */
 @Composable
 fun IntentAssistKeyDialog(
     currentState: String,
     onSave: (String) -> Unit,
     onDelete: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    /** 当前服务（决定标题与「正在编辑哪一家」）。 */
+    service: IntentAssistService = IntentAssistService.DEFAULT,
+    /** 每个服务的 Key 状态文案（`describeState()` 的结果），用于并列展示。 */
+    serviceStates: Map<IntentAssistService, String> = emptyMap(),
+    /** 逐服务保存；提供时优先于 [onSave]。 */
+    onSaveForService: ((IntentAssistService, String) -> Unit)? = null,
+    /** 逐服务删除；提供时优先于 [onDelete]。 */
+    onDeleteForService: ((IntentAssistService) -> Unit)? = null
 ) {
     var input by remember { mutableStateOf("") }
+    // 对话框内可切换编辑哪一家的 Key——不必先回页面切服务。
+    var editing by remember(service) { mutableStateOf(service) }
     val isDark = LocalIsDarkTheme.current
     val textColor = if (isDark) Color.White else Color.Black
     val secondary = Color(0xFF8E8E93)
+    val accent = Color(0xFF007AFF)
+    val stateForEditing = serviceStates[editing] ?: currentState
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -523,20 +619,58 @@ fun IntentAssistKeyDialog(
                     fontSize = 12.sp
                 )
                 Spacer(Modifier.height(8.dp))
-                Text("当前：$currentState", color = textColor, fontSize = 12.sp)
+                if (serviceStates.isNotEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IntentAssistService.entries.forEach { candidate ->
+                            val isEditing = candidate == editing
+                            Text(
+                                candidate.displayName,
+                                color = if (isEditing) accent else secondary,
+                                fontSize = 12.sp,
+                                fontWeight = if (isEditing) FontWeight.SemiBold else FontWeight.Normal,
+                                modifier = Modifier
+                                    .padding(end = 10.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(
+                                        if (isEditing) accent.copy(alpha = 0.12f) else Color.Transparent
+                                    )
+                                    .clickable {
+                                        editing = candidate
+                                        input = ""
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
+                Text(
+                    "${editing.displayName} 当前：$stateForEditing",
+                    color = textColor,
+                    fontSize = 12.sp
+                )
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = input,
                     onValueChange = { input = it },
-                    label = { Text("粘贴新的 Key（留空表示不修改）") },
+                    label = { Text("粘贴新的 Key（${editing.keyHint}，留空表示不修改）") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "两个服务的 Key 分开存放：在这里更换或删除只影响 ${editing.displayName}。",
+                    color = secondary,
+                    fontSize = 11.sp
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                if (input.isNotBlank()) onSave(input)
+                if (input.isNotBlank()) {
+                    val saveForService = onSaveForService
+                    if (saveForService != null) saveForService(editing, input) else onSave(input)
+                }
                 input = ""
                 onDismiss()
             }) { Text("保存") }
@@ -544,10 +678,11 @@ fun IntentAssistKeyDialog(
         dismissButton = {
             Row {
                 TextButton(onClick = {
-                    onDelete()
+                    val deleteForService = onDeleteForService
+                    if (deleteForService != null) deleteForService(editing) else onDelete()
                     input = ""
                     onDismiss()
-                }) { Text("删除 Key", color = Color(0xFFFF3B30)) }
+                }) { Text("删除 ${editing.displayName} 的 Key", color = Color(0xFFFF3B30)) }
                 TextButton(onClick = onDismiss) { Text("关闭") }
             }
         }

@@ -29,7 +29,13 @@ class IntentOutboundBoundaryTest {
         private val response: String = """{"choices":[{"message":{"content":"LOWER"}}]}"""
     ) : AssistTransport {
         val payloads = mutableListOf<String>()
-        override fun post(url: String, body: String, authHeader: String, timeoutMillis: Int): String {
+        override fun post(
+            url: String,
+            body: String,
+            authHeader: String,
+            timeoutMillis: Int,
+            headers: Map<String, String>
+        ): String {
             payloads += body
             return response
         }

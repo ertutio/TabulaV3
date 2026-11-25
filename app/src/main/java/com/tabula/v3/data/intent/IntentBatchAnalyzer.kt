@@ -36,7 +36,18 @@ class IntentBatchAnalyzer(
      * 这是「旧结果不得覆盖新批次」的最后一层：即使 OCR/网络都已返回，
      * 只要代际不符，结果就被丢弃。
      */
-    private val batchGeneration: () -> Int = { 0 }
+    private val batchGeneration: () -> Int = { 0 },
+    /**
+     * 文字辅助的**服务标识**，进缓存键（`assistTag`）。
+     *
+     * 为什么必须进键：同一个批次换成另一个服务后，「证据不足」的那些图会被重新判断；
+     * 旧服务的判定不能拿来当新服务的结果——那样用户切了服务却看不到任何变化，
+     * 而且缓存里会留下一条无法解释为何如此的结果。
+     *
+     * 默认 "assist"，于是 #95 的缓存键（`assist-on` / `assist-off`）**逐字不变**，
+     * 老用户升级后不丢已有缓存；OpenCode Go 传 "assist-opencode-go"。
+     */
+    private val assistCachePrefix: String = "assist"
 ) {
 
     /** 一次分析的结果。 */
@@ -71,7 +82,7 @@ class IntentBatchAnalyzer(
         val startedAt = System.currentTimeMillis()
         val startedGeneration = batchGeneration()
         val assistEnabled = allowTextAssist && textAssist?.isEnabled == true
-        val assistTag = if (assistEnabled) "assist-on" else "assist-off"
+        val assistTag = if (assistEnabled) "$assistCachePrefix-on" else "$assistCachePrefix-off"
 
         if (!recognizer.isAvailable) {
             return@withContext Analysis(

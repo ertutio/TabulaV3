@@ -169,6 +169,10 @@ import com.tabula.v3.ui.screens.IntentBatchContent
 import com.tabula.v3.ui.screens.IntentAssistKeyDialog
 import com.tabula.v3.data.intent.DeepSeekTextAssist
 import com.tabula.v3.data.intent.IntentAssistKeyStore
+import com.tabula.v3.data.intent.IntentAssistService
+import com.tabula.v3.data.intent.IntentAssistServiceSwitch
+import com.tabula.v3.data.intent.InvalidatableTextAssist
+import com.tabula.v3.data.intent.OpenCodeGoTextAssist
 import com.tabula.v3.data.intent.IntentBatch
 import com.tabula.v3.data.intent.IntentBatchAnalyzer
 import com.tabula.v3.data.intent.IntentTesseractFactory
@@ -642,8 +646,29 @@ fun TabulaApp(
     // 在途分析任务：关开关/离开页面时取消它，尽快停掉原生 OCR 与网络 IO。
     var intentBatchJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     // 当前批次的文字辅助实例（默认 null = 关闭）。换批/关开关/离开页面时作废。
-    var intentBatchAssistant by remember { mutableStateOf<DeepSeekTextAssist?>(null) }
-    val intentAssistKeyStore = remember(context) { IntentAssistKeyStore(context) }
+    // 类型用 [InvalidatableTextAssist]：两个服务（DeepSeek / OpenCode Go）都能装进来，
+    // 上层只依赖「可作废」这一条契约，不必对每个具体类写一次 when。
+    var intentBatchAssistant by remember { mutableStateOf<InvalidatableTextAssist?>(null) }
+    // 选用的服务（跨批次保留：那是「我信任哪家」的决定；授权才逐批）。
+    var intentAssistService by remember { mutableStateOf(preferences.intentAssistService) }
+    // 每服务一份 Key 存储：两个文件互不影响，换服务不迁移、不删除另一个。
+    val intentAssistKeyStores = remember(context) {
+        IntentAssistService.entries.associateWith { it.keyStore(context) }
+    }
+    // Key 状态的快照 + 版本号。
+    //
+    // 为什么快照：`hasKey()` / `describeState()` 都是读文件，直接在组合里逐次调用就是
+    // 「每帧几次主线程 IO」。为什么需要版本号：文件变化不在 Compose 的观察范围内，
+    // 保存/删除后必须显式 +1，否则界面显示的是上一个服务的 Key 状态。
+    var intentAssistKeyRevision by remember { mutableIntStateOf(0) }
+    val intentAssistKeyStates = remember(intentAssistKeyRevision) {
+        intentAssistKeyStores.mapValues { it.value.hasKey() }
+    }
+    val intentAssistKeyDescriptions = remember(intentAssistKeyRevision) {
+        intentAssistKeyStores.mapValues { it.value.describeState() }
+    }
+    // 当前服务的 Key 存储（所有既有调用点继续用一个入口）。
+    val intentAssistKeyStore = intentAssistKeyStores.getValue(intentAssistService)
     val intentVerdictCache = remember(context) {
         IntentVerdictCache(
             context.getSharedPreferences("tabula_intent_verdicts", android.content.Context.MODE_PRIVATE)
@@ -1139,12 +1164,21 @@ fun TabulaApp(
         // 并且创建即绑定当前代际，换批/关开关时作废。
         // 读状态机（`effective`），而不是任何界面副本
         val allowAssist = intentAssistAuth.effective && intentAssistKeyStore.hasKey()
-        val assistant = if (allowAssist) {
-            DeepSeekTextAssist(
-                keyStore = intentAssistKeyStore,
-                userEnabledForBatch = true,
-                sharedGeneration = intentBatchGeneration
-            )
+        val assistant: InvalidatableTextAssist? = if (allowAssist) {
+            // 服务在**创建实例这一刻**定下来，并绑定当前代际：
+            // 换服务走 onSelectAssistService（吊销授权 → 下次重建自然换实现）。
+            when (intentAssistService) {
+                IntentAssistService.DEEPSEEK -> DeepSeekTextAssist(
+                    keyStore = intentAssistKeyStore,
+                    userEnabledForBatch = true,
+                    sharedGeneration = intentBatchGeneration
+                )
+                IntentAssistService.OPENCODE_GO -> OpenCodeGoTextAssist(
+                    keyStore = intentAssistKeyStore,
+                    userEnabledForBatch = true,
+                    sharedGeneration = intentBatchGeneration
+                )
+            }
         } else {
             null
         }
@@ -1166,7 +1200,13 @@ fun TabulaApp(
                     recognizer = IntentTesseractFactory.get(context),
                     cache = intentVerdictCache,
                     textAssist = assistant,
-                    batchGeneration = { intentBatchGeneration.get() }
+                    batchGeneration = { intentBatchGeneration.get() },
+                    // 服务进缓存键：换服务后「证据不足」的那些图必须重新判，
+                    // 不能复用另一家算出的结论（assistCachePrefix 见该参数注释）。
+                    assistCachePrefix = when (intentAssistService) {
+                        IntentAssistService.DEEPSEEK -> "assist"
+                        IntentAssistService.OPENCODE_GO -> "assist-opencode-go"
+                    }
                 )
                 val analysis = analyzer.analyze(
                     images = candidates,
@@ -1219,6 +1259,46 @@ fun TabulaApp(
 
     /** 批次内容变了（提交 / 长期保留 / 范围变化 / 手动重来）：吊销授权后重建。 */
     fun rebuildIntentBatch() = runIntentBatchAnalysis(revokeAssist = true)
+
+    /**
+     * 用户切换文字辅助的**服务**（DeepSeek ↔ OpenCode Go）。
+     *
+     * 服务变了就是换了这次外发的对象：用户之前同意的是「发给那一家」，不是「发给任何一家」。
+     * 因此与「换批」走同一条推理，只是触发条件换成服务变更：
+     * 1. 先作废在途请求（[invalidateIntentBatch] 取消 Job、代际 +1、旧辅助实例 invalidate）；
+     * 2. 用现有 [IntentAssistAuthorization.onRebuild] 吊销本批授权并推进 epoch；
+     * 3. 按**关闭态**重跑本地分析——新服务要用户在本批重新打开一次。
+     *
+     * 选的是当前服务时什么都不做：[IntentAssistServiceSwitch.revokeForServiceChange]
+     * 返回 false，**不会**推进 epoch（否则用户自己的在途请求会被误判过期）。
+     *
+     * 跨批次保留：服务本身写进偏好（[AppPreferences.intentAssistService]）；
+     * 只有授权不保留。这两个决定刻意分开。
+     */
+    fun selectIntentAssistService(service: IntentAssistService) {
+        val changed = IntentAssistServiceSwitch.revokeForServiceChange(
+            current = intentAssistService,
+            next = service,
+            // 吊销**只做这一次**：走既有状态机 onRebuild（granted=false、epoch+1、
+            // noticeAcknowledged 清掉）。代际号由下面的重算推进，两者分工不重叠，
+            // 因此 epoch 每次切换恰好 +1（有测试钉住）。
+            onRebuild = {
+                intentAssistAuth.onRebuild()
+                intentAssistRevision++
+            }
+        )
+        intentAssistService = service
+        preferences.intentAssistService = service
+        if (!changed) return
+        Toast.makeText(
+            context,
+            "已切换到 ${service.displayName}，本批授权已撤销；需要重新开启",
+            Toast.LENGTH_SHORT
+        ).show()
+        // 用「不吊销」的重算入口：吊销已由上面完成，这里只负责作废在途请求
+        // （取消 Job、代际 +1、旧实例 invalidate）并按**关闭态**重跑本地分析。
+        reanalyzeCurrentBatch()
+    }
 
     /**
      * 打开「按整理目的凑一批」（路线图第 8 项 / #94）。
@@ -2655,7 +2735,11 @@ fun TabulaApp(
             engineNote = intentBatchEngineNote,
             statusLine = intentBatchStatus,
             assistAvailable = true,
-            assistKeyConfigured = intentAssistKeyStore.hasKey(),
+            assistKeyConfigured = intentAssistKeyStates[intentAssistService] == true,
+            // 两个服务各自的 Key 状态：界面据此显示「哪家已配 Key」，也让对话框并列展示。
+            assistKeyConfiguredByService = intentAssistKeyStates,
+            assistService = intentAssistService,
+            onSelectAssistService = { service -> selectIntentAssistService(service) },
             // 单一事实来源：直接读授权状态机。intentAssistRevision 让重组能观察到变化。
             assistEnabledForBatch = intentAssistAuth.granted.also { intentAssistRevision },
             // NOTE: `intentAssistRevision` 只是读取以建立 Compose 依赖关系；值本身不参与渲染。
@@ -2800,15 +2884,40 @@ fun TabulaApp(
         )
         if (showIntentAssistKeyDialog) {
             IntentAssistKeyDialog(
-                currentState = intentAssistKeyStore.describeState(),
+                currentState = intentAssistKeyDescriptions[intentAssistService] ?: "未配置",
+                // 逐服务：对话框里可以切着看/改，两个 Key 文件互不影响。
+                service = intentAssistService,
+                serviceStates = intentAssistKeyDescriptions,
                 onSave = { key ->
                     if (!intentAssistKeyStore.write(key)) {
                         Toast.makeText(context, "Key 未能保存", Toast.LENGTH_SHORT).show()
                     }
+                    intentAssistKeyRevision++
+                },
+                onSaveForService = { service, key ->
+                    val store = intentAssistKeyStores.getValue(service)
+                    if (!store.write(key)) {
+                        Toast.makeText(context, "Key 未能保存", Toast.LENGTH_SHORT).show()
+                    } else if (service != intentAssistService) {
+                        // 存的是另一家的 Key：本批不受影响（当前实例仍用当前服务的 Key）
+                        Toast.makeText(context, "${service.displayName} 的 Key 已保存", Toast.LENGTH_SHORT).show()
+                    }
+                    // 文件变化不在 Compose 的观察范围内：显式让界面重读状态
+                    intentAssistKeyRevision++
                 },
                 onDelete = {
                     intentAssistKeyStore.delete()
+                    intentAssistKeyRevision++
+                    // 删掉当前服务的 Key = 本批没有可用凭据：吊销授权、按本地模式重建
                     rebuildIntentBatch()
+                },
+                onDeleteForService = { service ->
+                    intentAssistKeyStores.getValue(service).delete()
+                    intentAssistKeyRevision++
+                    // 只有删的是当前服务的 Key 才影响本批；另一家的 Key 删了不影响外发
+                    if (service == intentAssistService) {
+                        rebuildIntentBatch()
+                    }
                 },
                 onDismiss = { showIntentAssistKeyDialog = false }
             )

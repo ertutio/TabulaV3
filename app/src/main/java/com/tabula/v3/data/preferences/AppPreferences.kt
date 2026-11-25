@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import com.tabula.v3.data.intent.IntentAssistService
 import com.tabula.v3.data.repository.LocalImageRepository
 
 /** 一条抽取冷却记录：抽取时间 + 随机冷却天数。 */
@@ -1233,6 +1234,22 @@ class AppPreferences(context: Context) {
         stagedCleanupSkippedIdentityKeys = emptySet()
     }
 
+    /**
+     * 文字辅助选用的**服务**（#95 之后新增的第二服务）。
+     *
+     * 存枚举的 `name` 而不是序号：将来调整枚举顺序不会把用户的选择换成别家。
+     * 默认 [IntentAssistService.DEEPSEEK] —— 与 #95 完全一致，老用户升级后行为不变
+     * （也保证他们已有的 `intent-assist.key` 继续被读到）。
+     *
+     * 服务选择**跨批次保留**（那是「我信任哪家」的决定），而**授权**不保留
+     * （那是「这一批我同意外发」的决定）——两者刻意分开，见 [IntentAssistAuthorization]。
+     */
+    var intentAssistService: IntentAssistService
+        get() = IntentAssistService.fromStoredName(
+            prefs.getString(KEY_INTENT_ASSIST_SERVICE, null)
+        )
+        set(value) = prefs.edit().putString(KEY_INTENT_ASSIST_SERVICE, value.name).apply()
+
     companion object {
         private const val PREFS_NAME = "tabula_prefs"
         private const val KEY_SORT_ORDER = "sort_order"
@@ -1288,6 +1305,9 @@ class AppPreferences(context: Context) {
         private const val KEY_STAGED_CLEANUP_SOURCES = "staged_cleanup_sources"
         private const val KEY_STAGED_CLEANUP_SOURCE_CHOSEN = "staged_cleanup_source_chosen"
         private const val KEY_STAGED_CLEANUP_RETAINED = "staged_cleanup_retained"
+
+        /** 文字辅助选用的服务（枚举 name；缺省即 DeepSeek，与 #95 一致）。 */
+        private const val KEY_INTENT_ASSIST_SERVICE = "intent_assist_service"
 
         // 收纳阈值常量
         /** 系统图集总数超过此值时启用收纳 */

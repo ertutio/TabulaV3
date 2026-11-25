@@ -31,7 +31,13 @@ class IntentAssistAuthorizationTest {
         private val answer: String = """{"choices":[{"message":{"content":"LOWER"}}]}"""
     ) : AssistTransport {
         val payloads = mutableListOf<String>()
-        override fun post(url: String, body: String, authHeader: String, timeoutMillis: Int): String {
+        override fun post(
+            url: String,
+            body: String,
+            authHeader: String,
+            timeoutMillis: Int,
+            headers: Map<String, String>
+        ): String {
             payloads += body
             if (delayMs > 0) Thread.sleep(delayMs)
             return answer
