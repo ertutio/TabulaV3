@@ -1095,11 +1095,11 @@ if __name__ == "__main__":
     # 关键：环境中断也要落 api<N>-summary.json，已采集的检查项不能丢。
     # api 未知（连 getprop 都没跑成）时才退回 error-summary.json。
     if api is None:
-        try:
-            api = sdk_int()
-            evidence["sdk"] = api
-        except Exception:  # noqa: BLE001
-            api = None
+        api = evidence.get("sdk")
+    if api is None:
+        configured_api = os.environ.get("API_LEVEL", "")
+        if configured_api.isdecimal():
+            api = int(configured_api)
     write_summary(api, success=(code == EXIT_PASS), env_error=env_error)
 
     print(
