@@ -234,7 +234,10 @@ class IntentBatchBuilderTest {
     }
 
     @Test
-    fun assistIsSkippedWhenSnippetHasUndecidableLines() = kotlinx.coroutines.runBlocking {
+    fun assistOnlySendsTheLinesThatSurviveSanitizing() = kotlinx.coroutines.runBlocking {
+        // 第 2 轮审计后语义变了：不再「整张有不可判定行就整张不发」，
+        // 而是逐行掩码、只发可判定的那些。否则几乎每张真实截图都会被丢掉，
+        // 与「按批辅助分类」的设计目的相反。
         val assist = RecordingAssist(AssistSuggestion(IntentRecommendation.KEEP, "x"))
         val classified = IntentBatchBuilder.classifyAll(
             candidates = listOf(input(5, 20, "8823 4471", "某平台截图")),
@@ -242,7 +245,22 @@ class IntentBatchBuilderTest {
             timeZone = utc
         )
         IntentBatchBuilder.refineWithAssist(classified, assist)
-        assertTrue(assist.seen.isEmpty())
+        assertEquals(1, assist.seen.size)
+        val sent = assist.seen.first().lines
+        assertTrue("数字噪声行不能发：$sent", sent.none { it.contains("8823") })
+        assertTrue("正常文案要发：$sent", sent.any { it.contains("某平台") })
+    }
+
+    @Test
+    fun assistIsSkippedWhenNothingSurvivesSanitizing() = kotlinx.coroutines.runBlocking {
+        val assist = RecordingAssist(AssistSuggestion(IntentRecommendation.KEEP, "x"))
+        val classified = IntentBatchBuilder.classifyAll(
+            candidates = listOf(input(15, 20, "8823 4471", "2024-11-10 12:00")),
+            nowMillis = now,
+            timeZone = utc
+        )
+        IntentBatchBuilder.refineWithAssist(classified, assist)
+        assertTrue("全部不可判定时不得发请求", assist.seen.isEmpty())
     }
 
     @Test

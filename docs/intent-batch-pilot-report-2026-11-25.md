@@ -1,13 +1,27 @@
 # #94 试点报告：按整理目的凑一批图
 
-日期：2026-11-25 ｜ 分支：`feature/intent-batch-ocr-2026-11-25`（worktree `D:\VIBEcoding\TabulaV3-intent94`）
+日期：2026-11-25（第 2 轮：按审计结果重做脱敏、实验性开关、提交边界与页面回归）｜
+分支：`feature/intent-batch-ocr-2026-11-25`（worktree `D:\VIBEcoding\TabulaV3-intent94`）
 
 本文件记录**实际跑出来的数字**，不含估算。每条都附命令与产物路径，可复跑。
 OCR 选型评估单独写在 [intent-ocr-evaluation-2026-11-25.md](intent-ocr-evaluation-2026-11-25.md)。
 
 ---
 
-## 0. 接手时的基线（必须先说清楚）
+## 0. 第 2 轮（审计后）改了什么
+
+审计提出六项，逐项落地情况：
+
+| 审计项 | 处置 | 证据 |
+| --- | --- | --- |
+| 本地 OCR 为默认路径、DeepSeek 为保留的实验性功能 | 路线图改写；界面标注「实验性」；开启前必须先看外发说明 | `docs/development-roadmap.md` §8；`IntentBatchScreen` 开关块 |
+| 实验性开关默认关闭、新批次恢复关闭、关闭即停、旧结果不覆盖 | 代际号 + 在途 Job 取消 + `AssistSuggestion.stale`；进批次/离页/关开关全部作废 | `IntentAssistSwitchTest` 10 条 |
+| 修复外发脱敏（敏感字段上下文优先于日期保留） | 顺序反转为「先划敏感区间，再在区间外找日期」；重叠且涉及敏感键 → 整行留在本地 | `IntentTextSanitizerTest` 13 条 |
+| 修复回收站提交边界 | 新增 `IntentCommitGuard`：按完整媒体身份复核可见性/内容版本/暂存范围/最新保护；按实际确认结果更新状态并分别说明 | `IntentCommitGuardTest` 10 条 |
+| 补真实页面回归 | 真实交互：点缩略图 → 断言按钮禁用→可用 → 提交 → 回收站 → 大图浮层恢复；另测三种「世界变了」 | `IntentBatchPageFlowTest` 6 条（设备） |
+| 核对发布体积 | Release 用同一基底与构建配置测通用包与 arm64 包 | 见 §2.2 |
+
+## 1. 接手时的基线（必须先说清楚）
 
 | 项 | 值 |
 | --- | --- |
@@ -61,31 +75,43 @@ PR 描述里标明「stacked on #84」。
 | 中文能力 | 接入实测（见 §4） | 50 张合成样图真实 OCR |
 | minSdk | 21（AAR 清单）；本项目 31 | 构检验证 |
 
-### APK 体积增量（实测，非估算）
+### APK 体积（实测，非估算）
+
+**Debug（通用包，四 ABI 全打）**
 
 | 构建 | 字节 | MiB |
 | --- | --- | --- |
-| 基线（#84 HEAD `34b8bb2`，`assembleDebug`） | 80,668,030 | 76.93 |
-| 本分支（含 OCR） | 112,314,387 | 107.11 |
-| **增量** | **31,646,357** | **30.18（+39.2%）** |
+| 基线（#84 HEAD `34b8bb2`） | 80,668,030 | 76.93 |
+| 本分支 | 112,314,387 | 107.11 |
+| 增量 | 31,646,357 | 30.18（+39.2%） |
 
-拆开看（`app-debug.apk` 内条目，全部四个 ABI 都打进去了）：
+**Release（同一基底、同一构建配置；这是审计要求的对照口径）**
 
-| 条目 | 未压缩 | 说明 |
-| --- | --- | --- |
-| `libtesseract.so` | 4×约 3.0–4.3 MB | 四 ABI 合计 15.8 MB |
-| `libleptonica.so` | 4×约 2.2–3.1 MB | 四 ABI 合计 11.1 MB |
-| `libjpeg.so` + `libpngx.so` | 四 ABI 合计 1.9 MB | — |
-| `assets/ocr/chi_sim.traineddata` | 2,469,156 | 压缩后 1,770,007 |
+| 产物 | 基线 | 本分支 | 增量 | 相对增幅 |
+| --- | --- | --- | --- | --- |
+| 通用包（四 ABI） | 28,600,959（27.28 MiB） | 59,379,922（56.63 MiB） | **+29.35 MiB** | +107.6% |
+| 仅 arm64-v8a | 28,550,902（27.23 MiB） | 37,930,647（36.17 MiB） | **+8.95 MiB** | +32.9% |
 
-**按设备算（arm64-v8a 单 ABI）**：4 个 `.so` 7,514,856 + 模型 2,469,156 = **9,928,486 字节（9.47 MiB）**。
-当前没有配 ABI splits，所以安装包把四个 ABI 全带上了；如果开 `abiFilters arm64-v8a`
-可把增量压到约 8.85 MiB（`.so` 不压缩存储 + 模型压缩后）。
+本分支 Release 的构成（按 APK 内压缩后条目统计）：
 
-> 这是 debug 构建。release 有 R8/资源裁剪，绝对体积不同，但 OCR 增量（原生库+模型）不受影响。
-> 本轮**没有**跑 release 对比，已记入「未验证」。
+| 组成 | 通用包 | 占通用包 | arm64 包 | 占 arm64 包 |
+| --- | --- | --- | --- | --- |
+| Tesseract 原生库（4 个 `.so`） | 27.48 MiB | **48.5%** | 7.17 MiB | 19.8% |
+| 中文语言模型 `chi_sim.traineddata` | 1.65 MiB | 2.9% | 1.65 MiB | 4.6% |
+| **OCR 合计** | **29.13 MiB** | 51.4% | **8.82 MiB** | 24.4% |
+| 其余（原有 App 代码/资源/其它 so） | 27.28 MiB | 48.2% | 27.28 MiB | 75.4% |
 
----
+**对现有分发方式的影响（必须看这一条）**：本仓库**没有配 ABI splits 或 `abiFilters`**，
+所以现在发布的是通用包——每个下载者都要多背 **+29.35 MiB**，其中 27.48 MiB 是四个 ABI
+各一份的同一份原生库。若改为只发 arm64（或按 ABI 分包），单设备增量降到 **8.82 MiB**
+（约为原来的 30%）。这是分发决策，本 PR 不擅自改变发布产物形态，只把数字摆出来。
+
+> Release 两条命令（同一套参数，只换 worktree）：
+> ```
+> ./gradlew :app:assembleRelease                                     # 通用包
+> ./gradlew :app:assembleRelease -Pandroid.injected.build.abi=arm64-v8a --rerun-tasks   # 仅 arm64
+> ```
+> arm64 产物落在 `app/build/intermediates/apk/release/`（AGP 用 injected ABI 时不在 outputs 下）。
 
 ## 3. 样图
 
@@ -195,29 +221,34 @@ python tools/intent-samples/run_deepseek_pilot.py \
 
 | 指标 | 值 |
 | --- | --- |
-| 请求数 | 40（50 张里 10 张因「脱敏后片段为空或含不可判定行」未发送） |
-| 成功 / 失败 | 40 / 0 |
-| prompt tokens | 3,943（平均 98.6 / 请求） |
-| completion tokens | 80（`max_tokens=80` 且只回一个词） |
-| total tokens | 4,023 |
-| 总耗时 | 44,016 ms（脚本刻意 0.4s 间隔防限流，非模型延迟） |
+| 请求数 | **34**（50 张里 16 张在脱敏后没有可发送内容 → 零请求） |
+| 成功 / 失败 | 34 / 0 |
+| prompt tokens | 3,392（平均 99.8 / 请求） |
+| completion tokens | 68（`max_tokens=80` 且只回一个词） |
+| total tokens | **3,460** |
+| 总耗时 | 39,858 ms（脚本刻意 0.4s 间隔防限流，非模型延迟） |
+
+> 第 1 轮是 40 请求 / 4,023 tokens。数字变小不是「省了」，而是**脱敏变严了**：
+> 修完「敏感字段上下文优先」后，`验证码 20261110` 这类行整行留在本地；
+> 同时不再「整张有不可判定行就整张不发」，而是逐行掩码只发可判定的那些
+> ——所以 `保护类`（订单/票券）仍不发，但正常促销/新闻行的覆盖变完整了。
 
 按类别看模型回答与金标准的一致性：
 
 | 类别 | 发送 | 与金标准一致 | 模型判 KEEP 但本地认为可清 |
 | --- | --- | --- | --- |
-| `keep` | 11 | 9 | 0（保护方向正确） |
+| `keep` | 8 | 7 | 0（保护方向正确） |
 | `event` | 6 | 6 | 0 |
 | `stale_news` | 2 | 2 | 0 |
-| `expired_coupon` | 4 | 2 | 2 |
-| `share` | 6 | 2 | 2 |
-| `temp_code` | 6 | 4 | 2 |
+| `expired_coupon` | 6 | 4 | 2 |
+| `share` | 4 | 0 | 2 |
+| `temp_code` | 2 | 2 | 2（提取码类被判 KEEP） |
 | `old_price` | 2 | 0 | 2 |
-| `hard` | 2 | 1 | 0 |
+| `hard` | 3 | 1 | 0 |
 | `uncertain` | 1 | 0 | 0 |
 
-**这组数据说明什么**：模型整体偏向 `KEEP`（保守）。对 `keep` 类 9/11 判对，说明**保护方向可用**；
-但对优惠/分享/邀请码这些「其实该清」的类别，它有一半判 KEEP——若允许它覆盖本地判定，
+**这组数据说明什么**：模型整体偏向 `KEEP`（保守）。对 `keep` 类 7/8 判对，说明**保护方向可用**；
+但对优惠/分享/旧比价这些「其实该清」的类别，它经常判 KEEP——若允许它覆盖本地判定，
 反而会把该清的留下（**不会造成误删，但会让功能变钝**）。
 
 **因此实现里的硬约束（不是靠提示词，是靠类型）**：
@@ -313,79 +344,53 @@ python tools/intent-samples/run_deepseek_pilot.py \
 
 ---
 
-## 8. 跑过的命令与结果
+## 8. 跑过的命令与结果（第 2 轮，最终 HEAD）
 
 | 命令 | 结果 |
 | --- | --- |
-| `./gradlew :app:testDebugUnitTest` | **BUILD SUCCESSFUL**，80 个测试类 / **554 条** / 0 失败 / 0 错误（其中 intent 包 **83 条**） |
-| `./gradlew :app:testDebugUnitTest --tests "com.tabula.v3.data.intent.*"` | 83 条全通过 |
+| `./gradlew :app:testDebugUnitTest` | **BUILD SUCCESSFUL**，82 个测试类 / **582 条** / 0 失败 / 0 错误（其中 intent 包 **111 条**） |
+| `--tests "com.tabula.v3.data.intent.*"` | 111 条全通过（含新增的开关 10 条、提交边界 10 条） |
 | `./gradlew :app:assembleDebug :app:assembleDebugAndroidTest` | SUCCESSFUL |
-| `./gradlew :app:testDebugUnitTest --tests "...IntentAssistPayloadExportTest"` | 导出 40 条 payload 到 `app/build/intent-pilot/payloads.json`，离线断言全过 |
-| `python tools/intent-samples/run_deepseek_pilot.py` | 40 请求 / 40 成功 / 4,023 tokens |
-| `adb shell am instrument -e class com.tabula.v3.IntentSampleOcrDeviceTest ...` | 本地 **OK (6 tests)**；CI **OK (6 tests)** |
-| `adb shell am instrument -e class com.tabula.v3.IntentBatchPageFlowTest ...` | 本地 **OK (5 tests)**（`-gpu host`）；CI **OK (5 tests)**（`-gpu swiftshader`）；其中 1 条用例为数据层验证（见 §9.1） |
-| `python tools/intent-samples/verify_samples.py` | 50 张全部通过（数量/尺寸/体积/一致性/确定性） |
+| `./gradlew :app:assembleRelease` | SUCCESSFUL（通用包 56.63 MiB） |
+| `./gradlew :app:assembleRelease -Pandroid.injected.build.abi=arm64-v8a --rerun-tasks` | SUCCESSFUL（arm64 包 36.17 MiB） |
+| `python tools/intent-samples/run_deepseek_pilot.py` | 34 请求 / 34 成功 / 3,460 tokens |
+| `adb shell am instrument -e class ...IntentSampleOcrDeviceTest` | **OK (6 tests)**，419 ms/张 |
+| `adb shell am instrument -e class ...IntentBatchPageFlowTest` | **OK (6 tests)**，含真实提交→回收站→大图浮层恢复 |
 
-设备：本地 AVD `intent94`（API 36 / google_apis / x86_64 / 1080×2400 / 420dpi），
-`emulator -no-window -no-snapshot -gpu swiftshader_indirect`（页面链路测试崩过，改 `-gpu host` 后通过）。
+设备：本地 AVD `intent94`（API 36 / google_apis / x86_64 / 1080×2400 / 420dpi），`-gpu host`。
 
-### CI
+### 新增/改写的测试（对审计项的映射）
 
-workflow `Verify intent batch on emulator`（`.github/workflows/verify-intent-batch.yml`），
-run [45572470246](https://github.com/ertutio/TabulaV3/actions/runs/45572470246) ——
-**build: success / device: success**。
-
-CI 上的实测数字（`IntentBatch-build-*` artifact）：
-
-| 项 | 值 |
-| --- | --- |
-| 单测 | `classes=80 tests=554 failures=0 errors=0 skipped=0` |
-| intent 包单测 | `intent_tests=83 intent_failures=0` |
-| `app-debug.apk` | 111,765,389 字节 |
-| `app-debug-androidTest.apk` | 5,727,434 字节 |
-| OCR 设备测试 | `OK (6 tests)` |
-| 页面链路测试 | `OK (5 tests)` |
-| CI 上 OCR 端到端 | 50 张 / 识别出文字 46 张 / 应清 29 / 推荐 25 / **不一致 2** / 平均 **1062 ms/张**（CI runner 是 2 核 + swiftshader，比本地慢约 2.4 倍） |
-
-> **性能口径**：单张耗时在三种环境下分别是本地 x86_64（432–583 ms）、
-> CI 2 核 runner（1062 ms）。真机 arm64 仍未测——这条不因为 CI 跑通就消失。
-
----
+| 测试 | 条数 | 覆盖审计的哪一条 |
+| --- | --- | --- |
+| `IntentTextSanitizerTest` | 13 | 第 4 条：敏感字段上下文优先于日期保留；形似日期的敏感值不外发 |
+| `IntentAssistPayloadExportTest` | 7 | 第 4 条：检查**生产代码真正生成的请求体**；零请求场景；无图像/路径 |
+| `IntentAssistSwitchTest` | 10 | 第 3 条：默认关闭、关闭即停、在途作废、换批不覆盖 |
+| `IntentCommitGuardTest` | 10 | 第 5 条：可见性/内容版本/暂存范围/保护状态的提交前复核 |
+| `IntentBatchPageFlowTest`（设备） | 6 | 第 6 条：真实交互提交与恢复；三种「世界变了」不得提交 |
 
 ## 9. 未验证 / 已知缺口（如实列出）
 
-1. **「点缩略图 → 点底部移入回收站」这条 UI 路径未在本地跑通**：模拟器快照里
-   同时出现「已选 1 张」与按钮禁用态文案「选择要移入回收站的照片」，两者矛盾。
-   已确认这不是功能必然缺陷（同一快照里 `已选中` 标记存在、计数正确），
-   更像快照跨重组帧；但**没有证据就不下结论**。因此该用例改成数据层验证
-   （`intentSelectionReusesTheRecycleBinAndCanBeRestored`：同一 `RecycleBinManager`
-   调用进回收站 + 恢复），并把它列为未覆盖项。
-2. **中文 UI 截图的 OCR 准确率没有公开对照基准**：本报告的 25/29 只能说明
-   「在这 50 张合成图上」；真实用户库的字体、主题、深浅色分布不同。
-3. **只有 debug APK 的体积对比**，release（R8 + 资源裁剪）未跑。
-4. **未开 ABI splits**：当前把四个 ABI 的原生库全打进去（+30.18 MiB）。
-   开 `abiFilters` 后单设备增量约 8.85 MiB，但会改变发布产物形态，需单独决定。
-5. **单张 OCR 432–583 ms（x86_64 模拟器）**，真机（尤其 arm64 中端机）未测；
-   开 `-openmp` 变体或降采样可能更快，未验证。
-6. **`event-vote-01` / `hard-rotate-01` 的 OCR 失败未修**：倾斜、艺术字与行切分
-   是引擎层面问题，本轮不用规则去绕（绕了会把「看不清」写成「已过期」）。
-7. **模拟器稳定性（已由 CI 判定）**：本地 `swiftshader_indirect` 下跑页面链路测试时
-   模拟器进程崩过 3 次（`0xC0000005`），换 `-gpu host` 后 5/5 通过；
-   **CI 用 `-gpu swiftshader` 也跑出 `OK (5 tests)`**，因此那不是功能缺陷，
-   而是本地 GPU 后端问题。
-8. **撤销语义**：设备测试断言的是「移入回收站后可恢复」（`removeFromRecycleBin`），
-   没有覆盖「卡片页上滑删除的撤销条」——#94 复用的是同一个 `RecycleBinManager`，
-   但撤销条属于卡片页，#90 也在改那块，刻意不碰。
-
----
+1. **真机 arm64 的 OCR 耗时未测**：本地 x86_64 模拟器 419–583 ms/张，CI 2 核 runner
+   1062 ms/张。两者都不能代表中端真机；`-openmp` 变体是否更快也未验证。
+2. **中文 UI 截图的 OCR 准确率没有公开对照基准**：25/29 只对 50 张合成图成立。
+3. **`event-vote-01` / `hard-rotate-01` 的 OCR 失败未修**：倾斜、艺术字与行切分是引擎层问题；
+   用规则去绕会把「看不清」写成「已过期」。
+4. **ABI splits 未开**：所有下载者当前都要背通用包的 +29.35 MiB（Release）。
+   是否收窄 ABI 属发布决策，本轮只给数字不改产物。
+5. **`addAllToRecycleBin` 只写回收站记录，不物理删除**：图库在删除流程完成前仍能查到该图。
+   页面测试据此断言「所选图进入回收站记录、未选图不进」，而不是「所选图立刻离开图库」。
+6. **模拟器 MediaStore 不总是回灌 DATE_MODIFIED/SIZE**：所以「内容已变」那条用例
+   改用「陈旧快照 vs 当前记录」的对比来构造，测的是我们的复核逻辑，而不是 MediaStore 行为。
+7. **纯 UI 路径的边界**：本轮的按钮可用性断言沿祖先链读 disabled 语义（Compose 把
+   disabled 挂在 Button 节点、内层 Text 仍是 enabled），已在设备上跑通；
+   但窄屏/深色主题下的布局差异未单独覆盖。
+8. **撤销条**：复用的是同一个 `RecycleBinManager`，但卡片页的上滑删除撤销条属于 #90 的范围，未碰。
 
 ## 10. 后续工作
 
-1. ~~修样图：把 `hard-blurry-*` 真正压到读不清~~（已完成，见 §4.2 的说明）。
-2. 把「点缩略图 → 移入回收站」的 UI 路径在真机或 CI 上重跑，确认是快照帧问题还是交互缺陷。
-3. 决定 ABI splits 策略，再测一次真实发布体积。
-4. 真机（arm64 中端机）测 OCR 单张耗时 P50/P95，据此决定是否换 `-openmp`。
-5. 文字辅助：本轮数据不支持「默认开启」；若后续要评估，应按「辅助是否让前 10 张
-   可清张数增加」而不是「模型与金标准的一致率」来判。
-6. 若 #84 合入 master，本分支需要 rebase 到 master 并只保留 `data/intent`、
-   `ui/screens/IntentBatchScreen.kt`、`MainActivity` 的接入改动与测试。
+1. 真机 arm64 测 OCR P50/P95，据此决定是否换 `-openmp` 或降采样。
+2. 决定 ABI splits 策略后复测发布体积（当前通用包 +29.35 MiB）。
+3. 把「点缩略图 → 移入回收站」在窄屏/深色主题下再跑一遍。
+4. 若 #84 合入 master，本分支 rebase 后只保留 `data/intent`、`IntentBatchScreen.kt`、
+   `MainActivity` 接入与测试。

@@ -12,7 +12,9 @@ import android.provider.MediaStore
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.tabula.v3.data.cleanup.cleanupIdentityKey
 import com.tabula.v3.data.intent.IntentAssistKeyStore
+import com.tabula.v3.data.intent.IntentCommitGuard
 import com.tabula.v3.data.intent.IntentVerdictCache
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.RecommendMode
@@ -420,40 +422,283 @@ class IntentBatchPageFlowTest {
     }
 
     /**
-     * 回收站链路复用（数据层，不点 UI）。
+     * **真实交互**提交链路（#94 第 2 轮审计，第 6 条）。
      *
-     * 为什么不点 UI：本机模拟器在跑「点缩略图 → 点底部按钮」这条路径时，
-     * 快照里同时出现「已选 1 张」与「选择要移入回收站的照片」（按钮禁用态文案），
-     * 两者来自同一次组合却互相矛盾，怀疑是快照跨越重组帧。**这不作为功能结论**，
-     * 只记录为未验证项（见 docs/intent-batch-pilot-report-2026-11-25.md §9）。
+     * 设置 → 暂存清理 → 按整理目的凑一批 → 等真实 OCR 完成 →
+     * 点推荐缩略图 → 断言底部按钮**从禁用变为可用** → 点提交 →
+     * 按完整媒体身份确认所选图进入回收站、未选图仍在图库 →
+     * 从**真实回收站页**恢复目标图。
      *
-     * 这里验证的是**真正被复用的那部分**：本功能的勾选结果交给
-     * `RecycleBinManager.addAllToRecycleBin` 后确实进回收站、且能恢复——
-     * 与卡片上滑删除走的是同一个 API。
+     * 第一轮的失败原因是「点了缩略图但按钮文案没变」。这轮把缩略图的
+     * contentDescription 补上了文件名，并把断言改成读按钮的 `isEnabled`
+     * 而不是匹配文案——按钮禁用态与启用态文案不同，匹配文案容易跨帧读到旧值。
      */
     @Test
-    fun intentSelectionReusesTheRecycleBinAndCanBeRestored() = runBlocking {
-        val shot = insertCouponScreenshot("intent-bin-" + UUID.randomUUID().toString().take(6) + ".png")
-        waitIndexed(shot)
+    fun tappingThumbnailEnablesSubmitAndSelectedGoesToRecycleBin() = runBlocking {
+        val coupon = insertCouponScreenshot("intent-flow-" + UUID.randomUUID().toString().take(6) + ".png")
+        val other = insertCouponScreenshot("intent-keep-" + UUID.randomUUID().toString().take(6) + ".png")
+        waitIndexed(coupon)
+        waitIndexed(other)
 
-        val repo = com.tabula.v3.data.repository.LocalImageRepository(ctx)
-        val image = repo.loadAllData().allImages.first { it.uri == shot }
+        startApp()
+        openStagedCleanupCandidates()
+        openIntentBatch()
+        waitForTextContaining("本地识别", timeout = 180000)
+
+        // 1) 未选任何图时，提交按钮必须是禁用态
+        val submitBefore = submitButtonState()
+        assertNotNull("必须能找到底部提交按钮（屏幕：${screenTexts()}）", submitBefore)
+        assertFalse("未选中时提交按钮必须禁用", submitBefore!!.enabled)
+        val selectedBefore = runBlocking { RecycleBinManager.getInstance(ctx).loadRecycleBin().size }
+
+        // 2) 点推荐缩略图（contentDescription = 文件名）
+        val thumbName = run {
+            val deadline = now() + 30000
+            while (now() < deadline) {
+                screenTexts().firstOrNull { it.startsWith("intent-flow-") && it.endsWith(".png") }
+                    ?.let { return@run it }
+                android.os.SystemClock.sleep(250)
+            }
+            null
+        }
+        assertNotNull("推荐列表里应出现可点的缩略图（屏幕：${screenTexts()}）", thumbName)
+        assertTrue("缩略图必须能点中（目标：$thumbName）", tapByBounds(thumbName!!))
+
+        // 3) 选中后按钮必须变为可用（这是第一轮卡住的那一步）
+        val submitAfter = waitForEnabledSubmit()
+        assertNotNull("选中后提交按钮必须存在", submitAfter)
+        assertTrue("选中 1 张后提交按钮必须变为可用", submitAfter!!.enabled)
+
+        // 4) 点提交
+        val clickTarget = submitAfter.clickable
+        assertNotNull("提交按钮必须是可点击节点", clickTarget)
+        clickTarget!!.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        android.os.SystemClock.sleep(4000)
+
+        // 5) 按完整媒体身份确认：所选图进了回收站，未选图仍在图库
         val bin = RecycleBinManager.getInstance(ctx)
-        val before = bin.loadRecycleBin().size
+        val afterBin = bin.loadRecycleBin()
+        assertTrue(
+            "所选图必须进入回收站（之前 ${selectedBefore} 项，现在 ${afterBin.size} 项）",
+            afterBin.size > selectedBefore
+        )
+        val binUris = afterBin.map { it.uri }.toSet()
+        val libraryUris = com.tabula.v3.data.repository.LocalImageRepository(ctx)
+            .loadAllData().allImages.map { it.uri }.toSet()
+        assertTrue("所选图必须出现在回收站里（$coupon）", coupon in binUris)
+        // 注意：本项目 `addAllToRecycleBin` 只写入回收站**记录**，物理文件由 pending
+        // journal 的删除流程处理，因此此刻图库里仍能查到它——这是既有设计，
+        // 不是本功能的缺陷。真正要断言的是「未选的图没有被写进回收站」。
+        assertTrue("未选的图必须仍在图库（$other）", other in libraryUris)
+        assertFalse("未选的图不得进回收站（$other）", other in binUris)
+        assertFalse("未选的图不得出现在回收站记录里", other in binUris)
+        // 图库可见性另做一条正向断言，避免上面的注释变成「跳过检查」的借口
+        assertTrue(
+            "图库快照仍应包含所选图（等待物理删除前，记录已入站）",
+            coupon in libraryUris
+        )
 
-        // 与 MainActivity.onConfirm 里完全相同的一次调用
-        bin.addAllToRecycleBin(listOf(image))
-        val afterAdd = bin.loadRecycleBin()
-        assertTrue("选中项应进入回收站（${before} → ${afterAdd.size}）", afterAdd.size == before + 1)
-
-        // 恢复：与回收站页的恢复走同一个 remove API
-        val restored = afterAdd.first { it.uri == shot }
-        bin.removeFromRecycleBin(restored)
+        // 6) 从真实回收站页恢复
+        restoreFromRecycleBinScreen(coupon)
         val afterRestore = bin.loadRecycleBin()
         assertTrue(
-            "回收站条目必须可恢复（恢复后 ${afterRestore.size} 项）",
-            afterRestore.none { it.uri == shot }
+            "恢复后目标图不应再在回收站（${afterRestore.map { it.uri }}）",
+            afterRestore.none { it.uri == coupon }
         )
+    }
+
+    /**
+     * 分析之后世界变了：**旧结果不得被提交**（审计第 6 条后半）。
+     *
+     * 三种变化各测一次：原图被替换（内容版本变）、被标长期保留、从图库消失（权限/删除）。
+     * 判据不是 UI 文案，而是**回收站最终没有多出该项**——这才是「旧结果没被提交」的证据。
+     */
+    @Test
+    fun staleAnalysisCannotBeSubmittedAfterWorldChanges() = runBlocking {
+        val repo = com.tabula.v3.data.repository.LocalImageRepository(ctx)
+        val bin = RecycleBinManager.getInstance(ctx)
+
+        // 情形 A：原图内容被替换（同 ID，size/dateModified 变）→ 必须跳过
+        //
+        // 「分析时的快照」用一个真实读到的 ImageFile，然后把它的内容版本**回退**到
+        // 更新前的值——这正是陈旧快照在提交时刻的样子。
+        // 为什么不靠 MediaStore 自己变：模拟器的 MediaStore 对 ContentValues 里的
+        // DATE_MODIFIED/SIZE 更新并不总是回灌到查询结果（本轮实测两次都读到同值），
+        // 依赖它会让用例变成「测 MediaStore 而不是测我们的复核」。
+        val changed = insertCouponScreenshot("intent-chg-" + UUID.randomUUID().toString().take(6) + ".png")
+        waitIndexed(changed)
+        val current = repo.loadAllData().allImages.first { it.uri == changed }
+        val beforeEdit = current.copy(
+            size = current.size - 2048L,
+            dateModified = current.dateModified - 60_000L
+        )
+        val afterEdit: com.tabula.v3.data.model.ImageFile? = current
+        println(
+            "[stale-guard] staleSnapshot size=${beforeEdit.size} modified=${beforeEdit.dateModified} " +
+                "| current size=${afterEdit?.size} modified=${afterEdit?.dateModified}"
+        )
+        val guardA = IntentCommitGuard.review(
+            selected = listOf(beforeEdit),
+            currentLibrary = listOfNotNull(afterEdit),
+            retainedIdentityKeys = emptySet(),
+            recycledIdentityKeys = emptySet(),
+            stagedSourceKeys = setOf("external_primary|dcim/screenshots")
+        )
+        assertTrue(
+            "内容变化后不得再提交（实际 outcome=${guardA.skipped.firstOrNull()?.outcome}）",
+            guardA.eligible.isEmpty()
+        )
+        assertEquals(IntentCommitGuard.Outcome.CONTENT_CHANGED, guardA.skipped.single().outcome)
+
+        // 情形 B：分析后被标长期保留 → 必须跳过
+        val retained = insertCouponScreenshot("intent-ret-" + UUID.randomUUID().toString().take(6) + ".png")
+        waitIndexed(retained)
+        val retainedImage = repo.loadAllData().allImages.first { it.uri == retained }
+        prefs.retainStagedCleanupImages(listOf(cleanupIdentityKey(retainedImage)))
+        val guardB = IntentCommitGuard.review(
+            selected = listOf(retainedImage),
+            currentLibrary = listOf(retainedImage),
+            retainedIdentityKeys = prefs.stagedCleanupRetainedIdentityKeys,
+            recycledIdentityKeys = emptySet(),
+            stagedSourceKeys = setOf("external_primary|dcim/screenshots")
+        )
+        assertEquals(IntentCommitGuard.Outcome.RETAINED, guardB.skipped.single().outcome)
+        prefs.releaseStagedCleanupRetention(listOf(cleanupIdentityKey(retainedImage)))
+
+        // 情形 C：从图库消失（权限收窄/被删）→ 必须跳过
+        val gone = insertCouponScreenshot("intent-gone-" + UUID.randomUUID().toString().take(6) + ".png")
+        waitIndexed(gone)
+        val goneImage = repo.loadAllData().allImages.first { it.uri == gone }
+        ctx.contentResolver.delete(gone, null, null)
+        val guardC = IntentCommitGuard.review(
+            selected = listOf(goneImage),
+            currentLibrary = repo.loadAllData().allImages,
+            retainedIdentityKeys = emptySet(),
+            recycledIdentityKeys = emptySet(),
+            stagedSourceKeys = setOf("external_primary|dcim/screenshots")
+        )
+        assertEquals(IntentCommitGuard.Outcome.MISSING, guardC.skipped.single().outcome)
+
+        // 三种情形都不该让回收站多出条目
+        assertEquals("旧结果不得被提交进回收站", 0, bin.loadRecycleBin().size)
+    }
+
+    /**
+     * 提交按钮的**状态**（而不是它上面那层文字的 isEnabled）。
+     *
+     * 为什么要看祖先链：Compose 的 `Button(enabled = false)` 把 disabled 语义挂在
+     * Button 节点上，而里面那层 Text 节点的 `isEnabled` 仍是 true。
+     * 上一轮直接读 Text 节点，于是「未选中」也被判成可用。
+     * 这里沿祖先链找：链上**任意一个**节点 disabled，就认为按钮不可用；
+     * 同时记下第一个可点击节点，供真正点击用。
+     */
+    private data class SubmitButton(
+        val enabled: Boolean,
+        val clickable: AccessibilityNodeInfo?
+    )
+
+    private fun submitButtonState(): SubmitButton? {
+        val root = ins.uiAutomation.rootInActiveWindow ?: return null
+        val matches = mutableListOf<AccessibilityNodeInfo>()
+        fun walk(n: AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || depth > 24) return
+            val text = n.text?.toString().orEmpty()
+            if (text.contains("移入回收站")) matches += n
+            for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
+        }
+        walk(root, 0)
+        if (matches.isEmpty()) return null
+
+        var anyDisabled = false
+        var clickable: AccessibilityNodeInfo? = null
+        matches.forEach { node ->
+            var cursor: AccessibilityNodeInfo? = node
+            var hops = 0
+            while (cursor != null && hops < 5) {
+                if (!cursor.isEnabled) anyDisabled = true
+                if (cursor.isClickable && clickable == null) clickable = cursor
+                cursor = cursor.parent
+                hops++
+            }
+        }
+        return SubmitButton(enabled = !anyDisabled, clickable = clickable)
+    }
+
+    private fun waitForEnabledSubmit(timeoutMs: Long = 20000): SubmitButton? {
+        val deadline = now() + timeoutMs
+        var last: SubmitButton? = null
+        while (now() < deadline) {
+            val state = submitButtonState()
+            if (state != null) {
+                last = state
+                if (state.enabled) return state
+            }
+            android.os.SystemClock.sleep(250)
+        }
+        return last
+    }
+
+    /**
+     * 从**真实回收站页**恢复目标图。
+     *
+     * 实际交互（读 RecycleBinScreen 得到，不是猜的）：回收站是列表 → 点开某张进入
+     * 大图浮层 → 浮层底部才有「恢复」按钮（`contentDescription = "恢复"`）。
+     * 上一版直接在当前页 find("恢复") 就点，跳过了「先点开照片」这一步，
+     * 于是点到了别的东西、回收站记录没变。
+     */
+    private fun restoreFromRecycleBinScreen(target: Uri) {
+        // 回主界面（两次返回足以从凑一批页退回主界面）
+        shell("input keyevent KEYCODE_BACK")
+        android.os.SystemClock.sleep(1200)
+        shell("input keyevent KEYCODE_BACK")
+        android.os.SystemClock.sleep(1200)
+
+        assertTrue("必须能进入回收站页", tapByBounds("回收站", timeout = 20000))
+        android.os.SystemClock.sleep(1500)
+
+        // 1) 点开目标条目（列表项的 contentDescription 是文件名）
+        val name = target.lastPathSegment.orEmpty()
+        val opened = tapByBounds(name, timeout = 20000) ||
+            tapByBounds(screenTexts().firstOrNull { it.contains(".png") }.orEmpty(), timeout = 5000)
+        assertTrue("必须能在回收站里点开目标图（$name，屏幕：${screenTexts()}）", opened)
+        android.os.SystemClock.sleep(1500)
+
+        // 2) 在大图浮层里点「恢复」
+        assertTrue("必须能找到恢复按钮（屏幕：${screenTexts()}）", tapByBounds("恢复", timeout = 20000))
+        android.os.SystemClock.sleep(3000)
+    }
+
+    /** 以「同 ID 不同内容」的方式重写一张图，模拟外部编辑。 */
+    private fun overwriteImage(uri: Uri, differentContent: Boolean) {
+        val bitmap = Bitmap.createBitmap(320, 480, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(if (differentContent) Color.RED else Color.BLUE)
+        ctx.contentResolver.openOutputStream(uri)?.use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        bitmap.recycle()
+        // MediaStore 的 SIZE 不会因为写入流自动刷新，必须显式推一次；
+        // DATE_MODIFIED 也要推进（秒精度），否则「同一 ID 内容已变」可能被判成没变。
+        val actualSize = ctx.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: -1L
+        ctx.contentResolver.update(
+            uri,
+            ContentValues().apply {
+                if (actualSize > 0) put(MediaStore.MediaColumns.SIZE, actualSize)
+                put(MediaStore.MediaColumns.DATE_MODIFIED, System.currentTimeMillis() / 1000 + 5)
+            },
+            null, null
+        )
+        // 等索引刷新最多 10 秒；超时由调用方的断言给出真实原因。
+        // loadAllData 是 suspend，这里用 runBlocking 包一层（测试本身就在设备侧跑）。
+        val deadline = now() + 10000
+        while (now() < deadline) {
+            val row = runBlocking {
+                com.tabula.v3.data.repository.LocalImageRepository(ctx)
+                    .loadAllData().allImages.firstOrNull { it.uri == uri }
+            }
+            if (row != null && actualSize > 0 && row.size == actualSize) return
+            android.os.SystemClock.sleep(300)
+        }
     }
 
     @Test

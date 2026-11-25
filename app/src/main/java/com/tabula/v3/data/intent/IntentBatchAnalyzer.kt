@@ -28,7 +28,15 @@ class IntentBatchAnalyzer(
     private val context: Context,
     private val recognizer: TextRecognizer,
     private val cache: IntentVerdictCache,
-    private val textAssist: TextAssist? = null
+    private val textAssist: TextAssist? = null,
+    /**
+     * 批次代际号。上层每开一个新批次就 +1；分析结束时若代际已变，
+     * 本次结果**整体作废**，不会写回界面或缓存。
+     *
+     * 这是「旧结果不得覆盖新批次」的最后一层：即使 OCR/网络都已返回，
+     * 只要代际不符，结果就被丢弃。
+     */
+    private val batchGeneration: () -> Int = { 0 }
 ) {
 
     /** 一次分析的结果。 */
@@ -39,7 +47,9 @@ class IntentBatchAnalyzer(
         val usedCacheCount: Int,
         val ocrAttemptCount: Int,
         val assistRequestCount: Int,
-        val elapsedMillis: Long
+        val elapsedMillis: Long,
+        /** 结果是否已过期（代际不符）。为 true 时调用方不得应用它。 */
+        val stale: Boolean = false
     )
 
     /**
@@ -59,6 +69,7 @@ class IntentBatchAnalyzer(
         timeZone: TimeZone = TimeZone.getDefault()
     ): Analysis = withContext(Dispatchers.Default) {
         val startedAt = System.currentTimeMillis()
+        val startedGeneration = batchGeneration()
         val assistEnabled = allowTextAssist && textAssist?.isEnabled == true
         val assistTag = if (assistEnabled) "assist-on" else "assist-off"
 
@@ -70,7 +81,8 @@ class IntentBatchAnalyzer(
                 usedCacheCount = 0,
                 ocrAttemptCount = 0,
                 assistRequestCount = 0,
-                elapsedMillis = 0
+                elapsedMillis = 0,
+                stale = batchGeneration() != startedGeneration
             )
         }
 
@@ -112,7 +124,8 @@ class IntentBatchAnalyzer(
                         usedCacheCount = cachedCount,
                         ocrAttemptCount = ocrCount,
                         assistRequestCount = 0,
-                        elapsedMillis = System.currentTimeMillis() - startedAt
+                        elapsedMillis = System.currentTimeMillis() - startedAt,
+                        stale = batchGeneration() != startedGeneration
                     )
                 }
             }
@@ -139,6 +152,21 @@ class IntentBatchAnalyzer(
         val refined = IntentBatchBuilder.refineWithAssist(classified, countingAssist)
         val batch = IntentBatchBuilder.assemble(refined, batchLimit)
         val elapsed = System.currentTimeMillis() - startedAt
+
+        // 代际已变（用户换批/关开关/离开页面）：本次结果整体作废，
+        // 既不写缓存也不交给界面。
+        if (batchGeneration() != startedGeneration) {
+            return@withContext Analysis(
+                batch = IntentBatch(emptyList(), emptyList(), emptyList(), emptyList(), batchLimit),
+                engineAvailable = true,
+                engineNote = null,
+                usedCacheCount = cachedCount,
+                ocrAttemptCount = ocrCount,
+                assistRequestCount = assistCount,
+                elapsedMillis = elapsed,
+                stale = true
+            )
+        }
 
         // 只回写「这次真的重新算过」的条目，命中缓存的不重写（避免无谓的偏好写入）
         if (ocrCount > 0) {

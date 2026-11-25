@@ -173,6 +173,7 @@ import com.tabula.v3.data.intent.IntentBatch
 import com.tabula.v3.data.intent.IntentBatchAnalyzer
 import com.tabula.v3.data.intent.IntentTesseractFactory
 import com.tabula.v3.data.intent.IntentVerdictCache
+import com.tabula.v3.data.intent.IntentCommitGuard
 import com.tabula.v3.data.intent.allCandidates
 
 /**
@@ -626,6 +627,16 @@ fun TabulaApp(
     var intentBatchAssistEnabled by remember { mutableStateOf(false) }
     var intentBatchAssistTried by remember { mutableStateOf(false) }
     var showIntentAssistKeyDialog by remember { mutableStateOf(false) }
+    // 用户是否已在本批次看过「只发送脱敏文字」的说明（每次进新批次重置）
+    var intentBatchAssistNoticeAck by remember { mutableStateOf(false) }
+    // 批次代际号：每次开新批次 / 换批 / 关开关 / 离开页面都 +1。
+    // 分析结果与该值不符时整体作废（IntentBatchAnalyzer.stale），因此
+    // 「旧结果覆盖新批次」不可能发生——这一层不依赖协程取消是否及时。
+    val intentBatchGeneration = remember { java.util.concurrent.atomic.AtomicInteger(0) }
+    // 在途分析任务：关开关/离开页面时取消它，尽快停掉原生 OCR 与网络 IO。
+    var intentBatchJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    // 当前批次的文字辅助实例（默认 null = 关闭）。换批/关开关/离开页面时作废。
+    var intentBatchAssistant by remember { mutableStateOf<DeepSeekTextAssist?>(null) }
     val intentAssistKeyStore = remember(context) { IntentAssistKeyStore(context) }
     val intentVerdictCache = remember(context) {
         IntentVerdictCache(
@@ -636,7 +647,8 @@ fun TabulaApp(
         IntentBatchAnalyzer(
             context = context,
             recognizer = IntentTesseractFactory.get(context),
-            cache = intentVerdictCache
+            cache = intentVerdictCache,
+            batchGeneration = { intentBatchGeneration.get() }
         )
     }
 
@@ -1034,37 +1046,72 @@ fun TabulaApp(
     }
 
     /**
+     * 作废当前批次的一切在途结果。
+     *
+     * 调用点：关开关、换来源、离开页面、删除 Key。三件事同时做，缺一不可：
+     * 1. 代际 +1 → 已经在算的分析即使跑完，`Analysis.stale` 为 true，不会被应用；
+     * 2. 取消在途 Job → 尽快停掉原生 OCR 与网络 IO（省电、省流量）；
+     * 3. 让共用的文字辅助失效 → 它的 classify 之后一律返回空/过期建议。
+     */
+    fun invalidateIntentBatch() {
+        intentBatchGeneration.incrementAndGet()
+        intentBatchJob?.cancel()
+        intentBatchJob = null
+        intentBatchAssistant?.invalidate()
+        intentBatchAssistEnabled = false
+        intentBatchAnalyzing = false
+    }
+
+    /**
      * 跑一轮本地分析。
      *
      * 只处理暂存清理已有的候选（旧图 + 未到期 + 时间未知），**不**动 [allImages]、
      * 不写回收站、不写偏好。结果只落到 [intentBatch]，界面据此排序与解释。
+     *
+     * 每次开始都先 [invalidateIntentBatch]：这样「上一次的结果」不可能覆盖这一次。
      */
     fun analyzeIntentBatch() {
-        if (intentBatchAnalyzing) return
+        // 新批次 = 新代际；同时把上一轮的在途任务与辅助实例全部作废
+        intentBatchJob?.cancel()
+        intentBatchGeneration.incrementAndGet()
+        intentBatchAssistant?.invalidate()
+        intentBatchAssistant = null
+
         intentBatchAnalyzing = true
         intentBatchEngineNote = null
-        scope.launch {
+        val generationAtStart = intentBatchGeneration.get()
+
+        // 文字辅助：默认关闭；只有用户在本批次主动打开且 Key 存在时才创建，
+        // 并且创建即绑定当前代际，换批/关开关时作废。
+        val allowAssist = intentBatchAssistEnabled && intentAssistKeyStore.hasKey()
+        val assistant = if (allowAssist) {
+            DeepSeekTextAssist(
+                keyStore = intentAssistKeyStore,
+                userEnabledForBatch = true,
+                sharedGeneration = intentBatchGeneration
+            )
+        } else {
+            null
+        }
+        intentBatchAssistant = assistant
+
+        intentBatchJob = scope.launch {
             try {
                 // 候选范围 = 暂存清理当前看到的全部照片（含未到期的，排序可以解释它们为什么排后面）
                 val candidates = stagedCleanupSelection?.allCandidateImages.orEmpty()
                 if (candidates.isEmpty()) {
-                    intentBatch = IntentBatch(emptyList(), emptyList(), emptyList(), emptyList(), 0)
-                    intentBatchStatus = "这些来源里没有候选"
+                    if (intentBatchGeneration.get() == generationAtStart) {
+                        intentBatch = IntentBatch(emptyList(), emptyList(), emptyList(), emptyList(), 0)
+                        intentBatchStatus = "这些来源里没有候选"
+                    }
                     return@launch
                 }
-                val allowAssist = intentBatchAssistEnabled && intentAssistKeyStore.hasKey()
                 val analyzer = IntentBatchAnalyzer(
                     context = context,
                     recognizer = IntentTesseractFactory.get(context),
                     cache = intentVerdictCache,
-                    textAssist = if (allowAssist) {
-                        DeepSeekTextAssist(
-                            keyStore = intentAssistKeyStore,
-                            userEnabledForBatch = true
-                        )
-                    } else {
-                        null
-                    }
+                    textAssist = assistant,
+                    batchGeneration = { intentBatchGeneration.get() }
                 )
                 val analysis = analyzer.analyze(
                     images = candidates,
@@ -1073,6 +1120,10 @@ fun TabulaApp(
                     retainedIdentityKeys = preferences.stagedCleanupRetainedIdentityKeys,
                     allowTextAssist = allowAssist
                 )
+                // 代际不符 = 用户已经换了批/关了开关/离开了页面：**丢弃**，不写界面
+                if (analysis.stale || intentBatchGeneration.get() != generationAtStart) {
+                    return@launch
+                }
                 intentBatch = analysis.batch
                 intentBatchEngineNote = analysis.engineNote
                 intentBatchSelectedKeys = intentBatchSelectedKeys.intersect(
@@ -1092,9 +1143,13 @@ fun TabulaApp(
                 throw e
             } catch (e: Exception) {
                 Log.e("TabulaApp", "Intent batch analysis failed", e)
-                intentBatchEngineNote = "本地识别没能完成，先不排序"
+                if (intentBatchGeneration.get() == generationAtStart) {
+                    intentBatchEngineNote = "本地识别没能完成，先不排序"
+                }
             } finally {
-                intentBatchAnalyzing = false
+                if (intentBatchGeneration.get() == generationAtStart) {
+                    intentBatchAnalyzing = false
+                }
             }
         }
     }
@@ -1111,11 +1166,14 @@ fun TabulaApp(
             Toast.makeText(context, "先选好要清理的来源，再来凑这一批", Toast.LENGTH_SHORT).show()
             return
         }
+        // 进入新批次 = 文字辅助恢复关闭（审计第 3 条：默认关闭、逐批开启、不跨批次记住）
+        invalidateIntentBatch()
         intentBatch = null
         intentBatchSelectedKeys = emptySet()
         intentBatchEngineNote = null
         intentBatchStatus = ""
-        intentBatchAssistEnabled = false
+        intentBatchAssistTried = false
+        intentBatchAssistNoticeAck = false
         currentScreen = AppScreen.INTENT_BATCH
         analyzeIntentBatch()
     }
@@ -2533,10 +2591,21 @@ fun TabulaApp(
             assistAvailable = true,
             assistKeyConfigured = intentAssistKeyStore.hasKey(),
             assistEnabledForBatch = intentBatchAssistEnabled,
+            assistNoticeAcknowledged = intentBatchAssistNoticeAck,
+            onAcknowledgeAssistNotice = { intentBatchAssistNoticeAck = true },
             onToggleAssistForBatch = { enabled ->
                 intentBatchAssistEnabled = enabled
-                if (enabled && !intentAssistKeyStore.hasKey()) {
-                    showIntentAssistKeyDialog = true
+                if (enabled) {
+                    // 打开 = 用当前批次重跑一次（只影响本地判为「不确定」的候选）
+                    if (!intentAssistKeyStore.hasKey()) {
+                        showIntentAssistKeyDialog = true
+                    }
+                    analyzeIntentBatch()
+                } else {
+                    // 关闭 = 停止后续请求 + 作废在途 + 立刻用本地结果重算这一批
+                    intentBatchAssistant?.invalidate()
+                    intentBatchAssistant = null
+                    analyzeIntentBatch()
                 }
             },
             onOpenAssistSettings = { showIntentAssistKeyDialog = true },
@@ -2562,31 +2631,85 @@ fun TabulaApp(
                 }
             },
             onConfirm = {
-                val toMove = currentBatch.allCandidates()
+                if (intentBatchSaving) return@IntentBatchContent
+                // 选中项 = 当前批次里被勾上的那些（按完整媒体身份筛选）
+                val selectedImages = currentBatch.allCandidates()
                     .filter { intentIdentityOf(it) in intentBatchSelectedKeys }
                     .map { it.image }
-                if (toMove.isEmpty() || intentBatchSaving) return@IntentBatchContent
+                if (selectedImages.isEmpty()) return@IntentBatchContent
+
                 intentBatchSaving = true
                 scope.launch {
                     try {
-                        // 与暂存清理、卡片上滑删除完全同一条路径：写现有回收站，可恢复。
-                        recycleBinManager.addAllToRecycleBin(toMove)
+                        // ---------- 1. 提交前复核 ----------
+                        // 分析是过去某一刻做的：这期间用户可能滚到别的 App 改了图、
+                        // 在别处标了长期保留、或权限被收窄。因此**按当前快照重查一遍**，
+                        // 不拿分析那一刻的列表直接写回收站。
+                        val latest = LocalImageRepository(context).loadAllData().allImages
+                        val latestRecycled = recycleBinManager.loadRecycleBin()
+                        val retainedNow = preferences.stagedCleanupRetainedIdentityKeys
+                        val recycledNow = latestRecycled.map { cleanupIdentityKey(it) }.toSet()
+                        val sourceKeysNow = preferences.stagedCleanupSourceKeys
+
+                        val report = IntentCommitGuard.review(
+                            selected = selectedImages,
+                            currentLibrary = latest,
+                            retainedIdentityKeys = retainedNow,
+                            recycledIdentityKeys = recycledNow,
+                            stagedSourceKeys = sourceKeysNow,
+                            // 保护规则再看一遍：图没变但用户可能刚把它归到保护类场景
+                            protectCandidate = { candidate ->
+                                val verdict = intentBatch?.allCandidates()
+                                    ?.firstOrNull { intentIdentityOf(it) == cleanupIdentityKey(candidate) }
+                                    ?.verdict
+                                verdict?.category?.isProtected == true
+                            }
+                        )
+
+                        if (report.eligible.isEmpty()) {
+                            Toast.makeText(
+                                context,
+                                "没有可移入的照片：" + report.describe(),
+                                Toast.LENGTH_LONG
+                            ).show()
+                            intentBatchSelectedKeys = emptySet()
+                            analyzeIntentBatch()
+                            return@launch
+                        }
+
+                        // ---------- 2. 只写通过复核的那些 ----------
+                        recycleBinManager.addAllToRecycleBin(report.eligible)
                         val persisted = recycleBinManager.loadRecycleBin()
-                        val movedKeys = persisted.map { cleanupIdentityKey(it) }.toSet()
-                        allImages = allImages.filterNot { cleanupIdentityKey(it) in movedKeys }
-                        imagesForSorting = imagesForSorting.filterNot { cleanupIdentityKey(it) in movedKeys }
+                        val persistedIds = persisted.map { cleanupIdentityKey(it) }.toSet()
+
+                        // ---------- 3. 按「实际确认新入站」的身份更新状态 ----------
+                        // 不用 report.eligible.size 冒充成功数：以回收站记录为准，
+                        // 这样部分成功时统计与提示都是真的。
+                        val confirmed = report.eligible.filter { cleanupIdentityKey(it) in persistedIds }
+                        val notConfirmed = report.eligible.filterNot { cleanupIdentityKey(it) in persistedIds }
+
+                        val confirmedKeys = confirmed.map { cleanupIdentityKey(it) }.toSet()
+                        allImages = allImages.filterNot { cleanupIdentityKey(it) in confirmedKeys }
+                        imagesForSorting = imagesForSorting.filterNot { cleanupIdentityKey(it) in confirmedKeys }
                         deletedImages = persisted
-                        preferences.totalReviewedCount += toMove.size
-                        preferences.totalDeletedCount += toMove.size
+                        preferences.totalReviewedCount += confirmed.size
+                        preferences.totalDeletedCount += confirmed.size
                         recommendationEngine.invalidateSimilarGroupCache()
+
                         intentBatchSelectedKeys = emptySet()
                         recomputeStagedCleanupSelection()
                         analyzeIntentBatch()
-                        Toast.makeText(
-                            context,
-                            "${toMove.size} 张已移入回收站，可在回收站恢复",
-                            Toast.LENGTH_SHORT
-                        ).show()
+
+                        // ---------- 4. 部分成功分别说明 ----------
+                        val message = buildString {
+                            append("${confirmed.size} 张已移入回收站，可在回收站恢复")
+                            val skippedText = report.describe()
+                            if (skippedText.isNotEmpty()) append("；跳过 ${report.skipped.size} 张：$skippedText")
+                            if (notConfirmed.isNotEmpty()) {
+                                append("；${notConfirmed.size} 张未确认写入，请重试")
+                            }
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -2598,7 +2721,11 @@ fun TabulaApp(
                 }
             },
             onAnalyze = { analyzeIntentBatch() },
-            onNavigateBack = { currentScreen = AppScreen.STAGED_CLEANUP }
+            onNavigateBack = {
+                // 离开页面 = 作废在途结果并关掉实验性开关，避免它在别的页面上继续跑
+                invalidateIntentBatch()
+                currentScreen = AppScreen.STAGED_CLEANUP
+            }
         )
         if (showIntentAssistKeyDialog) {
             IntentAssistKeyDialog(
@@ -2611,6 +2738,9 @@ fun TabulaApp(
                 onDelete = {
                     intentAssistKeyStore.delete()
                     intentBatchAssistEnabled = false
+                    intentBatchAssistant?.invalidate()
+                    intentBatchAssistant = null
+                    analyzeIntentBatch()
                 },
                 onDismiss = { showIntentAssistKeyDialog = false }
             )

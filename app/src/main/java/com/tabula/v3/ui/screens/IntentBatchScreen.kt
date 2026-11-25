@@ -81,7 +81,10 @@ fun IntentBatchContent(
     assistAvailable: Boolean,
     assistKeyConfigured: Boolean,
     assistEnabledForBatch: Boolean,
+    /** 用户是否已经看过「只发送脱敏文字」的明确说明并同意打开（打开前必须确认）。 */
+    assistNoticeAcknowledged: Boolean,
     onToggleAssistForBatch: (Boolean) -> Unit,
+    onAcknowledgeAssistNotice: () -> Unit,
     onOpenAssistSettings: () -> Unit,
     onToggleImage: (IntentCandidate) -> Unit,
     onRetainSelected: () -> Unit,
@@ -98,6 +101,8 @@ fun IntentBatchContent(
     val accent = Color(0xFF007AFF)
     val warn = Color(0xFFFF9500)
     val imageLoader = remember(context) { CoilSetup.getImageLoader(context) }
+    // 「开启前确认」对话框：每次进页面回到 false，不跨批次记住。
+    var showAssistNotice by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -125,34 +130,92 @@ fun IntentBatchContent(
             }
         }
 
-        // ---------- 文字辅助开关（默认关闭，本批次生效） ----------
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("文字辅助（可选）", color = textColor, fontSize = 13.sp)
+        // ---------- 文字辅助（实验性，默认关闭，只在本批次生效） ----------
+        //
+        // 三条必须让用户看见的事：
+        // 1. 标「实验性」——它不是默认路径，本地 OCR + 规则才是；
+        // 2. 打开前明确说明「只发送必要的脱敏 OCR 文字」，用户确认后才允许打开；
+        // 3. 每次进入新批次都恢复关闭（由调用方保证），界面这里只反映当前状态。
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("文字辅助", color = textColor, fontSize = 13.sp)
+                Spacer(Modifier.width(6.dp))
                 Text(
-                    when {
-                        !assistAvailable -> "未提供文字辅助实现"
-                        !assistKeyConfigured -> "未配置 Key；本地规则照常可用"
-                        else -> "仅发送脱敏后的文字片段，不发原图"
-                    },
-                    color = secondary,
-                    fontSize = 11.sp
+                    "实验性",
+                    color = warn,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(warn.copy(alpha = 0.12f))
+                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                )
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onOpenAssistSettings) {
+                    Text("设置 Key", color = accent, fontSize = 12.sp)
+                }
+                Switch(
+                    checked = assistEnabledForBatch && assistKeyConfigured && assistNoticeAcknowledged,
+                    enabled = assistAvailable && assistKeyConfigured,
+                    onCheckedChange = { want ->
+                        HapticFeedback.lightTap(context)
+                        if (!want) {
+                            onToggleAssistForBatch(false)
+                        } else if (!assistNoticeAcknowledged) {
+                            // 先让用户看到外发边界，同意后才真的打开
+                            showAssistNotice = true
+                        } else {
+                            onToggleAssistForBatch(true)
+                        }
+                    }
                 )
             }
-            TextButton(onClick = onOpenAssistSettings) {
-                Text("设置", color = accent, fontSize = 12.sp)
-            }
-            Switch(
-                checked = assistEnabledForBatch && assistKeyConfigured,
-                enabled = assistAvailable && assistKeyConfigured,
-                onCheckedChange = {
-                    HapticFeedback.lightTap(context)
-                    onToggleAssistForBatch(it)
+            Text(
+                when {
+                    !assistAvailable -> "本地 OCR 与规则照常可用；此处未提供文字辅助实现"
+                    !assistKeyConfigured -> "未配置 Key。默认路径是本地 OCR + 规则，不需要它"
+                    assistEnabledForBatch -> "本批次已启用：只发送脱敏后的文字片段，不发原图"
+                    else -> "默认关闭。开启后只向 DeepSeek 发送必要的脱敏 OCR 文字"
+                },
+                color = secondary,
+                fontSize = 11.sp
+            )
+        }
+
+        if (showAssistNotice) {
+            AlertDialog(
+                onDismissRequest = { showAssistNotice = false },
+                title = { Text("开启前请确认") },
+                text = {
+                    Column {
+                        Text(
+                            "开启后，仅当本地规则判断证据不足时，才会向 DeepSeek 发送" +
+                                "**必要的脱敏 OCR 文字片段**（已掩掉验证码、提取码、链接、手机号、订单号）。",
+                            fontSize = 13.sp
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "不会发送原图、缩略图、图片编码或文件路径。模型只给分类建议，" +
+                                "不能覆盖保护规则，也不能单独认定过期或触发清理。",
+                            fontSize = 13.sp
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "这是实验性功能，默认关闭，且每次进入新批次都会恢复关闭。",
+                            fontSize = 12.sp,
+                            color = secondary
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        onAcknowledgeAssistNotice()
+                        onToggleAssistForBatch(true)
+                        showAssistNotice = false
+                    }) { Text("明白，本批次开启") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showAssistNotice = false }) { Text("保持关闭") }
                 }
             )
         }

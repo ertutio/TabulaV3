@@ -85,9 +85,12 @@ object IntentBatchBuilder {
         return classified.map { item ->
             if (item.verdict.recommendation != IntentRecommendation.UNCERTAIN) return@map item
             val snippet = IntentTextSanitizer.sanitizeForAssistant(item.input.ocrLines)
-            if (snippet.isEmpty || snippet.hadUndecidableLines) return@map item
+            // 只丢弃「无法判定的那几行」，不因为同图里有一行不可判定就整张不发。
+            // 安全性由逐行掩码保证；整张丢弃会让绝大多数真实截图都进不了辅助，
+            // 与「按批辅助分类」的设计目的相反。
+            if (snippet.isEmpty) return@map item
             when (val suggestion = assist.classify(snippet)) {
-                is AssistSuggestion -> when (suggestion.recommendation) {
+                is AssistSuggestion -> if (suggestion.stale) item else when (suggestion.recommendation) {
                     IntentRecommendation.KEEP -> item.copy(
                         verdict = item.verdict.copy(
                             category = IntentCategory.PROTECTED,
@@ -211,10 +214,17 @@ interface TextAssist {
     suspend fun classify(snippet: IntentTextSanitizer.SanitizedSnippet): AssistSuggestion
 }
 
-/** 文字辅助的建议（刻意只有三种，防止模型扩权）。 */
+/**
+ * 文字辅助的建议（刻意只有三种，防止模型扩权）。
+ *
+ * @param stale 这条建议是否「回来得太晚」——用户已经关掉开关、离开页面或换了批。
+ *              [IntentBatchBuilder.refineWithAssist] 会直接丢弃 stale 建议，
+ *              所以旧结果不会覆盖新批次。
+ */
 data class AssistSuggestion(
     val recommendation: IntentRecommendation,
     val reason: String,
     val category: IntentCategory = IntentCategory.UNCERTAIN,
-    val usedTokens: Int = 0
+    val usedTokens: Int = 0,
+    val stale: Boolean = false
 )
