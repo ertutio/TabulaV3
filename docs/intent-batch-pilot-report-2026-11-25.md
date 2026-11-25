@@ -354,10 +354,28 @@ python tools/intent-samples/run_deepseek_pilot.py \
 | `./gradlew :app:assembleRelease` | SUCCESSFUL（通用包 56.63 MiB） |
 | `./gradlew :app:assembleRelease -Pandroid.injected.build.abi=arm64-v8a --rerun-tasks` | SUCCESSFUL（arm64 包 36.17 MiB） |
 | `python tools/intent-samples/run_deepseek_pilot.py` | 34 请求 / 34 成功 / 3,460 tokens |
-| `adb shell am instrument -e class ...IntentSampleOcrDeviceTest` | **OK (6 tests)**，419 ms/张 |
-| `adb shell am instrument -e class ...IntentBatchPageFlowTest` | **OK (6 tests)**，含真实提交→回收站→大图浮层恢复 |
+| `adb shell am instrument -e class ...IntentSampleOcrDeviceTest` | 本地 **OK (6 tests)**（419 ms/张）；CI **OK (6 tests)**（776 ms/张） |
+| `adb shell am instrument -e class ...IntentBatchPageFlowTest` | 本地 **OK (6 tests)**；CI **OK (6 tests)**，含真实提交→回收站→大图浮层恢复 |
 
 设备：本地 AVD `intent94`（API 36 / google_apis / x86_64 / 1080×2400 / 420dpi），`-gpu host`。
+
+### CI
+
+`Verify intent batch on emulator`，run
+[45590014334](https://github.com/ertutio/TabulaV3/actions/runs/45590014334) ——
+**build: success / device: success**。
+
+| 项 | CI 实测 |
+| --- | --- |
+| 单测 | `classes=82 tests=582 failures=0 errors=0 skipped=0` |
+| intent 包单测 | `intent_tests=111 intent_failures=0` |
+| OCR 设备测试 | `OK (6 tests)` |
+| 页面链路测试 | `OK (6 tests)` |
+| CI 上 OCR 端到端 | 50 张 / 46 张读出文字 / 应清 29 / 推荐 25 / **不一致 2** / **776 ms/张**（2 核 runner） |
+
+> 中途失败的两次 run 都不是功能问题：`45585761735` 是 Robolectric 联网取 android-all 被 429
+> 拖挂了 5 条**既有**测试（已改离线模式，见 workflow 注释）；`45587693216` 是 CI 里页面流程
+> 的用例数断言还写着 5（实际 6）。两者都已修正并复跑通过。
 
 ### 新增/改写的测试（对审计项的映射）
 
