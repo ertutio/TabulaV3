@@ -202,8 +202,6 @@ def emulator_broken(dump_text: str) -> str | None:
     for marker in (
         "System UI isn't responding",
         "Process system isn't responding",
-        "com.android.systemui",
-        "isn't responding",
     ):
         if marker in dump_text:
             return marker
@@ -275,6 +273,9 @@ def ui_dump(tag: str) -> Path:
 
 def parse_audit(xml_path: Path) -> dict | None:
     text = xml_path.read_text(encoding="utf-8", errors="ignore")
+    broken = emulator_broken(text)
+    if broken is not None and not app_crashed(text):
+        raise EmulatorUnavailable(f"{xml_path.name}: {broken}")
     match = re.search(r"AUDIT ([^<>\\\"]+)", text)
     if not match:
         return None
