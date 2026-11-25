@@ -1,0 +1,904 @@
+{
+  "version": 1,
+  "samples": [
+    {
+      "file": "coupon-expired-01.png",
+      "category": "expired_coupon",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "满199减30",
+        "仅剩2天",
+        "活动已于 2026-11-10 23:59 结束"
+      ],
+      "expected_signals": [
+        "coupon",
+        "expired_date",
+        "deadline"
+      ],
+      "deadline_date": "2026-11-10",
+      "screenshot_saved_days_ago": 9,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "coupon-expired-02.png",
+      "category": "expired_coupon",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "满99减10",
+        "仅剩3天",
+        "活动已于 2026-11-08 23:59 结束"
+      ],
+      "expected_signals": [
+        "coupon",
+        "expired_date",
+        "deadline"
+      ],
+      "deadline_date": "2026-11-08",
+      "screenshot_saved_days_ago": 15,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "coupon-expired-03.png",
+      "category": "expired_coupon",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "满299减50",
+        "仅剩1天",
+        "活动已于 2026-11-12 23:59 结束"
+      ],
+      "expected_signals": [
+        "coupon",
+        "expired_date",
+        "deadline"
+      ],
+      "deadline_date": "2026-11-12",
+      "screenshot_saved_days_ago": 6,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "coupon-expired-04.png",
+      "category": "expired_coupon",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "新人立减 20",
+        "仅剩2天",
+        "活动已于 2026-11-15 23:59 结束"
+      ],
+      "expected_signals": [
+        "coupon",
+        "expired_date",
+        "deadline"
+      ],
+      "deadline_date": "2026-11-15",
+      "screenshot_saved_days_ago": 4,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "promo-flash-01.png",
+      "category": "expired_coupon",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "限时秒杀",
+        "全场 5 折",
+        "今日 24:00 截止",
+        "活动截止 2026-11-03"
+      ],
+      "expected_signals": [
+        "coupon",
+        "deadline",
+        "expired_date"
+      ],
+      "deadline_date": "2026-11-03",
+      "screenshot_saved_days_ago": 21,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "promo-flash-02.png",
+      "category": "expired_coupon",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "限时秒杀",
+        "整点开抢",
+        "今日 24:00 截止",
+        "活动截止 2026-11-05"
+      ],
+      "expected_signals": [
+        "coupon",
+        "deadline",
+        "expired_date"
+      ],
+      "deadline_date": "2026-11-05",
+      "screenshot_saved_days_ago": 19,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "coupon-oldprice-01.png",
+      "category": "old_price",
+      "expectation": "lower_priority",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "历史价格对比",
+        "历史低价 ¥199",
+        "当前价格 ¥259",
+        "价格走势（近 90 天）"
+      ],
+      "expected_signals": [
+        "old_price"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 32,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "coupon-oldprice-02.png",
+      "category": "old_price",
+      "expectation": "lower_priority",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "历史价格对比",
+        "历史低价 ¥88",
+        "当前价格 ¥129",
+        "价格走势（近 90 天）"
+      ],
+      "expected_signals": [
+        "old_price"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 37,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "news-live-ended-01.png",
+      "category": "stale_news",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "直播预告 11月8日 20:00",
+        "本场已结束",
+        "回到直播间"
+      ],
+      "expected_signals": [
+        "news",
+        "live",
+        "ended"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 13,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "news-live-ended-02.png",
+      "category": "stale_news",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "直播预告 11月9日 19:30",
+        "本场已结束",
+        "回到直播间"
+      ],
+      "expected_signals": [
+        "news",
+        "live",
+        "ended"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 12,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "news-flash-old-01.png",
+      "category": "stale_news",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "地铁 3 号线延长运营时间",
+        "2026-10-30 07:42"
+      ],
+      "expected_signals": [
+        "news",
+        "expired_date"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 25,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "news-flash-old-02.png",
+      "category": "stale_news",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "示例城市发布寒潮提示",
+        "2026-10-28 18:05"
+      ],
+      "expected_signals": [
+        "news",
+        "expired_date"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 27,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "news-article-01.png",
+      "category": "keep",
+      "expectation": "keep",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "城市公共空间的三种功能",
+        "示例杂志 · 深度阅读",
+        "一、通行与停留"
+      ],
+      "expected_signals": [
+        "news"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 46,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "news-article-02.png",
+      "category": "keep",
+      "expectation": "keep",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "旧城改造中的步行网络",
+        "示例杂志 · 城市观察",
+        "二、街巷尺度"
+      ],
+      "expected_signals": [
+        "news"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 51,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "news-article-03.png",
+      "category": "keep",
+      "expectation": "keep",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "阅读笔记：照明设计与夜间街道",
+        "示例账号 · 读书笔记",
+        "三、照度与色温"
+      ],
+      "expected_signals": [
+        "news"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 58,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "share-expired-01.png",
+      "category": "share",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "项目资料.zip",
+        "提取码已过期",
+        "复制链接",
+        "https://pan.example.com/s/AbCd1234"
+      ],
+      "expected_signals": [
+        "share",
+        "extract_code",
+        "expired_date",
+        "link"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 20,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "share-expired-02.png",
+      "category": "share",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "季度汇报模板.pptx",
+        "提取码已过期",
+        "复制链接",
+        "https://pan.example.com/s/XyZ98765"
+      ],
+      "expected_signals": [
+        "share",
+        "extract_code",
+        "expired_date",
+        "link"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 18,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "share-link-01.png",
+      "category": "share",
+      "expectation": "uncertain",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "团建照片合集",
+        "示例网盘 · 相册",
+        "复制链接"
+      ],
+      "expected_signals": [
+        "share",
+        "link"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 16,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "share-link-02.png",
+      "category": "share",
+      "expectation": "uncertain",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "参考书目整理.pdf",
+        "示例网盘 · 文档",
+        "复制链接"
+      ],
+      "expected_signals": [
+        "share",
+        "link"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 24,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "share-cloud-01.png",
+      "category": "share",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "示例网盘 · 中转站",
+        "有效期至 2026-11-01"
+      ],
+      "expected_signals": [
+        "share",
+        "deadline",
+        "expired_date"
+      ],
+      "deadline_date": "2026-11-01",
+      "screenshot_saved_days_ago": 22,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "share-cloud-02.png",
+      "category": "share",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "示例网盘 · 中转站",
+        "有效期至 2026-10-25"
+      ],
+      "expected_signals": [
+        "share",
+        "deadline",
+        "expired_date"
+      ],
+      "deadline_date": "2026-10-25",
+      "screenshot_saved_days_ago": 26,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "share-justlink-01.png",
+      "category": "uncertain",
+      "expectation": "uncertain",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "示例网盘",
+        "扫码查看文件"
+      ],
+      "expected_signals": [
+        "share"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 28,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "code-sms-01.png",
+      "category": "temp_code",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "【示例平台】验证码 123456，5分钟内有效。"
+      ],
+      "expected_signals": [
+        "temp_code",
+        "verification_code"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 3,
+      "sensitive_tokens": [
+        "123456"
+      ]
+    },
+    {
+      "file": "code-sms-02.png",
+      "category": "temp_code",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "【示例平台】登录验证码 246810，10分钟内有效。"
+      ],
+      "expected_signals": [
+        "temp_code",
+        "verification_code"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 2,
+      "sensitive_tokens": [
+        "246810"
+      ]
+    },
+    {
+      "file": "code-pickup-01.png",
+      "category": "temp_code",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "取件码 8-2-1024",
+        "示例驿站 · 合成网点",
+        "已取件"
+      ],
+      "expected_signals": [
+        "temp_code",
+        "pickup"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 5,
+      "sensitive_tokens": [
+        "8-2-1024"
+      ]
+    },
+    {
+      "file": "code-pickup-02.png",
+      "category": "temp_code",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "取件码 2-3-0518",
+        "示例驿站 · 合成网点",
+        "已取件"
+      ],
+      "expected_signals": [
+        "temp_code",
+        "pickup"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 7,
+      "sensitive_tokens": [
+        "2-3-0518"
+      ]
+    },
+    {
+      "file": "code-invite-01.png",
+      "category": "temp_code",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "临时入群邀请",
+        "邀请码 INV-8842",
+        "有效期至 2026-11-02"
+      ],
+      "expected_signals": [
+        "temp_code",
+        "deadline"
+      ],
+      "deadline_date": "2026-11-02",
+      "screenshot_saved_days_ago": 11,
+      "sensitive_tokens": [
+        "INV-8842"
+      ]
+    },
+    {
+      "file": "code-invite-02.png",
+      "category": "temp_code",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "临时入群邀请",
+        "邀请码 GX-2026-77",
+        "有效期至 2026-11-04"
+      ],
+      "expected_signals": [
+        "temp_code",
+        "deadline"
+      ],
+      "deadline_date": "2026-11-04",
+      "screenshot_saved_days_ago": 9,
+      "sensitive_tokens": [
+        "GX-2026-77"
+      ]
+    },
+    {
+      "file": "event-ticket-01.png",
+      "category": "event",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "示例音乐会 · 合成场次",
+        "11月5日 10:00 开售",
+        "已结束"
+      ],
+      "expected_signals": [
+        "event",
+        "ticket",
+        "ended"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 14,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "event-ticket-02.png",
+      "category": "event",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "示例话剧 · 合成场次",
+        "11月6日 20:00 开售",
+        "已结束"
+      ],
+      "expected_signals": [
+        "event",
+        "ticket",
+        "ended"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 12,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "event-signup-01.png",
+      "category": "event",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "周末城市徒步报名",
+        "报名截止 2026-11-06",
+        "已截止"
+      ],
+      "expected_signals": [
+        "event",
+        "deadline",
+        "ended"
+      ],
+      "deadline_date": "2026-11-06",
+      "screenshot_saved_days_ago": 16,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "event-signup-02.png",
+      "category": "event",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "示例读书会报名",
+        "报名截止 2026-11-09",
+        "已截止"
+      ],
+      "expected_signals": [
+        "event",
+        "deadline",
+        "ended"
+      ],
+      "deadline_date": "2026-11-09",
+      "screenshot_saved_days_ago": 13,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "event-vote-01.png",
+      "category": "event",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "群投票：下次聚会地点",
+        "投票已结束",
+        "共 128 人参与"
+      ],
+      "expected_signals": [
+        "event",
+        "ended"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 17,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "event-vote-02.png",
+      "category": "event",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "问卷：产品体验回访",
+        "问卷已结束",
+        "共 64 人参与"
+      ],
+      "expected_signals": [
+        "event",
+        "ended"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 19,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "protect-order-01.png",
+      "category": "keep",
+      "expectation": "keep",
+      "must_keep_protected": true,
+      "golden_lines": [
+        "待收货",
+        "订单号 TB202411250001",
+        "实付 ¥128.00"
+      ],
+      "expected_signals": [
+        "order",
+        "order_no"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 30,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "protect-order-02.png",
+      "category": "keep",
+      "expectation": "keep",
+      "must_keep_protected": true,
+      "golden_lines": [
+        "待收货",
+        "订单号 TB202411250002",
+        "实付 ¥256.00"
+      ],
+      "expected_signals": [
+        "order",
+        "order_no",
+        "phone"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 41,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "protect-order-03.png",
+      "category": "keep",
+      "expectation": "keep",
+      "must_keep_protected": true,
+      "golden_lines": [
+        "已完成",
+        "订单号 TB202411250003",
+        "实付 ¥59.90"
+      ],
+      "expected_signals": [
+        "order",
+        "order_no"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 55,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "protect-invoice-01.png",
+      "category": "keep",
+      "expectation": "keep",
+      "must_keep_protected": true,
+      "golden_lines": [
+        "电子发票（普通发票）",
+        "开票金额 ¥1,280.00",
+        "发票号码 00000001（合成）"
+      ],
+      "expected_signals": [
+        "invoice",
+        "order_no"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 62,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "protect-invoice-02.png",
+      "category": "keep",
+      "expectation": "keep",
+      "must_keep_protected": true,
+      "golden_lines": [
+        "电子发票（普通发票）",
+        "开票金额 ¥368.00",
+        "发票号码 00000002（合成）"
+      ],
+      "expected_signals": [
+        "invoice",
+        "order_no"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 48,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "protect-ticket-01.png",
+      "category": "keep",
+      "expectation": "keep",
+      "must_keep_protected": true,
+      "golden_lines": [
+        "示例影院 · 3 号厅",
+        "7 排 12 座",
+        "2026-11-20 19:30",
+        "请勿删除，入场需出示"
+      ],
+      "expected_signals": [
+        "ticket"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 33,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "protect-ticket-02.png",
+      "category": "keep",
+      "expectation": "keep",
+      "must_keep_protected": true,
+      "golden_lines": [
+        "示例站 → 示例站",
+        "08 车 12A 号",
+        "2026-11-22 08:15",
+        "请勿删除，检票需出示"
+      ],
+      "expected_signals": [
+        "ticket"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 35,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "protect-slide-01.png",
+      "category": "keep",
+      "expectation": "keep",
+      "must_keep_protected": true,
+      "golden_lines": [
+        "第三章 线性代数基础",
+        "A·x = λ·x",
+        "12 / 48"
+      ],
+      "expected_signals": [
+        "courseware"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 70,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "protect-slide-02.png",
+      "category": "keep",
+      "expectation": "keep",
+      "must_keep_protected": true,
+      "golden_lines": [
+        "第四章 概率与统计",
+        "P(A|B) = P(A∩B) / P(B)",
+        "27 / 48"
+      ],
+      "expected_signals": [
+        "courseware"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 66,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "protect-longterm-01.png",
+      "category": "keep",
+      "expectation": "keep",
+      "must_keep_protected": true,
+      "golden_lines": [
+        "示例相册 · 家庭合影",
+        "已加入长期保留",
+        "共 36 张（合成）"
+      ],
+      "expected_signals": [
+        "long_term"
+      ],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 90,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "hard-blurry-01.png",
+      "category": "hard",
+      "expectation": "uncertain",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "满199减30",
+        "活动已于 2026-11-10 23:59 结束"
+      ],
+      "expected_signals": [],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 21,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "hard-blurry-02.png",
+      "category": "hard",
+      "expectation": "uncertain",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "限时秒杀",
+        "今日 24:00 截止"
+      ],
+      "expected_signals": [],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 23,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "hard-nowords-01.png",
+      "category": "hard",
+      "expectation": "uncertain",
+      "must_keep_protected": false,
+      "golden_lines": [],
+      "expected_signals": [],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 8,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "hard-nowords-02.png",
+      "category": "hard",
+      "expectation": "uncertain",
+      "must_keep_protected": false,
+      "golden_lines": [],
+      "expected_signals": [],
+      "deadline_date": "",
+      "screenshot_saved_days_ago": 11,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "hard-mixed-01.png",
+      "category": "hard",
+      "expectation": "keep",
+      "must_keep_protected": true,
+      "golden_lines": [
+        "限时优惠已结束",
+        "订单号 TB202411250007",
+        "待收货"
+      ],
+      "expected_signals": [
+        "coupon",
+        "expired_date",
+        "order",
+        "order_no"
+      ],
+      "deadline_date": "2026-11-18",
+      "screenshot_saved_days_ago": 19,
+      "sensitive_tokens": []
+    },
+    {
+      "file": "hard-rotate-01.png",
+      "category": "hard",
+      "expectation": "recommend",
+      "must_keep_protected": false,
+      "golden_lines": [
+        "满199减30",
+        "活动已于 2026-11-13 23:59 结束"
+      ],
+      "expected_signals": [
+        "coupon",
+        "expired_date",
+        "deadline"
+      ],
+      "deadline_date": "2026-11-13",
+      "screenshot_saved_days_ago": 10,
+      "sensitive_tokens": []
+    }
+  ]
+}

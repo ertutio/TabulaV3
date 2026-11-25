@@ -71,6 +71,14 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // #94：合成样图（50 张 PNG + 金标准）同时作为 androidTest 的 assets，
+    // 让设备测试跑的是与 JVM 单测同一批文件，避免两份数据走样。
+    sourceSets {
+        getByName("androidTest") {
+            assets.srcDirs("src/test/resources")
+        }
+    }
 }
 
 dependencies {
@@ -104,6 +112,12 @@ dependencies {
     
     // Media Session (for Fluid Cloud)
     implementation(libs.androidx.media)
+
+    // #94 本地中文 OCR：Tesseract4Android（Apache-2.0）+ tessdata_fast/chi_sim（Apache-2.0）。
+    // 选它而不是 ML Kit：完全离线、零遥测，与 LICENSE「不上传任何照片或个人信息」一致；
+    // 代价是每个 ABI 约 7MB 原生库 + 2.4MB 模型（实测数字见
+    // docs/intent-ocr-evaluation-2026-11-25.md）。见 readme 中的「体积」一节。
+    implementation(libs.tesseract4android)
 
     // Debug
     debugImplementation(libs.androidx.ui.tooling)
