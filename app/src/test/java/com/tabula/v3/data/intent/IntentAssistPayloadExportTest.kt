@@ -3,6 +3,7 @@ package com.tabula.v3.data.intent
 import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -11,55 +12,160 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * 把「真实实现会发出去的请求体」导出来，供两件事用：
+ * **生产代码真正生成的请求体**检查（#94 第 2 轮审计，第 4 条）。
  *
- * 1. **离线审计**：断言请求体里没有图像/base64/路径/URI/文件名；
- * 2. **在线试点**：`tools/intent-samples/run_deepseek_pilot.py` 直接读这个文件里的
- *    payload 原文去调 API，保证试点用的是**本实现实际生成的请求**，
- *    而不是另外写一份 Python 拼串（那样量出来的用量没有意义）。
+ * 审计要点：不要用另写一份 Python 拼串去验，要检查 `DeepSeekTextAssist.buildPayload`
+ * 实际产出的东西。这里用记录型传输层，逐条断言四类场景：
  *
- * 输出：`app/build/intent-pilot/payloads.json`。不含 Key，不含原图。
+ * 1. **形似日期的敏感值**（`验证码 20261110`）——不得出现在请求体里；
+ * 2. **OCR 错读的链接**（`https:Wpan.example.com`）——不得出现；
+ * 3. **安全截止日期**（`活动已于 2026-11-10 23:59 结束`）——必须保留，否则辅助失去判断力；
+ * 4. **开关关闭 / 无 Key** —— 请求数必须为 0；
+ * 5. 请求体里没有原图、缩略图、图片编码、路径。
+ *
+ * 顺带把 payload 导出到 `build/intent-pilot/payloads.json` 供在线试点脚本使用——
+ * 那也保证了「试点量的请求」与「线上发的请求」是同一份东西。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], manifest = Config.NONE)
 class IntentAssistPayloadExportTest {
 
-    private val now = 1_796_000_000_000L
-
-    private fun locateGolden(): File = listOf(
-        File("src/test/resources/intent_samples/golden.json"),
-        File("app/src/test/resources/intent_samples/golden.json")
-    ).first { it.exists() }
-
-    /** 用真实的 [DeepSeekTextAssist] 生成请求体，但传输层只记录、不联网。 */
-    private class RecordingTransport : AssistTransport {
+    private class RecordingTransport(
+        private val response: String = """{"choices":[{"message":{"content":"LOWER"}}]}"""
+    ) : AssistTransport {
         val payloads = mutableListOf<String>()
         override fun post(url: String, body: String, authHeader: String, timeoutMillis: Int): String {
             payloads += body
-            return """{"choices":[{"message":{"content":"LOWER"}}]}"""
+            return response
         }
     }
 
+    private fun keyStore(withKey: Boolean): IntentAssistKeyStore {
+        val file = File.createTempFile("pilot-key", ".tmp").apply { deleteOnExit() }
+        val store = IntentAssistKeyStore(file)
+        if (withKey) store.write("sk-pilot-placeholder-not-a-real-key") else store.delete()
+        return store
+    }
+
+    private fun snippet(vararg lines: String) =
+        IntentTextSanitizer.sanitizeForAssistant(lines.toList())
+
+    // ==================== 1. 形似日期的敏感值 ====================
+
+    @Test
+    fun secretThatLooksLikeADateNeverReachesTheRequest() = kotlinx.coroutines.runBlocking {
+        val transport = RecordingTransport()
+        val assist = DeepSeekTextAssist(keyStore(withKey = true), true, transport)
+
+        // 这一行在脱敏阶段就被判为「不可靠判定」，因此根本不会被发送
+        val lines = snippet("验证码 20261110")
+        assertTrue("含形似日期敏感值的行必须留在本地", lines.isEmpty)
+
+        assist.classify(lines)
+        assertEquals("不该发出任何请求", 0, transport.payloads.size)
+    }
+
+    @Test
+    fun secretMixedWithSafeCopyIsMaskedNotLeaked() = kotlinx.coroutines.runBlocking {
+        val transport = RecordingTransport()
+        val assist = DeepSeekTextAssist(keyStore(withKey = true), true, transport)
+        assist.classify(snippet("【某平台】活动通知", "验证码 123456，5分钟内有效"))
+        assertEquals(1, transport.payloads.size)
+        val payload = transport.payloads.first()
+        assertFalse("验证码不得出现", payload.contains("123456"))
+        // 「5分钟内有效」是有效期依据，应保留
+        assertTrue("有效期应保留：$payload", payload.contains("5分钟"))
+    }
+
+    // ==================== 2. OCR 错读的链接 ====================
+
+    @Test
+    fun ocrGarbledLinkNeverReachesTheRequest() = kotlinx.coroutines.runBlocking {
+        val transport = RecordingTransport()
+        val assist = DeepSeekTextAssist(keyStore(withKey = true), true, transport)
+        assist.classify(
+            snippet(
+                "季度汇报模板.pptx",
+                "提取码已过期",
+                "复制链接 https:Wpan.example.com/s/XyZ98765"
+            )
+        )
+        assertEquals(1, transport.payloads.size)
+        val payload = transport.payloads.first()
+        listOf("pan.example.com", "XyZ98765", "https:W", "https://").forEach { secret ->
+            assertFalse("请求体不得包含链接片段 $secret：$payload", payload.contains(secret))
+        }
+        assertTrue("失效状态本身要保留：$payload", payload.contains("提取码已过期"))
+    }
+
+    // ==================== 3. 安全截止日期必须保留 ====================
+
+    @Test
+    fun safeDeadlineSurvivesIntoTheRequest() = kotlinx.coroutines.runBlocking {
+        val transport = RecordingTransport()
+        val assist = DeepSeekTextAssist(keyStore(withKey = true), true, transport)
+        assist.classify(snippet("满199减30", "活动已于 2026-11-10 23:59 结束"))
+        assertEquals(1, transport.payloads.size)
+        val payload = transport.payloads.first()
+        assertTrue("截止日期必须保留，否则模型无法判断：$payload", payload.contains("2026-11-10"))
+        assertTrue(payload.contains("23:59"))
+    }
+
+    // ==================== 4. 关闭 / 无 Key → 零请求 ====================
+
+    @Test
+    fun noKeyMeansZeroRequests() = kotlinx.coroutines.runBlocking {
+        val transport = RecordingTransport()
+        val assist = DeepSeekTextAssist(keyStore(withKey = false), true, transport)
+        assist.classify(snippet("满199减30", "活动已于 2026-11-10 结束"))
+        assertEquals(0, transport.payloads.size)
+    }
+
+    @Test
+    fun disabledMeansZeroRequests() = kotlinx.coroutines.runBlocking {
+        val transport = RecordingTransport()
+        val assist = DeepSeekTextAssist(keyStore(withKey = true), false, transport)
+        assist.classify(snippet("满199减30", "活动已于 2026-11-10 结束"))
+        assertEquals(0, transport.payloads.size)
+    }
+
+    // ==================== 5. 请求体结构 ====================
+
+    @Test
+    fun payloadHasNoImageOrPathAndOnlyKnownFields() = kotlinx.coroutines.runBlocking {
+        val transport = RecordingTransport()
+        val assist = DeepSeekTextAssist(keyStore(withKey = true), true, transport)
+        assist.classify(snippet("某视频平台", "复制链接", "扫码观看"))
+        val payload = transport.payloads.first()
+
+        listOf(
+            "base64", "data:image", "content://", "/storage/", "DCIM", ".png", ".jpg",
+            "image_url", "file://", "缩略图"
+        ).forEach { forbidden ->
+            assertFalse("请求体不得包含 $forbidden：$payload", payload.contains(forbidden, ignoreCase = true))
+        }
+
+        val parsed = JSONObject(payload)
+        val allowed = setOf("model", "temperature", "max_tokens", "messages")
+        parsed.keys().forEach { key ->
+            assertTrue("请求体出现了非预期字段 $key", key in allowed)
+        }
+        assertEquals("deepseek-chat", parsed.getString("model"))
+    }
+
+    // ==================== 导出给在线试点 ====================
+
     @Test
     fun exportRealPayloadsForPilotAndAudit() = kotlinx.coroutines.runBlocking {
-        val root = JSONObject(locateGolden().readText(Charsets.UTF_8))
-        val samples = root.getJSONArray("samples")
+        val golden = locateGolden()
+        val samples = JSONObject(golden.readText(Charsets.UTF_8)).getJSONArray("samples")
         val transport = RecordingTransport()
-
-        val keyFile = File.createTempFile("pilot-key", ".tmp").apply {
-            writeText("sk-pilot-placeholder-not-a-real-key")
-            deleteOnExit()
-        }
-        val assist = DeepSeekTextAssist(
-            keyStore = IntentAssistKeyStore(keyFile),
-            userEnabledForBatch = true,
-            transport = transport
-        )
+        val assist = DeepSeekTextAssist(keyStore(withKey = true), true, transport)
 
         val exported = JSONArray()
         for (i in 0 until samples.length()) {
-            val o = samples.getJSONObject(i)
-            val linesArray = o.optJSONArray("golden_lines") ?: continue
+            val sample = samples.getJSONObject(i)
+            val linesArray = sample.optJSONArray("golden_lines") ?: continue
             val lines = (0 until linesArray.length()).map { linesArray.getString(it) }
             if (lines.isEmpty()) continue
             val snippet = IntentTextSanitizer.sanitizeForAssistant(lines)
@@ -68,38 +174,31 @@ class IntentAssistPayloadExportTest {
             val payload = assist.lastRequestPayload ?: continue
             exported.put(
                 JSONObject().apply {
-                    put("file", o.getString("file"))
-                    put("category", o.getString("category"))
+                    put("file", sample.getString("file"))
+                    put("category", sample.getString("category"))
                     put("payload", payload)
                     put("sanitizedLines", JSONArray(snippet.lines))
                 }
             )
         }
 
-        val exportedItems = (0 until exported.length()).map { exported.getJSONObject(it) }
+        val items = (0 until exported.length()).map { exported.getJSONObject(it) }
 
-        // ---------- 离线审计：请求体里不能有图像/路径/URI ----------
-        exportedItems.forEach { item ->
-            val payload = item.getString("payload")
-            listOf("base64", "data:image", "content://", "/storage/", "DCIM", ".png", ".jpg",
-                "缩略图", "image_url", "file://").forEach { forbidden ->
-                assertFalse("请求体不应包含 $forbidden", payload.contains(forbidden, ignoreCase = true))
+        // 敏感字段：golden.json 声明的 sensitive_tokens 不得出现
+        items.forEach { item ->
+            sensitiveTokensOf(item.getString("file")).forEach { token ->
+                assertFalse(
+                    "${item.getString("file")} 的请求体里出现了敏感片段 $token",
+                    item.getString("payload").contains(token)
+                )
             }
-            // 只允许 DeepSeek 兼容接口的两个字段 + messages
-            val parsed = JSONObject(payload)
-            assertTrue(parsed.has("model"))
-            assertTrue(parsed.has("messages"))
-            assertEqualsKeys(parsed)
         }
 
-        // ---------- 敏感字段：不得出现在请求里 ----------
-        exportedItems.forEach { obj ->
-            val golden = findGolden(obj.getString("file"))
-            golden.forEach { token ->
-                assertFalse(
-                    "${obj.getString("file")} 的请求体里出现了敏感片段 $token",
-                    obj.getString("payload").contains(token)
-                )
+        // 导出的每一条都要能通过「无图像 / 无路径」检查
+        items.forEach { item ->
+            val payload = item.getString("payload")
+            listOf("base64", "content://", "/storage/", ".png", ".jpg").forEach { forbidden ->
+                assertFalse(payload.contains(forbidden, ignoreCase = true))
             }
         }
 
@@ -112,22 +211,18 @@ class IntentAssistPayloadExportTest {
         assertTrue("至少应导出若干可发送片段", exported.length() >= 5)
     }
 
-    private fun assertEqualsKeys(parsed: JSONObject) {
-        val allowed = setOf("model", "temperature", "max_tokens", "messages")
-        parsed.keys().forEach { key ->
-            assertTrue("请求体出现了非预期字段 $key", key in allowed)
-        }
-    }
+    private fun locateGolden(): File = listOf(
+        File("src/test/resources/intent_samples/golden.json"),
+        File("app/src/test/resources/intent_samples/golden.json")
+    ).first { it.exists() }
 
-    private fun findGolden(fileName: String): List<String> {
-        val root = JSONObject(locateGolden().readText(Charsets.UTF_8))
-        val samples = root.getJSONArray("samples")
+    private fun sensitiveTokensOf(fileName: String): List<String> {
+        val samples = JSONObject(locateGolden().readText(Charsets.UTF_8)).getJSONArray("samples")
         for (i in 0 until samples.length()) {
-            val o = samples.getJSONObject(i)
-            if (o.getString("file") == fileName) {
-                val a = o.optJSONArray("sensitive_tokens") ?: return emptyList()
-                return (0 until a.length()).map { a.getString(it) }
-            }
+            val sample = samples.getJSONObject(i)
+            if (sample.getString("file") != fileName) continue
+            val array = sample.optJSONArray("sensitive_tokens") ?: return emptyList()
+            return (0 until array.length()).map { array.getString(it) }
         }
         return emptyList()
     }
