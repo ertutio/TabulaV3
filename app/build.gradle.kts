@@ -72,6 +72,23 @@ android {
         buildConfig = true
     }
 
+    // 单元测试的 Robolectric 运行参数。
+    //
+    // 为什么需要：Robolectric 在测试期按 `@Config(sdk = ...)` 去 Maven Central 下
+    // android-all jar；CI runner 会被 429 限流，失败表现是**与本次改动无关的既有测试**
+    // 报 MavenArtifactFetcher IOException（run 45585761735 实测 5 条）。
+    // CI 先把 jar 预取到 $ROBO_ANDROID_ALL_DIR，这里把它转发进 fork 出来的测试 JVM
+    // 并开启 offline 模式；本地没设这个环境变量时不加任何参数，行为不变。
+    testOptions {
+        unitTests.all {
+            val roboDir = System.getenv("ROBO_ANDROID_ALL_DIR")
+            if (!roboDir.isNullOrBlank()) {
+                it.systemProperty("robolectric.offline", "true")
+                it.systemProperty("robolectric.dependency.dir", roboDir)
+            }
+        }
+    }
+
     // JVM 单测与设备测试共用的测试侧工具。
     //
     // 动机：批次日志解析这类逻辑原先只写在 androidTest 里，写错了要跑五分钟
