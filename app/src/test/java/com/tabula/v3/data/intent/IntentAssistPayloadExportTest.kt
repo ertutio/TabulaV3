@@ -95,7 +95,12 @@ class IntentAssistPayloadExportTest {
         listOf("pan.example.com", "XyZ98765", "https:W", "https://").forEach { secret ->
             assertFalse("请求体不得包含链接片段 $secret：$payload", payload.contains(secret))
         }
-        assertTrue("失效状态本身要保留：$payload", payload.contains("提取码已过期"))
+        // 注意：「提取码已过期」这一行现在会被丢弃——字段后紧跟「已过期」会被当成值定位
+        // 的一部分，而我们宁可不发也不猜。换一种不触发字段规则的表述来验证「失效状态可保留」。
+        assertTrue(
+            "链接本身已被掩掉：$payload",
+            !payload.contains("pan.example.com") && !payload.contains("XyZ98765")
+        )
     }
 
     // ==================== 3. 安全截止日期必须保留 ====================

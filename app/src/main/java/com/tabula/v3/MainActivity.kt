@@ -146,6 +146,7 @@ import com.tabula.v3.data.intent.IntentBatch
 import com.tabula.v3.data.intent.IntentBatchAnalyzer
 import com.tabula.v3.data.intent.IntentTesseractFactory
 import com.tabula.v3.data.intent.IntentVerdictCache
+import com.tabula.v3.data.intent.IntentAssistAuthorization
 import com.tabula.v3.data.intent.IntentCommitGuard
 import com.tabula.v3.data.intent.allCandidates
 
@@ -552,11 +553,16 @@ fun TabulaApp(
     var intentBatchSaving by remember { mutableStateOf(false) }
     var intentBatchEngineNote by remember { mutableStateOf<String?>(null) }
     var intentBatchStatus by remember { mutableStateOf("") }
-    var intentBatchAssistEnabled by remember { mutableStateOf(false) }
+    // 文字辅助的批次授权（纯状态机：区分「用户自己按开关」与「换批重建」）。
+    // **只保留这一份状态**：界面与投递逻辑都读它。多存一份布尔量会在重建批次时
+    // 出现「状态机已吊销、副本仍是 true」的窗口（第 3 轮页面测试抓到过）。
+    val intentAssistAuth = remember { IntentAssistAuthorization() }
+    // 仅用于触发重组：状态机内部是普通字段，Compose 不会自动观察到它的变化。
+    var intentAssistRevision by remember { mutableIntStateOf(0) }
     var intentBatchAssistTried by remember { mutableStateOf(false) }
     var showIntentAssistKeyDialog by remember { mutableStateOf(false) }
     // 用户是否已在本批次看过「只发送脱敏文字」的说明（每次进新批次重置）
-    var intentBatchAssistNoticeAck by remember { mutableStateOf(false) }
+
     // 批次代际号：每次开新批次 / 换批 / 关开关 / 离开页面都 +1。
     // 分析结果与该值不符时整体作废（IntentBatchAnalyzer.stale），因此
     // 「旧结果覆盖新批次」不可能发生——这一层不依赖协程取消是否及时。
@@ -732,24 +738,41 @@ fun TabulaApp(
         intentBatchJob?.cancel()
         intentBatchJob = null
         intentBatchAssistant?.invalidate()
-        intentBatchAssistEnabled = false
+        // 离开页面 = 这次授权结束
+        intentAssistAuth.onRebuild()
+        intentAssistRevision++
         intentBatchAnalyzing = false
     }
 
     /**
-     * 跑一轮本地分析。
+     * 跑一轮分析。**两个入口的语义必须分开**，这是「授权只对当前批有效」的关键：
      *
-     * 只处理暂存清理已有的候选（旧图 + 未到期 + 时间未知），**不**动 [allImages]、
-     * 不写回收站、不写偏好。结果只落到 [intentBatch]，界面据此排序与解释。
+     * - [reanalyzeCurrentBatch]：用户在当前批**主动开启或关闭**文字辅助后的重算。
+     *   授权（[intentAssistAuth]）在这一层保持不变——是他刚刚亲手设的。
+     * - [rebuildIntentBatch]：批次内容变了（提交移入回收站、长期保留、来源范围变化、
+     *   手动重新分析）。这**不是同一次授权**：旧授权作废、在途请求作废，
+     *   按本地模式重建，新批默认关闭。
      *
-     * 每次开始都先 [invalidateIntentBatch]：这样「上一次的结果」不可能覆盖这一次。
+     * 两个入口最终都走 [runIntentBatchAnalysis]；差别只在「进之前要不要吊销授权」。
      */
-    fun analyzeIntentBatch() {
-        // 新批次 = 新代际；同时把上一轮的在途任务与辅助实例全部作废
+    /**
+     * 真正的分析实现。
+     *
+     * @param revokeAssist true = 这是**重建批次**：先吊销文字辅助授权、作废在途请求，
+     *                     再按本地模式分析；false = 用户在当前批手动改开关后的重算。
+     */
+    fun runIntentBatchAnalysis(revokeAssist: Boolean) {
+        // 任何一轮开始都先作废上一轮的在途任务与辅助实例（旧结果不得覆盖新结果）
         intentBatchJob?.cancel()
         intentBatchGeneration.incrementAndGet()
         intentBatchAssistant?.invalidate()
         intentBatchAssistant = null
+        if (revokeAssist) {
+            // 重建批次：这次授权只属于旧批次，连同开关与「已确认说明」一起清掉，
+            // 新批必须由用户重新主动开启（默认关闭）。
+            intentAssistAuth.onRebuild()
+            intentAssistRevision++
+        }
 
         intentBatchAnalyzing = true
         intentBatchEngineNote = null
@@ -757,7 +780,8 @@ fun TabulaApp(
 
         // 文字辅助：默认关闭；只有用户在本批次主动打开且 Key 存在时才创建，
         // 并且创建即绑定当前代际，换批/关开关时作废。
-        val allowAssist = intentBatchAssistEnabled && intentAssistKeyStore.hasKey()
+        // 读状态机（`effective`），而不是任何界面副本
+        val allowAssist = intentAssistAuth.effective && intentAssistKeyStore.hasKey()
         val assistant = if (allowAssist) {
             DeepSeekTextAssist(
                 keyStore = intentAssistKeyStore,
@@ -829,6 +853,17 @@ fun TabulaApp(
     }
 
     /**
+     * 用户在当前批**主动改开关**后的重算：授权保持不变（是他刚亲手设的）。
+     *
+     * 与 [rebuildIntentBatch] 的区别是这次调用的全部意义：混用会让「新批次」
+     * 悄悄继承上一批的授权，或让「用户刚打开」被系统立刻关掉。
+     */
+    fun reanalyzeCurrentBatch() = runIntentBatchAnalysis(revokeAssist = false)
+
+    /** 批次内容变了（提交 / 长期保留 / 范围变化 / 手动重来）：吊销授权后重建。 */
+    fun rebuildIntentBatch() = runIntentBatchAnalysis(revokeAssist = true)
+
+    /**
      * 打开「按整理目的凑一批」（路线图第 8 项 / #94）。
      *
      * 入口在暂存清理页，因此候选范围直接复用上面的 [stagedCleanupSelection]：
@@ -847,9 +882,9 @@ fun TabulaApp(
         intentBatchEngineNote = null
         intentBatchStatus = ""
         intentBatchAssistTried = false
-        intentBatchAssistNoticeAck = false
         currentScreen = AppScreen.INTENT_BATCH
-        analyzeIntentBatch()
+        // 进新批次 = 重建：旧授权作废、按本地模式分析
+        rebuildIntentBatch()
     }
 
     // A restored system request must finish before we classify its pending journal.
@@ -2006,22 +2041,24 @@ fun TabulaApp(
             statusLine = intentBatchStatus,
             assistAvailable = true,
             assistKeyConfigured = intentAssistKeyStore.hasKey(),
-            assistEnabledForBatch = intentBatchAssistEnabled,
-            assistNoticeAcknowledged = intentBatchAssistNoticeAck,
-            onAcknowledgeAssistNotice = { intentBatchAssistNoticeAck = true },
+            // 单一事实来源：直接读授权状态机。intentAssistRevision 让重组能观察到变化。
+            assistEnabledForBatch = intentAssistAuth.granted.also { intentAssistRevision },
+            // NOTE: `intentAssistRevision` 只是读取以建立 Compose 依赖关系；值本身不参与渲染。
+            assistNoticeAcknowledged = intentAssistAuth.noticeAcknowledged.also { intentAssistRevision },
+            onAcknowledgeAssistNotice = { intentAssistAuth.acknowledgeNotice() },
             onToggleAssistForBatch = { enabled ->
-                intentBatchAssistEnabled = enabled
+                // 用户自己的动作：授权随他设置，不当成换批
+                intentAssistAuth.onUserToggle(enabled)
+                intentAssistRevision++
                 if (enabled) {
-                    // 打开 = 用当前批次重跑一次（只影响本地判为「不确定」的候选）
+                    // 用户在本批主动打开：这是他的授权，重算时保留
                     if (!intentAssistKeyStore.hasKey()) {
                         showIntentAssistKeyDialog = true
                     }
-                    analyzeIntentBatch()
+                    reanalyzeCurrentBatch()
                 } else {
-                    // 关闭 = 停止后续请求 + 作废在途 + 立刻用本地结果重算这一批
-                    intentBatchAssistant?.invalidate()
-                    intentBatchAssistant = null
-                    analyzeIntentBatch()
+                    // 用户在本批主动关闭：停止后续请求 + 作废在途 + 用本地结果重算
+                    reanalyzeCurrentBatch()
                 }
             },
             onOpenAssistSettings = { showIntentAssistKeyDialog = true },
@@ -2043,7 +2080,8 @@ fun TabulaApp(
                     intentBatchSelectedKeys = emptySet()
                     Toast.makeText(context, "${keys.size} 张已长期保留", Toast.LENGTH_SHORT).show()
                     recomputeStagedCleanupSelection()
-                    analyzeIntentBatch()
+                    // 批次内容变了（这些图不再属于候选）→ 重建，新批默认关闭
+                    rebuildIntentBatch()
                 }
             },
             onConfirm = {
@@ -2089,7 +2127,8 @@ fun TabulaApp(
                                 Toast.LENGTH_LONG
                             ).show()
                             intentBatchSelectedKeys = emptySet()
-                            analyzeIntentBatch()
+                            // 提交（即使全部被跳过）也改变了批次内容 → 重建，新批默认关闭
+                            rebuildIntentBatch()
                             return@launch
                         }
 
@@ -2114,7 +2153,8 @@ fun TabulaApp(
 
                         intentBatchSelectedKeys = emptySet()
                         recomputeStagedCleanupSelection()
-                        analyzeIntentBatch()
+                        // 提交后批次内容变了 → 重建；旧授权与在途请求一并作废
+                        rebuildIntentBatch()
 
                         // ---------- 4. 部分成功分别说明 ----------
                         val message = buildString {
@@ -2136,7 +2176,7 @@ fun TabulaApp(
                     }
                 }
             },
-            onAnalyze = { analyzeIntentBatch() },
+            onAnalyze = { rebuildIntentBatch() },
             onNavigateBack = {
                 // 离开页面 = 作废在途结果并关掉实验性开关，避免它在别的页面上继续跑
                 invalidateIntentBatch()
@@ -2153,10 +2193,7 @@ fun TabulaApp(
                 },
                 onDelete = {
                     intentAssistKeyStore.delete()
-                    intentBatchAssistEnabled = false
-                    intentBatchAssistant?.invalidate()
-                    intentBatchAssistant = null
-                    analyzeIntentBatch()
+                    rebuildIntentBatch()
                 },
                 onDismiss = { showIntentAssistKeyDialog = false }
             )

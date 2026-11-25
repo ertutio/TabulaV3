@@ -80,6 +80,11 @@ fun IntentBatchContent(
     statusLine: String,
     assistAvailable: Boolean,
     assistKeyConfigured: Boolean,
+    /**
+     * 当前批是否已授权。调用方必须读授权状态机（`IntentAssistAuthorization.granted`），
+     * 不要读一份界面自己的副本——两份状态在「重建批次」时会短暂不一致，
+     * 表现为「已提交、批次已重建，但开关还显示启用」。
+     */
     assistEnabledForBatch: Boolean,
     /** 用户是否已经看过「只发送脱敏文字」的明确说明并同意打开（打开前必须确认）。 */
     assistNoticeAcknowledged: Boolean,

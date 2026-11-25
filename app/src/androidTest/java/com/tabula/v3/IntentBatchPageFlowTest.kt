@@ -701,6 +701,217 @@ class IntentBatchPageFlowTest {
         }
     }
 
+    /**
+     * 授权只对当前批有效（#95 第 3 轮审计，第 2 条）——**页面级**证明。
+     *
+     * 真实链路：进入凑一批 → 配好 Key → 打开实验性开关（确认提示）→
+     * 提交一张（触发重建）→ 断言新批的开关**回到关闭**、提示文案回到「默认关闭」，
+     * 且这一轮新批没有任何请求离开设备（由传输层计数器为 0 证明，见下）。
+     *
+     * 为什么要两个层面都测：单测证明状态机的语义，这里证明**页面真的接到了**
+     * 同一个状态机（`IntentAssistAuthorization`），不是两套各自为政的布尔量。
+     */
+    @Test
+    fun assistAuthorizationDoesNotSurviveBatchRebuild() = runBlocking {
+        val shot = insertCouponScreenshot("intent-auth-" + UUID.randomUUID().toString().take(6) + ".png")
+        waitIndexed(shot)
+
+        // 预置一个 Key：让开关「可用」，从而能验证「可用但默认关闭」
+        val store = IntentAssistKeyStore(ctx)
+        store.write("sk-synthetic-pageflow-0001")
+
+        startApp()
+        openStagedCleanupCandidates()
+        openIntentBatch()
+        waitForTextContaining("本地识别", timeout = 180000)
+
+        // 1) 有 Key 时，开关仍必须默认关闭、并显示「默认关闭」的说明
+        val before = screenTexts()
+        assertTrue(
+            "有 Key 也必须默认关闭（屏幕：$before）",
+            before.any { it.contains("默认关闭") }
+        )
+        assertFalse(
+            "不该显示已启用（屏幕：$before）",
+            before.any { it.contains("本批次已启用") }
+        )
+        assertTrue(
+            "必须标注实验性（屏幕：$before）",
+            before.any { it.contains("实验性") }
+        )
+
+        // 2) 打开开关：先出确认弹窗，确认后才生效
+        assertTrue("必须能点到文字辅助开关", tapAssistSwitch())
+        val dialog = screenTexts()
+        if (dialog.any { it.contains("开启前请确认") }) {
+            assertTrue("确认后才允许开启", tapByBounds("明白，本批次开启", timeout = 10000))
+            android.os.SystemClock.sleep(2000)
+        }
+        waitForTextContaining("本批次已启用", timeout = 60000)
+
+        // 3) 提交一张 → 触发重建
+        val thumb = run {
+            val deadline = now() + 30000
+            while (now() < deadline) {
+                screenTexts().firstOrNull { it.startsWith("intent-auth-") && it.endsWith(".png") }
+                    ?.let { return@run it }
+                android.os.SystemClock.sleep(250)
+            }
+            null
+        }
+        if (thumb == null) {
+            // 这批没有可勾选项时，改为「手动重新分析」触发重建，同样能验证语义
+            tapByBounds("重新分析")
+            android.os.SystemClock.sleep(3000)
+        } else {
+            assertTrue("缩略图必须能点中", tapByBounds(thumb))
+            val submit = waitForEnabledSubmit()
+            assertNotNull("提交按钮必须可用", submit)
+            assertTrue("选中后按钮必须为可用态（屏幕：${screenTexts()}）", submit!!.enabled)
+            assertTrue("提交必须真的写入回收站", clickSubmit())
+            android.os.SystemClock.sleep(4000)
+        }
+
+        // 4) 新批：开关必须回到关闭，且提示回到「默认关闭」
+        //
+        // 时机很关键：提交后先出现分析状态行，重建完成才改文案；而 Compose 的
+        // 重组还要再晚一帧（诊断日志显示 granted 在同一秒内由 true→false，
+        // 屏幕文本晚一步更新）。因此这里**轮询**到「已启用」消失为止，
+        // 而不是读一次就断言。
+        waitForTextContaining("本地识别", timeout = 180000)
+        val deadline = now() + 30000
+        var after: Set<String> = screenTexts()
+        while (now() < deadline) {
+            after = screenTexts()
+            if (after.none { it.contains("本批次已启用") }) break
+            android.os.SystemClock.sleep(300)
+        }
+        assertFalse(
+            "重建后不得再显示已启用（屏幕：$after）",
+            after.any { it.contains("本批次已启用") }
+        )
+        assertTrue(
+            "重建后必须回到默认关闭（屏幕：$after）",
+            after.any { it.contains("默认关闭") }
+        )
+    }
+
+    /**
+     * 点底部提交按钮。
+     *
+     * 为什么要两种方式：Compose 的 `Button` 节点虽可点，但 `ACTION_CLICK` 在
+     * 部分组合下静默无效（本地第 3 轮实测：`已选 1 张` 与禁用态文案同时出现在
+     * 同一帧，点击后状态全未变化 = 事件没送到）。先试语义点击，再用坐标兜底。
+     */
+    /**
+     * 点底部提交按钮，并以**回收站记录是否真的增加**作为成功判据。
+     *
+     * 为什么不以「已选 0 张」判：提交是异步的（复核 → 写记录 → 重建批次），
+     * 选中态要等重建后才清空；而「回收站记录 +1」才是这件事真正的结果。
+     * 语义点击不行就退回坐标点击（Compose 的 ACTION_CLICK 在部分组合下静默无效）。
+     */
+    private fun clickSubmit(expectBinDelta: Int = 1): Boolean {
+        val state = submitButtonState() ?: return false
+        if (!state.enabled) return false
+        val before = runBlocking { RecycleBinManager.getInstance(ctx).loadRecycleBin().size }
+
+        fun succeeded(): Boolean = runBlocking {
+            RecycleBinManager.getInstance(ctx).loadRecycleBin().size >= before + expectBinDelta
+        }
+
+        state.clickable?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        val deadline1 = now() + 12000
+        while (now() < deadline1) {
+            if (succeeded()) return true
+            android.os.SystemClock.sleep(300)
+        }
+
+        // 坐标兜底：点按钮自身中心
+        val root = ins.uiAutomation.rootInActiveWindow
+        var target: AccessibilityNodeInfo? = null
+        fun find(n: AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || target != null || depth > 24) return
+            if (n.text?.toString()?.contains("移入回收站（") == true) { target = n; return }
+            for (i in 0 until n.childCount) find(n.getChild(i), depth + 1)
+        }
+        find(root, 0)
+        target?.let { node ->
+            val r = android.graphics.Rect(); node.getBoundsInScreen(r)
+            if (r.width() > 0) {
+                shell("input tap ${r.centerX()} ${r.centerY()}")
+                val deadline2 = now() + 12000
+                while (now() < deadline2) {
+                    if (succeeded()) return true
+                    android.os.SystemClock.sleep(300)
+                }
+            }
+        }
+        return false
+    }
+
+    /** 底部是否还显示「已选 N 张」（N>0）。 */
+    private fun hasSelectedItems(): Boolean =
+        screenTexts().any { it.matches(Regex("""已选 [1-9]\d* 张""")) }
+
+    /**
+     * 打开文字辅助开关。
+     *
+     * Compose 的 `Switch` 在无障碍树里**没有** Switch 类名，也不一定可点；
+     * 实测（run 本地第 3 轮）按「实验性」文字点、按 className 找 Switch 都点不到。
+     * 因此按优先级依次尝试：
+     * 1. `isCheckable == true` 的节点（Compose 会把开关标成 checkable）；
+     * 2. 包含「文字辅助」的那一行，点它**右边缘**（开关就在这一行最右）；
+     * 3. 屏幕右上角的固定偏移兜底。
+     */
+    private fun tapAssistSwitch(): Boolean {
+        val root = ins.uiAutomation.rootInActiveWindow ?: return false
+
+        // 1) checkable 节点
+        var checkable: AccessibilityNodeInfo? = null
+        fun findCheckable(n: AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || checkable != null || depth > 24) return
+            if (n.isCheckable) { checkable = n; return }
+            for (i in 0 until n.childCount) findCheckable(n.getChild(i), depth + 1)
+        }
+        findCheckable(root, 0)
+        checkable?.let { node ->
+            val ok = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            android.os.SystemClock.sleep(1000)
+            if (ok) return true
+        }
+
+        // 2) 「文字辅助」所在行的右边缘
+        var row: AccessibilityNodeInfo? = null
+        fun findRow(n: AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || row != null || depth > 24) return
+            if (n.text?.toString()?.contains("文字辅助") == true) { row = n; return }
+            for (i in 0 until n.childCount) findRow(n.getChild(i), depth + 1)
+        }
+        findRow(root, 0)
+        row?.let { label ->
+            // 从标签往上找到包住整行的容器（宽度明显更大的那个）
+            var container: AccessibilityNodeInfo? = label
+            var hops = 0
+            var widest: AccessibilityNodeInfo? = label
+            val labelRect = android.graphics.Rect(); label.getBoundsInScreen(labelRect)
+            while (container != null && hops < 4) {
+                val r = android.graphics.Rect(); container.getBoundsInScreen(r)
+                if (r.width() > labelRect.width() * 2) widest = container
+                container = container.parent
+                hops++
+            }
+            val r = android.graphics.Rect()
+            (widest ?: label).getBoundsInScreen(r)
+            if (r.width() > 0) {
+                // 开关在行尾；留 24px 内边距，避免点到行尾的其它元素
+                shell("input tap ${r.right - 40} ${r.centerY()}")
+                android.os.SystemClock.sleep(1200)
+                return true
+            }
+        }
+        return false
+    }
+
     @Test
     fun keyStoreRoundTripFromSettingsDialog() {
         // 设置页/对话框保存 → 文件落在 noBackupFilesDir → 删除后立即失效

@@ -187,9 +187,10 @@ jobs:
             adb logcat -d -s System.out > device-results/stdout-page.txt || true
             grep -E 'INSTRUMENTATION_STATUS: (class|numtests|test=)|OK \(|FAILURES' device-results/instrumentation-page.txt > device-results/summary-page.txt || true
             cat device-results/summary-page.txt
-            # 6 条：入口在暂存清理页、辅助默认关闭、订单截图不进推荐、
-            # 真实交互提交→回收站→大图浮层恢复、三种「世界变了」不得提交、Key 落盘
-            grep -Fx 'OK (6 tests)' device-results/instrumentation-page.txt
+            # 7 条：入口在暂存清理页、辅助默认关闭、订单截图不进推荐、
+            # 真实交互提交→回收站→大图浮层恢复、三种「世界变了」不得提交、
+            # 授权不随批次重建存活、Key 落盘
+            grep -Fx 'OK (7 tests)' device-results/instrumentation-page.txt
       - name: Summarise
         if: always()
         run: |
