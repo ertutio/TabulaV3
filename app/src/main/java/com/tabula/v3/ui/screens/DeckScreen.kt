@@ -318,6 +318,9 @@ fun DeckScreen(
     // 用于异步初始化批次
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var needsInitialBatch by remember { mutableStateOf(true) }
+    // #90 第四轮：区分"首次装载"与"旧批全部失效后的自动重取"。
+    // 只有后者算真正换批（BatchChange.AUTO_REFILL_AFTER_INVALIDATION）。
+    var pendingAutoRefill by remember { mutableStateOf(false) }
 
     // #90：把**页面实际持有**的批次回报给上层（候选池与提示判定都以它为准）。
     // currentBatch 是所有加载路径（site-1…site-10）的汇合点，所以在这里上报
@@ -574,6 +577,14 @@ fun DeckScreen(
                     currentIndex = 0
                     markedCount = 0
                     deckState = DeckState.BROWSING
+                    // #90 第四轮：本条路径既是"首次装载"也是"旧批全部失效后的
+                    // 自动重取"。只有后者是真正的换批（清上一批统计、换批次标识）；
+                    // 首次装载不换。判据由失效点埋下的 pendingAutoRefill 给出，
+                    // 语义映射集中在 BatchChange，装载点不各自猜。
+                    if (pendingAutoRefill) {
+                        pendingAutoRefill = false
+                        onBatchAdvanced()
+                    }
                 } else {
                     // 如果推荐结果为空（例如都在冷却中），直接显示完成状态
                     deckState = DeckState.COMPLETED
@@ -801,9 +812,12 @@ fun DeckScreen(
                         currentIndex = 0
                         deckState = DeckState.BROWSING
                     } else {
+                        // 旧批可见行全部失效（图库变化 / 权限收窄）：
+                        // 清空并标记"这次重取是换批"，由装载点消费
                         currentIndex = 0
                         currentBatch = syncedDeck.also { logBatchRows("batch-site-7", it) }
                         needsInitialBatch = true
+                        pendingAutoRefill = true
                     }
                 } else {
                     currentIndex = relocatedIndexAfterSync(currentBatch, syncedDeck, currentIndex)

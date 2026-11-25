@@ -63,6 +63,9 @@ import com.tabula.v3.data.balance.StagedSourceDisplayName
 import com.tabula.v3.data.balance.SourceBalanceRules
 import com.tabula.v3.data.balance.RoundSessionRules
 import com.tabula.v3.data.balance.ArchiveIdentityRules
+import com.tabula.v3.data.balance.DeferredActionLedger
+import com.tabula.v3.data.balance.SessionBatchIds
+import com.tabula.v3.data.balance.Ticket
 import com.tabula.v3.BuildConfig
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.CardStyleMode
@@ -505,6 +508,9 @@ fun TabulaApp(
     var roundSession by remember { mutableStateOf(RoundSessionRules.Session()) }
     // #90：卡片页当前实际持有的批次（由 DeckScreen 回报），用于候选池与提示判定
     var currentDeckBatch by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
+    // #90 第四轮：会话与批次的稳定标识。延迟动作（删除撤销期满、归档待提交）
+    // 在**发起时**绑定它，完成时再比对——旧批的动作不往新批记账。
+    var sessionBatchIds by remember { mutableStateOf(SessionBatchIds()) }
     // 当前推荐模式（跟随设置切换；意图只在随机漫步的普通整理模式下生效）
     var currentRecommendMode by remember { mutableStateOf(preferences.recommendMode) }
 
@@ -539,7 +545,29 @@ fun TabulaApp(
         intentSuggestion = null
         intentDismissed = false
         recommendationEngine.clearRoundIntent()
+        // 换会话：之前绑定的 ticket 全部作废，延迟动作不会记进新会话
+        sessionBatchIds = sessionBatchIds.newSession()
     }
+
+    /**
+     * 真正换批（#90 第四轮审计）：手动「再来一组」与旧批全部失效后的自动重取
+     * 走同一个边界——清掉上一批统计与旧提示，并换一个批次标识。
+     *
+     * 删单张卡片、撤销、同批快照刷新都**不走**这里（见 [BatchChange]）。
+     */
+    fun advanceBatchBoundary() {
+        roundSession = RoundSessionRules.nextBatch(roundSession)
+        intentSuggestion = null
+        sessionBatchIds = sessionBatchIds.newBatch()
+    }
+
+    /**
+     * 绑定**发起这一刻**的会话与批次标识（#90 第四轮审计）。
+     *
+     * 延迟动作（归档待提交、删除撤销期满）必须带着它一路走到提交点，
+     * 而不是在提交点再读当前值——那时可能已经换批了。
+     */
+    fun capturedTicket(): Ticket = Ticket.None.capture(sessionBatchIds)
 
     val albums by albumManager.albums.collectAsState()
     val albumMappings by albumManager.mappings.collectAsState()
@@ -962,6 +990,11 @@ fun TabulaApp(
      * 审计要求：不要把 actionId 当照片 ID。完整媒体身份来自 PendingArchive
      * 的 (imageUri 卷, imageId)，且**只在归档真实成功**（COMMITTED）时记账。
      *
+     * #90 第四轮：记账还要看**发起时的会话与批次**（`action.intentTicket`）。
+     * 归档是延迟提交的——换批之后才完成的旧动作仍然照原逻辑复制文件、更新
+     * 图库，但**不往新批次记账**：那会让新批次的来源判断带上用户在这一批
+     * 根本没碰过的相册。
+     *
      * @param action 从 getLastPendingArchive() 取出的真实待归档项
      * @param snapshot 提交前的照片快照，用于按完整身份匹配真实 ImageFile
      */
@@ -973,19 +1006,20 @@ fun TabulaApp(
             // 从 PendingArchive 的 (imageUri 卷, imageId) 解析完整身份
             val archivedImage = ArchiveIdentityRules.findInSnapshot(action, snapshot)
 
-            when (val outcome = albumManager.commitPendingArchive(action.id)) {
-                AlbumManager.ArchiveCommitOutcome.COMMITTED -> {
-                    // 只有真正提交成功才记为 ARCHIVE；失败/未领取都不记
-                    if (ArchiveIdentityRules.shouldRecord(outcome)) {
-                        archivedImage?.let {
-                            if (tracksRoundIntent) {
-                                roundSession = RoundSessionRules.record(
-                                    roundSession, it, RoundSessionRules.HandledAction.ARCHIVE
-                                )
-                            }
-                        }
-                    }
-                }
+            val outcome = albumManager.commitPendingArchive(action.id)
+            // 记账决策走 DeferredActionLedger（测试与生产同一条路径）：
+            // 只有 COMMITTED 且发起时的会话/批次仍有效才计入
+            if (tracksRoundIntent) {
+                roundSession = DeferredActionLedger.onArchiveCommitted(
+                    session = roundSession,
+                    archivedImage = archivedImage,
+                    action = action,
+                    outcome = outcome,
+                    currentIds = sessionBatchIds
+                )
+            }
+            when (outcome) {
+                AlbumManager.ArchiveCommitOutcome.COMMITTED -> Unit  // 记账已在上面处理
                 AlbumManager.ArchiveCommitOutcome.COPY_FAILED ->
                     Toast.makeText(context, "归档失败，照片未复制", Toast.LENGTH_LONG).show()
                 AlbumManager.ArchiveCommitOutcome.NOT_CLAIMED ->
@@ -1011,23 +1045,29 @@ fun TabulaApp(
                     )
                 }
             },
-            // #90：批次真正切换后归档上一批统计，不让它进入下一批意图判断
+            // #90：真正换批（手动「再来一组」/ 旧批全失效后自动重取）——
+            // 清上一批统计与旧提示，并换批次标识
             onBatchAdvanced = {
-                roundSession = RoundSessionRules.nextBatch(roundSession)
-                intentSuggestion = null
+                advanceBatchBoundary()
             },
             // #90：卡片页回报它实际持有的批次——候选池与提示判定都以它为准
             onBatchChanged = { batch -> currentDeckBatch = batch },
             onRemove = { image ->
+                // #90 第四轮：删除的落库是异步的（协程里 addToRecycleBin）。
+                // 在**发起这一刻**绑定会话/批次标识，写成功后再比对——
+                // 期间换批的话，这条旧动作只更新图库，不往新批次记账。
+                val deleteTicket = capturedTicket()
                 scope.launch {
                     try {
                         recycleBinManager.addToRecycleBin(image)
                         albumCleanupEngine.recordUserRemovedImage(image)
                         val persisted = recycleBinManager.loadRecycleBin()
-                        // 写成功后才记账：失败不能污染本轮来源判断
+                        // 写成功后才记账；只有发起时那批仍有效才计入
                         if (tracksRoundIntent) {
-                            roundSession = RoundSessionRules.record(
-                                roundSession, image, RoundSessionRules.HandledAction.DELETE
+                            roundSession = DeferredActionLedger.onDeletePersisted(
+                                session = roundSession,
+                                pending = DeferredActionLedger.Pending(image, deleteTicket),
+                                currentIds = sessionBatchIds
                             )
                         }
                         // 即时状态与刷新后的投影同口径：按媒体身份（卷, ID）过滤，
@@ -1042,8 +1082,13 @@ fun TabulaApp(
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        // 失败回退：这张不计入本轮
-                        roundSession = RoundSessionRules.undo(roundSession, image)
+                        // 失败回退：这张不计入本轮。同样只有发起时那批仍然有效
+                        // 才回退——换批后撤销旧动作不能删掉新批次里的记录
+                        roundSession = DeferredActionLedger.onDeleteFailed(
+                            session = roundSession,
+                            pending = DeferredActionLedger.Pending(image, deleteTicket),
+                            currentIds = sessionBatchIds
+                        )
                         Log.e("TabulaApp", "Could not mark photo for deletion", e)
                         Toast.makeText(context, "未能保存回收站记录，照片仍保留在待整理照片中", Toast.LENGTH_LONG).show()
                     }
@@ -1069,9 +1114,18 @@ fun TabulaApp(
                          commitPendingArchiveWithFeedback(it)
                      }
                      
-                     // 加入新的 pending action（不立即复制）
+                     // 加入新的 pending action（不立即复制）。
+                     // #90 第四轮：把**发起这一刻**的会话/批次标识绑进动作，
+                     // 等 Snackbar 超时才提交时才有得比对——不能等到提交那一刻
+                     // 再去读当前批次，那时可能已经换批了。
                      val album = albums.find { it.id == albumId }
-                     albumManager.queueImageToAlbum(imageId, imageUri, albumId, album?.name ?: albumId)
+                     albumManager.queueImageToAlbum(
+                         imageId = imageId,
+                         imageUri = imageUri,
+                         albumId = albumId,
+                         albumName = album?.name ?: albumId,
+                         intentTicket = capturedTicket()
+                     )
                  }
             },
             onCreateAlbum = { name, color, emoji ->
@@ -1097,7 +1151,13 @@ fun TabulaApp(
                         // 1. 创建图集
                         val newAlbum = albumManager.createAlbum(name, color, emoji)
                         // 2. 将图片加入待归档队列
-                        albumManager.queueImageToAlbum(image.id, image.uri.toString(), newAlbum.id, newAlbum.name)
+                        albumManager.queueImageToAlbum(
+                            imageId = image.id,
+                            imageUri = image.uri.toString(),
+                            albumId = newAlbum.id,
+                            albumName = newAlbum.name,
+                            intentTicket = capturedTicket()
+                        )
                     } catch (e: Exception) {
                         Log.e("TabulaApp", "Failed to create album and classify: $name", e)
                         withContext(Dispatchers.Main) {

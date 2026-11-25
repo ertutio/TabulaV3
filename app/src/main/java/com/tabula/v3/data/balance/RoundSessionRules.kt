@@ -82,6 +82,47 @@ object RoundSessionRules {
     fun undo(session: Session, image: ImageFile): Session =
         session.copy(currentBatch = session.currentBatch.filterNot { it.key == image.mediaIdentityKey() })
 
+    /**
+     * 带批次边界的记账（#90 第四轮审计）。
+     *
+     * 只在**发起动作时的会话与批次仍然是当前那一个**时才记账：
+     * 旧批次上发起的删除/归档如果等到换批之后才完成，绝不能计进新批次。
+     *
+     * 失败与撤销不走这里（它们本来就不记账）。调用方仍负责把照片从图库/UI
+     * 里移除——本函数只决定"要不要计入本轮来源统计"。
+     *
+     * @param ticket 动作**发起时**绑定下来的标识（[Ticket.capture]）
+     * @param currentIds 提交这一刻的当前标识
+     * @return 记账后的会话；过期动作返回原会话，一个字段都不动
+     */
+    fun recordIfStillCurrent(
+        session: Session,
+        image: ImageFile,
+        action: HandledAction,
+        ticket: Ticket,
+        currentIds: SessionBatchIds,
+        sourceKeyOf: (ImageFile) -> String = { SourceBalanceRules.sourceKeyOf(it) }
+    ): Session {
+        if (!ticket.isStillCurrent(currentIds)) return session
+        return record(session, image, action, sourceKeyOf)
+    }
+
+    /**
+     * 带批次边界的撤销回退（#90 第四轮审计）。
+     *
+     * 撤销同样只能动**发起时那批**的记录。若期间已经换批（统计已清空重来），
+     * 撤销旧批次的动作绝不能把新批次里同身份的那条记录删掉——那不是它记的。
+     */
+    fun undoIfStillCurrent(
+        session: Session,
+        image: ImageFile,
+        ticket: Ticket,
+        currentIds: SessionBatchIds
+    ): Session {
+        if (!ticket.isStillCurrent(currentIds)) return session
+        return undo(session, image)
+    }
+
     /** 标记本轮已接受该来源：同一来源本轮不再提示。 */
     fun markAccepted(session: Session, sourceKey: String): Session =
         session.copy(acceptedThisRound = sourceKey)
