@@ -158,6 +158,11 @@ object IntentTextSanitizer {
                 undecidable = true
                 continue
             }
+            // 值的**完整**边界必须唯一确定；被空格/标点/OCR 分段拆开时不猜，整行丢弃。
+            if (valueBoundaryIsAmbiguous(original, valueEnd)) {
+                undecidable = true
+                continue
+            }
             redactions += Span(valueStart, valueEnd, secret = true)
         }
 
@@ -231,6 +236,64 @@ object IntentTextSanitizer {
         while (i < text.length && text[i] in SEPARATORS) i++
         return if (i >= text.length) null else i
     }
+
+    /**
+     * 值的完整边界是否**不能唯一确定**。
+     *
+     * 判据：跳过 valueEnd 之后的那一段分隔符，如果紧接的片段仍然「像值」，
+     * 就无法判断它属于这个字段还是别的东西——例如：
+     *
+     * - `取件码 12 34 56`：`12` 之后还有 `34`、`56`，边界不明确；
+     * - `取件码 甲乙 丙丁`：中文值被空格拆开，边界不明确；
+     * - `验证码 123456，请勿转发`：`请勿转发` 含功能词，是自然语言 → 边界明确；
+     * - `活动已于 2026-11-10 23:59 结束`：没有敏感字段，走不到这里。
+     *
+     * 为什么要保守：漏掩一整段值的代价远大于少发一行文字。
+     */
+    private fun valueBoundaryIsAmbiguous(text: String, valueEnd: Int): Boolean {
+        var i = valueEnd
+        // 只跳过一个分隔段（连续同类分隔符视为一个），不跨越整句
+        var skipped = 0
+        while (i < text.length && text[i] in SEPARATORS) { i++; skipped++ }
+        if (skipped == 0 || i >= text.length) return false
+
+        val nextEnd = locateValueEnd(text, i)
+        if (nextEnd <= i) return false
+        val next = text.substring(i, nextEnd)
+        return looksLikeValueToken(next)
+    }
+
+    /**
+     * 这段文字是否「像一个字段值」。
+     *
+     * 两类算：纯 ASCII 字母数字（含 `-` `_` `.`），或纯中文且**不含功能词**。
+     * 功能词用来区分「甲乙 丙丁」（值的两截）与「请勿转发」（一句提示）。
+     */
+    private fun looksLikeValueToken(slice: String): Boolean {
+        if (slice.isEmpty()) return false
+        val isAsciiToken = slice.all { it.isLetterOrDigit() && it.code < 0x80 || it in "-_." }
+        if (isAsciiToken) return true
+
+        val hasCjk = slice.any { it.code in 0x4E00..0x9FFF }
+        if (!hasCjk) return false
+        // 中文片段：出现功能词就按自然语言处理
+        return NATURAL_LANGUAGE_HINTS.none { slice.contains(it) }
+    }
+
+    /**
+     * 中英混排或整句提示里常见的高频功能词。
+     *
+     * 命中即认为「这不是值的延续，而是一句话」，边界因此**明确**。
+     * 这张表刻意短：宁可靠「看起来还是值 → 丢行」多丢几行，也不靠它放行。
+     */
+    private val NATURAL_LANGUAGE_HINTS = listOf(
+        // 只用**多字**短语。单字（"了" "的" "在" …）会把「春天来了」这种值本身
+        // 误判成自然语言，于是边界被当成明确、后面的"来了"原样外发
+        // （第 4 轮测试实测：`密码 春天 来了` 的"来了"漏了出去）。
+        "请勿", "请在", "请输入", "请注意", "注意", "说明", "提示",
+        "有效", "过期", "失效", "截止", "结束", "打开", "点击", "输入",
+        "转发", "分享", "复制", "查看", "链接", "页面", "客服"
+    )
 
     /** 从 [start] 开始取值的结束下标（不含）。遇到空白/标点即停。 */
     private fun locateValueEnd(text: String, start: Int): Int {

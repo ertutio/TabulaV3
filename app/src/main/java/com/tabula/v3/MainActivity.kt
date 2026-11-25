@@ -1071,6 +1071,37 @@ fun TabulaApp(
     }
 
     /**
+     * **唯一的**离开批次入口：撤销授权、取消在途分析、作废迟到结果。
+     *
+     * 页面返回按钮与系统返回手势都必须走这里，否则会出现「点按钮走了、
+     * 划手势却还在发请求」的分叉。因此在 `PredictiveBackContainer` 的
+     * 集中返回处理里也调用它（见渲染容器那一节）。
+     */
+    fun leaveIntentBatch() {
+        invalidateIntentBatch()
+        // 离开后不再保留任何一批的界面状态，避免下次进入看到失效的旧列表
+        intentBatch = null
+        intentBatchSelectedKeys = emptySet()
+        intentBatchStatus = ""
+        intentBatchEngineNote = null
+        intentBatchAssistTried = false
+    }
+
+    /**
+     * 系统返回 / 返回手势在凑一批页上要做的事。
+     *
+     * 与页面返回按钮调用**同一个** [leaveIntentBatch]；抽成函数是为了让
+     * 设备测试能直接命中这条路径（`PredictiveBackHandler` 只消费手势事件流，
+     * 程序化按键与 dispatcher 派发都进不去，见第 4 轮实测记录）。
+     */
+    fun handleIntentBatchSystemBack(): Boolean {
+        if (currentScreen != AppScreen.INTENT_BATCH) return false
+        leaveIntentBatch()
+        currentScreen = AppScreen.STAGED_CLEANUP
+        return true
+    }
+
+    /**
      * 跑一轮分析。**两个入口的语义必须分开**，这是「授权只对当前批有效」的关键：
      *
      * - [reanalyzeCurrentBatch]：用户在当前批**主动开启或关闭**文字辅助后的重算。
@@ -2762,8 +2793,8 @@ fun TabulaApp(
             },
             onAnalyze = { rebuildIntentBatch() },
             onNavigateBack = {
-                // 离开页面 = 作废在途结果并关掉实验性开关，避免它在别的页面上继续跑
-                invalidateIntentBatch()
+                // 与系统返回手势走**同一个**流程
+                leaveIntentBatch()
                 currentScreen = AppScreen.STAGED_CLEANUP
             }
         )
@@ -3079,6 +3110,9 @@ fun TabulaApp(
         PredictiveBackContainer(
             currentScreen = currentScreen,
             onNavigateBack = {
+                // 系统返回 / 返回手势：离开凑一批时先撤销授权并作废在途结果，
+                // 与页面返回按钮同一条路径（否则手势返回会留下仍在跑的请求）。
+                if (handleIntentBatchSystemBack()) return@PredictiveBackContainer
                 currentScreen = when (currentScreen) {
                     AppScreen.DISCLAIMER -> AppScreen.DISCLAIMER  // 须知页不支持返回
                     AppScreen.ONBOARDING -> AppScreen.ONBOARDING  // 引导页不支持返回
