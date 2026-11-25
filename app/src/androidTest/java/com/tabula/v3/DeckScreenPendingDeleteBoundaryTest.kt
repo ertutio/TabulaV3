@@ -294,6 +294,20 @@ class DeckScreenPendingDeleteBoundaryTest {
         Log.i(TAG, marker); sleep(250); return marker
     }
 
+    /** 当前屏可见文案（诊断用）。 */
+    private fun screenTexts(): List<String> {
+        val root = ins.uiAutomation.rootInActiveWindow ?: return emptyList()
+        val out = mutableListOf<String>()
+        fun walk(n: AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || depth > 20) return
+            n.text?.toString()?.takeIf { it.isNotBlank() }?.let { out += it }
+            n.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { out += it }
+            for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
+        }
+        walk(root, 0)
+        return out
+    }
+
     /** 当前屏上可见的卡片文件名集合（诊断用）。 */
     private fun visibleCardNames(): Set<String> {
         val root = ins.uiAutomation.rootInActiveWindow ?: return emptySet()
@@ -360,14 +374,16 @@ class DeckScreenPendingDeleteBoundaryTest {
         while (guard++ < 16 && find("再来一组") == null) {
             if (!keepSwipe()) break
         }
-        // 完成页也可能因为单卡批次直接出现；再给一段收尾等待
+        // 卡都滑光了（cards=null）到完成页渲染出来之间有动画窗口，
+        // 这段必须等足，不能因为"看不到卡片"就断定前置失败。
         if (find("再来一组") == null) {
-            val waitDone = now() + 6000
+            val waitDone = now() + 15000
             while (now() < waitDone && find("再来一组") == null) sleep(200)
         }
         assertTrue(
             "前置：需要走到批次完成页才能换批" +
-                "（卡片=${currentCardName()}，剩余卡=${visibleCardNames().size}）",
+                "（卡片=${currentCardName()}，剩余卡=${visibleCardNames().size}，" +
+                "界面文案=${screenTexts().filter { it.length <= 6 }}）",
             find("再来一组") != null
         )
 
