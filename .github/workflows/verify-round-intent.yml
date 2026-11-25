@@ -120,14 +120,17 @@ jobs:
             adb install -r device-apks/app-debug-androidTest.apk
             adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || true
             adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED || true
-            # 明确运行实际需要的两个测试类，分别保存 instrumentation 输出
+            adb logcat -c || true
+            # A. 规则／引擎级（不打开界面，不冒充 UI 结论）
             timeout 600s adb shell am instrument -w -r -e class com.tabula.v3.DeckScreenRoundIntentEntryTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner | tee device-results/instrumentation-entry.txt
             grep -Eq 'OK \([0-9]+ tests?\)' device-results/instrumentation-entry.txt
-            timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.DeckScreenRoundIntentUiTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-ui.txt 2>&1 || true
-            cat device-results/instrumentation-ui.txt
+            # B. 真实卡片页（页面实际持有的批次是断言对象）
+            timeout 1800s adb shell am instrument -w -r -e class com.tabula.v3.DeckScreenCardFlowTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-card.txt 2>&1 || true
+            cat device-results/instrumentation-card.txt
             adb shell "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'" > device-results/window-focus.txt || true
             adb shell "cat /data/data/com.tabula.v3.recyclebin.test/files/diag-after-launch.txt" > device-results/diag-after-launch.txt 2>/dev/null || true
             adb shell "cat /data/data/com.tabula.v3.recyclebin.test/files/diag-timeout.txt" > device-results/diag-timeout.txt 2>/dev/null || true
+            adb logcat -d -s DeckScreen RoundIntentCard > device-results/deck-batch-lines.txt || true
             adb shell uiautomator dump /sdcard/ui-window.xml > /dev/null 2>&1 || true
             adb shell "cat /sdcard/ui-window.xml" | grep -oE 'text="[^"]+"' | sort -u | head -80 > device-results/ui-texts.txt || true
             echo "== window focus =="
@@ -136,10 +139,11 @@ jobs:
             cat device-results/ui-texts.txt || true
             # 汇总核对：类名、执行数量、失败数
             grep -E 'INSTRUMENTATION_STATUS: (numtests|test=)|OK \(|FAILURES' device-results/instrumentation-entry.txt > device-results/summary.txt
-            grep -E 'INSTRUMENTATION_STATUS: (numtests|test=)|OK \(|FAILURES' device-results/instrumentation-ui.txt >> device-results/summary.txt
+            grep -E 'INSTRUMENTATION_STATUS: (numtests|test=)|OK \(|FAILURES' device-results/instrumentation-card.txt >> device-results/summary.txt
             cat device-results/summary.txt
-            grep -Fx 'OK (4 tests)' device-results/instrumentation-entry.txt
-            grep -Fx 'OK (2 tests)' device-results/instrumentation-ui.txt
+            # 精确条数：规则/引擎 9 项、真实卡片 3 项
+            grep -Fx 'OK (9 tests)' device-results/instrumentation-entry.txt
+            grep -Fx 'OK (3 tests)' device-results/instrumentation-card.txt
       - name: Summarise
         if: always()
         run: |

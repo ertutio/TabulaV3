@@ -123,10 +123,6 @@ dependencies {
     // C4/T07 任务 E：防抖时序确定性验证用（与 coroutines 同版本，仅测试作用域）
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
-    // #90 审计：真实 Compose 界面入口测试（DeckScreen 提示 → 点击接受 → 批次行为）
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }

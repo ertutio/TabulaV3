@@ -17,7 +17,14 @@ import kotlin.random.Random
  * 3. **接受只影响下一批** —— 不是"从此都在这个相册里"，取完一批就回落。
  *
  * 与第 6 项的关系：共用同一个候选池与来源分桶（[SourceBalanceRules]）。
- * 意图只是把某个桶的权重临时抬高，冷却与去重规则完全不变。
+ * 意图只是把某个桶的优先级临时抬高，冷却与去重规则完全不变。
+ *
+ * 审计 #90 修正（第三轮）：
+ * - **回退到用户所选策略**，不再固定回落到均衡抽样。目标来源耗尽时若强行
+ *   改用均衡，等于在用户选了「原随机」时悄悄改掉他的策略；
+ * - [shouldSuggest] 的候选池口径改为与**下一批抽样**一致（调用方传入已扣
+ *   冷却、屏蔽图集与当前批次的候选），不再自己猜；
+ * - 阈值定为「主来源 ≥3 条成功记录 **且** ≥60%」，2+1 不提示、3+2 提示。
  *
  * 纯逻辑，无 Android/Compose 依赖。
  */
@@ -42,66 +49,79 @@ object RoundIntentRules {
      * 判断是否该提示「这轮再看几张这个相册」。
      *
      * 触发条件（全部满足才提示）：
-     * - 当前批次里**至少 [MIN_SHARE] 比例**的照片来自同一个来源——
-     *   说明用户确实在集中处理它，而不是偶然抽到两张
-     * - 该来源在候选池里还有剩余照片（否则提示了也抽不出来）
-     * - 用户还没接受过、也没忽略过（[dismissed] 为 true 就不再提）
+     * - 主来源至少 [MIN_SHARE_COUNT] 张**成功处理**记录
+     * - 且占成功处理总数至少 [MIN_SHARE]（3+2 = 60% 达标，2+1 卡在条数上）
+     * - 该来源在**下一批候选**里还有至少 [MIN_REMAINING] 张——
+     *   [eligibleImages] 必须与下一批抽样同口径（已扣冷却、屏蔽图集与
+     *   当前批次已抽到的身份），否则会提示一个抽不出来的来源
+     * - 用户还没忽略过（[dismissed]）、本轮也还没接受过同一来源
      *
-     * @param currentBatch 用户正在看的这一批
-     * @param available 候选池（已扣除冷却）
+     * @param session 会话统计（含已处理照片的来源快照与"本轮已接受"标记）
+     * @param eligibleImages 下一批可选候选（已扣冷却 / 屏蔽 / 当前批次）
+     * @param sourceKeyOf 来源键解析（与抽样层同一个函数）
      * @param dismissed 用户是否已经忽略过这个提示
      */
     fun shouldSuggest(
-        currentBatch: List<ImageFile>,
-        available: List<ImageFile>,
+        session: RoundSessionRules.Session,
+        eligibleImages: List<ImageFile>,
+        sourceKeyOf: (ImageFile) -> String,
         dismissed: Boolean = false
     ): String? {
-        if (dismissed || currentBatch.isEmpty()) return null
+        if (dismissed || session.currentBatch.isEmpty()) return null
 
-        val bySource = currentBatch.groupBy { SourceBalanceRules.sourceKeyOf(it) }
+        val bySource = session.currentBatch.groupBy { it.sourceKey }
         val (dominantKey, dominantRows) = bySource.maxByOrNull { it.value.size } ?: return null
         if (dominantRows.size < MIN_SHARE_COUNT) return null
-        if (dominantRows.size.toDouble() / currentBatch.size < MIN_SHARE) return null
+        if (dominantRows.size.toDouble() / session.currentBatch.size < MIN_SHARE) return null
 
-        // 该来源在候选池里还留着多少（扣除当前批次里已抽到的那批）
-        val alreadyShown = currentBatch.map { it.mediaIdentityKey() }.toSet()
-        val remaining = available.count {
-            SourceBalanceRules.sourceKeyOf(it) == dominantKey &&
-                it.mediaIdentityKey() !in alreadyShown
+        // 本轮已经接受过同一来源：不要在继续处理的过程中反复弹同一条提示。
+        if (session.acceptedThisRound == dominantKey) return null
+
+        // 只能提示下一批真能抽到的东西：候选里必须有批外（当前批次之外）的
+        // 同来源照片。只剩当前批次那几张时提示没有意义。
+        val outOfBatch = eligibleImages.count {
+            sourceKeyOf(it) == dominantKey && it.mediaIdentityKey() !in session.currentBatchIdentityKeys
         }
-        if (remaining < MIN_REMAINING) return null
+        if (outOfBatch < MIN_REMAINING) return null
 
         return dominantKey
     }
 
     /**
-     * 带意图的抽样：先把选中来源的照片尽量抽满，不足部分按第 6 项的
-     * 均衡策略补齐。
+     * 带意图的抽样：先把选中来源的照片尽量抽满，不足部分按**用户所选策略**
+     * 补齐。
+     *
+     * 审计 #90：补齐路径必须尊重 [strategy]（默认行为是原随机 UNIFORM）。
+     * 目标来源彻底耗尽时同样回落到 [strategy]，而不是固定改成均衡抽样——
+     * 那是用户的设置，不该被这个提示顺带改掉。
      *
      * **不**改变冷却与去重：传入的 [available] 必须已经扣除冷却。
      *
-     * @param available 候选池（已扣除冷却）
+     * @param available 候选池（已扣除冷却、屏蔽图集与当前批次）
      * @param batchSize 目标批次
-     * @param intent 当前意图；不 active 时等价于纯均衡抽样
+     * @param intent 当前意图；不 active 时等价于纯按策略抽样
+     * @param strategy 用户选择的漫步抽样策略（回退与补齐都用它）
      * @param random 随机源
      */
     fun sampleWithIntent(
         available: List<ImageFile>,
         batchSize: Int,
         intent: Intent,
+        strategy: SourceBalanceRules.Strategy = SourceBalanceRules.Strategy.UNIFORM,
         random: Random
     ): List<ImageFile> {
         if (batchSize <= 0 || available.isEmpty()) return emptyList()
-        if (!intent.isActive) {
-            return SourceBalanceRules.balancedSample(available, batchSize, random)
-        }
 
-        val preferred = available.filter {
-            SourceBalanceRules.sourceKeyOf(it) == intent.sourceKey
-        }
+        fun fallback(pool: List<ImageFile>, size: Int): List<ImageFile> =
+            SourceBalanceRules.sampleByStrategy(pool, size, strategy, random)
+
+        if (!intent.isActive) return fallback(available, batchSize)
+
+        val preferred = available
+            .filter { SourceBalanceRules.sourceKeyOf(it) == intent.sourceKey }
         if (preferred.isEmpty()) {
-            // 该来源已无剩余：静默回落，不报错、不空转
-            return SourceBalanceRules.balancedSample(available, batchSize, random)
+            // 该来源已无剩余：按用户所选策略出批，不静默改成均衡
+            return fallback(available, batchSize)
         }
 
         val preferredTake = preferred.shuffled(random).take(batchSize)
@@ -109,12 +129,7 @@ object RoundIntentRules {
 
         val used = preferredTake.map { it.mediaIdentityKey() }.toSet()
         val rest = available.filter { it.mediaIdentityKey() !in used }
-        val fill = SourceBalanceRules.balancedSample(
-            available = rest,
-            batchSize = batchSize - preferredTake.size,
-            random = random
-        )
-        return preferredTake + fill
+        return preferredTake + fallback(rest, batchSize - preferredTake.size)
     }
 
     /**
@@ -131,14 +146,14 @@ object RoundIntentRules {
     /** 会话结束 / 用户退出整理时清空。 */
     fun clear(): Intent = Intent()
 
-    /** 至少要有这么多张来自同一来源，才认为是"在集中处理它"。 */
+    /** 至少要有这么多张成功处理记录来自同一来源，才认为是"在集中处理它"。 */
     const val MIN_SHARE_COUNT = 3
 
-    /** 且要占到当前批次的这个比例。 */
+    /** 且要占到成功处理总数的这个比例（3/5 = 60% 恰好达标）。 */
     const val MIN_SHARE = 0.6
 
-    /** 该来源在候选池里至少还剩这么多张，提示才有意义。 */
-    const val MIN_REMAINING = 2
+    /** 该来源在下一批候选里至少还剩这么多张（当前批次之外）才提示。 */
+    const val MIN_REMAINING = 1
 }
 
 /**

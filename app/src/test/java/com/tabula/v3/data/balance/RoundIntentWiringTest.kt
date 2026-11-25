@@ -14,11 +14,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * 本轮整理意图的接线级测试（审计意见 #90）。
+ * 本轮整理意图的接线级测试（审计意见 #90 第三轮）。
  *
- * 审计要求的验收序列：接受只影响下一批、忽略、撤销、退出、来源耗尽、
- * 冷却、重启。这些在规则层已经覆盖过语义，这里再按**接线后的调用顺序**
- * 串一遍，确保 UI 与引擎之间的契约没断。
+ * 按**接线后的调用顺序**串一遍 UI 与引擎之间的契约：接受只影响下一批、
+ * 忽略不写意图、来源耗尽回落用户所选策略、冷却/屏蔽/当前批次都扣掉、
+ * 切换模式清全部状态。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], manifest = Config.NONE)
@@ -40,9 +40,16 @@ class RoundIntentWiringTest {
     private val screenshots = "external_primary|DCIM/Screenshots/"
     private val camera = "external_primary|DCIM/Camera/"
 
+    private fun sourceOf(image: ImageFile) = SourceBalanceRules.sourceKeyOf(image)
+
     private fun library() =
         (1L..20L).map { photo(it, "DCIM/Screenshots/") } +
             (100L..300L).map { photo(it, "DCIM/Camera/") }
+
+    private fun session(images: List<ImageFile>) =
+        images.fold(RoundSessionRules.Session()) { state, image ->
+            RoundSessionRules.record(state, image, RoundSessionRules.HandledAction.DELETE)
+        }
 
     // ============ 接受只影响下一批 ============
 
@@ -51,15 +58,17 @@ class RoundIntentWiringTest {
         val available = library()
         var intent = RoundIntentRules.accept(screenshots, 1L)
 
-        // 第一批：全部来自截图
-        val first = RoundIntentRules.sampleWithIntent(available, 6, intent, Random(1))
+        val first = RoundIntentRules.sampleWithIntent(
+            available, 6, intent, SourceBalanceRules.Strategy.UNIFORM, Random(1)
+        )
         assertTrue(first.all { it.relativePath == "DCIM/Screenshots/" })
 
-        // 消费后：回落成均衡/原策略，两个来源都会出现
         intent = RoundIntentRules.consume(intent)
         assertFalse(intent.isActive)
-        val second = RoundIntentRules.sampleWithIntent(available, 6, intent, Random(1))
-        assertEquals(2, second.map { it.relativePath }.toSet().size)
+        val second = RoundIntentRules.sampleWithIntent(
+            available, 6, intent, SourceBalanceRules.Strategy.UNIFORM, Random(1)
+        )
+        assertFalse(second.all { it.relativePath == "DCIM/Screenshots/" })
     }
 
     @Test
@@ -73,23 +82,26 @@ class RoundIntentWiringTest {
 
     @Test
     fun dismissedHintStopsAsking() {
-        val batch = (1L..4L).map { photo(it, "DCIM/Screenshots/") } + photo(9, "DCIM/Camera/")
-        val available = library()
+        val handled = (1L..4L).map { photo(it, "DCIM/Screenshots/") }
+        val eligible = listOf(photo(50, "DCIM/Screenshots/"))
+        val s = session(handled)
 
-        // 未忽略时应当提示
-        assertEquals(screenshots, RoundIntentRules.shouldSuggest(batch, available))
-        // 忽略后不再提示
-        assertNull(RoundIntentRules.shouldSuggest(batch, available, dismissed = true))
+        assertEquals(screenshots, RoundIntentRules.shouldSuggest(s, eligible, ::sourceOf))
+        assertNull(RoundIntentRules.shouldSuggest(s, eligible, ::sourceOf, dismissed = true))
     }
 
     @Test
     fun dismissDoesNotAffectSampling() {
         val available = library()
-        // 忽略只是不显示提示，抽样仍按用户选的策略走
+        // 忽略只是不显示提示、不写意图；下一批仍按用户所选策略
         val batch = RoundIntentRules.sampleWithIntent(
-            available, 6, RoundIntentRules.clear(), Random(1)
+            available, 6, RoundIntentRules.clear(),
+            SourceBalanceRules.Strategy.UNIFORM, Random(1)
         )
-        assertEquals(6, batch.size)
+        assertEquals(
+            SourceBalanceRules.uniformSample(available, 6, Random(1)).map { it.mediaIdentityKey() },
+            batch.map { it.mediaIdentityKey() }
+        )
     }
 
     // ============ 撤销 ============
@@ -100,11 +112,14 @@ class RoundIntentWiringTest {
         var intent = RoundIntentRules.accept(screenshots, 1L)
         assertTrue(intent.isActive)
 
-        // 用户撤销（在下一批装载前清空）
         intent = RoundIntentRules.clear()
-        val batch = RoundIntentRules.sampleWithIntent(available, 6, intent, Random(1))
-
-        assertEquals(2, batch.map { it.relativePath }.toSet().size)
+        val batch = RoundIntentRules.sampleWithIntent(
+            available, 6, intent, SourceBalanceRules.Strategy.UNIFORM, Random(1)
+        )
+        assertEquals(
+            SourceBalanceRules.uniformSample(available, 6, Random(1)).map { it.mediaIdentityKey() },
+            batch.map { it.mediaIdentityKey() }
+        )
     }
 
     // ============ 退出整理 ============
@@ -117,17 +132,24 @@ class RoundIntentWiringTest {
         assertEquals(0L, cleared.acceptedAt)
     }
 
-    // ============ 来源耗尽 ============
+    // ============ 来源耗尽：回落用户所选策略 ============
 
     @Test
-    fun exhaustedSourceSilentlyFallsBack() {
-        val available = (100L..300L).map { photo(it, "DCIM/Camera/") }
+    fun exhaustedSourceSilentlyFallsBackToChosenStrategy() {
+        val available = (100L..300L).map { photo(it, "DCIM/Camera/") } +
+            (400L..402L).map { photo(it, "DCIM/Screens/") }
         val intent = RoundIntentRules.accept(screenshots, 1L)
 
-        val batch = RoundIntentRules.sampleWithIntent(available, 6, intent, Random(1))
+        val batch = RoundIntentRules.sampleWithIntent(
+            available, 6, intent, SourceBalanceRules.Strategy.UNIFORM, Random(5)
+        )
 
         assertEquals(6, batch.size)
-        assertTrue("来源没了也要能出批", batch.all { it.relativePath == "DCIM/Camera/" })
+        assertEquals(
+            "来源耗尽要按用户所选策略出批（原随机），不是固定均衡",
+            SourceBalanceRules.uniformSample(available, 6, Random(5)).map { it.mediaIdentityKey() },
+            batch.map { it.mediaIdentityKey() }
+        )
     }
 
     @Test
@@ -136,43 +158,152 @@ class RoundIntentWiringTest {
             (100L..300L).map { photo(it, "DCIM/Camera/") }
         val intent = RoundIntentRules.accept(screenshots, 1L)
 
-        val batch = RoundIntentRules.sampleWithIntent(available, 6, intent, Random(1))
-
+        val batch = RoundIntentRules.sampleWithIntent(
+            available, 6, intent, SourceBalanceRules.Strategy.UNIFORM, Random(1)
+        )
         assertEquals(6, batch.size)
         assertEquals(2, batch.count { it.relativePath == "DCIM/Screenshots/" })
     }
 
-    // ============ 冷却 ============
+    // ============ 候选池口径 ============
 
     @Test
-    fun coolingStillAppliesAfterAcceptingIntent() {
-        val available = library()
-        // 截图目录全在冷却中（调用方已 partition）
-        val cooled = available.filter { it.relativePath == "DCIM/Screenshots/" }
-        val eligible = available - cooled.toSet()
+    fun cooldownPhotosAreNotEligibleCandidates() {
+        val all = library()
+        val cooledShot = photo(1, "DCIM/Screenshots/")
+        val cooledCamera = photo(100, "DCIM/Camera/")
 
-        val intent = RoundIntentRules.accept(screenshots, 1L)
-        val batch = RoundIntentRules.sampleWithIntent(eligible, 6, intent, Random(1))
-
-        val cooledKeys = cooled.map { it.mediaIdentityKey() }.toSet()
-        assertTrue(
-            "冷却中的照片不能因为意图被放回来",
-            batch.none { it.mediaIdentityKey() in cooledKeys }
+        val eligible = RoundCandidateRules.eligibleForNextBatch(
+            allImages = all,
+            cooldownIdentityKeys = setOf(
+                cooledShot.mediaIdentityKey(),
+                cooledCamera.mediaIdentityKey()
+            )
         )
+
+        assertTrue(
+            "冷却中的照片不是下一批候选",
+            eligible.none { it.mediaIdentityKey() == cooledShot.mediaIdentityKey() }
+        )
+        assertTrue(eligible.none { it.mediaIdentityKey() == cooledCamera.mediaIdentityKey() })
+        assertEquals(all.size - 2, eligible.size)
+    }
+
+    @Test
+    fun excludedAlbumPhotosAreNotEligibleCandidates() {
+        val all = library()
+        val eligible = RoundCandidateRules.eligibleForNextBatch(
+            allImages = all,
+            excludedAlbumIds = setOf("Screenshots")
+        )
+        assertTrue(
+            "屏蔽图集里的照片不是下一批候选",
+            eligible.none { it.bucketDisplayName == "Screenshots" }
+        )
+    }
+
+    @Test
+    fun currentBatchIsDeductedFromCandidates() {
+        val all = library()
+        val current = all.filter { it.mediaIdentityKey() == "external_primary|5" }
+        require(current.size == 1)
+
+        val eligible = RoundCandidateRules.eligibleForNextBatch(
+            allImages = all,
+            currentBatch = current
+        )
+        assertTrue(
+            "当前批次里已有的身份不算下一批候选",
+            eligible.none { it.mediaIdentityKey() == "external_primary|5" }
+        )
+    }
+
+    @Test
+    fun legacyBareIdCooldownIsAlsoDeducted() {
+        val all = library()
+        val eligible = RoundCandidateRules.eligibleForNextBatch(
+            allImages = all,
+            cooldownLegacyBareIds = setOf(7L)
+        )
+        assertTrue(
+            "未迁移的旧裸 ID 冷却记录同样生效",
+            eligible.none { it.id == 7L }
+        )
+    }
+
+    @Test
+    fun onlyCurrentBatchRemainderDoesNotSuggestButOutOfBatchDoes() {
+        // 4 张截图正是当前批次，候选池里已把它们扣掉
+        val batch = (1L..4L).map { photo(it, "DCIM/Screenshots/") }
+        val all = batch + (100L..120L).map { photo(it, "DCIM/Camera/") }
+        val s = session(batch)
+
+        val eligibleNoOutOfBatch = RoundCandidateRules.eligibleForNextBatch(
+            allImages = all, currentBatch = batch
+        )
+        assertNull(
+            "只有当前批次内的同来源照片时不提示",
+            RoundIntentRules.shouldSuggest(s, eligibleNoOutOfBatch, ::sourceOf)
+        )
+
+        // 批外补一张截图 → 可以提示
+        val withOutOfBatch = all + photo(50, "DCIM/Screenshots/")
+        val eligibleWithOutOfBatch = RoundCandidateRules.eligibleForNextBatch(
+            allImages = withOutOfBatch, currentBatch = batch
+        )
+        assertEquals(
+            "确有批外候选时可以提示",
+            screenshots,
+            RoundIntentRules.shouldSuggest(s, eligibleWithOutOfBatch, ::sourceOf)
+        )
+    }
+
+    // ============ 模式隔离 ============
+
+    @Test
+    fun modeSwitchClearsStatsAndAcceptedMarker() {
+        val s = RoundSessionRules.markAccepted(
+            session((1L..4L).map { photo(it, "DCIM/Screenshots/") }),
+            screenshots
+        )
+        assertEquals(screenshots, s.acceptedThisRound)
+
+        val isolated = RoundSessionRules.isolateForModeSwitch(s)
+        assertTrue("切换模式要清空统计", isolated.isEmpty())
+        assertTrue("已完成批次也清空", isolated.completedBatches.isEmpty())
+        assertNull("本轮已接受标记也清空", isolated.acceptedThisRound)
+    }
+
+    @Test
+    fun endSessionClearsEverything() {
+        val s = RoundSessionRules.markAccepted(
+            session((1L..4L).map { photo(it, "DCIM/Screenshots/") }),
+            screenshots
+        )
+        val ended = RoundSessionRules.endSession()
+        assertTrue(ended.isEmpty())
+        assertTrue(ended.completedBatches.isEmpty())
+        assertNull(ended.acceptedThisRound)
+        assertTrue("原来那份确实有内容", s.currentBatch.isNotEmpty())
     }
 
     // ============ 重启 ============
 
     @Test
     fun intentDoesNotSurviveProcessRestart() {
-        // 意图是内存值：新建（模拟重启后）得到的就是空意图
         val afterRestart = RoundIntentRules.clear()
         assertFalse(afterRestart.isActive)
         assertNull(afterRestart.sourceKey)
 
-        // 抽样回落到默认策略
-        val batch = RoundIntentRules.sampleWithIntent(library(), 6, afterRestart, Random(1))
-        assertEquals(2, batch.map { it.relativePath }.toSet().size)
+        val available = library()
+        val batch = RoundIntentRules.sampleWithIntent(
+            available, 6, afterRestart,
+            SourceBalanceRules.Strategy.UNIFORM, Random(1)
+        )
+        assertEquals(
+            SourceBalanceRules.uniformSample(available, 6, Random(1)).map { it.mediaIdentityKey() },
+            batch.map { it.mediaIdentityKey() }
+        )
     }
 
     // ============ 显示名 ============
@@ -190,25 +321,7 @@ class RoundIntentWiringTest {
 
     @Test
     fun displayNameHandlesMalformedKeys() {
-        // 没有分隔符时整串当路径
         assertEquals("weird", StagedSourceDisplayName.of("weird"))
-        // 完全空时给一个可读兜底，不崩
         assertEquals("相册", StagedSourceDisplayName.of(""))
-    }
-
-    // ============ 提示判定的边界 ============
-
-    @Test
-    fun hintRequiresUserToActuallyHandleABatch() {
-        // userHandledBatch 为空时不该提示（接线层的守卫）
-        assertNull(RoundIntentRules.shouldSuggest(emptyList(), library()))
-    }
-
-    @Test
-    fun hintRespectsMinimumShareAndCount() {
-        // 3 张来自同一来源但只占 43%（7 张批次）→ 不提示
-        val batch = (1L..3L).map { photo(it, "DCIM/Screenshots/") } +
-            (10L..13L).map { photo(it, "DCIM/Camera/") }
-        assertNull(RoundIntentRules.shouldSuggest(batch, library()))
     }
 }

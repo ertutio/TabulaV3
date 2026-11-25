@@ -3,6 +3,7 @@ package com.tabula.v3.data.repository
 import android.content.Context
 import com.tabula.v3.data.cache.ImageHashCache
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.balance.RoundCandidateRules
 import com.tabula.v3.data.balance.RoundIntentRules
 import com.tabula.v3.data.balance.SourceBalanceRules
 import com.tabula.v3.data.preferences.AppPreferences
@@ -241,6 +242,32 @@ class RecommendationEngine(
         roundIntent = RoundIntentRules.clear()
     }
 
+    /**
+     * 下一批候选池（审计 #90）：与 [getRandomWalkBatch] 同口径。
+     *
+     * 提示「这轮再看几张这个相册」之前必须先用这个方法确认那个来源在下一批
+     * 里真抽得到东西。资格判定与抽样一致：扣屏蔽图集 → 扣冷却 → 扣当前批次。
+     *
+     * 只在随机漫步的普通整理模式有意义；专清 / 相似推荐的候选由各自的引擎
+     * 负责，不用这个池子。
+     *
+     * @param allImages 完整照片池（调用方已排除已归集照片）
+     * @param currentBatch 页面当前持有的批次，其身份要从候选里扣掉
+     */
+    fun eligibleNextBatchCandidates(
+        allImages: List<ImageFile>,
+        currentBatch: List<ImageFile> = emptyList()
+    ): List<ImageFile> {
+        val cooldown = preferences.getPickCooldownIndex()
+        return RoundCandidateRules.eligibleForNextBatch(
+            allImages = filterExcludedAlbums(allImages),
+            excludedAlbumIds = emptySet(), // 已在 filterExcludedAlbums 扣过
+            cooldownIdentityKeys = cooldown.byIdentityKey.keys,
+            cooldownLegacyBareIds = cooldown.byLegacyBareId.keys,
+            currentBatch = currentBatch
+        )
+    }
+
     private fun getRandomWalkBatch(
         allImages: List<ImageFile>,
         batchSize: Int
@@ -268,30 +295,25 @@ class RecommendationEngine(
         //
         // 路线图 #83 第 7 项（审计 #90）：若有用户主动接受的本轮意图，
         // **下一批**优先从该来源取；意图是一次性的，取完即失效。
-        val baseSampled: List<ImageFile> = when (preferences.walkSamplingStrategy) {
+        // 审计第三轮：意图耗尽 / 补齐时回落到**用户所选策略**，
+        // 不再固定改成均衡抽样。
+        val strategy = when (preferences.walkSamplingStrategy) {
             com.tabula.v3.data.preferences.WalkSamplingStrategy.UNIFORM ->
-                SourceBalanceRules.uniformSample(availableImages, batchSize, kotlin.random.Random.Default)
+                SourceBalanceRules.Strategy.UNIFORM
             com.tabula.v3.data.preferences.WalkSamplingStrategy.SOURCE_BALANCED ->
-                SourceBalanceRules.balancedSample(
-                    available = availableImages,
-                    batchSize = batchSize,
-                    random = kotlin.random.Random.Default
-                )
+                SourceBalanceRules.Strategy.SOURCE_BALANCED
         }
 
         // 审计 #90：引擎自己原子消费意图——取出即清空，并发/重复取批
         // 不会复用同一意图；界面回调不再负责清空展示状态。
         val consumedIntent = consumeRoundIntent()
-        val newlyPicked: List<ImageFile> = if (consumedIntent != null) {
-            RoundIntentRules.sampleWithIntent(
-                available = availableImages,
-                batchSize = batchSize,
-                intent = consumedIntent,
-                random = kotlin.random.Random.Default
-            )
-        } else {
-            baseSampled
-        }
+        val newlyPicked: List<ImageFile> = RoundIntentRules.sampleWithIntent(
+            available = availableImages,
+            batchSize = batchSize,
+            intent = consumedIntent ?: RoundIntentRules.clear(),
+            strategy = strategy,
+            random = kotlin.random.Random.Default
+        )
 
         val result = newlyPicked.toMutableList()
         val usedKeys = result.map { it.mediaIdentityKey() }.toMutableSet()

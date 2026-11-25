@@ -196,6 +196,9 @@ fun DeckScreen(
     onKeep: (ImageFile) -> Unit = {},
     // #90：批次真正切换到新的一批后回调，用于归档本轮统计、避免上一批进入下一批判断
     onBatchAdvanced: () -> Unit = {},
+    // #90：把卡片页**实际持有**的批次回报给上层——候选池与提示判定都以它为准，
+    // 不能在上层另算一份"当前批次"（两份会漂移，提示就会问一个抽不出来的来源）
+    onBatchChanged: (List<ImageFile>) -> Unit = {},
     onNavigateToTrash: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAlbumDetail: (Album) -> Unit = {},
@@ -315,6 +318,15 @@ fun DeckScreen(
     // 用于异步初始化批次
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var needsInitialBatch by remember { mutableStateOf(true) }
+
+    // #90：把**页面实际持有**的批次回报给上层（候选池与提示判定都以它为准）。
+    // currentBatch 是所有加载路径（site-1…site-10）的汇合点，所以在这里上报
+    // 不会漏掉任何一条装载路径，也不会和上层的猜测漂移。
+    androidx.compose.runtime.LaunchedEffect(currentBatch, isAlbumCleanupMode) {
+        // 专清模式持有的是 currentCleanupBatch，不是这批普通整理的批次；
+        // 那里上报空批次，上层据此不做来源意图判定。
+        onBatchChanged(if (isAlbumCleanupMode) emptyList() else currentBatch)
+    }
     
     // ========== 快捷操作按钮状态 ==========
     val safeArea = rememberSafeArea()

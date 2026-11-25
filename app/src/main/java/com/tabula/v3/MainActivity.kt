@@ -66,6 +66,7 @@ import com.tabula.v3.data.balance.ArchiveIdentityRules
 import com.tabula.v3.BuildConfig
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.CardStyleMode
+import com.tabula.v3.data.preferences.RecommendMode
 import com.tabula.v3.data.preferences.SourceImageDeletionStrategy
 import com.tabula.v3.data.preferences.SwipeStyle
 import com.tabula.v3.data.preferences.TagSelectionMode
@@ -502,6 +503,10 @@ fun TabulaApp(
     var intentDismissed by remember { mutableStateOf(false) }
     // #90：只统计成功处理的行为（保留/归档/删除），撤销与失败要回退
     var roundSession by remember { mutableStateOf(RoundSessionRules.Session()) }
+    // #90：卡片页当前实际持有的批次（由 DeckScreen 回报），用于候选池与提示判定
+    var currentDeckBatch by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
+    // 当前推荐模式（跟随设置切换；意图只在随机漫步的普通整理模式下生效）
+    var currentRecommendMode by remember { mutableStateOf(preferences.recommendMode) }
 
     // ========== 图片数据状态 ==========
     var allImages by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
@@ -523,25 +528,17 @@ fun TabulaApp(
     val albumCleanupEngine = remember { AlbumCleanupEngine.getInstance(context) }
 
     /**
-     * 按**用户实际处理行为**评估是否提示本轮整理意图（审计 #90）。
+     * 重置本轮整理意图的全部状态（审计 #90）。
      *
-     * 触发条件由 RoundIntentRules.shouldSuggest 给出：当前这批里 ≥60% 且
-     * ≥3 张来自同一来源、该来源还有剩余、用户没忽略过。
-     *
-     * 只在用户真的动过手（userHandledBatch 非空）之后才评估——一进卡片页
-     * 就弹提示会显得莫名其妙。
+     * 审计要求：进入或退出专清、切换推荐模式、离开卡片页时，**统计、提示、
+     * 已接受来源与待消费意图**都要一起清掉。只清一半（例如只清提示）会让
+     * 上一个模式的来源偏好漏进下一个模式。
      */
-    LaunchedEffect(roundSession, intentDismissed, imagesForSorting) {
-        if (intentDismissed || roundSession.isEmpty()) return@LaunchedEffect
-        val availableImages = imagesForSorting.filterNot { image ->
-            deletedImages.any { it.mediaIdentityKey() == image.mediaIdentityKey() }
-        }
-        // 只用成功处理的行为判定；来源策略与抽样层同口径
-        intentSuggestion = RoundSessionRules.shouldSuggest(
-            session = roundSession,
-            sourceKeyOf = { SourceBalanceRules.sourceKeyOf(it) },
-            availableImages = availableImages
-        )
+    fun resetRoundIntentState() {
+        roundSession = RoundSessionRules.endSession()
+        intentSuggestion = null
+        intentDismissed = false
+        recommendationEngine.clearRoundIntent()
     }
 
     val albums by albumManager.albums.collectAsState()
@@ -555,6 +552,12 @@ fun TabulaApp(
     // 图集清理模式状态（提升到 TabulaApp 级别，避免导航时丢失）
     var isAlbumCleanupMode by remember { mutableStateOf(false) }
     var selectedCleanupAlbum by remember { mutableStateOf<Album?>(null) }
+
+    // #90：模式隔离的单一判据——只有随机漫步的**普通整理模式**才记录、
+    // 展示、接受本轮意图。进入或退出专清、切到相似推荐时这套状态全部清掉。
+    val tracksRoundIntent =
+        currentRecommendMode == RecommendMode.RANDOM_WALK && !isAlbumCleanupMode
+
     
     // 刷新图集清理信息的回调
     fun refreshAlbumCleanupInfos() {
@@ -575,20 +578,70 @@ fun TabulaApp(
     // 用于在设置中切换推荐模式后，返回主页时刷新批次
     var recommendModeRefreshKey by remember { mutableIntStateOf(0) }
 
-    // #90：批次切换 / 切换专清或相似推荐 / 退出整理时，清理本轮统计与提示。
-    // 意图是会话级的：这些切换代表"新一轮整理"，不能继承上一轮的来源偏好。
+    // #90：切换专清 / 相似推荐 / 换推荐模式 / 退出整理时，清理本轮的
+    // 统计、提示、已接受来源与待消费意图。意图是会话级的：这些切换代表
+    // "新一轮整理"，不能继承上一轮的来源偏好。
+    //
+    // 审计第三轮：这里必须清**全部**四项。之前只清统计和提示、漏了
+    // `currentDeckBatch` 与待消费意图，切模式后再回到卡片页，旧批次仍被
+    // 当作"当前批次"，候选池因此把该来源的可用照片算成批内照片。
     LaunchedEffect(recommendModeRefreshKey) {
-        roundSession = RoundSessionRules.isolateForModeSwitch(roundSession)
-        intentSuggestion = null
-        intentDismissed = false
-        recommendationEngine.clearRoundIntent()
+        resetRoundIntentState()
+        currentDeckBatch = emptyList()
+        currentRecommendMode = preferences.recommendMode
+    }
+    // 进入/退出专清模式：同一个隔离动作（审计要求双向都要清）
+    LaunchedEffect(isAlbumCleanupMode) {
+        resetRoundIntentState()
+        currentDeckBatch = emptyList()
     }
     LaunchedEffect(currentScreen) {
         if (currentScreen != AppScreen.DECK) {
-            roundSession = RoundSessionRules.endSession()
-            intentSuggestion = null
-            recommendationEngine.clearRoundIntent()
+            resetRoundIntentState()
+            currentDeckBatch = emptyList()
         }
+    }
+
+    /**
+     * 按**用户实际处理行为**评估是否提示本轮整理意图（审计 #90）。
+     *
+     * 触发条件（全部满足才提示）：
+     * - 当前是随机漫步的普通整理模式（专清 / 相似推荐下不提示）
+     * - 主来源至少 3 张成功处理记录，且 ≥60%
+     * - 该来源在**下一批候选**里仍有批外照片——候选池与抽样同口径：
+     *   扣屏蔽图集、扣冷却、扣当前批次（[RoundCandidateRules]）
+     * - 本轮没有接受过同一来源、用户也没忽略过
+     *
+     * 候选池用 RecommendationEngine.eligibleNextBatchCandidates 求，不再
+     * 自己拿 imagesForSorting 猜——"照片还在池子里"不等于"下一批抽得到"。
+     */
+    LaunchedEffect(
+        roundSession,
+        intentDismissed,
+        imagesForSorting,
+        currentDeckBatch,
+        currentRecommendMode,
+        isAlbumCleanupMode
+    ) {
+        // 模式隔离：只在随机漫步的普通整理模式判定与展示
+        val inPlainRandomWalk =
+            currentRecommendMode == RecommendMode.RANDOM_WALK && !isAlbumCleanupMode
+        if (!inPlainRandomWalk || intentDismissed || roundSession.isEmpty()) {
+            intentSuggestion = null
+            return@LaunchedEffect
+        }
+        val eligible = recommendationEngine.eligibleNextBatchCandidates(
+            allImages = imagesForSorting.filterNot { image ->
+                deletedImages.any { it.mediaIdentityKey() == image.mediaIdentityKey() }
+            },
+            currentBatch = currentDeckBatch
+        )
+        intentSuggestion = RoundSessionRules.shouldSuggest(
+            session = roundSession,
+            sourceKeyOf = { SourceBalanceRules.sourceKeyOf(it) },
+            eligibleImages = eligible,
+            dismissed = intentDismissed
+        )
     }
     
     // ========== 原图删除提醒状态 ==========
@@ -925,9 +978,11 @@ fun TabulaApp(
                     // 只有真正提交成功才记为 ARCHIVE；失败/未领取都不记
                     if (ArchiveIdentityRules.shouldRecord(outcome)) {
                         archivedImage?.let {
-                            roundSession = RoundSessionRules.record(
-                                roundSession, it, RoundSessionRules.HandledAction.ARCHIVE
-                            )
+                            if (tracksRoundIntent) {
+                                roundSession = RoundSessionRules.record(
+                                    roundSession, it, RoundSessionRules.HandledAction.ARCHIVE
+                                )
+                            }
                         }
                     }
                 }
@@ -940,8 +995,7 @@ fun TabulaApp(
     }
 
     val deckContent: @Composable () -> Unit = {
-        DeckScreen(
-            // 使用 imagesForSorting（排除已归类到 Tabula 图集的照片）
+        DeckScreen(            // 使用 imagesForSorting（排除已归类到 Tabula 图集的照片）
             // 这样已归类的照片不会再次出现在待整理列表中
             allImages = imagesForSorting,
             allImagesForCleanup = allImages,
@@ -950,16 +1004,20 @@ fun TabulaApp(
             topBarDisplayMode = currentTopBarMode,
             onKeep = { kept: ImageFile ->
                 preferences.totalReviewedCount++
-                // #90：成功保留也计入本轮统计
-                roundSession = RoundSessionRules.record(
-                    roundSession, kept, RoundSessionRules.HandledAction.KEEP
-                )
+                // #90：成功保留也计入本轮统计（只在随机漫步普通整理模式）
+                if (tracksRoundIntent) {
+                    roundSession = RoundSessionRules.record(
+                        roundSession, kept, RoundSessionRules.HandledAction.KEEP
+                    )
+                }
             },
             // #90：批次真正切换后归档上一批统计，不让它进入下一批意图判断
             onBatchAdvanced = {
                 roundSession = RoundSessionRules.nextBatch(roundSession)
                 intentSuggestion = null
             },
+            // #90：卡片页回报它实际持有的批次——候选池与提示判定都以它为准
+            onBatchChanged = { batch -> currentDeckBatch = batch },
             onRemove = { image ->
                 scope.launch {
                     try {
@@ -967,9 +1025,11 @@ fun TabulaApp(
                         albumCleanupEngine.recordUserRemovedImage(image)
                         val persisted = recycleBinManager.loadRecycleBin()
                         // 写成功后才记账：失败不能污染本轮来源判断
-                        roundSession = RoundSessionRules.record(
-                            roundSession, image, RoundSessionRules.HandledAction.DELETE
-                        )
+                        if (tracksRoundIntent) {
+                            roundSession = RoundSessionRules.record(
+                                roundSession, image, RoundSessionRules.HandledAction.DELETE
+                            )
+                        }
                         // 即时状态与刷新后的投影同口径：按媒体身份（卷, ID）过滤，
                         // 跨卷同数值 ID 的其他照片不受本次回收影响。
                         allImages = allImages.filterNot { row -> persisted.any { it.matchesSameMediaIdentity(row) } }
@@ -1081,12 +1141,19 @@ fun TabulaApp(
             // 路线图 #83 第 7 项（审计 #90）：本轮整理意图。
             // 提示在批次装载后由 userHandledBatch 计算——只有用户真的在处理
             // 某个来源时才出现，而不是一进卡片页就弹。
-            intentSourceName = intentSuggestion?.let { key ->
-                StagedSourceDisplayName.of(key)
+            // 路线图 #83 第 7 项（审计 #90）：本轮整理意图。
+            // 只在本轮确实在处理同一来源、且下一批抽得到时才展示。
+            intentSourceName = if (tracksRoundIntent) {
+                intentSuggestion?.let { key -> StagedSourceDisplayName.of(key) }
+            } else {
+                null
             },
             onAcceptIntent = {
-                intentSuggestion?.let { key ->
+                // 只在普通随机漫步模式接受；其它模式下这里根本不该出现提示
+                intentSuggestion?.takeIf { tracksRoundIntent }?.let { key ->
                     recommendationEngine.acceptRoundIntent(key)
+                    // 同一轮里不再对同一来源重复提示（避免接受后又弹一次）
+                    roundSession = RoundSessionRules.markAccepted(roundSession, key)
                     intentSuggestion = null
                     intentDismissed = false
                     Toast.makeText(
@@ -1097,7 +1164,7 @@ fun TabulaApp(
                 }
             },
             onDismissIntent = {
-                // 忽略：本次会话不再提示（不写偏好，重启后重新评估）
+                // 忽略：本次会话不再提示（不写偏好、不写意图，重启后重新评估）
                 intentDismissed = true
                 intentSuggestion = null
             },

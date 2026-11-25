@@ -177,11 +177,15 @@ class BurstCardEntryTest {
     fun acceptIntentConsumedByNextBatchOnly() {
         var intent = RoundIntentRules.accept(sourceOf(shots()[0]), 1L)
         val all = shots() + cameras()
-        val first = RoundIntentRules.sampleWithIntent(all, 6, intent, Random(1))
+        val first = RoundIntentRules.sampleWithIntent(
+            all, 6, intent, SourceBalanceRules.Strategy.UNIFORM, Random(1)
+        )
         assertTrue(first.all { sourceOf(it) == sourceOf(shots()[0]) })
 
         intent = RoundIntentRules.consume(intent)
-        val second = RoundIntentRules.sampleWithIntent(all, 6, intent, Random(1))
+        val second = RoundIntentRules.sampleWithIntent(
+            all, 6, intent, SourceBalanceRules.Strategy.UNIFORM, Random(1)
+        )
         assertEquals(2, second.map(::sourceOf).toSet().size)
     }
 
