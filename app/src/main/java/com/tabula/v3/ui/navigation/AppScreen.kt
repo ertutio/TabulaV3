@@ -23,6 +23,7 @@ enum class AppScreen {
     STAGED_CLEANUP,      // 暂存清理（截图/下载旧图，路线图第 1 项）
     RELAY_REVIEW,        // 系统分享产生的待清记录（#85）
     BURST_SELECTION,     // 连拍选片（相似组内选留，路线图第 4 项）
+    INTENT_BATCH,        // 按整理目的凑一批（暂存清理内的排序视图，路线图第 8 项）
     PRIVACY_POLICY,      // 隐私政策
     TUTORIAL             // 使用教程
 }

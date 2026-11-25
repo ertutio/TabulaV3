@@ -165,6 +165,15 @@ import com.tabula.v3.data.cleanup.StagedSourceKey
 import com.tabula.v3.data.cleanup.cleanupIdentityKey
 import com.tabula.v3.ui.screens.StagedCleanupCandidateContent
 import com.tabula.v3.ui.screens.StagedCleanupSourcePickerContent
+import com.tabula.v3.ui.screens.IntentBatchContent
+import com.tabula.v3.ui.screens.IntentAssistKeyDialog
+import com.tabula.v3.data.intent.DeepSeekTextAssist
+import com.tabula.v3.data.intent.IntentAssistKeyStore
+import com.tabula.v3.data.intent.IntentBatch
+import com.tabula.v3.data.intent.IntentBatchAnalyzer
+import com.tabula.v3.data.intent.IntentTesseractFactory
+import com.tabula.v3.data.intent.IntentVerdictCache
+import com.tabula.v3.data.intent.allCandidates
 
 /**
  * 首次进入暂存清理时预勾选的来源上限。
@@ -173,6 +182,18 @@ import com.tabula.v3.ui.screens.StagedCleanupSourcePickerContent
  * 上铺开的聊天软件保存目录被一次性全选，把用户没打算动的照片带进候选。
  */
 private const val MAX_DEFAULT_STAGED_SOURCES = 3
+
+/**
+ * 「按整理目的凑一批」一次凑多少张。
+ *
+ * 与卡片的批次大小无关：这个数只用来决定「最多给多少张高置信候选」，
+ * 高置信不够时不凑满（见 IntentBatch.shortOfLimit）。
+ */
+private const val MAX_INTENT_BATCH = 10
+
+/** 候选的媒体身份键，与暂存清理同口径（卷|ID）。 */
+private fun intentIdentityOf(candidate: com.tabula.v3.data.intent.IntentCandidate): String =
+    cleanupIdentityKey(candidate.image)
 
 /**
  * T02b 恢复核验决策：未知保留在回收站，缺失清除死记录且不入图库，仅 PRESENT 继续恢复。
@@ -592,6 +613,33 @@ fun TabulaApp(
     // 当前推荐模式（跟随设置切换；意图只在随机漫步的普通整理模式下生效）
     var currentRecommendMode by remember { mutableStateOf(preferences.recommendMode) }
 
+    // ========== 按整理目的凑一批（路线图第 8 项 / #94） ==========
+    // 范围完全复用上一段的暂存清理候选；这里只多一层「按值得清理的程度排序」。
+    // 三个状态刻意分开：分析中、分析结果、以及「本批次是否启用了文字辅助」——
+    // 最后一项默认 false，且只对当前这批生效，离开页面不复用。
+    var intentBatch by remember { mutableStateOf<IntentBatch?>(null) }
+    var intentBatchSelectedKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var intentBatchAnalyzing by remember { mutableStateOf(false) }
+    var intentBatchSaving by remember { mutableStateOf(false) }
+    var intentBatchEngineNote by remember { mutableStateOf<String?>(null) }
+    var intentBatchStatus by remember { mutableStateOf("") }
+    var intentBatchAssistEnabled by remember { mutableStateOf(false) }
+    var intentBatchAssistTried by remember { mutableStateOf(false) }
+    var showIntentAssistKeyDialog by remember { mutableStateOf(false) }
+    val intentAssistKeyStore = remember(context) { IntentAssistKeyStore(context) }
+    val intentVerdictCache = remember(context) {
+        IntentVerdictCache(
+            context.getSharedPreferences("tabula_intent_verdicts", android.content.Context.MODE_PRIVATE)
+        )
+    }
+    val intentAnalyzer = remember(context) {
+        IntentBatchAnalyzer(
+            context = context,
+            recognizer = IntentTesseractFactory.get(context),
+            cache = intentVerdictCache
+        )
+    }
+
     // ========== 图片数据状态 ==========
     var allImages by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
     // 用于主界面卡片整理的图片列表（排除已归类到 Tabula 图集的照片）
@@ -983,6 +1031,93 @@ fun TabulaApp(
             )
             stagedCleanupSelection = null
         }
+    }
+
+    /**
+     * 跑一轮本地分析。
+     *
+     * 只处理暂存清理已有的候选（旧图 + 未到期 + 时间未知），**不**动 [allImages]、
+     * 不写回收站、不写偏好。结果只落到 [intentBatch]，界面据此排序与解释。
+     */
+    fun analyzeIntentBatch() {
+        if (intentBatchAnalyzing) return
+        intentBatchAnalyzing = true
+        intentBatchEngineNote = null
+        scope.launch {
+            try {
+                // 候选范围 = 暂存清理当前看到的全部照片（含未到期的，排序可以解释它们为什么排后面）
+                val candidates = stagedCleanupSelection?.allCandidateImages.orEmpty()
+                if (candidates.isEmpty()) {
+                    intentBatch = IntentBatch(emptyList(), emptyList(), emptyList(), emptyList(), 0)
+                    intentBatchStatus = "这些来源里没有候选"
+                    return@launch
+                }
+                val allowAssist = intentBatchAssistEnabled && intentAssistKeyStore.hasKey()
+                val analyzer = IntentBatchAnalyzer(
+                    context = context,
+                    recognizer = IntentTesseractFactory.get(context),
+                    cache = intentVerdictCache,
+                    textAssist = if (allowAssist) {
+                        DeepSeekTextAssist(
+                            keyStore = intentAssistKeyStore,
+                            userEnabledForBatch = true
+                        )
+                    } else {
+                        null
+                    }
+                )
+                val analysis = analyzer.analyze(
+                    images = candidates,
+                    batchLimit = MAX_INTENT_BATCH,
+                    nowMillis = System.currentTimeMillis(),
+                    retainedIdentityKeys = preferences.stagedCleanupRetainedIdentityKeys,
+                    allowTextAssist = allowAssist
+                )
+                intentBatch = analysis.batch
+                intentBatchEngineNote = analysis.engineNote
+                intentBatchSelectedKeys = intentBatchSelectedKeys.intersect(
+                    analysis.batch.allCandidates()
+                        .filter { it.verdict.recommendation.isCleanable }
+                        .map { intentIdentityOf(it) }
+                        .toSet()
+                )
+                intentBatchStatus = buildString {
+                    append("本地识别 ${analysis.ocrAttemptCount} 张")
+                    if (analysis.usedCacheCount > 0) append("，复用缓存 ${analysis.usedCacheCount} 张")
+                    if (analysis.assistRequestCount > 0) append("，文字辅助 ${analysis.assistRequestCount} 次")
+                    append("，用时 ${analysis.elapsedMillis} ms")
+                }
+                intentBatchAssistTried = allowAssist
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("TabulaApp", "Intent batch analysis failed", e)
+                intentBatchEngineNote = "本地识别没能完成，先不排序"
+            } finally {
+                intentBatchAnalyzing = false
+            }
+        }
+    }
+
+    /**
+     * 打开「按整理目的凑一批」（路线图第 8 项 / #94）。
+     *
+     * 入口在暂存清理页，因此候选范围直接复用上面的 [stagedCleanupSelection]：
+     * 已勾选来源、已扣除长期保留/本次跳过/已在回收站。**不做全库扫描**。
+     * 用户没有先选过来源时，退回来源选择页，避免拿空集合去分析。
+     */
+    fun openIntentBatch() {
+        if (!preferences.hasStagedCleanupSourceChoice) {
+            Toast.makeText(context, "先选好要清理的来源，再来凑这一批", Toast.LENGTH_SHORT).show()
+            return
+        }
+        intentBatch = null
+        intentBatchSelectedKeys = emptySet()
+        intentBatchEngineNote = null
+        intentBatchStatus = ""
+        intentBatchAssistEnabled = false
+        currentScreen = AppScreen.INTENT_BATCH
+        analyzeIntentBatch()
     }
 
     // A restored system request must finish before we classify its pending journal.
@@ -2375,7 +2510,109 @@ fun TabulaApp(
                     preferences.hasStagedCleanupSourceChoice = false
                     stagedCleanupSelectedKeys = emptySet()
                     stagedCleanupSelection = null
+                },
+                onOpenIntentBatch = { openIntentBatch() }
+            )
+        }
+    }
+
+    // ========== 按整理目的凑一批（路线图第 8 项 / #94） ==========
+    // 与暂存清理共用一个回收站入口：勾选后走 preferences 的「长期保留」或
+    // recycleBinManager.addAllToRecycleBin，因此回收站恢复、撤销语义与其它入口一致。
+    val intentBatchContent: @Composable () -> Unit = {
+        val currentBatch: IntentBatch = intentBatch
+            ?: IntentBatch(emptyList(), emptyList(), emptyList(), emptyList(), 0)
+        IntentBatchContent(
+            title = "按整理目的凑一批",
+            batch = currentBatch,
+            selectedIdentityKeys = intentBatchSelectedKeys,
+            isAnalyzing = intentBatchAnalyzing,
+            isSaving = intentBatchSaving,
+            engineNote = intentBatchEngineNote,
+            statusLine = intentBatchStatus,
+            assistAvailable = true,
+            assistKeyConfigured = intentAssistKeyStore.hasKey(),
+            assistEnabledForBatch = intentBatchAssistEnabled,
+            onToggleAssistForBatch = { enabled ->
+                intentBatchAssistEnabled = enabled
+                if (enabled && !intentAssistKeyStore.hasKey()) {
+                    showIntentAssistKeyDialog = true
                 }
+            },
+            onOpenAssistSettings = { showIntentAssistKeyDialog = true },
+            onToggleImage = { candidate ->
+                val key = intentIdentityOf(candidate)
+                intentBatchSelectedKeys = if (key in intentBatchSelectedKeys) {
+                    intentBatchSelectedKeys - key
+                } else {
+                    intentBatchSelectedKeys + key
+                }
+            },
+            onRetainSelected = {
+                val keys = currentBatch.allCandidates()
+                    .filter { intentIdentityOf(it) in intentBatchSelectedKeys }
+                    .map { intentIdentityOf(it) }
+                if (keys.isNotEmpty()) {
+                    preferences.retainStagedCleanupImages(keys)
+                    stagedCleanupRetainedKeys = preferences.stagedCleanupRetainedIdentityKeys
+                    intentBatchSelectedKeys = emptySet()
+                    Toast.makeText(context, "${keys.size} 张已长期保留", Toast.LENGTH_SHORT).show()
+                    recomputeStagedCleanupSelection()
+                    analyzeIntentBatch()
+                }
+            },
+            onConfirm = {
+                val toMove = currentBatch.allCandidates()
+                    .filter { intentIdentityOf(it) in intentBatchSelectedKeys }
+                    .map { it.image }
+                if (toMove.isEmpty() || intentBatchSaving) return@IntentBatchContent
+                intentBatchSaving = true
+                scope.launch {
+                    try {
+                        // 与暂存清理、卡片上滑删除完全同一条路径：写现有回收站，可恢复。
+                        recycleBinManager.addAllToRecycleBin(toMove)
+                        val persisted = recycleBinManager.loadRecycleBin()
+                        val movedKeys = persisted.map { cleanupIdentityKey(it) }.toSet()
+                        allImages = allImages.filterNot { cleanupIdentityKey(it) in movedKeys }
+                        imagesForSorting = imagesForSorting.filterNot { cleanupIdentityKey(it) in movedKeys }
+                        deletedImages = persisted
+                        preferences.totalReviewedCount += toMove.size
+                        preferences.totalDeletedCount += toMove.size
+                        recommendationEngine.invalidateSimilarGroupCache()
+                        intentBatchSelectedKeys = emptySet()
+                        recomputeStagedCleanupSelection()
+                        analyzeIntentBatch()
+                        Toast.makeText(
+                            context,
+                            "${toMove.size} 张已移入回收站，可在回收站恢复",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.e("TabulaApp", "Intent batch could not reach the recycle bin", e)
+                        Toast.makeText(context, "未能保存回收站记录，照片未移入；请重试", Toast.LENGTH_LONG).show()
+                    } finally {
+                        intentBatchSaving = false
+                    }
+                }
+            },
+            onAnalyze = { analyzeIntentBatch() },
+            onNavigateBack = { currentScreen = AppScreen.STAGED_CLEANUP }
+        )
+        if (showIntentAssistKeyDialog) {
+            IntentAssistKeyDialog(
+                currentState = intentAssistKeyStore.describeState(),
+                onSave = { key ->
+                    if (!intentAssistKeyStore.write(key)) {
+                        Toast.makeText(context, "Key 未能保存", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onDelete = {
+                    intentAssistKeyStore.delete()
+                    intentBatchAssistEnabled = false
+                },
+                onDismiss = { showIntentAssistKeyDialog = false }
             )
         }
     }
@@ -2658,6 +2895,7 @@ fun TabulaApp(
         AppScreen.BURST_SELECTION -> deckContent to burstSelectionContent
         AppScreen.STAGED_CLEANUP -> deckContent to stagedCleanupContent
         AppScreen.RELAY_REVIEW -> settingsContent to relayReviewContent
+        AppScreen.INTENT_BATCH -> deckContent to intentBatchContent
         AppScreen.VIBRATION_SOUND -> settingsContent to vibrationSoundContent
         AppScreen.DISPLAY_SETTINGS -> settingsContent to displaySettingsContent
         AppScreen.LAB -> settingsContent to labContent
@@ -2688,6 +2926,8 @@ fun TabulaApp(
                     AppScreen.BURST_SELECTION -> AppScreen.DECK
                     AppScreen.STAGED_CLEANUP -> AppScreen.DECK
                     AppScreen.RELAY_REVIEW -> AppScreen.SETTINGS
+                    // 返回暂存清理：这一批的范围就是从那里来的，用户要能一眼看到原列表
+                    AppScreen.INTENT_BATCH -> AppScreen.STAGED_CLEANUP
                     AppScreen.VIBRATION_SOUND -> AppScreen.SETTINGS
                     AppScreen.DISPLAY_SETTINGS -> AppScreen.SETTINGS
                     AppScreen.LAB -> AppScreen.SETTINGS
