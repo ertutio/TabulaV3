@@ -130,6 +130,9 @@ jobs:
             # C. 批次边界（#90 第四轮）：延迟动作 + 自动装批 vs 同批刷新
             timeout 1800s adb shell am instrument -w -r -e class com.tabula.v3.DeckScreenBatchBoundaryDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-boundary.txt 2>&1 || true
             cat device-results/instrumentation-boundary.txt
+            # D. 待删除动作的批次边界（#90 第五轮）：撤销期内换批后不得计入新批
+            timeout 1800s adb shell am instrument -w -r -e class com.tabula.v3.DeckScreenPendingDeleteBoundaryTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-pendingdelete.txt 2>&1 || true
+            cat device-results/instrumentation-pendingdelete.txt
             adb shell "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'" > device-results/window-focus.txt || true
             adb shell "cat /data/data/com.tabula.v3.recyclebin.test/files/diag-after-launch.txt" > device-results/diag-after-launch.txt 2>/dev/null || true
             adb shell "cat /data/data/com.tabula.v3.recyclebin.test/files/diag-timeout.txt" > device-results/diag-timeout.txt 2>/dev/null || true
@@ -144,11 +147,13 @@ jobs:
             grep -E 'INSTRUMENTATION_STATUS: (numtests|test=)|OK \(|FAILURES' device-results/instrumentation-entry.txt > device-results/summary.txt
             grep -E 'INSTRUMENTATION_STATUS: (numtests|test=)|OK \(|FAILURES' device-results/instrumentation-card.txt >> device-results/summary.txt
             grep -E 'INSTRUMENTATION_STATUS: (numtests|test=)|OK \(|FAILURES' device-results/instrumentation-boundary.txt >> device-results/summary.txt
+            grep -E 'INSTRUMENTATION_STATUS: (numtests|test=)|OK \(|FAILURES' device-results/instrumentation-pendingdelete.txt >> device-results/summary.txt
             cat device-results/summary.txt
             # 精确条数：规则/引擎 9 项、真实卡片 3 项
             grep -Fx 'OK (9 tests)' device-results/instrumentation-entry.txt
             grep -Fx 'OK (3 tests)' device-results/instrumentation-card.txt
             grep -Fx 'OK (4 tests)' device-results/instrumentation-boundary.txt
+            grep -Fx 'OK (4 tests)' device-results/instrumentation-pendingdelete.txt
       - name: Summarise
         if: always()
         run: |

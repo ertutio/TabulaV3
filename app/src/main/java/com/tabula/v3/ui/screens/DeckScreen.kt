@@ -98,6 +98,8 @@ import com.tabula.v3.ui.util.refreshedCleanupMonth
 import com.tabula.v3.ui.components.buildMonthInfos
 import com.tabula.v3.ui.util.relocatedIndexAfterSync
 import com.tabula.v3.ui.util.syncCleanupBatchToSnapshot
+import com.tabula.v3.data.balance.PendingDelete
+import com.tabula.v3.data.balance.Ticket
 import com.tabula.v3.ui.util.syncRowsToSnapshot
 import com.tabula.v3.data.repository.resolveCoverRow
 import com.tabula.v3.ui.util.coverImageRequest
@@ -192,7 +194,12 @@ fun DeckScreen(
     loadingScanned: Int = 0,
     loadingTotal: Int = 0,
     topBarDisplayMode: TopBarDisplayMode = TopBarDisplayMode.INDEX,
-    onRemove: (ImageFile) -> Unit,
+    // #90 第五轮：删除是延迟动作，回调必须带上**上滑那一刻**绑定的凭证
+    // （照片 + 原索引 + 会话/批次 ticket）。等到超时才去取当前批次，
+    // 「再来一组」之后旧批最后一张的删除就会记到新批统计上。
+    onRemove: (PendingDelete) -> Unit,
+    // #90：上滑发起删除时用于绑定会话/批次凭证（由上层提供当前值）
+    currentIntentTicket: () -> Ticket = { Ticket.None },
     onKeep: (ImageFile) -> Unit = {},
     // #90：批次真正切换到新的一批后回调，用于归档本轮统计、避免上一批进入下一批判断
     onBatchAdvanced: () -> Unit = {},
@@ -301,10 +308,11 @@ fun DeckScreen(
     var lastClassifyWasSwipe by remember { mutableStateOf(false) }  // 是否是下滑归类
     
     // ========== 删除撤销状态 ==========
-    // 记住最后一次删除（上滑移入回收站）操作的图片和位置
-    var lastDeletedImage by remember { mutableStateOf<ImageFile?>(null) }
-    var lastDeletedIndex by remember { mutableIntStateOf(-1) }
-    var isDeletePending by remember { mutableStateOf(false) }  // 是否有待确认的删除操作
+    // #90 第五轮：待删除记录是一个**整体**——照片、原索引、以及上滑那一刻
+    // 绑定的会话/批次凭证一起保存在 PendingDelete 里。凭证不能等到提交
+    // （撤销超时 / 被下一次删除或归档顶掉）时再取，那时可能已经换批了。
+    var pendingDelete by remember { mutableStateOf<PendingDelete?>(null) }
+    val isDeletePending = pendingDelete != null
     
     // 下滑归类模式状态（用于隐藏底部切换按钮）
     var isClassifyMode by remember { mutableStateOf(false) }
@@ -318,6 +326,18 @@ fun DeckScreen(
     // 用于异步初始化批次
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var needsInitialBatch by remember { mutableStateOf(true) }
+
+    /**
+     * 提交待删除记录（#90 第五轮）：带上**记录里存的**凭证，不重取当前值。
+     *
+     * 三条路径都走这里——撤销超时（[UndoSnackbar] 的 onDismiss）、被下一次
+     * 删除/归档顶掉时提前提交、页面进入完成态前收尾。清空记录即清除整条，
+     * 照片/索引/凭证一起没了。
+     */
+    fun commitPendingDelete() {
+        pendingDelete?.let { pending -> onRemove(pending) }
+        pendingDelete = null
+    }
     // #90 第四轮：区分"首次装载"与"旧批全部失效后的自动重取"。
     // 只有后者算真正换批（BatchChange.AUTO_REFILL_AFTER_INVALIDATION）。
     var pendingAutoRefill by remember { mutableStateOf(false) }
@@ -1093,20 +1113,19 @@ fun DeckScreen(
                         },
                         onRemove = { image ->
                             // 如果已有待确认的删除操作，先提交它
-                            if (isDeletePending) {
-                                lastDeletedImage?.let { pendingImage ->
-                                    onRemove(pendingImage)
-                                }
-                                lastDeletedImage = null
-                                lastDeletedIndex = -1
-                                isDeletePending = false
-                            }
+                            // （它自己的凭证在记录里，不会被这里顶替）
+                            commitPendingDelete()
                             
-                            // 记录撤销信息（在移除前记录索引位置）
+                            // #90 第五轮：在**上滑这一刻**把照片、原索引和当时的
+                            // 会话/批次凭证绑成一个待删除记录。之后无论过多久
+                            // 才真正写回收站（撤销超时 / 被下一次动作顶掉），
+                            // 用的都是这份凭证，不会误记到换批后的新统计上。
                             val imageIndex = currentBatch.indexOf(image)
-                            lastDeletedImage = image
-                            lastDeletedIndex = imageIndex
-                            isDeletePending = true
+                            pendingDelete = PendingDelete(
+                                image = image,
+                                originalIndex = imageIndex,
+                                ticket = currentIntentTicket()
+                            )
                             
                             // 显示撤销 Snackbar（延迟执行真正的删除）
                             undoMessage = "已移入回收站"
@@ -1140,14 +1159,7 @@ fun DeckScreen(
                         onAlbumClick = { album ->
                             currentImage?.let { image ->
                                 // 如果有待确认的删除操作，先提交它
-                                if (isDeletePending) {
-                                    lastDeletedImage?.let { pendingImage ->
-                                        onRemove(pendingImage)
-                                    }
-                                    lastDeletedImage = null
-                                    lastDeletedIndex = -1
-                                    isDeletePending = false
-                                }
+                                commitPendingDelete()
                                 
                                 // 记录撤销信息
                                 lastClassifiedImage = image
@@ -1175,14 +1187,7 @@ fun DeckScreen(
                         // 因为 Genie 动画的 onComplete 是异步的，currentImage 可能已经变化
                         onSwipeClassifyToAlbum = { image, album ->
                             // 如果有待确认的删除操作，先提交它
-                            if (isDeletePending) {
-                                lastDeletedImage?.let { pendingImage ->
-                                    onRemove(pendingImage)
-                                }
-                                lastDeletedImage = null
-                                lastDeletedIndex = -1
-                                isDeletePending = false
-                            }
+                            commitPendingDelete()
                             
                             // 记录撤销信息（在移除前记录索引位置）
                             val imageIndex = currentBatch.indexOf(image)
@@ -1370,7 +1375,7 @@ fun DeckScreen(
             onUndo = {
                 if (isDeletePending) {
                     // ========== 删除撤销 ==========
-                    lastDeletedImage?.let { image ->
+                    pendingDelete?.let { pending -> val image = pending.image
                         // 检查图片是否已在批次中（防止重复插入）
                         val isDuplicate = currentBatch.any { it.id == image.id }
                         
@@ -1378,8 +1383,10 @@ fun DeckScreen(
                             // 将图片重新插入 batch
                             val newBatch = currentBatch.toMutableList()
                             // 使用安全的插入索引：如果原索引仍有效则使用，否则插入到当前位置
-                            val insertIndex = if (lastDeletedIndex >= 0 && lastDeletedIndex <= newBatch.size) {
-                                lastDeletedIndex
+                            val insertIndex = if (
+                                pending.originalIndex >= 0 && pending.originalIndex <= newBatch.size
+                            ) {
+                                pending.originalIndex
                             } else {
                                 // 原索引无效，插入到当前位置或末尾
                                 currentIndex.coerceIn(0, newBatch.size)
@@ -1396,10 +1403,9 @@ fun DeckScreen(
                         }
                     }
                     
-                    // 清理删除撤销状态
-                    lastDeletedImage = null
-                    lastDeletedIndex = -1
-                    isDeletePending = false
+                    // #90 第五轮：清除整条待删除记录（照片/索引/凭证一起走）。
+                    // 撤销不写回收站，因此也没有任何来源统计要回退。
+                    pendingDelete = null
                 } else {
                     // ========== 归档撤销 ==========
                     // 执行数据层撤销（取消待执行的归档操作）
@@ -1444,16 +1450,10 @@ fun DeckScreen(
             onDismiss = { 
                 if (isDeletePending) {
                     // ========== 确认删除 ==========
-                    // Snackbar 超时消失 = 用户确认删除
-                    // 执行真正的删除操作
-                    lastDeletedImage?.let { image ->
-                        onRemove(image)
-                    }
-                    
-                    // 清理删除撤销状态
-                    lastDeletedImage = null
-                    lastDeletedIndex = -1
-                    isDeletePending = false
+                    // Snackbar 超时消失 = 用户确认删除。
+                    // #90 第五轮：带着记录里**上滑时绑定的**凭证提交，
+                    // 即使此刻已经换批也不会记进新批次统计。
+                    commitPendingDelete()
                 } else {
                     // ========== 确认归档 ==========
                     // Snackbar 超时消失 = 用户确认归档
@@ -1480,14 +1480,7 @@ fun DeckScreen(
                 showAlbumSelectionSheet = false
                 currentImage?.let { image ->
                     // 如果有待确认的删除操作，先提交它
-                    if (isDeletePending) {
-                        lastDeletedImage?.let { pendingImage ->
-                            onRemove(pendingImage)
-                        }
-                        lastDeletedImage = null
-                        lastDeletedIndex = -1
-                        isDeletePending = false
-                    }
+                    commitPendingDelete()
                     
                     // 记录撤销信息
                     lastClassifiedImage = image
@@ -1532,14 +1525,7 @@ fun DeckScreen(
                 val pending = pendingClassifyImage
                 if (pending != null) {
                     // 如果有待确认的删除操作，先提交它
-                    if (isDeletePending) {
-                        lastDeletedImage?.let { pendingImage ->
-                            onRemove(pendingImage)
-                        }
-                        lastDeletedImage = null
-                        lastDeletedIndex = -1
-                        isDeletePending = false
-                    }
+                    commitPendingDelete()
                     
                     // 有待归档的图片，创建图集后自动归档
                     onCreateAlbumAndClassify(name, color, emoji, pending)
@@ -1978,7 +1964,7 @@ private fun DeckContent(
                         images = images,
                         currentIndex = currentIndex,
                         onIndexChange = onIndexChange,
-                        onRemove = onRemove,
+                        onRemove = { image -> onRemove(image) },
                         onCardClick = onCardClick,
                         showHdrBadges = showHdrBadges,
                         showMotionBadges = showMotionBadges,

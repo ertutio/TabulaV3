@@ -64,6 +64,7 @@ import com.tabula.v3.data.balance.SourceBalanceRules
 import com.tabula.v3.data.balance.RoundSessionRules
 import com.tabula.v3.data.balance.ArchiveIdentityRules
 import com.tabula.v3.data.balance.DeferredActionLedger
+import com.tabula.v3.data.balance.PendingDelete
 import com.tabula.v3.data.balance.SessionBatchIds
 import com.tabula.v3.data.balance.Ticket
 import com.tabula.v3.BuildConfig
@@ -1052,17 +1053,21 @@ fun TabulaApp(
             },
             // #90：卡片页回报它实际持有的批次——候选池与提示判定都以它为准
             onBatchChanged = { batch -> currentDeckBatch = batch },
-            onRemove = { image ->
-                // #90 第四轮：删除的落库是异步的（协程里 addToRecycleBin）。
-                // 在**发起这一刻**绑定会话/批次标识，写成功后再比对——
-                // 期间换批的话，这条旧动作只更新图库，不往新批次记账。
-                val deleteTicket = capturedTicket()
+            // #90 第五轮：上滑发起删除时用于绑定凭证（当前会话/批次）
+            currentIntentTicket = { capturedTicket() },
+            onRemove = { pending ->
+                // #90 第五轮：凭证由卡片的待删除记录带下来（上滑那一刻绑定的），
+                // 这里**不再**重取当前批次——撤销超时/被顶掉时可能已经换批，
+                // 重取会把旧批的动作记到新批统计上。
+                val image = pending.image
+                val deleteTicket = pending.ticket
                 scope.launch {
                     try {
                         recycleBinManager.addToRecycleBin(image)
                         albumCleanupEngine.recordUserRemovedImage(image)
                         val persisted = recycleBinManager.loadRecycleBin()
                         // 写成功后才记账；只有发起时那批仍有效才计入
+                        val beforeKeys = roundSession.currentBatchIdentityKeys
                         if (tracksRoundIntent) {
                             roundSession = DeferredActionLedger.onDeletePersisted(
                                 session = roundSession,
@@ -1070,6 +1075,16 @@ fun TabulaApp(
                                 currentIds = sessionBatchIds
                             )
                         }
+                        // #90 第五轮（仅 DEBUG）：登记本次记账决策，供设备用例
+                        // 观察生产侧真实结果——规则函数本身测不出接线错误。
+                        PendingDeleteTestHook.record(
+                            imageKey = image.mediaIdentityKey(),
+                            ticket = deleteTicket,
+                            currentSession = sessionBatchIds.sessionId,
+                            currentBatch = sessionBatchIds.batchId,
+                            recorded = image.mediaIdentityKey() in roundSession.currentBatchIdentityKeys &&
+                                image.mediaIdentityKey() !in beforeKeys
+                        )
                         // 即时状态与刷新后的投影同口径：按媒体身份（卷, ID）过滤，
                         // 跨卷同数值 ID 的其他照片不受本次回收影响。
                         allImages = allImages.filterNot { row -> persisted.any { it.matchesSameMediaIdentity(row) } }
