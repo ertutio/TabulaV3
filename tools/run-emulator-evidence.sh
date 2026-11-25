@@ -73,27 +73,35 @@ DEVICE_EVIDENCE_DIR="/sdcard/Android/data/$TEST_PKG/files/liquid-glass-failures"
 
 # 失败时把设备侧证据拉回来：截图 + 无障碍树 + 前台 Activity + 权限 + logcat。
 # 拉不到不算失败（测试可能压根没跑到写证据那一步），但会明确标注。
+diagnostic_adb() {
+  if [ -n "$TIMEOUT_CMD" ]; then
+    "$TIMEOUT_CMD" -k 5s 15s adb "$@"
+  else
+    adb "$@"
+  fi
+}
+
 pull_device_evidence() {
   REASON="$1"
   mkdir -p "$OUT_DIR/device-evidence"
   echo "=== 拉取设备侧证据（$REASON）==="
 
   # 1. 测试自己写的失败现场
-  if adb pull "$DEVICE_EVIDENCE_DIR" "$OUT_DIR/device-evidence/" 2>&1; then
+  if diagnostic_adb pull "$DEVICE_EVIDENCE_DIR" "$OUT_DIR/device-evidence/" 2>&1; then
     echo "device evidence pulled"
   else
     echo "::warning::设备侧证据目录拉取失败（测试可能没跑到写证据那一步）"
   fi
 
   # 2. 前台 Activity + 权限状态（与测试写的独立留一份，便于快速判读）
-  adb shell "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'" \
+  diagnostic_adb shell "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp'" \
     > "$OUT_DIR/device-evidence/window-focus.txt" 2>&1
-  adb shell "dumpsys package $TEST_PKG | grep -E 'READ_MEDIA|READ_EXTERNAL'" \
+  diagnostic_adb shell "dumpsys package $TEST_PKG | grep -E 'READ_MEDIA|READ_EXTERNAL'" \
     > "$OUT_DIR/device-evidence/grants.txt" 2>&1
 
   # 3. logcat（主缓冲 + crash 缓冲）
-  adb logcat -d -v threadtime > "$OUT_DIR/device-evidence/logcat.txt" 2>&1
-  adb logcat -d -b crash -v threadtime > "$OUT_DIR/device-evidence/logcat-crash.txt" 2>&1
+  diagnostic_adb logcat -d -v threadtime > "$OUT_DIR/device-evidence/logcat.txt" 2>&1
+  diagnostic_adb logcat -d -b crash -v threadtime > "$OUT_DIR/device-evidence/logcat-crash.txt" 2>&1
 
   ls -la "$OUT_DIR/device-evidence/" 2>/dev/null || true
 }
