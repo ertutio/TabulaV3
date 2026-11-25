@@ -3,34 +3,25 @@ package com.tabula.v3.data.intent
 /**
  * 中文截图文字的**脱敏**与「是否允许外发到文字辅助」的判定。
  *
- * ## 这一版的铁律
+ * ## 铁律（第 6 轮收紧）
  *
- * **检出敏感字段后，如果无法可靠定位并完全掩盖字段值，就丢弃受影响的片段。**
- *
- * 换句话说：不是「掩掉能找到的部分，剩下的照发」，而是「要么整段值被完整掩掉，
- * 要么这一行不许出设备」。宁可少发，不发不确定的。
- *
- * ## 判定顺序（不可颠倒）
- *
- * 1. **先定位敏感字段与它的值**：密钥词 + 紧随其后的值区间。分隔符放宽到
- *    非标准形态（`：` `=` `＝` `｜` `、` `-` `·` 空格等），值的字符集覆盖中文、
- *    字母、数字与连接符（`8-2-1024` 这类取件码不会被从中间截断）。
- * 2. **值的定位失败就丢行**：字段后面什么都没有（值在下一行）、值区间为空、
- *    掩码后仍残留 ≥4 个连续字母数字 —— 都判为「无法可靠判定」。
- * 3. **再在敏感区间之外**找日期/时刻/时长，只保留不重叠的那些。
- * 4. 输出时敏感区间一律 `＊＊＊`。
- *
- * ## OCR 把字段和值拆成两行怎么办
- *
- * 单行视角看不到这种拆分：`验证码` 在一行、`123456` 或 `甲乙丙丁` 在下一行。
- * 因此 [sanitizeForAssistant] 维护跨行上下文——上一行以敏感字段结尾（值缺失）时，
- * **下一行整行丢弃**。这是「丢弃受影响片段」的直接应用：既然无法确定下一行
- * 哪些字符属于字段值，就不猜。
+ * 1. **检出敏感字段的 OCR 行，整行留在本地。**
+ *    不是「掩掉值、其余照发」，而是这一行不接受外发。理由：只要一行里出现过字段词，
+ *    我们无法证明行内**其余文字**与那个秘密无关（值可能被 OCR 拆开、粘连、重复出现）。
+ * 2. **跨行值一律拦截**：字段所在行以字段结尾（本行没有值）时，下一行整行丢弃。
+ * 3. **不做「值到此为止」的放行判断。**
+ *    上一版用「注意/说明/请勿…」这类词推断「敏感值已经结束，后面是自然语言，可以发」。
+ *    这个推断本身就是风险面：`取件码 注意 说明` 这种把自然语言词当值用的情况会被放行。
+ *    现在整行都不发，这条推断连同词表一并删除。
+ * 4. 非字段类形态（链接、手机号、长数字、取件码形态、混合短码）在**不含字段词**的行里
+ *    按区间掩码；这些形态的边界由正则本身完整确定，不存在「值延伸到哪」的问题。
+ * 5. **日期只在没有敏感内容的位置保留**。日期是判断是否到期的唯一依据，
+ *    但它不能成为把秘密还原回去的通道——敏感区间一旦覆盖日期，日期就随该行一起丢掉。
  *
  * ## 这不是绝对保证
  *
- * OCR 可能把值读成完全不像值的形态（连字段词本身都读错），那种情况这里认不出来。
- * 真正的兜底是上层「证据不足就不外发」的策略。该边界写进了测试与报告。
+ * OCR 可能把字段词本身读错（`验证码` → `验正码`），那种情况这里认不出来。
+ * 真正的兜底是上层「证据不足就不外发」的策略。
  */
 object IntentTextSanitizer {
 
@@ -39,16 +30,13 @@ object IntentTextSanitizer {
 
     /** 一行脱敏结果。 */
     data class SanitizedLine(
-        /** 掩码后的文本；[undecidable] 为 true 时调用方不得外发这一行。 */
+        /** 掩码后的文本（仅供展示/诊断；[undecidable] 为 true 时**不得外发**）。 */
         val text: String,
-        /** 原始行里是否命中了敏感的掩码规则（用于统计，不含原值）。 */
+        /** 是否做过掩码或扣留。 */
         val masked: Boolean,
-        /** 掩码后仍无法可靠判定（字段值定位失败、残留可疑片段等），必须留在本地。 */
+        /** 这一行必须留在本地（含敏感字段、几乎全是数字、字段值在下一行等）。 */
         val undecidable: Boolean,
-        /**
-         * 这一行以敏感字段结尾、值不在本行——下一行属于「受影响的片段」，同样丢弃。
-         * 跨行判断只在 [sanitizeForAssistant] 里生效；单行调用方可以忽略。
-         */
+        /** 这一行以敏感字段结尾、值不在本行——下一行同样必须丢弃。 */
         val danglingSecretKey: Boolean = false
     )
 
@@ -63,7 +51,7 @@ object IntentTextSanitizer {
         val isEmpty: Boolean get() = lines.isEmpty()
     }
 
-    /** 敏感字段名。命中这些词就认为「后面跟着一个必须掩掉的值」。 */
+    /** 敏感字段名。命中即整行留在本地。 */
     private val SECRET_KEYS = listOf(
         "验证码", "校验码", "动态码", "提取码", "密码", "支付密码", "取件码", "取餐码",
         "取货码", "邀请码", "兑换码", "激活码", "口令", "卡号", "账号", "身份证",
@@ -71,16 +59,9 @@ object IntentTextSanitizer {
         "序列号", "激活密钥"
     )
 
-    private val SECRET_KEY_REGEX = Regex(
-        SECRET_KEYS.joinToString("|") { Regex.escape(it) }
-    )
+    private val SECRET_KEY_REGEX = Regex(SECRET_KEYS.joinToString("|") { Regex.escape(it) })
 
-    /**
-     * 字段与值之间允许出现的分隔符。
-     *
-     * 比上一版宽：真实截图里出现过 `＝`（全角等号）、`｜`、`、`、`-`、`·`，
-     * 上一版只认 `:` / `：`，于是值整段漏掩。这里全部当分隔符跳过。
-     */
+    /** 字段与值之间允许出现的分隔符（用于把值掩掉，便于展示与诊断）。 */
     private val SEPARATORS = charArrayOf(
         ' ', '\t', ':', '：', '=', '＝', '|', '｜', '、', ',', '，', '·', '•', '—', '~',
         '(', '（', '"', '\'', '“', '‘', '>', '》', '\u3000'
@@ -89,8 +70,7 @@ object IntentTextSanitizer {
     /** 值区间的终止符：空白与中文标点。**不含** `-` `.` `_`，否则取件码会被截断。 */
     private val VALUE_STOPPERS = charArrayOf(
         ' ', '\t', '\u3000', '，', '。', ',', '.', '、', '；', ';', '：', ':', '！', '!', '？', '?',
-        '（', '）', '(', ')', '【', '】', '[', ']', '《', '》', '<', '>', '“', '”', '"', '\'', '|', '｜',
-        '和', '或', '请', '如', '若', '可', '将', '在', '与', '及'
+        '（', '）', '(', ')', '【', '】', '[', ']', '《', '》', '<', '>', '“', '”', '"', '\'', '|', '｜'
     )
 
     /** 需要原样保留、且不含身份信息的日期与时长。 */
@@ -101,33 +81,18 @@ object IntentTextSanitizer {
         Regex("""\d{1,3}\s*(?:分钟|分|小时|个小时|天|日)""")
     )
 
-    /** 值定位成功后掩码；与日期重叠时整行丢弃。`secret` 标记来自字段值而非普通形态。 */
-    private data class Span(val start: Int, val end: Int, val secret: Boolean) {
-        fun overlaps(other: Span): Boolean = start < other.end && other.start < end
-    }
-
-    private data class RedactionRule(val regex: Regex, val secret: Boolean)
-
-    private val REDACTION_RULES = listOf(
+    /** 非字段类形态：边界由正则完整确定，可以只掩这一段。 */
+    private val MASK_RULES = listOf(
         // 链接：OCR 会把 `https://` 读成 `https:W`，按「协议名+冒号+其后非空」判。
-        RedactionRule(Regex("""(?i)(?:h?ttps?|ftp|file)\s*[:：]\s*\S*"""), secret = false),
-        RedactionRule(Regex("""(?i)\bw{2,3}\s*[.。丶]\s*\S+"""), secret = false),
-        RedactionRule(
-            Regex("""(?i)\b[a-z0-9][a-z0-9-]{1,}\.(?:com|cn|net|org|cc|io|me|tv|xyz|top|link)\b(?:/\S*)?"""),
-            secret = false
-        ),
-        RedactionRule(Regex("""(?<!\d)1[3-9]\d{9}(?!\d)"""), secret = false),
-        RedactionRule(Regex("""(?<![\w-])\d{1,4}(?:-\d{1,4}){2,}(?![\w-])"""), secret = false),
-        RedactionRule(Regex("""(?<!\d)\d{6,}(?!\d)"""), secret = false),
-        RedactionRule(Regex("""\b(?:[A-Za-z]{1,4}[-_]?)?\d{8,}\b"""), secret = false),
-        RedactionRule(
-            Regex("""\b(?=[A-Za-z0-9_-]{6,14}\b)(?=[^\s]*\d)[A-Za-z0-9][A-Za-z0-9_-]{5,13}\b"""),
-            secret = false
-        )
+        Regex("""(?i)(?:h?ttps?|ftp|file)\s*[:：]\s*\S*"""),
+        Regex("""(?i)\bw{2,3}\s*[.。丶]\s*\S+"""),
+        Regex("""(?i)\b[a-z0-9][a-z0-9-]{1,}\.(?:com|cn|net|org|cc|io|me|tv|xyz|top|link)\b(?:/\S*)?"""),
+        Regex("""(?<!\d)1[3-9]\d{9}(?!\d)"""),
+        Regex("""(?<![\w-])\d{1,4}(?:-\d{1,4}){2,}(?![\w-])"""),
+        Regex("""(?<!\d)\d{6,}(?!\d)"""),
+        Regex("""\b(?:[A-Za-z]{1,4}[-_]?)?\d{8,}\b"""),
+        Regex("""\b(?=[A-Za-z0-9_-]{6,14}\b)(?=[^\s]*\d)[A-Za-z0-9][A-Za-z0-9_-]{5,13}\b""")
     )
-
-    /** 掩码后残留的可疑片段：≥4 个连续字母数字。出现即认为值没被完整掩掉。 */
-    private val SUSPICIOUS_RESIDUE = Regex("""[A-Za-z0-9]{4,}""")
 
     /**
      * 脱敏一行。
@@ -138,95 +103,63 @@ object IntentTextSanitizer {
         val original = raw.trim()
         if (original.isEmpty()) return SanitizedLine("", false, false)
 
-        val redactions = mutableListOf<Span>()
-        var undecidable = false
-        var dangling = false
-
-        // ---------- 1a. 敏感字段：必须可靠定位并完全掩掉它的值 ----------
-        for (keyMatch in SECRET_KEY_REGEX.findAll(original)) {
+        // ---------- 1. 敏感字段：整行留在本地 ----------
+        //
+        // 只要出现字段词就不外发。这里仍然把值掩掉再返回 text，
+        // 是为了让展示/诊断路径也不会把秘密打出来——但这一行永远不会进请求体。
+        val keyMatch = SECRET_KEY_REGEX.find(original)
+        if (keyMatch != null) {
             val valueStart = locateValueStart(original, keyMatch.range.last + 1)
-            if (valueStart == null) {
-                // 字段后面只剩分隔符（或什么都没有）：值在下一行，或压根没有。
-                // 两种都无法在本行判断 → 本行丢、下一行也丢。
-                dangling = true
-                undecidable = true
-                continue
+            val dangling = valueStart == null
+            val maskedText = if (valueStart == null) {
+                original
+            } else {
+                val valueEnd = locateValueEnd(original, valueStart)
+                if (valueEnd <= valueStart) original
+                else original.replaceRange(valueStart, valueEnd, MASK)
             }
-            val valueEnd = locateValueEnd(original, valueStart)
-            if (valueEnd <= valueStart) {
-                // 分隔符之后立刻是标点：定位不到值 → 丢行
-                undecidable = true
-                continue
-            }
-            // 值的**完整**边界必须唯一确定；被空格/标点/OCR 分段拆开时不猜，整行丢弃。
-            if (valueBoundaryIsAmbiguous(original, valueEnd)) {
-                undecidable = true
-                continue
-            }
-            redactions += Span(valueStart, valueEnd, secret = true)
-        }
-
-        // ---------- 1b. 形态规则：跳过「完整日期」，日期留给第 2 步 ----------
-        REDACTION_RULES.forEach { rule ->
-            if (!maskMixedCodes && rule.regex.pattern.contains("[A-Za-z0-9_-]{6,14}")) return@forEach
-            for (match in rule.regex.findAll(original)) {
-                val slice = original.substring(match.range.first, match.range.last + 1)
-                if (isWholeDate(slice)) return@forEach
-                redactions += Span(match.range.first, match.range.last + 1, rule.secret)
-            }
-        }
-
-        if (redactions.isEmpty() && !undecidable) {
             return SanitizedLine(
-                original,
-                masked = false,
-                undecidable = looksLikeBareNumbers(original),
+                text = maskedText,
+                masked = true,
+                undecidable = true,
                 danglingSecretKey = dangling
             )
         }
 
-        // ---------- 2. 日期只在敏感区间之外才允许保留 ----------
-        KEEP_PATTERNS.forEach { regex ->
-            for (match in regex.findAll(original)) {
-                val dateSpan = Span(match.range.first, match.range.last + 1, secret = false)
-                val hit = redactions.firstOrNull { it.overlaps(dateSpan) }
-                if (hit != null && hit.secret) {
-                    // 字段值长得像日期：既不能掩也不能保 → 整行丢弃
-                    undecidable = true
-                }
+        // ---------- 2. 非字段类形态：按区间掩码 ----------
+        val spans = mutableListOf<IntRange>()
+        var maskedAny = false
+        MASK_RULES.forEach { rule ->
+            if (!maskMixedCodes && rule.pattern.contains("[A-Za-z0-9_-]{6,14}")) return@forEach
+            for (match in rule.findAll(original)) {
+                val slice = original.substring(match.range.first, match.range.last + 1)
+                // 完整日期交给第 3 步保留，不按「带连字符的数字」掩掉
+                if (isWholeDate(slice)) return@forEach
+                spans += match.range
+                maskedAny = true
             }
         }
 
-        // ---------- 3. 拼输出 ----------
-        val output = StringBuilder()
-        var cursor = 0
-        mergeRanges(redactions.map { it.start..(it.end - 1) }).forEach { range ->
-            if (range.first > cursor) output.append(original, cursor, range.first)
-            output.append(MASK)
-            cursor = range.last + 1
-        }
-        if (cursor < original.length) output.append(original, cursor, original.length)
-        val text = output.toString()
-
-        // ---------- 4. 掩完再验收：不合格就丢行 ----------
-        // 4a. 只要这一行出现过敏感字段，掩码后不允许残留 ≥4 个连续字母数字：
-        //     那说明值被 OCR 拆开（`1234 5678`）或我们只掩到了前半段。
-        val hadSecretKey = SECRET_KEY_REGEX.containsMatchIn(original)
-        if (hadSecretKey && SUSPICIOUS_RESIDUE.findAll(text).any { it.value.length >= 4 }) {
-            undecidable = true
+        val merged = mergeRanges(spans)
+        val text = buildString {
+            var cursor = 0
+            merged.forEach { range ->
+                if (range.first > cursor) append(original, cursor, range.first)
+                append(MASK)
+                cursor = range.last + 1
+            }
+            if (cursor < original.length) append(original, cursor, original.length)
         }
 
-        // 4b. 掩码后只剩字段词本身（「验证码 ＊＊＊」）→ 没有外发价值，且刚处理过秘密
-        val residual = SECRET_KEYS.fold(text) { acc, key -> acc.replace(key, "") }
-            .replace(MASK, "")
-            .replace(Regex("""[\s:：·,，.。/|、]"""), "")
-        val tooThin = residual.length < 2
+        // ---------- 3. 验收：只要求「几乎全是数字」这类无法判断的行留在本地 ----------
+        val digitsOnly = looksLikeBareNumbers(original)
+        val tooThin = maskedAny && text.replace(MASK, "")
+            .replace(Regex("""[\s:：·,，.。/|、]"""), "").length < 2
 
         return SanitizedLine(
             text = text,
-            masked = true,
-            undecidable = undecidable || looksLikeBareNumbers(original) || tooThin,
-            danglingSecretKey = dangling
+            masked = maskedAny,
+            undecidable = digitsOnly || tooThin
         )
     }
 
@@ -236,64 +169,6 @@ object IntentTextSanitizer {
         while (i < text.length && text[i] in SEPARATORS) i++
         return if (i >= text.length) null else i
     }
-
-    /**
-     * 值的完整边界是否**不能唯一确定**。
-     *
-     * 判据：跳过 valueEnd 之后的那一段分隔符，如果紧接的片段仍然「像值」，
-     * 就无法判断它属于这个字段还是别的东西——例如：
-     *
-     * - `取件码 12 34 56`：`12` 之后还有 `34`、`56`，边界不明确；
-     * - `取件码 甲乙 丙丁`：中文值被空格拆开，边界不明确；
-     * - `验证码 123456，请勿转发`：`请勿转发` 含功能词，是自然语言 → 边界明确；
-     * - `活动已于 2026-11-10 23:59 结束`：没有敏感字段，走不到这里。
-     *
-     * 为什么要保守：漏掩一整段值的代价远大于少发一行文字。
-     */
-    private fun valueBoundaryIsAmbiguous(text: String, valueEnd: Int): Boolean {
-        var i = valueEnd
-        // 只跳过一个分隔段（连续同类分隔符视为一个），不跨越整句
-        var skipped = 0
-        while (i < text.length && text[i] in SEPARATORS) { i++; skipped++ }
-        if (skipped == 0 || i >= text.length) return false
-
-        val nextEnd = locateValueEnd(text, i)
-        if (nextEnd <= i) return false
-        val next = text.substring(i, nextEnd)
-        return looksLikeValueToken(next)
-    }
-
-    /**
-     * 这段文字是否「像一个字段值」。
-     *
-     * 两类算：纯 ASCII 字母数字（含 `-` `_` `.`），或纯中文且**不含功能词**。
-     * 功能词用来区分「甲乙 丙丁」（值的两截）与「请勿转发」（一句提示）。
-     */
-    private fun looksLikeValueToken(slice: String): Boolean {
-        if (slice.isEmpty()) return false
-        val isAsciiToken = slice.all { it.isLetterOrDigit() && it.code < 0x80 || it in "-_." }
-        if (isAsciiToken) return true
-
-        val hasCjk = slice.any { it.code in 0x4E00..0x9FFF }
-        if (!hasCjk) return false
-        // 中文片段：出现功能词就按自然语言处理
-        return NATURAL_LANGUAGE_HINTS.none { slice.contains(it) }
-    }
-
-    /**
-     * 中英混排或整句提示里常见的高频功能词。
-     *
-     * 命中即认为「这不是值的延续，而是一句话」，边界因此**明确**。
-     * 这张表刻意短：宁可靠「看起来还是值 → 丢行」多丢几行，也不靠它放行。
-     */
-    private val NATURAL_LANGUAGE_HINTS = listOf(
-        // 只用**多字**短语。单字（"了" "的" "在" …）会把「春天来了」这种值本身
-        // 误判成自然语言，于是边界被当成明确、后面的"来了"原样外发
-        // （第 4 轮测试实测：`密码 春天 来了` 的"来了"漏了出去）。
-        "请勿", "请在", "请输入", "请注意", "注意", "说明", "提示",
-        "有效", "过期", "失效", "截止", "结束", "打开", "点击", "输入",
-        "转发", "分享", "复制", "查看", "链接", "页面", "客服"
-    )
 
     /** 从 [start] 开始取值的结束下标（不含）。遇到空白/标点即停。 */
     private fun locateValueEnd(text: String, start: Int): Int {
@@ -312,8 +187,7 @@ object IntentTextSanitizer {
      */
     private fun looksLikeBareNumbers(line: String): Boolean {
         if (isWholeDate(line)) return false
-        val hasCjk = line.any { it.code in 0x4E00..0x9FFF }
-        if (hasCjk) return false
+        if (line.any { it.code in 0x4E00..0x9FFF }) return false
         val ratio = line.count { it.isDigit() || it == '-' }.toDouble() / line.length.coerceAtLeast(1)
         return ratio > 0.7
     }
@@ -341,10 +215,10 @@ object IntentTextSanitizer {
     /**
      * 把整段 OCR 行打包成可外发片段。
      *
-     * **跨行上下文**：上一行以敏感字段结尾（值缺失）时，下一行整行丢弃——
+     * **跨行拦截**：上一行以敏感字段结尾（本行没有值）时，下一行整行丢弃——
      * 我们无法确定下一行哪些字符是那个字段的值，于是不猜。
      *
-     * - 丢弃空行、[SanitizedLine.undecidable] 的行、以及被上一行牵连的行；
+     * - 丢弃空行与 [SanitizedLine.undecidable] 的行；
      * - 最多 [maxLines] 行、每行最多 [maxCharsPerLine] 字符；
      * - 结果按原顺序拼接。
      */
@@ -361,7 +235,7 @@ object IntentTextSanitizer {
         for (raw in lines) {
             if (raw.isBlank()) continue
             if (previousHadDanglingKey) {
-                // 上一行的字段值落到了这一行：整行属于「受影响的片段」
+                // 上一行的字段值落到了这一行：整行属于受影响的片段
                 dropped++
                 previousHadDanglingKey = false
                 continue
@@ -388,7 +262,7 @@ object IntentTextSanitizer {
      */
     fun sanitizeReason(reason: String): String = sanitizeLine(reason).text
 
-    /** 仅供诊断与测试：这一行是否含有需要外发的内容（脱敏后非空且可判定）。 */
+    /** 仅供诊断与测试：这一行是否含有可以外发的内容。 */
     fun canSend(raw: String): Boolean {
         val line = sanitizeLine(raw)
         return !line.undecidable && line.text.isNotBlank()
