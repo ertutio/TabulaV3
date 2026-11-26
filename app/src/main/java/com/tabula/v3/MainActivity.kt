@@ -532,6 +532,13 @@ fun TabulaApp(
     // 只在相似推荐批次"看起来是一个连拍组"时才进入；进入后本界面的决定
     // 不直接落库，确认才写回收站，取消/返回什么都不改。
     var burstSelectionGroup by remember { mutableStateOf<SimilarGroup?>(null) }
+    // 审计修复（#87 四轮）：**原组身份**，用于完成时登记冷却。
+    //
+    // SimilarGroup.id 是成员集合的内容寻址摘要，部分回收成功后从
+    // burstSelectionGroup 里移除成功项会改变 id。若拿裁剪后的组去
+    // markSimilarGroupProcessed，登记的就是一个从未存在过的组，
+    // 原组永远不会进冷却。因此原组单独保存，提交完成时用它登记。
+    var burstOriginalGroup by remember { mutableStateOf<SimilarGroup?>(null) }
     // 审计修复（#87）：推荐引擎这批实际用到的真实组。null = 这批不是相似组。
     var activeSimilarGroup by remember { mutableStateOf<SimilarGroup?>(null) }
     var burstKeptKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -1340,6 +1347,8 @@ fun TabulaApp(
             // DeckScreen 只在当前批次被判定为连拍时才会调用。
             onOpenBurstSelection = { group ->
                 burstSelectionGroup = group
+                // 原组身份与显示组分开保存：显示组会随部分回收裁剪，原组不变。
+                burstOriginalGroup = group
                 burstKeptKeys = BurstSelectionRules.defaultKeptKeys(group)
                 currentScreen = AppScreen.BURST_SELECTION
             },
@@ -2209,6 +2218,7 @@ fun TabulaApp(
                 onCancel = {
                     // 取消 = 什么都不提交；组进度保持原样，用户下次还能再进。
                     burstSelectionGroup = null
+                    burstOriginalGroup = null
                     burstKeptKeys = emptySet()
                     currentScreen = AppScreen.DECK
                 },
@@ -2243,8 +2253,11 @@ fun TabulaApp(
                                 // 2) 候选已被外部处理（照片消失/已在回收站）——不重复写入。
                                 val keptEverything = decision.keepsEverything
                                 if (keptEverything) {
-                                    // 审计修复：全部保留也必须正确结束该组
-                                    recommendationEngine.markSimilarGroupProcessed(group)
+                                    // 审计修复：全部保留也必须正确结束该组。
+                                    // 用**原组**登记——此时显示组尚未裁剪，但统一走同一口径。
+                                    recommendationEngine.markSimilarGroupProcessed(
+                                        burstOriginalGroup ?: group
+                                    )
                                     recommendationEngine.invalidateSimilarGroupCache()
                                     Toast.makeText(
                                         context,
@@ -2259,6 +2272,7 @@ fun TabulaApp(
                                     ).show()
                                 }
                                 burstSelectionGroup = null
+                                burstOriginalGroup = null
                                 activeSimilarGroup = null
                                 burstKeptKeys = emptySet()
                                 currentScreen = AppScreen.DECK
@@ -2266,7 +2280,19 @@ fun TabulaApp(
                             }
 
                             // 与卡片上滑删除同一条路径：写现有回收站，可恢复。
-                            recycleBinManager.addAllToRecycleBin(toDiscard)
+                            //
+                            // #87 四轮：DEBUG 下可由测试钩子限制本次真实写入条数，
+                            // 用来稳定制造"部分写入成功"。生产构建下 consumeLimit()
+                            // 恒为 null，行为与之前完全一致。
+                            val writeLimit = BurstCommitTestHook.consumeLimit()
+                            val toWrite = if (writeLimit != null) {
+                                toDiscard.take(writeLimit.coerceAtLeast(0))
+                            } else {
+                                toDiscard
+                            }
+                            if (toWrite.isNotEmpty()) {
+                                recycleBinManager.addAllToRecycleBin(toWrite)
+                            }
                             val persisted = recycleBinManager.loadRecycleBin()
                             val movedKeys = persisted.map { it.mediaIdentityKey() }.toSet()
                             val result = BurstCommit.result(toDiscard, movedKeys)
@@ -2283,7 +2309,12 @@ fun TabulaApp(
                             }
                             if (result.isComplete) {
                                 // 全部写入成功且状态一致，才推进该组进度。
-                                recommendationEngine.markSimilarGroupProcessed(group)
+                                // 用**原组身份**登记：显示组已按入站结果裁剪过，
+                                // 它的 id 与检测器产出的组不同，拿它登记等于登记了一个
+                                // 从未存在过的组，原组永远不会进冷却。
+                                recommendationEngine.markSimilarGroupProcessed(
+                                    burstOriginalGroup ?: group
+                                )
                                 recommendationEngine.invalidateSimilarGroupCache()
                             }
 
@@ -2298,13 +2329,38 @@ fun TabulaApp(
                             // 失败的部分留在组里；全部完成才离开选片页。
                             if (result.isComplete) {
                                 burstSelectionGroup = null
+                                burstOriginalGroup = null
                                 burstKeptKeys = emptySet()
                                 activeSimilarGroup = null
                                 currentScreen = AppScreen.DECK
                             } else {
-                                // 把待重试的候选继续留在勾选态，用户可直接再确认
-                                burstKeptKeys = burstKeptKeys -
-                                    result.succeeded.map { it.mediaIdentityKey() }.toSet()
+                                // 审计修复（#87 四轮）：按**实际入站身份**裁剪当前选片列表。
+                                //
+                                // 只把 burstKeptKeys 里的成功项去掉是不够的——选片页渲染的是
+                                // group.images，成功项若不从组里移除，会继续显示在列表上，
+                                // 用户以为没提交、再点确认就是重复操作。
+                                //
+                                // 保留项与失败项都要留下：保留项本来就不入站，失败项待重试。
+                                // 原组身份另存于 burstOriginalGroup，完成时用它登记冷却，
+                                // 因此这里裁剪不会影响进度登记口径。
+                                val succeededKeys = result.succeeded
+                                    .map { it.mediaIdentityKey() }
+                                    .toSet()
+                                val current = burstSelectionGroup
+                                if (current != null) {
+                                    val remaining = current.images.filterNot {
+                                        it.mediaIdentityKey() in succeededKeys
+                                    }
+                                    if (remaining.isNotEmpty()) {
+                                        burstSelectionGroup = current.copy(
+                                            images = remaining,
+                                            startTime = remaining.minOf { it.dateModified },
+                                            endTime = remaining.maxOf { it.dateModified }
+                                        )
+                                    }
+                                }
+                                // 待重试的候选不再处于勾选态，用户重新点选即可
+                                burstKeptKeys = burstKeptKeys - succeededKeys
                             }
                         } catch (e: CancellationException) {
                             throw e
@@ -2323,7 +2379,7 @@ fun TabulaApp(
             )
         }
     }
-
+
 
     val otherAlbumsContent: @Composable () -> Unit = {
         OtherAlbumsScreen(

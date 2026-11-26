@@ -688,6 +688,141 @@ class BurstSelectionDeviceTest {
         return uri
     }
 
+    /**
+     * 定向回归 ③：**真实选片页**上的部分回收。
+     *
+     * 断言：
+     * 1. 部分写入成功后，**成功项从选片列表消失**（按实际入站身份裁剪）；
+     * 2. 保留项与失败项都还在列表里，失败项可再次提交；
+     * 3. 页面**没有提前退出**（仍在选片页）；
+     * 4. 再点确认 → 失败项入站 → 页面回到卡片页。
+     *
+     * 「受控制造部分成功」用 DEBUG 钩子 [BurstCommitTestHook]：让生产代码
+     * 自己只写入前 N 张，然后照常走「读回对账 → 判定 isPartial」的真实路径，
+     * 不伪造 CommitResult。
+     *
+     * 关于组冷却：出组时已经登记（见 `getRecommendedBatchWithGroup`），
+     * 本用例因此**不**断言"此前不在冷却中"，只核对页面与提交状态。
+     */
+    @Test
+    fun realPickerPartialCommitTrimsSucceededKeepsFailedThenRetryFinishes() = runBlocking {
+        val uris = (1..3).map { insertIdenticalPhoto() }
+        val all = library()
+        val mine = uris.mapNotNull { u -> all.firstOrNull { it.uri == u } }
+        assertEquals("三张真实照片都应被图库索引", 3, mine.size)
+
+        prefs.recommendMode = com.tabula.v3.data.preferences.RecommendMode.SIMILAR
+        val engine = com.tabula.v3.data.repository.RecommendationEngine.getInstance(ctx)
+        ctx.getSharedPreferences("tabula_similar_groups", Context.MODE_PRIVATE)
+            .edit().clear().commit()
+        engine.invalidateSimilarGroupCache()
+
+        val detected = engine.getNextSimilarGroup(all)
+        assertNotNull("真实检测器必须产出相似组", detected)
+        val group = detected!!
+        val myKeys = mine.map { it.mediaIdentityKey() }.toSet()
+        assertTrue(
+            "产出的组必须包含这三张照片",
+            group.images.map { it.mediaIdentityKey() }.toSet().containsAll(myKeys)
+        )
+
+        // 进真实选片页
+        startApp()
+        waitForTextContaining("这批像连拍", timeout = 60000)
+        tap("去选片")
+        waitFor("连拍选片", timeout = 20000)
+
+        // 默认保留最早+最晚，中间那张待回收 → 先改成"只保留第一张"，
+        // 让待回收恰为 2 张，便于只写 1 张制造部分成功。
+        // 选片页的缩略图用文件名作为 contentDescription。
+        val sorted = group.images.sortedBy { it.dateModified }
+        val keepTarget = sorted.first()
+        val discardA = sorted[1]
+        val discardB = sorted[2]
+
+        // 点「这组都留」先把全部设为保留，再逐张取消要回收的两张
+        tap("这组都留")
+        waitForTextContaining("回收 0 张", timeout = 15000)
+        listOf(discardA, discardB).forEach { img ->
+            tap(img.displayName)
+            android.os.SystemClock.sleep(400)
+        }
+        waitForTextContaining("回收 2 张", timeout = 15000)
+
+        // 受控：只让生产代码真正写入 1 张
+        BurstCommitTestHook.armPartialWrite(1)
+
+        val binBefore = RecycleBinManager.getInstance(ctx).loadRecycleBin().size
+        tap("确认：回收 2 张")
+        android.os.SystemClock.sleep(2500)
+
+        val afterPartial = screenTexts()
+        // 3. 页面没有提前退出
+        assertTrue(
+            "部分成功时不得离开选片页（屏幕：$afterPartial）",
+            afterPartial.contains("连拍选片")
+        )
+
+        val binAfterPartial = RecycleBinManager.getInstance(ctx).loadRecycleBin()
+        val movedKeys = binAfterPartial.map { it.mediaIdentityKey() }.toSet()
+        assertEquals("只应写入 1 张", binBefore + 1, binAfterPartial.size)
+
+        val succeededKey = listOf(discardA, discardB)
+            .map { it.mediaIdentityKey() }
+            .first { it in movedKeys }
+        val failedImage = listOf(discardA, discardB)
+            .first { it.mediaIdentityKey() !in movedKeys }
+
+        // 1. 成功项从选片列表消失
+        assertTrue(
+            "成功项必须从选片列表消失（成功=${succeededKey}，屏幕：$afterPartial）",
+            afterPartial.none { it == succeededKey } &&
+                afterPartial.none { text ->
+                    mine.firstOrNull { it.mediaIdentityKey() == succeededKey }
+                        ?.displayName == text
+                }
+        )
+        // 2a. 保留项仍在
+        assertTrue(
+            "保留项必须仍在列表（${keepTarget.displayName}，屏幕：$afterPartial）",
+            afterPartial.contains(keepTarget.displayName)
+        )
+        // 2b. 失败项仍在，可重试
+        assertTrue(
+            "失败项必须仍在列表可重试（${failedImage.displayName}，屏幕：$afterPartial）",
+            afterPartial.contains(failedImage.displayName)
+        )
+
+        // 4. 再点确认 → 失败项入站 → 回到卡片页
+        tap("确认：回收 1 张")
+        val deadline = now() + 25000
+        var backOnDeck = false
+        while (now() < deadline) {
+            val texts = screenTexts()
+            val onDeck = texts.contains("回收站") && texts.contains("设置") &&
+                texts.any { it.endsWith("张待整理") }
+            if (onDeck && !texts.contains("连拍选片")) {
+                backOnDeck = true
+                break
+            }
+            android.os.SystemClock.sleep(250)
+        }
+        assertTrue(
+            "重试完成后必须回到卡片页（屏幕：${screenTexts()}）",
+            backOnDeck
+        )
+
+        val binFinal = RecycleBinManager.getInstance(ctx).loadRecycleBin()
+        assertTrue(
+            "失败项重试后必须入站（${failedImage.displayName}）",
+            binFinal.any { it.mediaIdentityKey() == failedImage.mediaIdentityKey() }
+        )
+        assertTrue(
+            "保留项始终不入站（${keepTarget.displayName}）",
+            binFinal.none { it.mediaIdentityKey() == keepTarget.mediaIdentityKey() }
+        )
+    }
+
     private fun groupToSimilar(images: List<ImageFile>) =
         com.tabula.v3.data.repository.SimilarGroup(
             images = images,
