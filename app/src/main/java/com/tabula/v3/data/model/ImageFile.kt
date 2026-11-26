@@ -17,6 +17,9 @@ import android.net.Uri
  * @param deletedAt 移入回收站的时间戳（毫秒），0 表示未删除
  * @param volumeName 所属存储卷（T03 身份契约；null 表示未知）
  * @param relativePath 相对路径如 "DCIM/Camera/"（T03 身份契约；null 表示未知）
+ * @param dateAdded 存入相册的时间戳（毫秒，MediaStore DATE_ADDED 秒 × 1000）；
+ *   0 表示未知（查询未携带该列或系统未记录）——暂存清理按已知值分组，
+ *   未知项单列供手动查看，不推断成任意时间。
  */
 data class ImageFile(
     val id: Long,
@@ -30,7 +33,8 @@ data class ImageFile(
     val orientation: Int = 0,
     val deletedAt: Long = 0L,
     val volumeName: String? = null,
-    val relativePath: String? = null
+    val relativePath: String? = null,
+    val dateAdded: Long = 0L
 ) {
     /**
      * 是否需要交换宽高（90度或270度旋转）

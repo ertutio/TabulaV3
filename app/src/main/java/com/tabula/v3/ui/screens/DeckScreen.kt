@@ -45,6 +45,7 @@ import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -278,7 +279,9 @@ fun DeckScreen(
     // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示
     intentSourceName: String? = null,
     onAcceptIntent: (() -> Unit)? = null,
-    onDismissIntent: (() -> Unit)? = null
+    onDismissIntent: (() -> Unit)? = null,
+    // 暂存清理（路线图第 1 项）：进入按来源与存入时间整理的旧图清理
+    onOpenStagedCleanup: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -1052,7 +1055,11 @@ fun DeckScreen(
                     scanned = loadingScanned,
                     total = loadingTotal
                 )
-                "empty" -> EmptyState()
+                "empty" -> EmptyState(
+                    onTrashClick = onNavigateToTrash,
+                    onSettingsClick = onNavigateToSettings,
+                    topBarDisplayMode = topBarDisplayMode
+                )
                 "completed" -> {
                     BatchCompletionScreen(
                         totalReviewed = currentBatch.size,
@@ -1294,7 +1301,8 @@ fun DeckScreen(
                     onToggleShowHidden = onToggleShowHidden,
                     onNavigateToOtherAlbums = onNavigateToOtherAlbums,
                     pendingCleanupCount = pendingCleanupCount,
-                    onCleanupSourceImages = onCleanupSourceImages
+                    onCleanupSourceImages = onCleanupSourceImages,
+                    onOpenStagedCleanup = onOpenStagedCleanup
                 )
             }
         }
@@ -2317,40 +2325,68 @@ private fun LoadingState(
  * 空状态
  */
 @Composable
-private fun EmptyState() {
+private fun EmptyState(
+    onTrashClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    topBarDisplayMode: TopBarDisplayMode = TopBarDisplayMode.INDEX
+) {
     val isDarkTheme = LocalIsDarkTheme.current
     val textColor = if (isDarkTheme) Color.White else TabulaColors.CatBlack
 
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(32.dp)
+        // 空图库同样保留顶部栏：回收站与设置是用户在图库为空时唯一还能做的两件事。
+        // 缺了它，图库一旦为空（权限刚恢复、照片被外部清空、暂存清理把可见照片
+        // 全部移入回收站），用户就被困在一个只有 Logo 的页面上，连回收站都进不去。
+        // 这是产品缺陷，不是测试问题（#84 的 fullPageFlowThroughHardRestart 正是
+        // 撞在这里：它把唯一一张照片移入回收站后重启，图库为空 → 顶部栏消失 →
+        // 找不到「回收站」，而回收站里恰恰躺着那张待恢复的照片）。
+        TopBar(
+            currentIndex = 0,
+            totalCount = 0,
+            currentImage = null,
+            displayMode = topBarDisplayMode,
+            onTrashClick = onTrashClick,
+            onSettingsClick = onSettingsClick
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentAlignment = Alignment.Center
         ) {
-            // Logo
-            Image(
-                painter = coil.compose.rememberAsyncImagePainter(model = R.drawable.logo),
-                contentDescription = "Tabula Logo",
-                modifier = Modifier.size(120.dp)
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = "没有找到照片",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold
-                ),
-                color = textColor
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "请确保已授权访问相册",
-                style = MaterialTheme.typography.bodyMedium,
-                color = textColor.copy(alpha = 0.6f),
-                textAlign = TextAlign.Center
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(32.dp)
+            ) {
+                // Logo
+                Image(
+                    painter = coil.compose.rememberAsyncImagePainter(model = R.drawable.logo),
+                    contentDescription = "Tabula Logo",
+                    modifier = Modifier.size(120.dp)
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "没有找到照片",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = textColor
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "请确保已授权访问相册",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = textColor.copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -2434,7 +2470,8 @@ private fun AlbumsGridContent(
     onToggleShowHidden: () -> Unit = {},
     onNavigateToOtherAlbums: (List<Album>) -> Unit = {},
     pendingCleanupCount: Int = 0,
-    onCleanupSourceImages: () -> Unit = {}
+    onCleanupSourceImages: () -> Unit = {},
+    onOpenStagedCleanup: () -> Unit = {}
 ) {
     val isDarkTheme = LocalIsDarkTheme.current
     val context = LocalContext.current
@@ -2693,6 +2730,18 @@ private fun AlbumsGridContent(
                                 )
                             }
                             
+                            // 暂存清理按钮（截图与下载旧图，按来源与存入时间整理）
+                            ActionIconButton(
+                                icon = Icons.Outlined.PhotoLibrary,
+                                contentDescription = "暂存清理",
+                                onClick = {
+                                    com.tabula.v3.ui.util.HapticFeedback.lightTap(context)
+                                    onOpenStagedCleanup()
+                                },
+                                backgroundColor = buttonBgColor,
+                                iconColor = buttonIconColor
+                            )
+
                             // 设置按钮
                             ActionIconButton(
                                 icon = Icons.Outlined.Settings,

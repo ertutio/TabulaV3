@@ -164,8 +164,10 @@ fun TopBar(
             // 普通模式：显示索引或时间
             when (displayMode) {
                 TopBarDisplayMode.INDEX -> {
+                    // 图库为空时（空状态页复用本栏）不显示 "1/0" 这种没有意义的计数，
+                    // 只留右侧的回收站与设置入口。
                     AdaptiveTopBarText(
-                        text = "${currentIndex + 1}/$totalCount",
+                        text = if (totalCount > 0) "${currentIndex + 1}/$totalCount" else "",
                         baseFontSize = 36f, color = textColor,
                         modifier = Modifier.weight(1f)
                     )
@@ -173,7 +175,7 @@ fun TopBar(
                 TopBarDisplayMode.DATE -> {
                     val dateText = currentImage?.dateModified?.let { timestamp ->
                         formatDateForTopBar(timestamp)
-                    } ?: "${currentIndex + 1}/$totalCount"
+                    } ?: if (totalCount > 0) "${currentIndex + 1}/$totalCount" else ""
 
                     AdaptiveTopBarText(
                         text = dateText, baseFontSize = 32f, color = textColor,
