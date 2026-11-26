@@ -1,0 +1,223 @@
+name: Verify intent batch on emulator
+
+on:
+  push:
+    branches: [feature/intent-batch-ocr-2026-11-25]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: intent-batch-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install build SDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+      - name: Pre-fetch Robolectric android-all jars (offline mode)
+        run: |
+          # Robolectric 在测试期按 @Config(sdk=...) 需要的 android-all jar 联网下载；
+          # Maven Central 对 CI runner 会返回 429，下载失败会表现为**大量无关测试**
+          # 报 MavenArtifactFetcher IOException / AssertionError（run 45585761735 实测：
+          # 5 个既有测试因此失败）。这里把所有用到的 SDK 版本一次取全，
+          # 并在下一步用 robolectric.offline 让测试期完全不联网。
+          #
+          # 仓库里实际用到的 SDK：34（大多数）、28（MoveSourceSafetyTest）；
+          # 4.4_r1 一并取上，防止将来新增低版本用例又要临时补。
+          set -eu
+          # 注意目录布局：robolectric.dependency.dir 要求 jar **平铺**在该目录下
+          # （不是 m2 那种 groupId/artifactId/version 层级）。本机实测：
+          # 指到 ~/.m2/.../android-all-instrumented 层级目录时 ViewerHdRequestTest
+          # 等用例会失败；平铺成单个目录后 582 条全过。
+          DIR="$HOME/robolectric-android-all"
+          mkdir -p "$DIR"
+          fetch() {
+            JAR="$1"
+            if [ -s "$DIR/$JAR" ]; then echo "have $JAR"; return 0; fi
+            for BASE in \
+              https://maven.aliyun.com/repository/central \
+              https://repo.maven.apache.org/maven2 \
+              https://repo1.maven.org/maven2 ; do
+              for attempt in 1 2 3; do
+                if curl -fsSL --retry 2 --retry-delay 5 -o "$DIR/$JAR" "$BASE/org/robolectric/android-all-instrumented/$2/$JAR"; then
+                  echo "fetched $JAR from $BASE (attempt $attempt)"; return 0
+                fi
+                echo "miss $JAR $BASE attempt $attempt"; sleep 8
+              done
+            done
+            return 1
+          }
+          FAILED=""
+          fetch android-all-instrumented-14-robolectric-10818077-i6.jar 14-robolectric-10818077-i6 || FAILED="14-robolectric"
+          fetch android-all-instrumented-9-robolectric-4913185-2-i6.jar 9-robolectric-4913185-2-i6 || FAILED="$FAILED 9-robolectric"
+          fetch android-all-instrumented-4.4_r1-robolectric-r2-i6.jar 4.4_r1-robolectric-r2-i6 || FAILED="$FAILED 4.4_r1"
+          ls -la "$DIR"
+          if [ -n "$FAILED" ]; then
+            echo "::warning::prefetch incomplete for:$FAILED — 测试会回落到联网下载，可能因限流失败"
+          fi
+          # 记录到 env 供下一步使用
+          echo "ROBO_ANDROID_ALL_DIR=$DIR" >> "$GITHUB_ENV"
+      - name: Unit regressions, app APK and instrumented APK
+        run: |
+          # robolectric.offline + dependency.dir：测试期不联网，避免 429 造成批量假失败。
+          # 这两个系统属性由 app/build.gradle.kts 从 ROBO_ANDROID_ALL_DIR 转发到测试 JVM。
+          # Android 单元测试是 fork 出来的新 JVM，gradlew 命令行上的 -D 传不进去，
+          # 必须用 android.testOptions 的 unitTests.all { systemProperty ... } 转发；
+          # 这里通过环境变量 + build.gradle.kts 读取实现（见 app/build.gradle.kts）。
+          export ROBO_ANDROID_ALL_DIR
+          bash ./gradlew --no-daemon --stacktrace \
+            :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: OCR selection evidence
+        run: |
+          mkdir -p artifacts
+          python3 - <<'PY' | tee artifacts/intent-unit-counts.txt
+          import glob, xml.etree.ElementTree as ET
+          files = sorted(glob.glob('app/build/test-results/testDebugUnitTest/*.xml'))
+          t = f = e = s = 0
+          intent_t = intent_f = 0
+          for p in files:
+              r = ET.parse(p).getroot()
+              n = int(r.get('tests', 0)); fa = int(r.get('failures', 0)); er = int(r.get('errors', 0))
+              t += n; f += fa; e += er; s += int(r.get('skipped', 0))
+              if 'data.intent' in p:
+                  intent_t += n; intent_f += fa + er
+          print(f"classes={len(files)} tests={t} failures={f} errors={e} skipped={s}")
+          print(f"intent_tests={intent_t} intent_failures={intent_f}")
+          PY
+          cp app/build/test-results/testDebugUnitTest/TEST-com.tabula.v3.data.intent.*.xml artifacts/ || true
+          python3 - <<'PY' | tee artifacts/intent-pilot-metrics.txt
+          import glob, xml.etree.ElementTree as ET
+          for p in sorted(glob.glob('app/build/test-results/testDebugUnitTest/TEST-com.tabula.v3.data.intent.IntentSampleGoldenTest.xml')):
+              r = ET.parse(p).getroot()
+              for so in r.iter('system-out'):
+                  print(so.text or '')
+          PY
+      - name: Collect artifacts
+        run: |
+          mkdir -p device-apks
+          cp app/build/outputs/apk/debug/app-debug.apk device-apks/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk device-apks/
+          python3 - <<'PY' >> artifacts/apk-size.txt
+          import os
+          for name in ('app-debug.apk', 'app-debug-androidTest.apk'):
+              p = os.path.join('device-apks', name)
+              print(f"{name} {os.path.getsize(p)} bytes")
+          PY
+          sha256sum device-apks/*.apk > artifacts/SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: IntentBatch-build-${{ github.sha }}
+          path: |
+            artifacts/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: IntentBatch-device-apks
+          path: device-apks/
+
+  device:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: IntentBatch-device-apks
+          path: device-apks/
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run intent sample OCR device test
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 3072M
+          disk-size: 8G
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -no-metrics
+          disable-animations: true
+          script: |
+            # runner 用 /bin/sh 且按行逐条执行 —— 不用续行，不用 pipefail
+            set -eux
+            mkdir -p device-results
+            adb install -r device-apks/app-debug.apk
+            adb install -r device-apks/app-debug-androidTest.apk
+            adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_IMAGES || true
+            adb shell pm grant com.tabula.v3.recyclebin.test android.permission.READ_MEDIA_VISUAL_USER_SELECTED || true
+            adb shell wm size > device-results/display.txt || true
+            adb shell wm density >> device-results/display.txt || true
+            adb logcat -c || true
+            timeout 1500s adb shell am instrument -w -r -e class com.tabula.v3.IntentSampleOcrDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation.txt 2>&1 || true
+            cat device-results/instrumentation.txt
+            adb logcat -d -s System.out > device-results/stdout.txt || true
+            grep -E '\[ocr-e2e\]|\[ocr-device\]' device-results/stdout.txt > device-results/intent-e2e.txt || true
+            cat device-results/intent-e2e.txt
+            grep -E 'INSTRUMENTATION_STATUS: (class|numtests|test=)|OK \(|FAILURES' device-results/instrumentation.txt > device-results/summary.txt || true
+            cat device-results/summary.txt
+            # 6 条用例：引擎可用、端到端对账、无字图不确定、日期可提取、脱敏不外发链接、保护信号存活
+            grep -Fx 'OK (6 tests)' device-results/instrumentation.txt
+            # 页面链路：入口在暂存清理页、辅助默认关闭、订单截图不进推荐、回收站复用、Key 落盘
+            adb logcat -c || true
+            timeout 1500s adb shell am instrument -w -r -e class com.tabula.v3.IntentBatchPageFlowTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-page.txt 2>&1 || true
+            cat device-results/instrumentation-page.txt
+            adb logcat -d -s System.out > device-results/stdout-page.txt || true
+            grep -E 'INSTRUMENTATION_STATUS: (class|numtests|test=)|OK \(|FAILURES' device-results/instrumentation-page.txt > device-results/summary-page.txt || true
+            cat device-results/summary-page.txt
+            # 7 条：入口在暂存清理页、辅助默认关闭、订单截图不进推荐、
+            # 真实交互提交→回收站→大图浮层恢复、三种「世界变了」不得提交、
+            # 授权不随批次重建存活、Key 落盘
+            grep -Fx 'OK (7 tests)' device-results/instrumentation-page.txt
+      - name: Summarise
+        if: always()
+        run: |
+          mkdir -p device-results
+          {
+            echo "## Intent batch device verification"
+            echo ""
+            echo "Emulator: API 36 / google_apis / x86_64 / pixel_6"
+            echo ""
+            echo '```'
+            cat device-results/display.txt 2>/dev/null || true
+            cat device-results/summary.txt 2>/dev/null || true
+            echo '```'
+            echo ""
+            echo "### OCR end-to-end"
+            echo '```'
+            cat device-results/intent-e2e.txt 2>/dev/null || echo "no e2e output"
+            echo '```'
+            echo ""
+            echo "### Page flow"
+            echo '```'
+            cat device-results/summary-page.txt 2>/dev/null || echo "no page flow output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: IntentBatch-device-results
+          path: device-results/
+          if-no-files-found: warn

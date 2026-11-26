@@ -11,6 +11,8 @@ coroutines = "1.10.2"
 media3 = "1.5.1"
 junit = "4.13.2"
 robolectric = "4.12.2"
+# #94：Tesseract4Android 4.8.0（JitPack 坐标 com.github.adaptech-cz.Tesseract4Android:tesseract4android）
+tesseract4android = "4.8.0"
 
 [libraries]
 androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
@@ -53,6 +55,10 @@ media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "medi
 androidx-media = { group = "androidx.media", name = "media", version = "1.7.0" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+
+# #94 本地中文 OCR（Apache-2.0，JitPack）。选它的理由与体积实测见
+# docs/intent-ocr-evaluation-2026-11-25.md。
+tesseract4android = { group = "com.github.adaptech-cz.Tesseract4Android", name = "tesseract4android", version.ref = "tesseract4android" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -246,7 +246,15 @@ fun StagedCleanupCandidateContent(
     onRetainSelected: () -> Unit,
     onConfirm: () -> Unit,
     onNavigateBack: () -> Unit,
-    onChangeSources: () -> Unit
+    onChangeSources: () -> Unit,
+    /**
+     * 进入「按整理目的凑一批图」（路线图第 8 项 / #94）。
+     *
+     * 刻意放在暂存清理页里，而不是新开一个顶级入口：这一页的候选范围就是
+     * 新能力的输入范围（已勾选来源、已扣除保留/跳过/已回收），
+     * 用户不需要再选一次来源，也不会误以为它能扫全库。
+     */
+    onOpenIntentBatch: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -272,6 +280,28 @@ fun StagedCleanupCandidateContent(
             secondaryTextColor = secondaryTextColor,
             onNavigateBack = onNavigateBack
         )
+
+        if (onOpenIntentBatch != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "按整理目的凑一批：先看最值得清的（只排序，不自动删）",
+                    color = accentColor,
+                    fontSize = 12.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = {
+                    HapticFeedback.lightTap(context)
+                    onOpenIntentBatch()
+                }) {
+                    Text("看看", color = accentColor, fontSize = 12.sp)
+                }
+            }
+        }
 
         // 来源摘要（可展开查看本轮范围）
         Row(
