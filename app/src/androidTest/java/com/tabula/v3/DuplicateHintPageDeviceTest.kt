@@ -509,4 +509,105 @@ class DuplicateHintPageDeviceTest {
             deleted
         )
     }
+
+    /**
+     * 定向回归（#88 四轮）：**可控时序**——点删除后、读摘要前，让后台扫描
+     * 把页面上的「还剩副本」提示清掉，本次仍须核对**原证据**并中止删除。
+     *
+     * 缺陷背景：旧实现复核时读实时 `duplicateDetails`。后台扫描可以在
+     * "用户点删除 → 复核开始"之间把提示刷掉，于是 `verifyAll` 里
+     * `copies ?: return@forEach` 跳过这张照片，复核判为通过 —— 用户看到的
+     * 「还剩副本」被悄悄抹掉，最后一份被删掉。
+     *
+     * 时序控制：`DuplicateReverifyTestHook.armGate()` 让复核在**读摘要前**
+     * 原地等待；测试确认它真的到了闸门（`hasReachedGate()`，不靠 sleep 猜），
+     * 再外部删除副本触发后台扫描、等提示消失，最后放行。
+     */
+    @Test
+    fun deletionUsesEvidenceSnapshotEvenWhenBackgroundScanClearsTheHint() = runBlocking {
+        val seed = 0x4D4D2468
+        val mainUri = insertPhoto(seed, "snap-main")
+        val copyUri = insertPhoto(seed, "snap-copy")
+        val main = awaitImageOf(mainUri)
+        awaitImageOf(copyUri)
+
+        val bin = RecycleBinManager.getInstance(ctx)
+        bin.addAllToRecycleBin(listOf(main))
+        val mainKey = main.mediaIdentityKey()
+        val binBefore = bin.loadRecycleBin().size
+        assertTrue("主图应在回收站", binBefore > 0)
+
+        DuplicateReverifyTestHook.reset()
+        DuplicateReverifyTestHook.disarmGate()
+
+        startApp()
+        val hint = openRecycleBinAndSelect(main.displayName)
+        assertTrue(
+            "删除前页面上必须显示「还剩副本」（屏幕：${screenTexts()}）",
+            hint != null
+        )
+
+        // 上闸门：复核会停在"尚未读摘要"处
+        DuplicateReverifyTestHook.armGate()
+
+        // 点删除（异步）。它此刻正卡在闸门上。
+        tap("删除所选")
+
+        // 确认复核真的到了闸门（轮询，不靠固定 sleep）
+        val gateDeadline = now() + 20000
+        var atGate = false
+        while (now() < gateDeadline) {
+            if (DuplicateReverifyTestHook.hasReachedGate()) { atGate = true; break }
+            android.os.SystemClock.sleep(150)
+        }
+        assertTrue("复核必须停在摘要读取之前（否则时序没造出来）", atGate)
+
+        // 后台扫描趁机清掉提示：外部删除副本 → allImages 变化 → 扫描重跑
+        ctx.contentResolver.delete(copyUri, null, null)
+        val clearedDeadline = now() + 20000
+        var hintCleared = false
+        while (now() < clearedDeadline) {
+            if (screenTexts().none { it.contains("还留有字节相同的副本") }) {
+                hintCleared = true; break
+            }
+            android.os.SystemClock.sleep(250)
+        }
+        assertTrue(
+            "后台扫描必须已把页面提示清掉（屏幕：${screenTexts()}）",
+            hintCleared
+        )
+
+        // 放行复核。它只能用**点击删除那一刻**的快照，因此必须判为失效。
+        DuplicateReverifyTestHook.openGate()
+
+        val verdictDeadline = now() + 25000
+        var verdict: DuplicateReverifyTestHook.Verdict? = null
+        while (now() < verdictDeadline) {
+            verdict = DuplicateReverifyTestHook.snapshot().lastOrNull()
+            if (verdict != null) break
+            android.os.SystemClock.sleep(200)
+        }
+        DuplicateReverifyTestHook.disarmGate()
+
+        assertTrue("复核必须给出结论（实际：$verdict）", verdict != null)
+        assertTrue(
+            "提示已被后台清掉，但本次仍须按原证据判为失效（实际：$verdict）",
+            !verdict!!.passed
+        )
+        assertTrue(
+            "失效键必须包含本次要删的主图（实际：${verdict.invalidatedKeys}）",
+            verdict.invalidatedKeys.contains(mainKey)
+        )
+
+        // 关键断言：本次**未发起**彻底删除
+        assertEquals(
+            "本次不得删除任何照片（回收站记录数必须不变）",
+            binBefore,
+            bin.loadRecycleBin().size
+        )
+        assertTrue(
+            "主图必须仍在回收站",
+            bin.loadRecycleBin().any { it.mediaIdentityKey() == mainKey }
+        )
+    }
 }

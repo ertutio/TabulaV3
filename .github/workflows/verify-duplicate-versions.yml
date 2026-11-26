@@ -140,7 +140,7 @@ jobs:
             # （MediaStore.createDeleteRequest），用例内已处理。
             grep -Fx 'OK (6 tests)' device-results/instrumentation-dup.txt
             grep -Fx 'OK (4 tests)' device-results/instrumentation-gate.txt
-            grep -Fx 'OK (3 tests)' device-results/instrumentation-hint.txt
+            grep -Fx 'OK (4 tests)' device-results/instrumentation-hint.txt
       - name: Summarise
         if: always()
         run: |

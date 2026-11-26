@@ -806,16 +806,34 @@ fun TabulaApp(
      *
      * @return true 表示全部复核通过可以继续；false 表示提示已更新、应中止本次删除
      */
-    suspend fun reverifyDuplicatesBeforeDeletion(toDelete: List<ImageFile>): Boolean {
+    suspend fun reverifyDuplicatesBeforeDeletion(
+        toDelete: List<ImageFile>,
+        // 审计意见（#88 四轮）：**必须**传入点击删除那一刻冻结的证据快照。
+        //
+        // 缺陷：旧实现直接读实时 `duplicateDetails`。后台扫描（进站/恢复/删除
+        // 都会触发）可以在"用户点删除 → 复核开始"之间把提示刷掉，于是
+        // `details[key]` 变成 null，`verifyAll` 里 `copies ?: return@forEach`
+        // 直接跳过这张照片 —— 复核判为通过，最后一份被删掉。
+        // 也就是说：用户看到的"还剩副本"被后台悄悄抹掉，删除却照样执行。
+        //
+        // 快照同时固定两样东西：本次要删的目标、以及当时展示给用户的副本证据。
+        // 后续摘要计算与复核都只用这份快照；界面仍可被后台扫描刷新，
+        // 但本次删除核对的是**用户当时看到的那份证据**。
+        evidence: Map<String, List<ImageFile>> = duplicateDetails
+    ): Boolean {
         val libraryKeys = allImages.map { it.mediaIdentityKey() }.toSet()
         val calculator = ContentDigestCalculator(context.contentResolver)
+
+        // #88 四轮：可控时序闸门（仅 DEBUG）。让测试在"已点删除、尚未读摘要"
+        // 这个真实存在的窗口里插入后台扫描，验证复核确实核对的是快照。
+        withContext(Dispatchers.IO) { DuplicateReverifyTestHook.gateBeforeDigest() }
 
         // 预先在 suspend 上下文里重算所有涉及照片的摘要（主图 + 提示里的副本），
         // 再把纯 map 交给同步 seam——避免在普通 lambda 里调 suspend 函数。
         val involved = buildSet {
             addAll(toDelete)
             toDelete.forEach { image ->
-                duplicateDetails[image.mediaIdentityKey()]?.let { addAll(it) }
+                evidence[image.mediaIdentityKey()]?.let { addAll(it) }
             }
         }
         val versions = mutableMapOf<String, DuplicateRules.ContentVersion?>()
@@ -830,7 +848,7 @@ fun TabulaApp(
 
         val verdict = DuplicateReverify.verifyAll(
             toDelete = toDelete,
-            details = duplicateDetails,
+            details = evidence,
             libraryKeys = libraryKeys,
             digestOf = digestOf
         )
@@ -1021,6 +1039,12 @@ fun TabulaApp(
     fun deleteRecycleBinImages(images: List<ImageFile>) {
         if (isDeletingRecycleBin || deletePermissionInFlight || images.isEmpty()) return
         val snapshot = images.toList()
+        // 审计意见（#88 四轮）：在**用户点删除的这一刻**冻结副本证据快照。
+        //
+        // 之后后台扫描（进站/恢复/删除都会触发）可以继续刷新界面上的
+        // duplicateDetails，但本次删除只核对这份快照——用户是看着这份
+        // 证据点的删除。若快照里的副本已失效，就中止并让他重新确认。
+        val evidenceSnapshot = duplicateDetails.toMap()
         isDeletingRecycleBin = true
         scope.launch {
             try {
@@ -1028,7 +1052,7 @@ fun TabulaApp(
                 // 复核三件事：副本仍在图库里、仍可读、内容摘要与扫描时一致。
                 // 任一不成立：更新提示（去掉已失效的"还有副本"）并**停止本次删除**，
                 // 让用户看到变化后重新点删除——避免在"还有一份"的假象下删掉最后一份。
-                val verified = reverifyDuplicatesBeforeDeletion(snapshot)
+                val verified = reverifyDuplicatesBeforeDeletion(snapshot, evidenceSnapshot)
                 if (!verified) {
                     Toast.makeText(
                         context,

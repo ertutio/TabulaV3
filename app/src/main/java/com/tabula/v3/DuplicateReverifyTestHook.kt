@@ -45,4 +45,57 @@ object DuplicateReverifyTestHook {
     fun reset() {
         verdicts.clear()
     }
+
+    // ==================== 可控时序（#88 四轮） ====================
+
+    /**
+     * 摘要读取闸门：置为 true 时，复核在**开始读摘要之前**阻塞，
+     * 直到测试放行。用来制造"用户已点删除、后台扫描趁机清掉提示"
+     * 这个真实存在但难以自然复现的时序。
+     *
+     * 仅 DEBUG 生效；Release 下 [gateBeforeDigest] 直接返回。
+     */
+    @Volatile
+    private var gateArmed = false
+
+    @Volatile
+    private var gateOpen = true
+
+    @Volatile
+    private var reachedGate = false
+
+    fun armGate() {
+        if (!BuildConfig.DEBUG) return
+        gateArmed = true
+        gateOpen = false
+        reachedGate = false
+    }
+
+    /** 复核是否已经走到闸门（测试据此确认时序到位，而不是靠 sleep 猜）。 */
+    fun hasReachedGate(): Boolean = reachedGate
+
+    fun openGate() {
+        gateOpen = true
+    }
+
+    fun disarmGate() {
+        gateArmed = false
+        gateOpen = true
+    }
+
+    /**
+     * 复核在计算摘要之前调用。闸门打开时立即返回；关闭时原地等待。
+     *
+     * @return true 表示确实在这里等过（测试可据此确认时序）
+     */
+    fun gateBeforeDigest() {
+        if (!BuildConfig.DEBUG || !gateArmed) return
+        reachedGate = true
+        android.util.Log.i(TAG, "reached digest gate; waiting for release")
+        val deadline = System.currentTimeMillis() + 30_000
+        while (!gateOpen && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50)
+        }
+        android.util.Log.i(TAG, "digest gate released")
+    }
 }
