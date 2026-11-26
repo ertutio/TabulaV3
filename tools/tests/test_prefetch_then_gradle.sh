@@ -16,8 +16,21 @@ fail=0
 pass() { echo "PASS: $1"; }
 bad()  { echo "FAIL: $1"; fail=1; }
 
-# 平台适配：Linux/CI 用 ./gradlew，Windows 用 gradlew.bat
-if [ -x "./gradlew" ]; then GRADLE="./gradlew"; else GRADLE="./gradlew.bat"; fi
+# 平台适配：Linux/CI 用 gradlew，Windows 用 gradlew.bat。
+#
+# 注意：不能靠 `-x ./gradlew` 判断可执行位——git checkout 出来的 gradlew
+# 在 CI 上常常没有 +x（run 45819084680 就是 exit 126）。统一用
+# `bash ./gradlew` 调用，绕开权限位；Windows 上仍走 .bat。
+if [ -f "./gradlew" ] && [ ! -f "./gradlew.bat" ]; then
+  GRADLE="bash ./gradlew"
+elif [ -f "./gradlew.bat" ] && [ ! -f "./gradlew" ]; then
+  GRADLE="./gradlew.bat"
+elif [ -f "./gradlew" ]; then
+  # 两者都在（Windows 仓库形态）：优先 .bat，避免 MSYS 下 bash gradlew 的路径差异
+  GRADLE="./gradlew.bat"
+else
+  GRADLE="bash ./gradlew"
+fi
 echo "using gradle wrapper: $GRADLE"
 
 echo "== E. prefetch failure, then real Gradle still runs =="
@@ -38,7 +51,7 @@ grep -q '::warning::' "$work/prefetch.log" && pass "E1 prefetch warned" || bad "
 # 真实 Gradle：预取失败后必须仍能执行（这里只编译，不跑测试，速度可控）
 JAVA_HOME="${JAVA_HOME:-C:/tools/jdk-21}" \
 ANDROID_HOME="${ANDROID_HOME:-D:/snh/.tools/android-sdk}" \
-  "$GRADLE" --no-daemon -q :app:compileDebugKotlin > "$work/gradle.log" 2>&1
+  $GRADLE --no-daemon -q :app:compileDebugKotlin > "$work/gradle.log" 2>&1
 gradle_code=$?
 if [ "$gradle_code" -eq 0 ]; then
   pass "E3 Gradle compiled after prefetch failure (exit 0)"
@@ -67,7 +80,7 @@ KT
 
 JAVA_HOME="${JAVA_HOME:-C:/tools/jdk-21}" \
 ANDROID_HOME="${ANDROID_HOME:-D:/snh/.tools/android-sdk}" \
-  "$GRADLE" --no-daemon --console=plain :app:testDebugUnitTest \
+  $GRADLE --no-daemon --console=plain :app:testDebugUnitTest \
   --tests 'com.tabula.v3.CiPrefetchProbeTest' > "$work/fail.log" 2>&1
 fail_code=$?
 rm -f "$probe"
