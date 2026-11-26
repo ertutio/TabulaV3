@@ -32,9 +32,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Collections
+import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Favorite
@@ -56,6 +58,7 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Science
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.Widgets
 import android.appwidget.AppWidgetManager
@@ -104,6 +107,7 @@ import com.tabula.v3.R
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.CardStyleMode
 import com.tabula.v3.data.preferences.RecommendMode
+import com.tabula.v3.data.preferences.WalkSamplingStrategy
 import com.tabula.v3.data.preferences.SourceImageDeletionStrategy
 import com.tabula.v3.data.preferences.SwipeStyle
 import com.tabula.v3.data.preferences.TagSelectionMode
@@ -161,6 +165,10 @@ fun SettingsScreen(
     onNavigateToHiddenAlbums: () -> Unit = {},  // 导航到隐藏与屏蔽图集管理
     onNavigateToPrivacyPolicy: () -> Unit = {},  // 导航到隐私政策
     onNavigateToTutorial: () -> Unit = {},  // 导航到使用教程
+    onNavigateToStagedCleanup: () -> Unit = {},  // 导航到暂存清理
+    stagedCleanupSummary: String = "",  // 暂存清理入口的副标题（如 "12 个来源"）
+    onNavigateToRelayReview: () -> Unit = {},  // 导航到系统分享待清记录
+    relayPendingCount: Int = 0,  // 待核对记录数
     scrollState: ScrollState? = null  // 外部传入的滚动状态，用于保持导航返回时的位置
 ) {
     val context = LocalContext.current
@@ -201,6 +209,9 @@ fun SettingsScreen(
     var showThemeSheet by remember { mutableStateOf(false) }
     var showTopBarModeSheet by remember { mutableStateOf(false) }
     var showRecommendModeSheet by remember { mutableStateOf(false) }
+    // #89：随机漫步抽样策略（原随机 / 均衡来源），默认 UNIFORM 保证升级用户行为不变
+    var showWalkStrategySheet by remember { mutableStateOf(false) }
+    var currentWalkStrategy by remember { mutableStateOf(preferences.walkSamplingStrategy) }
 
     Column(
             modifier = Modifier
@@ -313,6 +324,36 @@ fun SettingsScreen(
             
             SettingsGroup(cardColor) {
                 SettingsItem(
+                    icon = Icons.Outlined.CleaningServices,
+                    iconTint = Color(0xFFFF9500), // Orange
+                    title = "暂存清理",
+                    value = stagedCleanupSummary,
+                    textColor = textColor,
+                    secondaryTextColor = secondaryTextColor,
+                    onClick = {
+                        HapticFeedback.lightTap(context)
+                        onNavigateToStagedCleanup()
+                    }
+                )
+
+                Divider(isDarkTheme)
+
+                SettingsItem(
+                    icon = Icons.Outlined.Share,
+                    iconTint = Color(0xFF0A84FF),
+                    title = "分享待清",
+                    value = if (relayPendingCount > 0) "$relayPendingCount 张待核对" else "",
+                    textColor = textColor,
+                    secondaryTextColor = secondaryTextColor,
+                    onClick = {
+                        HapticFeedback.lightTap(context)
+                        onNavigateToRelayReview()
+                    }
+                )
+
+                Divider(isDarkTheme)
+
+                SettingsItem(
                     icon = Icons.Outlined.Widgets,
                     iconTint = Color(0xFF0A84FF), // Blue
                     title = "显示设置",
@@ -340,6 +381,25 @@ fun SettingsScreen(
                     onClick = {
                         HapticFeedback.lightTap(context)
                         showRecommendModeSheet = true
+                    }
+                )
+                
+                Divider(isDarkTheme)
+
+                // #89：随机漫步抽样策略（仅在随机漫步模式下有意义）
+                SettingsItem(
+                    icon = Icons.Outlined.AutoAwesome,
+                    iconTint = Color(0xFF34C759), // Green
+                    title = "漫步来源策略",
+                    value = when (currentWalkStrategy) {
+                        WalkSamplingStrategy.UNIFORM -> "原随机"
+                        WalkSamplingStrategy.SOURCE_BALANCED -> "均衡来源"
+                    },
+                    textColor = textColor,
+                    secondaryTextColor = secondaryTextColor,
+                    onClick = {
+                        HapticFeedback.lightTap(context)
+                        showWalkStrategySheet = true
                     }
                 )
                 
@@ -640,6 +700,41 @@ fun SettingsScreen(
                     preferences.recommendMode = RecommendMode.SIMILAR
                     onRecommendModeChange()  // 通知主页刷新
                     showRecommendModeSheet = false
+                }
+            }
+        }
+
+        // #89：随机漫步来源策略选择
+        if (showWalkStrategySheet) {
+            CustomBottomSheet(
+                title = "漫步来源策略",
+                onDismiss = { showWalkStrategySheet = false },
+                containerColor = cardColor,
+                textColor = textColor
+            ) {
+                OptionItem(
+                    title = "原随机",
+                    subtitle = "改动前的行为：所有照片一起均匀随机（默认，升级后保持不变）",
+                    isSelected = currentWalkStrategy == WalkSamplingStrategy.UNIFORM,
+                    accentColor = accentColor,
+                    textColor = textColor
+                ) {
+                    currentWalkStrategy = WalkSamplingStrategy.UNIFORM
+                    preferences.walkSamplingStrategy = WalkSamplingStrategy.UNIFORM
+                    onRecommendModeChange()  // 通知主页下一批生效
+                    showWalkStrategySheet = false
+                }
+                OptionItem(
+                    title = "均衡来源",
+                    subtitle = "按相册分桶、平方根权重，避免大相册淹没小相册",
+                    isSelected = currentWalkStrategy == WalkSamplingStrategy.SOURCE_BALANCED,
+                    accentColor = accentColor,
+                    textColor = textColor
+                ) {
+                    currentWalkStrategy = WalkSamplingStrategy.SOURCE_BALANCED
+                    preferences.walkSamplingStrategy = WalkSamplingStrategy.SOURCE_BALANCED
+                    onRecommendModeChange()  // 通知主页下一批生效
+                    showWalkStrategySheet = false
                 }
             }
         }
@@ -1238,15 +1333,12 @@ fun LabScreen(
                     iconTint = Color(0xFF667EEA), // 靛蓝紫
                     title = "液态玻璃主题",
                     textColor = textColor,
-                    checked = false, // 功能未完善，强制关闭
+                    checked = isAndroid15OrAbove && liquidGlassLabEnabled,
                     onCheckedChange = { enabled ->
-                        if (enabled) {
-                            // 功能未完善，显示提示
-                            HapticFeedback.lightTap(context)
-                            Toast.makeText(context, "该功能还未完善", Toast.LENGTH_SHORT).show()
-                        }
+                        HapticFeedback.lightTap(context)
+                        onLiquidGlassLabEnabledChange(enabled)
                     },
-                    enabled = true // 允许点击以显示提示
+                    enabled = isAndroid15OrAbove
                 )
                 
                 // 液态玻璃说明
@@ -1257,9 +1349,13 @@ fun LabScreen(
                         .padding(bottom = 12.dp)
                 ) {
                     Text(
-                        text = "该功能还在开发中，敬请期待",
+                        text = if (isAndroid15OrAbove) {
+                            "实验性效果，默认关闭，可随时切换。"
+                        } else {
+                            "液态玻璃需要 Android 15 或更高版本，当前使用普通样式。"
+                        },
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFFF9F0A).copy(alpha = 0.8f) // 警告色
+                        color = secondaryTextColor.copy(alpha = 0.7f)
                     )
                 }
             }

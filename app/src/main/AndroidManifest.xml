@@ -51,6 +51,28 @@
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- 系统分享中转接收（路线图第 2 项）：TOFU=系统面板里出现 Tabula
+             也只会是用户显式选中的那一次，随后立刻转交下游应用。
+             exported=true 是 ACTION_SEND 接收入口的必要条件。 -->
+        <activity
+            android:name=".ShareRelayActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.TabulaV3"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity>
         
         <!-- 桌面小组件 -->
         <receiver

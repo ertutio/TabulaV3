@@ -1,0 +1,15 @@
+11-25 00:55:33.804 14759 14964 E AndroidRuntime: FATAL EXCEPTION: DataLoadThread
+11-25 00:55:34.482 14759 14967 E OplusExceptionHelper: [OPLUS]FATAL EXCEPTION: DefaultDispatcher-worker-6
+11-25 01:04:11.420 14836 14836 E AndroidRuntime: FATAL EXCEPTION: main
+11-25 09:06:30.689 29814 29977 E AndroidRuntime: FATAL EXCEPTION: DataLoadThread
+11-25 09:27:20.535 30358 30815 E AndroidRuntime: FATAL EXCEPTION: DataLoadThread
+11-25 12:10:37.042  3800  4145 E AndroidRuntime: FATAL EXCEPTION: DataLoadThread
+11-25 12:10:37.846  3800  4124 E OplusExceptionHelper: [OPLUS]FATAL EXCEPTION: DefaultDispatcher-worker-4
+11-25 12:23:03.097 26199 26631 E AndroidRuntime: FATAL EXCEPTION: DataLoadThread
+11-25 12:23:03.736 26199 26554 E OplusExceptionHelper: [OPLUS]FATAL EXCEPTION: DefaultDispatcher-worker-2
+11-25 12:49:11.176  8144  8181 E AndroidRuntime: FATAL EXCEPTION: Instr: androidx.test.runner.AndroidJUnitRunner
+11-25 12:49:11.176  8144  8181 E AndroidRuntime: java.lang.IllegalStateException: Cannot call disconnect() while connecting UiAutomation@b893e23[id=-1, displayId=0, flags=0]
+11-25 12:49:11.176  8144  8181 E AndroidRuntime: 	at android.app.UiAutomation.disconnect(UiAutomation.java:445)
+11-25 14:09:04.552 23882 23902 E AndroidRuntime: FATAL EXCEPTION: Instr: androidx.test.runner.AndroidJUnitRunner
+11-25 14:09:04.552 23882 23902 E AndroidRuntime: java.lang.IllegalStateException: Cannot call disconnect() while connecting UiAutomation@b893e23[id=-1, displayId=0, flags=0]
+11-25 14:09:04.552 23882 23902 E AndroidRuntime: 	at android.app.UiAutomation.disconnect(UiAutomation.java:445)

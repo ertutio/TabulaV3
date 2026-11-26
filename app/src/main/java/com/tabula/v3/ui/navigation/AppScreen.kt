@@ -20,6 +20,8 @@ enum class AppScreen {
     REMINDER_SETTINGS,   // 提醒设置
     HIDDEN_ALBUMS,       // 隐藏与屏蔽图集管理
     OTHER_ALBUMS,        // 其他图集（收纳的小图集）
+    STAGED_CLEANUP,      // 暂存清理（截图/下载旧图，路线图第 1 项）
+    RELAY_REVIEW,        // 系统分享产生的待清记录（#85）
     PRIVACY_POLICY,      // 隐私政策
     TUTORIAL             // 使用教程
 }

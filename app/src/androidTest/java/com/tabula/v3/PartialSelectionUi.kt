@@ -50,6 +50,13 @@ internal object PartialSelectionUi {
         "Allow all", "Don't allow", "全部允许", "不允许"
     )
 
+    /** 首次 UiAutomation 获取是否已上报（仅诊断用）。 */
+    @Volatile
+    private var reportedFirstAutomation = false
+
+    /** 获取耗时超过该值即视为异常慢（诊断阈值，不参与判定）。 */
+    private val SLOW_AUTOMATION_ACQUIRE_MS = 1000L
+
     private fun evidenceDir(): File = File(
         ctx.getExternalFilesDir(null) ?: ctx.filesDir, "cloud-ui-failures"
     ).apply { mkdirs() }
@@ -97,9 +104,52 @@ internal object PartialSelectionUi {
         }
     }
 
+    /**
+     * 唯一的 UiAutomation 获取入口。
+     *
+     * ## 为什么要收敛成一处
+     *
+     * run 2026-11-25 12:49（API 37 真机）在 `@Before` 里报
+     * `UiAutomationService ... already registered!`，随后在
+     * `Instrumentation.finish()` 里以
+     * `Cannot call disconnect() while connecting UiAutomation@..[id=-1]` 崩溃。
+     *
+     * 已证实：全程只注册 1 次、flags 恒为 0（所有调用都是无参
+     * `getUiAutomation()`），所以既不是"并行 instrumentation"，也不是
+     * "每次获取都重复注册"。剩下的可能是"第一次获取本身没连上"——
+     * 但日志里没有阶段信息，无法区分。
+     *
+     * 因此这里做两件事，都不改行为语义：
+     * 1. 收敛成唯一入口（`getUiAutomation(0)` 本身幂等，但散落的属性访问
+     *    让"谁先拿、拿了几次"无法从代码上回答）；
+     * 2. 首次获取时打一条带耗时的日志，用于判断是否卡在 connect 等待。
+     *
+     * 不缓存到字段：`Instrumentation` 已经持有实例，再缓存一层会让
+     * "实例被 destroy 后仍被复用"成为新的隐患。
+     */
+    fun uiAutomation(): android.app.UiAutomation {
+        val started = android.os.SystemClock.uptimeMillis()
+        val automation = ins.uiAutomation
+        val elapsed = android.os.SystemClock.uptimeMillis() - started
+        if (!reportedFirstAutomation) {
+            reportedFirstAutomation = true
+            // `getFlags()` 是 @hide，公共 API 读不到；改打 toString()
+            // ——AOSP 的 toString 自带 id/displayId/flags，正是诊断需要的。
+            Log.i(
+                TAG,
+                "UiAutomation acquired: ${automation} " +
+                    "connectWaitMs=$elapsed thread=${Thread.currentThread().name}"
+            )
+        } else if (elapsed > SLOW_AUTOMATION_ACQUIRE_MS) {
+            // 非首次但获取变慢：说明实例曾被 destroy 后重建，或连接在抖动
+            Log.w(TAG, "UiAutomation re-acquire slow: ${elapsed}ms")
+        }
+        return automation
+    }
+
     /** 无 shell 语法的短命令直通（am/input/screencap 等朴素参数命令）。 */
     fun shell(command: String): String =
-        ins.uiAutomation.executeShellCommand(command).use { descriptor ->
+        uiAutomation().executeShellCommand(command).use { descriptor ->
             FileInputStream(descriptor.fileDescriptor).use { it.readBytes().toString(Charsets.UTF_8) }
         }
 
@@ -115,7 +165,7 @@ internal object PartialSelectionUi {
     }
 
     fun shellBytes(command: String): ByteArray =
-        ins.uiAutomation.executeShellCommand(command).use { p ->
+        uiAutomation().executeShellCommand(command).use { p ->
             FileInputStream(p.fileDescriptor).use { stream ->
                 val out = ByteArrayOutputStream()
                 stream.copyTo(out)
@@ -125,7 +175,14 @@ internal object PartialSelectionUi {
 
     fun launch() {
         check(InstrumentationRegistry.getArguments().getString("allowSyntheticMediaProbe") == "true")
-        check(android.os.Build.HARDWARE in setOf("ranchu", "goldfish"))
+        // 硬件门槛与 RecycleBinViewerBackdropDeviceTest 同口径：默认只允许模拟器，
+        // 真机需显式 `-e allowRealDevice true`（两道闸都要给）。
+        val isEmulator = android.os.Build.HARDWARE in setOf("ranchu", "goldfish")
+        val realDeviceAllowed =
+            InstrumentationRegistry.getArguments().getString("allowRealDevice") == "true"
+        check(isEmulator || realDeviceAllowed) {
+            "真机运行需显式 -e allowRealDevice true（HARDWARE=${android.os.Build.HARDWARE}）"
+        }
         shell("am start -n ${ctx.packageName}/com.tabula.v3.MainActivity")
     }
 

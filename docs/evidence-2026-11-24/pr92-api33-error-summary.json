@@ -1,0 +1,383 @@
+{
+  "evidence_kind": "EMULATOR",
+  "note": "本目录全部为模拟器（CI emulator）采集，不代表真机表现。",
+  "sdk": 33,
+  "checks": [
+    {
+      "step": "install debug apk",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "step": "production wiring samples the photo behind the top buttons",
+      "ok": true,
+      "detail": "{\"sampled\": \"true\", \"reason\": \"NONE\", \"glass\": \"126x126\", \"origin\": \"(21,21)\", \"layer\": \"148x148\", \"pad\": \"11\", \"host\": \"1080x2127\", \"screen\": \"(21,149)\", \"hostdraw\": \"2\", \"layerdraw\": \"4\", \"rev\": \"3\", \"shape\": \"production-wiring\", \"effect\": \"Ok\", \"wiring\": \"kotlin.Unit\"}"
+    },
+    {
+      "step": "production wiring reports a sampled plan with distinct host/glass sizes",
+      "ok": true,
+      "detail": "reason=NONE host=(1080, 2127) glass=(126, 126)"
+    },
+    {
+      "step": "production wiring stays aligned after the background moves",
+      "ok": true,
+      "detail": "{\"sampled\": \"true\", \"reason\": \"NONE\", \"glass\": \"126x126\", \"origin\": \"(21,21)\", \"layer\": \"148x148\", \"pad\": \"11\", \"host\": \"1080x2127\", \"screen\": \"(21,149)\", \"hostdraw\": \"2\", \"layerdraw\": \"4\", \"rev\": \"3\", \"shape\": \"production-wiring\", \"effect\": \"Ok\", \"wiring\": \"kotlin.Unit\"}"
+    },
+    {
+      "step": "moving the background changes the picture under the buttons",
+      "ok": true,
+      "detail": "{\"comparable\": true, \"roi\": [0, 315, 1080, 2400], \"region_width\": 1080, \"region_height\": 2085, \"changed_pixels\": 427285, \"region_pixels\": 2251800, \"changed_ratio\": 0.189753, \"bbox_in_roi\": [0, 299, 1080, 2000], \"changed_pixels_whole_screen\": 427285}"
+    },
+    {
+      "step": "production wiring falls back when the lab switch is off",
+      "ok": true,
+      "detail": "{\"sampled\": \"false\", \"reason\": \"NOT_DRAWN_YET\", \"glass\": \"0x0\", \"origin\": \"(0,0)\", \"layer\": \"0x0\", \"pad\": \"0\", \"host\": \"0x0\", \"hostdraw\": \"0\", \"layerdraw\": \"0\", \"rev\": \"2\", \"shape\": \"production-wiring\", \"effect\": \"Unknown\", \"wiring\": \"kotlin.Unit\"}"
+    },
+    {
+      "step": "production wiring falls back when the photo source is unavailable",
+      "ok": true,
+      "detail": "{\"sampled\": \"false\", \"reason\": \"NOT_DRAWN_YET\", \"glass\": \"0x0\", \"origin\": \"(0,0)\", \"layer\": \"0x0\", \"pad\": \"0\", \"host\": \"0x0\", \"hostdraw\": \"0\", \"layerdraw\": \"0\", \"rev\": \"1\", \"shape\": \"production-wiring\", \"effect\": \"Unknown\", \"wiring\": \"kotlin.Unit\"}"
+    },
+    {
+      "step": "refraction on reports sampled=true",
+      "ok": true,
+      "detail": "{\"sampled\": \"true\", \"reason\": \"NONE\", \"glass\": \"954x420\", \"origin\": \"(63,252)\", \"layer\": \"960x426\", \"pad\": \"3\", \"host\": \"1080x931\", \"screen\": \"(63,380)\", \"hostdraw\": \"2\", \"layerdraw\": \"4\", \"rev\": \"2\", \"shape\": \"圆角矩形\", \"effect\": \"Ok\"}"
+    },
+    {
+      "step": "refraction on reports effect=Ok",
+      "ok": true,
+      "detail": "Ok"
+    },
+    {
+      "step": "host and glass sizes are distinct and layer = glass + 2*pad",
+      "ok": true,
+      "detail": "host=(1080, 931) glass=(954, 420) layer=(960, 426) pad=3"
+    },
+    {
+      "step": "refraction off falls back to original materials",
+      "ok": true,
+      "detail": "{\"sampled\": \"false\", \"reason\": \"NOT_DRAWN_YET\", \"glass\": \"0x0\", \"origin\": \"(0,0)\", \"layer\": \"0x0\", \"pad\": \"0\", \"host\": \"1080x931\", \"hostdraw\": \"1\", \"layerdraw\": \"0\", \"rev\": \"2\", \"shape\": \"圆角矩形\", \"effect\": \"Unknown\"}"
+    },
+    {
+      "step": "glass region located",
+      "ok": true,
+      "detail": "(63, 380, 1017, 800)"
+    },
+    {
+      "step": "refraction changes pixels inside the glass region",
+      "ok": true,
+      "detail": "{\"comparable\": true, \"roi\": [63, 380, 1017, 800], \"region_width\": 954, \"region_height\": 420, \"changed_pixels\": 108515, \"region_pixels\": 400680, \"changed_ratio\": 0.270827, \"bbox_in_roi\": [0, 0, 954, 420], \"changed_pixels_whole_screen\": 165122}"
+    },
+    {
+      "step": "diagnostic blur reaches the glass region",
+      "ok": true,
+      "detail": "{\"comparable\": true, \"roi\": [63, 380, 1017, 800], \"region_width\": 954, \"region_height\": 420, \"changed_pixels\": 384888, \"region_pixels\": 400680, \"changed_ratio\": 0.960587, \"bbox_in_roi\": [0, 0, 954, 420], \"changed_pixels_whole_screen\": 406798}"
+    },
+    {
+      "step": "still scene stops drawing (draw counters unchanged)",
+      "ok": true,
+      "detail": "hostdraw 2->2 layerdraw 4->4"
+    },
+    {
+      "step": "switching the background repaints the sampling layer",
+      "ok": true,
+      "detail": "layerdraw 4 -> 8"
+    },
+    {
+      "step": "moving the pattern repaints the sampling layer",
+      "ok": true,
+      "detail": "layerdraw 8 -> 12"
+    },
+    {
+      "step": "changing the host size either repaints or falls back deterministically",
+      "ok": true,
+      "detail": "layerdraw 12 -> 13, host (1080, 931) -> (1016, 867), sampled=true reason=NONE"
+    },
+    {
+      "step": "shrinking the host below the glass falls back instead of sampling outside",
+      "ok": true,
+      "detail": "host (1016, 867) -> (828, 679), sampled=false reason=OUT_OF_SOURCE_BOUNDS"
+    },
+    {
+      "step": "host size change is picked up by the sampling plan",
+      "ok": true,
+      "detail": "host (1080, 931) -> (1016, 867)"
+    },
+    {
+      "step": "displacement-only comparison keeps sampling geometry identical",
+      "ok": true,
+      "detail": "weak={'sampled': 'true', 'reason': 'NONE', 'glass': '954x420', 'origin': '(63,252)', 'layer': '960x426', 'pad': '3', 'host': '1080x931', 'screen': '(63,380)', 'hostdraw': '2', 'layerdraw': '4', 'rev': '2', 'shape': '圆角矩形', 'effect': 'Ok'} strong={'sampled': 'true', 'reason': 'NONE', 'glass': '954x420', 'origin': '(63,252)', 'layer': '960x426', 'pad': '3', 'host': '1080x931', 'screen': '(63,380)', 'hostdraw': '2', 'layerdraw': '4', 'rev': '2', 'shape': '圆角矩形', 'effect': 'Ok'}"
+    },
+    {
+      "step": "displacement change moves pixels at the glass edge",
+      "ok": true,
+      "detail": "{\"comparable\": true, \"roi\": [63, 380, 1017, 440], \"region_width\": 954, \"region_height\": 60, \"changed_pixels\": 9374, \"region_pixels\": 57240, \"changed_ratio\": 0.163767, \"bbox_in_roi\": [0, 0, 954, 60], \"changed_pixels_whole_screen\": 49336}"
+    },
+    {
+      "step": "displacement change leaves the glass center essentially untouched",
+      "ok": true,
+      "detail": "{\"comparable\": true, \"roi\": [349, 506, 731, 674], \"region_width\": 382, \"region_height\": 168, \"changed_pixels\": 0, \"region_pixels\": 64176, \"changed_ratio\": 0.0, \"bbox_in_roi\": null, \"changed_pixels_whole_screen\": 49336}"
+    }
+  ],
+  "failures": [],
+  "model": "sdk_gphone64_x86_64",
+  "fingerprint": "google/sdk_gphone64_x86_64/emu64x:13/TE1A.240213.009/12342917:userdebug/dev-keys",
+  "screen": [
+    1080,
+    2400
+  ],
+  "production_wiring_on": {
+    "sampled": "true",
+    "reason": "NONE",
+    "glass": "126x126",
+    "origin": "(21,21)",
+    "layer": "148x148",
+    "pad": "11",
+    "host": "1080x2127",
+    "screen": "(21,149)",
+    "hostdraw": "2",
+    "layerdraw": "4",
+    "rev": "3",
+    "shape": "production-wiring",
+    "effect": "Ok",
+    "wiring": "kotlin.Unit"
+  },
+  "production_wiring_moved": {
+    "sampled": "true",
+    "reason": "NONE",
+    "glass": "126x126",
+    "origin": "(21,21)",
+    "layer": "148x148",
+    "pad": "11",
+    "host": "1080x2127",
+    "screen": "(21,149)",
+    "hostdraw": "2",
+    "layerdraw": "4",
+    "rev": "3",
+    "shape": "production-wiring",
+    "effect": "Ok",
+    "wiring": "kotlin.Unit"
+  },
+  "production_wiring_moved_diff": {
+    "comparable": true,
+    "roi": [
+      0,
+      315,
+      1080,
+      2400
+    ],
+    "region_width": 1080,
+    "region_height": 2085,
+    "changed_pixels": 427285,
+    "region_pixels": 2251800,
+    "changed_ratio": 0.189753,
+    "bbox_in_roi": [
+      0,
+      299,
+      1080,
+      2000
+    ],
+    "changed_pixels_whole_screen": 427285
+  },
+  "production_wiring_moved_roi": [
+    0,
+    315,
+    1080,
+    2400
+  ],
+  "production_wiring_switch_off": {
+    "sampled": "false",
+    "reason": "NOT_DRAWN_YET",
+    "glass": "0x0",
+    "origin": "(0,0)",
+    "layer": "0x0",
+    "pad": "0",
+    "host": "0x0",
+    "hostdraw": "0",
+    "layerdraw": "0",
+    "rev": "2",
+    "shape": "production-wiring",
+    "effect": "Unknown",
+    "wiring": "kotlin.Unit"
+  },
+  "production_wiring_no_photo": {
+    "sampled": "false",
+    "reason": "NOT_DRAWN_YET",
+    "glass": "0x0",
+    "origin": "(0,0)",
+    "layer": "0x0",
+    "pad": "0",
+    "host": "0x0",
+    "hostdraw": "0",
+    "layerdraw": "0",
+    "rev": "1",
+    "shape": "production-wiring",
+    "effect": "Unknown",
+    "wiring": "kotlin.Unit"
+  },
+  "audit_refraction_on": {
+    "sampled": "true",
+    "reason": "NONE",
+    "glass": "954x420",
+    "origin": "(63,252)",
+    "layer": "960x426",
+    "pad": "3",
+    "host": "1080x931",
+    "screen": "(63,380)",
+    "hostdraw": "2",
+    "layerdraw": "4",
+    "rev": "2",
+    "shape": "圆角矩形",
+    "effect": "Ok"
+  },
+  "size_contract": {
+    "host": [
+      1080,
+      931
+    ],
+    "glass": [
+      954,
+      420
+    ],
+    "layer": [
+      960,
+      426
+    ],
+    "pad": 3
+  },
+  "audit_refraction_off": {
+    "sampled": "false",
+    "reason": "NOT_DRAWN_YET",
+    "glass": "0x0",
+    "origin": "(0,0)",
+    "layer": "0x0",
+    "pad": "0",
+    "host": "1080x931",
+    "hostdraw": "1",
+    "layerdraw": "0",
+    "rev": "2",
+    "shape": "圆角矩形",
+    "effect": "Unknown"
+  },
+  "audit_refraction_off_note": "读数来自顶栏按钮（glass=(0, 0)）；主面板已回退，只是它不写读数",
+  "glass_roi": [
+    63,
+    380,
+    1017,
+    800
+  ],
+  "diagnostic_blur": {
+    "comparable": true,
+    "roi": [
+      63,
+      380,
+      1017,
+      800
+    ],
+    "region_width": 954,
+    "region_height": 420,
+    "changed_pixels": 384888,
+    "region_pixels": 400680,
+    "changed_ratio": 0.960587,
+    "bbox_in_roi": [
+      0,
+      0,
+      954,
+      420
+    ],
+    "changed_pixels_whole_screen": 406798
+  },
+  "still_draw_counts": {
+    "before": {
+      "host": 2,
+      "layer": 4
+    },
+    "after": {
+      "host": 2,
+      "layer": 4
+    }
+  },
+  "background_switch": {
+    "before": 4,
+    "after": 8
+  },
+  "pattern_move": {
+    "before": 8,
+    "after": 12
+  },
+  "host_resize": {
+    "layerdraw": {
+      "before": 12,
+      "after": 13
+    },
+    "host": {
+      "before": [
+        1080,
+        931
+      ],
+      "after": [
+        1016,
+        867
+      ]
+    },
+    "reason": "NONE",
+    "sampled": "true"
+  },
+  "host_shrink": {
+    "host": [
+      828,
+      679
+    ],
+    "sampled": "false",
+    "reason": "OUT_OF_SOURCE_BOUNDS"
+  },
+  "displacement_only_premise": {
+    "blur": "2dp (forDisplacementComparison)",
+    "amounts_dp": [
+      2,
+      12
+    ]
+  },
+  "displacement_only": {
+    "edge": {
+      "comparable": true,
+      "roi": [
+        63,
+        380,
+        1017,
+        440
+      ],
+      "region_width": 954,
+      "region_height": 60,
+      "changed_pixels": 9374,
+      "region_pixels": 57240,
+      "changed_ratio": 0.163767,
+      "bbox_in_roi": [
+        0,
+        0,
+        954,
+        60
+      ],
+      "changed_pixels_whole_screen": 49336
+    },
+    "center": {
+      "comparable": true,
+      "roi": [
+        349,
+        506,
+        731,
+        674
+      ],
+      "region_width": 382,
+      "region_height": 168,
+      "changed_pixels": 0,
+      "region_pixels": 64176,
+      "changed_ratio": 0.0,
+      "bbox_in_roi": null,
+      "changed_pixels_whole_screen": 49336
+    }
+  },
+  "error": "RuntimeError: adb shell uiautomator dump /sdcard/ui.xml -> 1\nadb: device 'emulator-5554' not found\n",
+  "success": false,
+  "environment_unavailable": "RuntimeError: adb shell uiautomator dump /sdcard/ui.xml -> 1\nadb: device 'emulator-5554' not found\n"
+}
