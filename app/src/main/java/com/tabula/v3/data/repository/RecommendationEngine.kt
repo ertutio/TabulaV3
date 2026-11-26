@@ -117,6 +117,18 @@ class RecommendationEngine(
                 if (group == null) {
                     BatchResult(getRandomWalkBatch(filteredImages, batchSize), null)
                 } else {
+                    // 审计修复（#87 三轮）：**必须**复用 getSimilarBatch 的登记语义。
+                    //
+                    // getSimilarBatch 在把组交出去的同时立刻 markSimilarGroupProcessed，
+                    // 使该组进入冷却——这是"同一个组不会连续出现两次"的唯一保证。
+                    // 本方法此前只取组、不登记，于是用户若始终走普通卡片浏览
+                    // （从不进连拍选片页），点「再来一组」会反复拿到同一个组。
+                    //
+                    // 注意语义边界：这里登记的是"已出过"，不是"已处理完"。
+                    // 连拍选片页在部分回收失败时**不**推进该组进度，靠的是
+                    // 选片页自己不再调用取组入口；出组登记与提交进度是两件事，
+                    // 后者仍由 BurstCommit / markSimilarGroupProcessed 在页面上控制。
+                    markSimilarGroupProcessed(group)
                     BatchResult(group.images, group)
                 }
             }

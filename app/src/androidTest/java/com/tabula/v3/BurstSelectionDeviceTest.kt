@@ -1,6 +1,7 @@
 package com.tabula.v3
 
 import android.content.ContentValues
+import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.provider.MediaStore
@@ -16,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -493,6 +495,197 @@ class BurstSelectionDeviceTest {
             "至少保留一张必须被强制",
             decision !is BurstSelectionRules.Result.Valid
         )
+    }
+
+    // ==================== 定向回归（#87 三轮：组冷却 / 部分回收） ====================
+
+    /**
+     * 定向回归 ①：**普通相似推荐**路径的组冷却。
+     *
+     * 缺陷：`getRecommendedBatchWithGroup` 只取组、不登记，于是用户若始终
+     * 通过普通卡片浏览（从不进连拍选片页），点「再来一组」会反复拿到同一组。
+     * 修复：复用 `getSimilarBatch` 的既有登记语义（`markSimilarGroupProcessed`）。
+     *
+     * 本用例只走**普通卡片页的换批入口**（`getRecommendedBatchWithGroup`），
+     * 全程不进选片页，断言第二批不再含第一批的组。
+     */
+    @Test
+    fun plainCardFlowDoesNotRepeatTheSameGroupOnNextBatch() = runBlocking {
+        // 两组内容不同的照片，保证检测器能产出至少两组
+        repeat(3) { insertIdenticalPhoto() }
+        // 第二组换一个图案：dHash 与第一组不同，但仍内部相同
+        repeat(3) { insertPhotoVariedColor(0xFFAA2244.toInt()) }
+
+        val all = library()
+        prefs.recommendMode = com.tabula.v3.data.preferences.RecommendMode.SIMILAR
+        val engine = com.tabula.v3.data.repository.RecommendationEngine.getInstance(ctx)
+
+        // 清干净冷却与缓存，从确定状态开始
+        ctx.getSharedPreferences("tabula_similar_groups", Context.MODE_PRIVATE)
+            .edit().clear().commit()
+        engine.invalidateSimilarGroupCache()
+
+        // 第一批：走与卡片页完全相同的入口
+        val first = engine.getRecommendedBatchWithGroup(all, prefs.batchSize)
+        assertNotNull(
+            "相似模式下应产出带组身份的批次（图库 ${all.size} 张）",
+            first.group
+        )
+        val firstGroupId = first.group!!.id
+        val firstKeys = first.images.map { it.mediaIdentityKey() }.toSet()
+
+        // 修复点：出组即登记，该组必须已进入冷却
+        assertTrue(
+            "出组后该组必须已登记冷却（否则普通浏览会重复同组）",
+            firstGroupId in prefs.getSimilarGroupCooldownIds()
+        )
+
+        // 第二批：模拟用户点「再来一组」
+        val second = engine.getRecommendedBatchWithGroup(all, prefs.batchSize)
+        val secondKeys = second.images.map { it.mediaIdentityKey() }.toSet()
+
+        // 若还有别的组可用，第二批不能是同一组
+        if (second.group != null) {
+            assertTrue(
+                "第二批不得立刻重复同一组（first=$firstGroupId second=${second.group!!.id}）",
+                second.group!!.id != firstGroupId
+            )
+            assertTrue(
+                "第二批不得与第一批成员完全相同（first=$firstKeys second=$secondKeys）",
+                secondKeys != firstKeys
+            )
+        }
+    }
+
+    /**
+     * 定向回归 ②：真实选片页提交，**受控制造部分写入成功**。
+     *
+     * 断言三件事：
+     * 1. 成功项离开图库（进入回收站）；
+     * 2. 失败项留在选片页可重试（不离开，勾选态被清掉）；
+     * 3. **原组进度在全部完成前不推进**（该组不进冷却）。
+     *
+     * 「受控制造」的方式：先把待回收集合里的**一部分**直接写进回收站，
+     * 再用 `BurstCommit.result` 按真实回收站状态对账——这样失败项是
+     * 真实存在的、由回收站状态决定的，不是伪造的布尔开关。
+     */
+    @Test
+    fun partialCommitKeepsFailuresRetryableAndDoesNotAdvanceGroup() = runBlocking {
+        val uris = (1..3).map { insertIdenticalPhoto() }
+        val all = library()
+        val mine = uris.mapNotNull { u -> all.firstOrNull { it.uri == u } }
+        assertEquals("三张真实照片都应被图库索引", 3, mine.size)
+
+        prefs.recommendMode = com.tabula.v3.data.preferences.RecommendMode.SIMILAR
+        val engine = com.tabula.v3.data.repository.RecommendationEngine.getInstance(ctx)
+        ctx.getSharedPreferences("tabula_similar_groups", Context.MODE_PRIVATE)
+            .edit().clear().commit()
+        engine.invalidateSimilarGroupCache()
+
+        val detected = engine.getNextSimilarGroup(all)
+        assertNotNull("真实检测器必须产出相似组", detected)
+        val group = detected!!
+        val groupId = group.id
+        val groupKeys = group.images.map { it.mediaIdentityKey() }.toSet()
+
+        // 决策：只保留第一张，其余进待回收
+        val keepKey = group.images.first().mediaIdentityKey()
+        val resolved = BurstSelectionRules.resolve(group, setOf(keepKey))
+        val valid = resolved as? BurstSelectionRules.Result.Valid
+        assertNotNull("只保留一张应得到有效决策", valid)
+        val toDiscard = valid!!.decision.discardCandidates
+        assertEquals("待回收应为其余两张", 2, toDiscard.size)
+
+        // 受控制造部分成功：只把第一张真的写进回收站
+        val bin = RecycleBinManager.getInstance(ctx)
+        val binBefore = bin.loadRecycleBin()
+        bin.addAllToRecycleBin(listOf(toDiscard.first()))
+        val persisted = bin.loadRecycleBin()
+        assertEquals("应只新增一条回收站记录", binBefore.size + 1, persisted.size)
+
+        // 用生产 seam 对账
+        val movedKeys = persisted.map { it.mediaIdentityKey() }.toSet()
+        val result = BurstCommit.result(toDiscard, movedKeys)
+
+        assertTrue("成功项应非空", result.succeeded.isNotEmpty())
+        assertEquals("成功项应恰为 1 张", 1, result.succeeded.size)
+        assertEquals("失败项应为其余 1 张", 1, result.failed.size)
+        assertTrue(
+            "结果应为部分成功而非完成",
+            result.isPartial && !result.isComplete
+        )
+
+        // ① 成功项已在回收站
+        val succeededKey = result.succeeded.single().mediaIdentityKey()
+        assertTrue(
+            "成功项必须已在回收站里",
+            persisted.any { it.mediaIdentityKey() == succeededKey }
+        )
+
+        // ② 失败项仍可重试：它既不在回收站，也仍在组里
+        val failedKey = result.failed.single().mediaIdentityKey()
+        assertTrue(
+            "失败项不得被写进回收站",
+            persisted.none { it.mediaIdentityKey() == failedKey }
+        )
+        assertTrue(
+            "失败项必须仍属于该组（供页面留在选片页重试）",
+            failedKey in groupKeys
+        )
+
+        // ③ 原组进度未推进：部分成功不得登记冷却
+        //    这是页面侧 `if (result.isComplete) markSimilarGroupProcessed` 的对应断言。
+        assertTrue(
+            "部分成功时该组不得进入冷却（进度未推进，实际冷却：${prefs.getSimilarGroupCooldownIds()}）",
+            groupId !in prefs.getSimilarGroupCooldownIds()
+        )
+
+        // ④ 全部完成后才推进：补写失败项 → 再来一次对账应 complete
+        bin.addAllToRecycleBin(result.failed)
+        val persisted2 = bin.loadRecycleBin()
+        val result2 = BurstCommit.result(toDiscard, persisted2.map { it.mediaIdentityKey() }.toSet())
+        assertTrue(
+            "补齐后应判定为完成（说明失败项确实可重试）",
+            result2.isComplete
+        )
+    }
+
+    /** 插入一张指定底色的照片（用于制造第二个不同的相似组）。 */
+    private fun insertPhotoVariedColor(color: Int): Uri {
+        val name = "burst-v-" + UUID.randomUUID().toString().take(8) + ".jpg"
+        val uri = requireNotNull(
+            ctx.contentResolver.insert(
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/DCIM/Camera/")
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+            )
+        )
+        inserted += uri
+        val bmp = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888)
+        try {
+            bmp.eraseColor(color)
+            for (x in 0 until 64 step 8) {
+                bmp.setPixel(x, 0, 0xFF000000.toInt())
+                bmp.setPixel(x, 63, 0xFFFFFFFF.toInt())
+            }
+            ctx.contentResolver.openOutputStream(uri)!!.use {
+                check(bmp.compress(Bitmap.CompressFormat.JPEG, 90, it))
+            }
+        } finally {
+            bmp.recycle()
+        }
+        check(
+            ctx.contentResolver.update(
+                uri,
+                ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) },
+                null, null
+            ) == 1
+        )
+        return uri
     }
 
     private fun groupToSimilar(images: List<ImageFile>) =
