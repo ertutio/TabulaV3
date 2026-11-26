@@ -289,28 +289,47 @@ class DuplicateHintPageDeviceTest {
      * ——第三个用例若删除已直接执行，断言照样通过。
      */
     private fun allowSystemDeleteDialogIfAny() {
-        val metrics = ins.targetContext.resources.displayMetrics
-        val x = (metrics.widthPixels * 0.828f).toInt()
-        val y = (metrics.heightPixels * 0.642f).toInt()
-
-        val deadline = now() + 12000
+        val deadline = now() + 15000
+        // 先等框出现
         while (now() < deadline) {
-            // 先确认框真的在前台，避免点击误伤应用页面。
-            //
-            // 注意：`UiAutomation.executeShellCommand` **不经过 shell 解析**，
-            // 管道与 grep 不会生效（实测返回 "Bad window command"）。
-            // 因此这里直接取 `dumpsys window` 全文再在本地过滤。
-            val dump = runCatching { shell("dumpsys window") }.getOrDefault("")
-            val dialogFocused = dump.lineSequence()
-                .firstOrNull { it.contains("mCurrentFocus") }
-                ?.contains("providers.media") == true
-            if (dialogFocused) {
-                shell("input tap $x $y")
-                android.os.SystemClock.sleep(1500)
-                return
-            }
-            android.os.SystemClock.sleep(400)
+            if (systemDeleteDialogFocused()) break
+            android.os.SystemClock.sleep(300)
         }
+        if (!systemDeleteDialogFocused()) return
+
+        // 框已在前台：在按钮行**从右往左**扫描点击。
+        //
+        // 为什么从右往左：Android AlertDialog 的正向按钮（Allow）在右侧，
+        // 负向按钮（Deny）在左侧。从左往右扫会先点中 Deny，框照样关闭，
+        // 但删除被拒绝——本地实测 (648,1536) 就是 Deny，屏幕立刻回到回收站
+        // 而记录没删（run 之前 3 次失败全是这个原因）。
+        //
+        // 为什么不用固定比例：CI 的 pixel_4(392dp) / pixel_6(411dp) 与本地
+        // 1080x2400 的 AlertDialog 度量不同，固定 0.642h 在 CI 上点不中。
+        val m = ins.targetContext.resources.displayMetrics
+        android.util.Log.i("DupHintPage", "dialog focused; scanning taps on ${m.widthPixels}x${m.heightPixels}")
+        val xs = (92 downTo 58 step 3).map { (m.widthPixels * it / 100f).toInt() }
+        val ys = (55..80 step 2).map { (m.heightPixels * it / 100f).toInt() }
+        for (y in ys) {
+            for (x in xs) {
+                shell("input tap $x $y")
+                android.os.SystemClock.sleep(180)
+                if (!systemDeleteDialogFocused()) {
+                    android.util.Log.i("DupHintPage", "dialog dismissed by tap at ($x,$y)")
+                    android.os.SystemClock.sleep(1500)
+                    return
+                }
+            }
+        }
+        android.util.Log.w("DupHintPage", "scan exhausted; dialog still focused")
+    }
+
+    /** 系统删除确认框是否在前台（`dumpsys window` 全文本地过滤，不走管道）。 */
+    private fun systemDeleteDialogFocused(): Boolean {
+        val dump = runCatching { shell("dumpsys window") }.getOrDefault("")
+        return dump.lineSequence()
+            .firstOrNull { it.contains("mCurrentFocus") }
+            ?.contains("providers.media") == true
     }
 
     // ==================== 用例 ====================
