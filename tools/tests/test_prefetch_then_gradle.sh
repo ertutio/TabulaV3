@@ -16,21 +16,13 @@ fail=0
 pass() { echo "PASS: $1"; }
 bad()  { echo "FAIL: $1"; fail=1; }
 
-# 平台适配：Linux/CI 用 gradlew，Windows 用 gradlew.bat。
-#
-# 注意：不能靠 `-x ./gradlew` 判断可执行位——git checkout 出来的 gradlew
-# 在 CI 上常常没有 +x（run 45819084680 就是 exit 126）。统一用
-# `bash ./gradlew` 调用，绕开权限位；Windows 上仍走 .bat。
-if [ -f "./gradlew" ] && [ ! -f "./gradlew.bat" ]; then
-  GRADLE="bash ./gradlew"
-elif [ -f "./gradlew.bat" ] && [ ! -f "./gradlew" ]; then
-  GRADLE="./gradlew.bat"
-elif [ -f "./gradlew" ]; then
-  # 两者都在（Windows 仓库形态）：优先 .bat，避免 MSYS 下 bash gradlew 的路径差异
-  GRADLE="./gradlew.bat"
-else
-  GRADLE="bash ./gradlew"
-fi
+# 平台适配：按**操作系统**选，不能按文件存在性——
+# 本仓库同时提交了 gradlew 与 gradlew.bat，Linux 上两者都在，
+# 按存在性会选中 .bat 而 exit 126（run 45821463902 实测）。
+case "$(uname -s 2>/dev/null)" in
+  MINGW*|MSYS*|CYGWIN*) GRADLE="./gradlew.bat" ;;
+  *)                    GRADLE="bash ./gradlew" ;;   # 用 bash 调用，绕开可执行位
+esac
 echo "using gradle wrapper: $GRADLE"
 
 echo "== E. prefetch failure, then real Gradle still runs =="
