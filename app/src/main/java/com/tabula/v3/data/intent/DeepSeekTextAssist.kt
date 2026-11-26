@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 /**
  * 可选的文字辅助：把**已脱敏的 OCR 文字片段**交给 DeepSeek 做一次分类建议。
@@ -176,35 +177,39 @@ class DeepSeekTextAssist(
         EMPTY
     }
 
-    /** 从 OpenAI 兼容响应里取 choices[0].message.content，不引入 JSON 库。 */
-    private fun extractContent(raw: String): String? {
-        val key = "\"content\":\""
-        val start = raw.indexOf(key)
-        if (start < 0) return null
-        val from = start + key.length
-        val builder = StringBuilder()
-        var i = from
-        while (i < raw.length) {
-            val c = raw[i]
-            when {
-                c == '\\' && i + 1 < raw.length -> {
-                    val next = raw[i + 1]
-                    builder.append(
-                        when (next) {
-                            'n' -> '\n'
-                            't' -> '\t'
-                            '"' -> '"'
-                            '\\' -> '\\'
-                            else -> next
-                        }
-                    )
-                    i += 2
-                }
-                c == '"' -> return builder.toString()
-                else -> { builder.append(c); i++ }
-            }
-        }
-        return null
+    /**
+     * 从 OpenAI 兼容响应里取 `choices[0].message.content`。
+     *
+     * **为什么必须用 JSON 解析器**：上一版用固定字符串 `"content":"` 去 `indexOf`，
+     * 这假设了「冒号后紧跟引号、且没有任何空白」。真实响应常写成
+     * `"content": "KEEP"`（冒号后一个空格）或 pretty-print 的换行缩进，
+     * 于是查找失败 → 返回 null → 一份**完全合法的 KEEP 建议**被当成无建议，
+     * 静默回退本地。这类失败没有任何日志，用户只会觉得「开了辅助也没用」。
+     *
+     * 用解析器还顺手解决了手写状态机的几个边界：字段顺序、`\uXXXX` 转义、
+     * 嵌套同名键、以及 content 里含转义引号时的越界风险。
+     *
+     * 回退语义**逐条保留**（皆有回归用例）：
+     * - 非法 JSON / 不是对象 → null；
+     * - `choices` 缺失、不是数组、为空 → null；
+     * - `choices[0].message` 缺失、`content` 缺失/为 null/不是字符串 → null；
+     * - `content` 为空白串 → null（调用方按空建议处理）。
+     *
+     * 返回 null 的调用方行为不变：`parse` 里 `?:` 落到 [EMPTY]，即 `UNCERTAIN` + 空理由。
+     */
+    private fun extractContent(raw: String): String? = try {
+        val choices = JSONObject(raw).optJSONArray("choices") ?: return null
+        if (choices.length() == 0) return null
+        val message = choices.optJSONObject(0)?.optJSONObject("message") ?: return null
+        // optString 会把 null / 非字符串转成 ""，因此显式判类型，
+        // 避免把 {"content": 42} 这种异常响应当成空建议之外的别的东西。
+        if (!message.has("content") || message.isNull("content")) return null
+        val content = message.opt("content")
+        if (content !is String) return null
+        content.trim().ifEmpty { null }
+    } catch (e: Throwable) {
+        // 非法 JSON（含 HTML 错误页）一律按「读不到」处理，不抛给上层
+        null
     }
 
     private fun escape(text: String): String = buildString {
