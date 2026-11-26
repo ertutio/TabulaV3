@@ -1,0 +1,51 @@
+name: Verify CI prefetch best-effort
+
+on:
+  push:
+    branches: [fix/ci-prefetch-best-effort]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-prefetch-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install Android SDK packages
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
+
+      # 1) 预取脚本自身的契约（退出码 / 警告 / 缓存语义）
+      - name: Prefetch contract checks
+        run: bash tools/tests/test_prefetch_best_effort.sh
+
+      # 2) 端到端：预取失败后 Gradle 仍运行；真实测试失败仍红
+      - name: Prefetch failure then real Gradle
+        run: bash tools/tests/test_prefetch_then_gradle.sh
+
+      # 3) 全部工作流都改用了同一脚本，且不再有内联硬断言
+      - name: Assert no inline hard-assert prefetch remains
+        run: |
+          set -eux
+          # 不允许任何工作流再内联下载该 jar
+          ! grep -rn 'android-all-instrumented-14-robolectric' .github/workflows/
+          # 每个原本有预取的工作流都必须调用共享脚本
+          for f in verify-burst-selection verify-staged-cleanup verify-share-relay \
+                   verify-recent-albums verify-duplicate-versions verify-roadmap-baseline \
+                   verify-round-intent verify-walk-strategy; do
+            grep -q 'tools/prefetch-robolectric-jar.sh' ".github/workflows/$f.yml"
+          done
+          echo "all workflows use the shared prefetch script"

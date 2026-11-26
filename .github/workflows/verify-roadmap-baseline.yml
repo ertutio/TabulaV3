@@ -35,28 +35,9 @@ jobs:
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
       - name: Pre-fetch Robolectric android-all jars
         run: |
-          # Maven Central 对 CI runner 会返回 429（限流），Robolectric 测试期在线
-          # 下载失败会造成批量 AssertionError。这里按镜像顺序预取到 ~/.m2；
-          # 全部失败也不阻断 build（Robolectric 自己会再试），只打警告。
-          JAR=android-all-instrumented-14-robolectric-10818077-i6.jar
-          DIR="$HOME/.m2/repository/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6"
-          mkdir -p "$DIR"
-          for BASE in \
-            https://repo.maven.apache.org/maven2 \
-            https://maven.aliyun.com/repository/central \
-            https://repo1.maven.org/maven2 ; do
-            URL="$BASE/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6/$JAR"
-            for attempt in 1 2 3; do
-              if curl -fsSL --retry 2 --retry-delay 5 -o "$DIR/$JAR" "$URL"; then
-                echo "fetched from $BASE (attempt $attempt)"
-                ls -la "$DIR"
-                exit 0
-              fi
-              echo "miss $BASE attempt $attempt"
-              sleep 8
-            done
-          done
-          echo "::warning::android-all prefetch failed on all mirrors; Robolectric will retry at test time"
+          # 与其余工作流共用同一脚本，行为一致。
+          bash tools/prefetch-robolectric-jar.sh
+
       - name: Unit regressions and debug build
         run: |
           bash ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
