@@ -73,6 +73,12 @@ class IntentBatchPageFlowTest {
         // 清掉上一次跑留下的分析结果与 Key，保证「默认关闭」这条能被真实断言
         IntentVerdictCache(ctx.getSharedPreferences("tabula_intent_verdicts", android.content.Context.MODE_PRIVATE)).clear()
         IntentAssistKeyStore(ctx).delete()
+        // 服务选择**跨批保留**是产品设计，但它不该跨用例泄漏：
+        // #96 的用例里有一条会在对话框里切到 OpenCode Go（这是要验证的行为），
+        // 切完偏好就留在了 Go。下一条用例只给 DeepSeek 写 Key，于是捡到的状态是
+        // 「当前服务 = Go、Go 没有 Key」→ 开关禁用 →「必须能点到开关」失败。
+        // 每条用例都从默认服务开始，才是在测功能而不是测上一条用例的副作用。
+        prefs.intentAssistService = com.tabula.v3.data.intent.IntentAssistService.DEFAULT
         grantMedia()
     }
 
@@ -81,6 +87,10 @@ class IntentBatchPageFlowTest {
         inserted.forEach { runCatching { ctx.contentResolver.delete(it, null, null) } }
         runCatching { RecycleBinManager.getInstance(ctx).clearRecycleBin() }
         IntentAssistKeyStore(ctx).delete()
+        // 收尾同样复位服务选择：不改它的话，本类跑完会把「Go」留给同进程的其它测试类。
+        runCatching {
+            prefs.intentAssistService = com.tabula.v3.data.intent.IntentAssistService.DEFAULT
+        }
     }
 
     /**
