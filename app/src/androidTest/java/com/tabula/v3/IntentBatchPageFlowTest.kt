@@ -293,6 +293,79 @@ class IntentBatchPageFlowTest {
         error("waitForTextContaining timeout: $fragment （屏幕：${screenTexts()}）")
     }
 
+    /**
+     * 找出**本页列表行**里的那个缩略图节点。
+     *
+     * 为什么不能按文件名直接取第一个：本页是「背景 DeckScreen + 前景凑一批」叠加，
+     * 背景卡片里同一张照片也带 `contentDescription = displayName`，且在整棵树里排在前面。
+     * 按名字取首个命中会点到背景那张（它没有可点祖先），于是「点了缩略图但选中态不变」。
+     *
+     * 判据：**必须有可点的祖先**（列表行 `Modifier.clickable { onToggle() }`），
+     * 且该祖先高度小于半屏（排除整屏容器）。
+     */
+    private fun intentListThumbNodes(fileName: String): List<Pair<AccessibilityNodeInfo, AccessibilityNodeInfo>> {
+        val root = ins.uiAutomation.rootInActiveWindow ?: return emptyList()
+        val out = mutableListOf<Pair<AccessibilityNodeInfo, AccessibilityNodeInfo>>()
+        fun walk(n: AccessibilityNodeInfo?, depth: Int) {
+            if (n == null || depth > 40) return
+            if (n.contentDescription?.toString() == fileName) {
+                var cur = n.parent
+                var hops = 0
+                while (cur != null && hops < 6) {
+                    if (cur.isClickable) {
+                        val r = android.graphics.Rect(); cur.getBoundsInScreen(r)
+                        if (r.height() in 1..(screenHeightPx() / 2)) out += n to cur
+                        break
+                    }
+                    cur = cur.parent; hops++
+                }
+            }
+            for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
+        }
+        walk(root, 0)
+        return out
+    }
+
+    private fun screenHeightPx(): Int = ctx.resources.displayMetrics.heightPixels
+
+    /**
+     * 点推荐列表里的缩略图，并**等到选中数真的变成 [expectedSelected]** 才返回。
+     *
+     * 为什么必须轮询：点击本身是瞬时的，但 UiAutomation 读到的无障碍树快照会滞后
+     * 一小段时间（设备实测：处理器已把 0→1 写进状态，紧接着读树仍是「已选 0 张」，
+     * 下一拍才读到 1）。读一次就断言会把「读得早」误判成「点不上」。
+     */
+    private fun tapIntentThumb(fileName: String, expectedSelected: Int, timeoutMs: Long = 20000): Boolean {
+        val deadline = now() + timeoutMs
+        var tapped = false
+        while (now() < deadline) {
+            if (!tapped) {
+                val hit = intentListThumbNodes(fileName).firstOrNull()
+                if (hit != null) {
+                    val r = android.graphics.Rect(); hit.first.getBoundsInScreen(r)
+                    if (r.width() > 0 && r.height() > 0) {
+                        shell("input tap ${r.centerX()} ${r.centerY()}")
+                        tapped = true
+                    }
+                }
+            }
+            if (waitForSelectedCount(expectedSelected, timeoutMs = 2500)) return true
+            if (!tapped) android.os.SystemClock.sleep(250)
+        }
+        return false
+    }
+
+    /** 轮询「已选 N 张」到期望值；只认这条精确文案，不认「已选中」图标描述。 */
+    private fun waitForSelectedCount(expected: Int, timeoutMs: Long = 10000): Boolean {
+        val deadline = now() + timeoutMs
+        while (now() < deadline) {
+            val label = screenTexts().firstOrNull { Regex("^已选 \\d+ 张$").matches(it) }
+            if (label == "已选 $expected 张") return true
+            android.os.SystemClock.sleep(200)
+        }
+        return false
+    }
+
     private fun tapByBounds(target: String, timeout: Long = 20000): Boolean {
         val end = now() + timeout
         while (now() < end) {
@@ -389,7 +462,17 @@ class IntentBatchPageFlowTest {
         waitForTextContaining("按整理目的凑一批", timeout = 20000)
         val opened = tapByBounds("看看")
         assertTrue("「按整理目的凑一批」入口必须可点", opened)
-        waitForTextContaining("只排序", timeout = 20000)
+        // 进入判据必须是**只在凑一批页存在**的文案。
+        // 不能用 contains("只排序")：暂存清理入口那一行是
+        // 「按整理目的凑一批：先看最值得清的（只排序，不自动删）」，也含这四个字，
+        // 于是点击失败时这条等待会立刻返回，后续断言就都打在了暂存清理页上
+        // （设备实测：断言里读到的是「换来源」「存放超过 7 天」这些候选页文案）。
+        val deadline = now() + 30000
+        while (now() < deadline) {
+            if (screenTexts().any { it.contains("只排序，不会自动删除；仍由你决定保留或移入回收站") }) return
+            android.os.SystemClock.sleep(250)
+        }
+        error("没能进入凑一批页（屏幕：${screenTexts()}）")
     }
 
     // ==================== 用例 ====================
@@ -512,7 +595,11 @@ class IntentBatchPageFlowTest {
             null
         }
         assertNotNull("推荐列表里应出现可点的缩略图（屏幕：${screenTexts()}）", thumbName)
-        assertTrue("缩略图必须能点中（目标：$thumbName）", tapByBounds(thumbName!!))
+        // 点列表行里的那张（不是背景卡片里的同名大图），并等到「已选 1 张」真的出现
+        assertTrue(
+            "点缩略图后选中数必须变为 1（目标：$thumbName，屏幕：${screenTexts()}）",
+            tapIntentThumb(thumbName!!, expectedSelected = 1)
+        )
 
         // 3) 选中后按钮必须变为可用（这是第一轮卡住的那一步）
         val submitAfter = waitForEnabledSubmit()
@@ -653,7 +740,12 @@ class IntentBatchPageFlowTest {
         fun walk(n: AccessibilityNodeInfo?, depth: Int) {
             if (n == null || depth > 24) return
             val text = n.text?.toString().orEmpty()
-            if (text.contains("移入回收站")) matches += n
+            // 只认按钮自身的两条文案：「选择要移入回收站的照片」与「移入回收站（N 张）」。
+            // 不能用 contains("移入回收站")：页头副标题「…仍由你决定保留或移入回收站」
+            // 也含这四个字，会被当成按钮，于是 enabled 判定取的是副标题的祖先链。
+            if (text == "选择要移入回收站的照片" || Regex("^移入回收站（\\d+ 张）$").matches(text)) {
+                matches += n
+            }
             for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
         }
         walk(root, 0)
@@ -814,7 +906,10 @@ class IntentBatchPageFlowTest {
             tapByBounds("重新分析")
             android.os.SystemClock.sleep(3000)
         } else {
-            assertTrue("缩略图必须能点中", tapByBounds(thumb))
+            assertTrue(
+                "点缩略图后选中数必须变为 1（屏幕：${screenTexts()}）",
+                tapIntentThumb(thumb, expectedSelected = 1)
+            )
             val submit = waitForEnabledSubmit()
             assertNotNull("提交按钮必须可用", submit)
             assertTrue("选中后按钮必须为可用态（屏幕：${screenTexts()}）", submit!!.enabled)
