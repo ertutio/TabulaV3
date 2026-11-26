@@ -149,7 +149,11 @@ fun RecycleBinScreen(
     showHdrBadges: Boolean = false,
     showMotionBadges: Boolean = false,
     playMotionSound: Boolean = true,
-    motionSoundVolume: Int = 100
+    motionSoundVolume: Int = 100,
+    // 路线图 #83 第 5 项：选中照片时的"还剩哪个版本"提示。
+    // 每个身份键 → 与它字节相同的其他照片数量（0 或缺省 = 不提示）。
+    duplicateCounts: Map<String, Int> = emptyMap(),
+    duplicateDetails: Map<String, List<ImageFile>> = emptyMap()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -261,7 +265,10 @@ fun RecycleBinScreen(
                         }
                         isSelectionMode = false
                         selectedImages = emptySet()
-                    }
+                    },
+                    // 路线图 #83 第 5 项：选中项里有多少张还留有字节相同的副本。
+                    // 这只是提示，不阻止删除——用户仍然可以全部删掉。
+                    duplicateHint = buildDuplicateHint(selectedImages, duplicateDetails)
                 )
             } else {
                 RecycleBinTopBar(
@@ -1362,7 +1369,9 @@ private fun SelectionModeTopBar(
     textColor: Color,
     onCancel: () -> Unit,
     onRestoreSelected: () -> Unit,
-    onDeleteSelected: () -> Unit
+    onDeleteSelected: () -> Unit,
+    // 路线图 #83 第 5 项：非空时在标题下面挂一行副本提示
+    duplicateHint: String? = null
 ) {
     Row(
         modifier = Modifier
@@ -1379,13 +1388,22 @@ private fun SelectionModeTopBar(
             )
         }
 
-        Text(
-            text = "已选 $selectedCount 项",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold
-            ),
-            color = textColor
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "已选 $selectedCount 项",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = textColor
+            )
+            if (duplicateHint != null) {
+                Text(
+                    text = duplicateHint,
+                    color = Color(0xFF007AFF),
+                    fontSize = 11.sp
+                )
+            }
+        }
 
         Row {
             IconButton(
@@ -1578,4 +1596,42 @@ private fun rememberImageBadges(
     }
 
     return badges
+}
+
+/**
+ * 路线图 #83 第 5 项：把"选中项里多少张还留有相同副本"拼成一行提示。
+ *
+ * 口径刻意保守：只数**选中项自身**有副本的张数，且副本必须不在选中集合里
+ * （两份都要删时"还剩一份"不成立）。返回 null 表示没有可提示的内容，
+ * 界面就不显示这一行。
+ */
+/**
+ * 路线图 #83 第 5 项 / 审计意见（#88）：把"选中项里多少张还留有副本"拼成一行提示。
+ *
+ * **关键口径（审计要求）**：副本必须**排除本次选中的照片**。
+ * 如果两份都在选中集合里，那"还剩一份"不成立——这种情况必须不提示，
+ * 否则等于告诉用户"删了这张还有备份"，而实际上备份也正要一起删掉。
+ *
+ * @param selectedIdentityKeys 本次选中的照片身份键
+ * @param duplicateDetails 每张照片的副本列表（来自 [DuplicateRules.findExactDuplicates]）
+ * @return 提示文案；null 表示没有可提示的内容（不显示这一行）
+ */
+internal fun buildDuplicateHint(
+    selectedIdentityKeys: Set<String>,
+    duplicateDetails: Map<String, List<ImageFile>>
+): String? {
+    if (selectedIdentityKeys.isEmpty() || duplicateDetails.isEmpty()) return null
+
+    val survivors = selectedIdentityKeys.count { key ->
+        duplicateDetails[key].orEmpty().any { copy ->
+            // 副本本身不在选中集合里，才算"还剩一份"
+            copy.mediaIdentityKey() !in selectedIdentityKeys
+        }
+    }
+
+    return when {
+        survivors == 0 -> null
+        survivors == 1 -> "其中 1 张还留有字节相同的副本"
+        else -> "其中 $survivors 张还留有字节相同的副本"
+    }
 }

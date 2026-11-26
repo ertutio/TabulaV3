@@ -85,6 +85,7 @@ import com.tabula.v3.data.repository.moveImagesResultMessage
 import com.tabula.v3.data.repository.matchesSameMediaIdentity
 import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.mediaIdentityKey
+import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.partitionByConfirmedIdentity
 import com.tabula.v3.data.repository.projectSnapshot
 import com.tabula.v3.data.repository.RecycleBinManager
@@ -150,6 +151,9 @@ import com.tabula.v3.data.repository.deleteMediaUrisBatch
 import com.tabula.v3.data.repository.BatchDeleteSummary
 import com.tabula.v3.data.repository.mediaDeletionMessage
 import com.tabula.v3.data.repository.resolveImagesByIdentitySelection
+import com.tabula.v3.data.duplicate.ContentDigestCalculator
+import com.tabula.v3.data.duplicate.DuplicateReverify
+import com.tabula.v3.data.duplicate.DuplicateRules
 import com.tabula.v3.data.burst.BurstCommit
 import com.tabula.v3.data.burst.BurstSelectionRules
 import com.tabula.v3.data.repository.SimilarGroup
@@ -528,6 +532,13 @@ fun TabulaApp(
     var showHiddenAlbums by remember { mutableStateOf(false) }
     var otherAlbumsForNavigation by remember { mutableStateOf<List<Album>>(emptyList()) }
 
+    // ========== 副本提示状态（路线图第 5 项） ==========
+    // 只对「回收站里待永久删除的照片」算全文摘要——这是最需要"还剩一份吗"
+    // 这个信息的时刻。摘要放在后台算，算不出来就不提示（不猜）。
+    var duplicateCounts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var duplicateDetails by remember { mutableStateOf<Map<String, List<ImageFile>>>(emptyMap()) }
+    var duplicateScanRevision by remember { mutableIntStateOf(0) }
+
     // ========== 连拍选片状态（路线图第 4 项） ==========
     // 只在相似推荐批次"看起来是一个连拍组"时才进入；进入后本界面的决定
     // 不直接落库，确认才写回收站，取消/返回什么都不改。
@@ -773,6 +784,151 @@ fun TabulaApp(
         imagesForSorting = imagesForSorting.filterNot { it.uri in uris }
     }
 
+    // ========== 副本检测（路线图第 5 项 / 审计 #88） ==========
+
+    /**
+     * 删除前复核：把已经不再成立的副本提示从 `duplicateDetails` 里摘掉。
+     *
+     * 审计要求的三项检查全部在这里做，且**用真实 IO 而不是缓存的扫描结果**：
+     * 1. 副本还在当前图库集合里（[allImages]）
+     * 2. 副本此刻仍可读（打开流成功）
+     * 3. 内容摘要与扫描时一致（重新算 SHA-256 比对）
+     *
+     * 为什么必须重算摘要：文件可能被外部编辑器改过（同名不同内容），
+     * 也可能被换成另一张图。只看"文件存在"不足以证明字节相同。
+     *
+     * 复核不通过时**只修改提示**，不阻止删除 —— 用户有权删任何东西；
+     * 我们的责任是不要在"还有一份"的假象下让他删。
+     */
+    /**
+     * 审计意见（#88）：复核不通过时**停止本次删除**、更新提示，
+     * 让用户看到变化后重新确认——而不是悄悄按旧提示继续删。
+     *
+     * @return true 表示全部复核通过可以继续；false 表示提示已更新、应中止本次删除
+     */
+    suspend fun reverifyDuplicatesBeforeDeletion(
+        toDelete: List<ImageFile>,
+        // 审计意见（#88 四轮）：**必须**传入点击删除那一刻冻结的证据快照。
+        //
+        // 缺陷：旧实现直接读实时 `duplicateDetails`。后台扫描（进站/恢复/删除
+        // 都会触发）可以在"用户点删除 → 复核开始"之间把提示刷掉，于是
+        // `details[key]` 变成 null，`verifyAll` 里 `copies ?: return@forEach`
+        // 直接跳过这张照片 —— 复核判为通过，最后一份被删掉。
+        // 也就是说：用户看到的"还剩副本"被后台悄悄抹掉，删除却照样执行。
+        //
+        // 快照同时固定两样东西：本次要删的目标、以及当时展示给用户的副本证据。
+        // 后续摘要计算与复核都只用这份快照；界面仍可被后台扫描刷新，
+        // 但本次删除核对的是**用户当时看到的那份证据**。
+        evidence: Map<String, List<ImageFile>> = duplicateDetails
+    ): Boolean {
+        val libraryKeys = allImages.map { it.mediaIdentityKey() }.toSet()
+        val calculator = ContentDigestCalculator(context.contentResolver)
+
+        // #88 四轮：可控时序闸门（仅 DEBUG）。让测试在"已点删除、尚未读摘要"
+        // 这个真实存在的窗口里插入后台扫描，验证复核确实核对的是快照。
+        withContext(Dispatchers.IO) { DuplicateReverifyTestHook.gateBeforeDigest() }
+
+        // 预先在 suspend 上下文里重算所有涉及照片的摘要（主图 + 提示里的副本），
+        // 再把纯 map 交给同步 seam——避免在普通 lambda 里调 suspend 函数。
+        val involved = buildSet {
+            addAll(toDelete)
+            toDelete.forEach { image ->
+                evidence[image.mediaIdentityKey()]?.let { addAll(it) }
+            }
+        }
+        val versions = mutableMapOf<String, DuplicateRules.ContentVersion?>()
+        involved.forEach { image ->
+            versions[image.mediaIdentityKey()] = when (val result = calculator.digest(image)) {
+                is ContentDigestCalculator.Result.Success -> result.version
+                is ContentDigestCalculator.Result.Failed -> null
+            }
+        }
+        val digestOf: (ImageFile) -> DuplicateRules.ContentVersion? =
+            { image -> versions[image.mediaIdentityKey()] }
+
+        val verdict = DuplicateReverify.verifyAll(
+            toDelete = toDelete,
+            details = evidence,
+            libraryKeys = libraryKeys,
+            digestOf = digestOf
+        )
+        val updated = duplicateDetails.toMutableMap()
+        verdict.invalidatedKeys.forEach { updated.remove(it) }
+        duplicateDetails = updated
+        duplicateCounts = updated.mapValues { it.value.size }
+        // #88 三轮：把这次实际做出的复核决定记下来。
+        // 用户可见反馈是 Toast，不在 AccessibilityNode 树里，设备用例无法
+        // 用它断言"复核真的拦下了"；这里提供进程内观测点（Release 下不记录）。
+        DuplicateReverifyTestHook.record(
+            DuplicateReverifyTestHook.Verdict(
+                targetKeys = toDelete.map { it.mediaIdentityKey() }.toSet(),
+                passed = !verdict.shouldStop,
+                invalidatedKeys = verdict.invalidatedKeys,
+                remainingHintKeys = updated.size
+            )
+        )
+        return !verdict.shouldStop
+    }
+
+    //
+    // 时机：回收站里的照片变化时（进站/恢复/删除）重算一次。扫描**只对
+    // 回收站内的照片**做全文摘要——它们是最可能被永久删除的一批，也是
+    // "还剩哪个版本"最有价值的地方；对全库做摘要代价太大且没有必要。
+    //
+    // 失败即不提示：读不到的照片不进入结果，不猜、不弹错。
+    LaunchedEffect(deletedImages, allImages, duplicateScanRevision) {
+        if (deletedImages.isEmpty()) {
+            duplicateCounts = emptyMap()
+            duplicateDetails = emptyMap()
+            return@LaunchedEffect
+        }
+        val calculator = ContentDigestCalculator(context.contentResolver)
+
+        // 审计意见（#88）：要回答的是"图库里还剩哪一份"，因此候选必须包含
+        // **当前可访问且在库里的照片**，而不是只比回收站内部。
+        //
+        // 两步走，先缩小范围再算摘要（全库逐张算 SHA-256 代价不可接受）：
+        // 1. 按文件大小分组：只有大小相同的才可能字节相同
+        // 2. 只对这些大小分组里的照片算全文摘要，且回收站里的这些照片本身
+        //    也要参与（它们是被删除的一方，不参与就无法判断"还剩一份"）
+        val recycleSizes = deletedImages.map { it.size }.filter { it > 0L }.toSet()
+        val libraryCandidates = allImages.filter { image ->
+            image.size > 0L && image.size in recycleSizes &&
+                image.mediaIdentityKey() !in deletedImages.map { it.mediaIdentityKey() }.toSet()
+        }
+        if (libraryCandidates.isEmpty()) {
+            // 图库里没有任何同尺寸候选 —— 不确定，但不声称"还留有副本"
+            duplicateCounts = emptyMap()
+            duplicateDetails = emptyMap()
+            return@LaunchedEffect
+        }
+
+        val toDigest = deletedImages + libraryCandidates
+        val digests = withContext(Dispatchers.IO) { calculator.digestAll(toDigest) }
+        if (digests.isEmpty()) {
+            duplicateCounts = emptyMap()
+            duplicateDetails = emptyMap()
+            return@LaunchedEffect
+        }
+
+        // 只为回收站里的照片找**库内**副本：回收站成员互相比不算证据。
+        val recycleKeys = deletedImages.map { it.mediaIdentityKey() }.toSet()
+        val findings = withContext(Dispatchers.Default) {
+            DuplicateRules.findExactDuplicates(
+                candidates = digests,
+                recycledIdentityKeys = recycleKeys
+            )
+        }
+
+        duplicateCounts = findings.associate {
+            it.image.mediaIdentityKey() to it.duplicates.size
+        }
+        duplicateDetails = findings.associate {
+            it.image.mediaIdentityKey() to it.duplicates
+        }
+    }
+
+
     // ========== 暂存清理动作（路线图第 1 项） ==========
     //
     // 候选来源 = 截图/下载目录 (StagedCleanupRules.availableSources)。
@@ -883,9 +1039,29 @@ fun TabulaApp(
     fun deleteRecycleBinImages(images: List<ImageFile>) {
         if (isDeletingRecycleBin || deletePermissionInFlight || images.isEmpty()) return
         val snapshot = images.toList()
+        // 审计意见（#88 四轮）：在**用户点删除的这一刻**冻结副本证据快照。
+        //
+        // 之后后台扫描（进站/恢复/删除都会触发）可以继续刷新界面上的
+        // duplicateDetails，但本次删除只核对这份快照——用户是看着这份
+        // 证据点的删除。若快照里的副本已失效，就中止并让他重新确认。
+        val evidenceSnapshot = duplicateDetails.toMap()
         isDeletingRecycleBin = true
         scope.launch {
             try {
+                // 审计意见（#88）：确认前**实际调用复核**，而不是相信扫描时的旧结果。
+                // 复核三件事：副本仍在图库里、仍可读、内容摘要与扫描时一致。
+                // 任一不成立：更新提示（去掉已失效的"还有副本"）并**停止本次删除**，
+                // 让用户看到变化后重新点删除——避免在"还有一份"的假象下删掉最后一份。
+                val verified = reverifyDuplicatesBeforeDeletion(snapshot, evidenceSnapshot)
+                if (!verified) {
+                    Toast.makeText(
+                        context,
+                        "副本状态已变化，「还剩副本」的提示已更新，请确认后重新删除",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@launch
+                }
+
                 var recoveredCount = 0
                 val summary = deleteRecycleBinSelection(
                     snapshot.map { it.uri }, recycleBinManager,
@@ -1501,6 +1677,10 @@ fun TabulaApp(
     val recycleBinContent: @Composable () -> Unit = {
         RecycleBinScreen(
             deletedImages = deletedImages,
+            // 路线图 #83 第 5 项：选中时提示"这些里还有几张留着相同副本"。
+            // 只做提示，不拦删除——用户仍可全部删掉。
+            duplicateCounts = duplicateCounts,
+            duplicateDetails = duplicateDetails,
             onRestore = { image ->
                 restoreImagesInOneTransaction(listOf(image))
             },
