@@ -328,26 +328,42 @@ class IntentOpenCodeGoAssistTest {
     @Test
     fun sensitiveLinesAreHeldBackButSafeDeadlineSurvives() = runBlocking {
         goStore.write("oc_sk_synthetic_not_a_real_key")
-        val transport = RecordingTransport()
-        val snippet = IntentTextSanitizer.sanitizeForAssistant(
+
+        // 语义以 #95 的最新规则为准：**只要任意一行命中敏感字段，整张截图就不进文字辅助**。
+        // 因此这里必须分成两张「截图」验证，不能把敏感行与安全行放进同一次 sanitize：
+        //   A) 含敏感字段的那张 → lines 为空、sendable=false、零请求；
+        //   B) 只有安全截止日期的那张 → 请求体里必须保留日期与时刻。
+        val secretSnippet = IntentTextSanitizer.sanitizeForAssistant(
             listOf(
                 "验证码 4471，请在页面上输入",
                 "取件码 注意 说明",
                 "活动已于 2026-11-10 23:59 结束"
             )
         )
-        assist(transport = transport).classify(snippet)
-        val payload = transport.calls.single().body
+        assertTrue("含敏感字段的图必须标成含字段", secretSnippet.containsSecretField)
+        assertFalse("含敏感字段的图不得可发送", secretSnippet.sendable)
+        assertTrue("含敏感字段的图不得有外发文本", secretSnippet.lines.isEmpty())
+        assertTrue(
+            "被扣留的行要如实计数，供报告说明边界",
+            secretSnippet.hadUndecidableLines && secretSnippet.droppedLineCount >= 2
+        )
+        val blockedTransport = RecordingTransport()
+        assist(transport = blockedTransport).classify(secretSnippet)
+        assertEquals("整张扣留时 Go 侧必须零请求", 0, blockedTransport.calls.size)
 
+        // B) 干净的那张：不该因为同批有敏感图而被连坐
+        val safeTransport = RecordingTransport()
+        val safeSnippet = IntentTextSanitizer.sanitizeForAssistant(
+            listOf("活动已于 2026-11-10 23:59 结束")
+        )
+        assertTrue("安全图必须可发送", safeSnippet.sendable)
+        assist(transport = safeTransport).classify(safeSnippet)
+        val payload = safeTransport.calls.single().body
         listOf("4471", "请在页面上输入", "取件码", "注意", "说明").forEach { secret ->
-            assertFalse("含敏感字段的行必须整行留在本地（不得出现 $secret）：$payload", payload.contains(secret))
+            assertFalse("敏感内容不得出现在请求体（$secret）：$payload", payload.contains(secret))
         }
         assertTrue("独立的截止日期必须保留：$payload", payload.contains("2026-11-10"))
         assertTrue("时刻必须保留：$payload", payload.contains("23:59"))
-        assertTrue(
-            "被扣留的行要如实计数，供报告说明边界",
-            snippet.hadUndecidableLines && snippet.droppedLineCount >= 2
-        )
     }
 
     /**
@@ -414,15 +430,22 @@ class IntentOpenCodeGoAssistTest {
     fun sanitizerIsTheSameInstanceOfCodeAsDeepSeek() = runBlocking {
         // 两个服务对同一段 OCR 行必须产生**逐字相同**的 user 消息：
         // 复用同一个 sanitizeForAssistant，不允许各写一份。
+        //
+        // 这一条必须用**不含敏感字段**的截图：按 #95 的图级规则，含字段的图
+        // 整张不进辅助（lines 为空 → 零请求），那就没有请求体可比了。
+        // 「含字段的图两侧都零请求」由 builderHoldsBackScreenshotsWithSecretFieldsOnGoPath
+        // 与上一条用例负责，不在这里混着测。
         deepSeekStore.write("sk-synthetic-not-a-real-key")
         goStore.write("oc_sk_synthetic_not_a_real_key")
         val deepSeekTransport = RecordingTransport()
         val goTransport = RecordingTransport()
-        val lines = listOf("满199减30", "活动已于 2026-11-10 23:59 结束", "验证码 4471，请在页面上输入")
+        val lines = listOf("满199减30", "活动已于 2026-11-10 23:59 结束", "仅为促销文案，无个人信息")
 
-        DeepSeekTextAssist(deepSeekStore, true, deepSeekTransport)
-            .classify(IntentTextSanitizer.sanitizeForAssistant(lines))
-        assist(transport = goTransport).classify(IntentTextSanitizer.sanitizeForAssistant(lines))
+        val snippet = IntentTextSanitizer.sanitizeForAssistant(lines)
+        assertTrue("前置：这段样本文本必须可发送（否则测不到请求体）：$snippet", snippet.sendable)
+
+        DeepSeekTextAssist(deepSeekStore, true, deepSeekTransport).classify(snippet)
+        assist(transport = goTransport).classify(snippet)
 
         fun userContent(body: String): String {
             val messages = JSONObject(body).getJSONArray("messages")
