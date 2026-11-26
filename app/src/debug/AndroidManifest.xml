@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+          独立调试预览：液态玻璃背景采样层。
+          只存在于 debug 变体，release 构建里不会出现这个入口。
+        -->
+        <activity
+            android:name=".debug.LiquidGlassPreviewActivity"
+            android:exported="true"
+            android:label="液态玻璃调试预览"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+    </application>
+
+</manifest>

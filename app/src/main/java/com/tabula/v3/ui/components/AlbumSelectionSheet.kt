@@ -78,7 +78,10 @@ fun AlbumSelectionSheet(
     allImages: List<ImageFile>,
     onAlbumSelected: (Album) -> Unit,
     onCreateNewAlbum: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    // 路线图 #83 第 3 项：最近成功归档过的图集，置顶一排，沿用原归档操作。
+    // 传空列表或省略时不显示该区块，弹层行为与改动前完全一致。
+    recentAlbums: List<Album> = emptyList()
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -154,6 +157,25 @@ fun AlbumSelectionSheet(
                     )
                 }
                 
+                // 路线图 #83 第 3 项：最近归档过的图集置顶一排。
+                // 与下方完整列表同时可见——这里是捷径，不是筛选。
+                if (recentAlbums.isNotEmpty()) {
+                    item(key = "recent_albums") {
+                        RecentAlbumsRow(
+                            albums = recentAlbums,
+                            allImages = allImages,
+                            onAlbumSelected = {
+                                HapticFeedback.lightTap(context)
+                                onAlbumSelected(it)
+                            },
+                            textColor = textColor,
+                            secondaryTextColor = secondaryTextColor,
+                            dividerColor = dividerColor,
+                            isDarkTheme = isDarkTheme
+                        )
+                    }
+                }
+
                 // 图集列表
                 items(albums, key = { it.id }) { album ->
                     val coverImage = album.coverImageId?.let { coverId ->
@@ -180,8 +202,7 @@ fun AlbumSelectionSheet(
                             modifier = Modifier.padding(start = 80.dp)
                         )
                     }
-                }
-                
+                }                
                 // 底部留白
                 item {
                     Spacer(modifier = Modifier.height(20.dp))
@@ -360,6 +381,96 @@ private fun AlbumSelectionRow(
             text = "${album.imageCount}",
             color = secondaryTextColor,
             fontSize = 15.sp
+        )
+    }
+}
+
+/**
+ * 路线图 #83 第 3 项：最近归档过的图集，置顶一排。
+ *
+ * 只是一条捷径：点击走与下方列表完全相同的 [onAlbumSelected]，不做任何
+ * 额外的归档动作，也不改变完整列表。数量上限由 [RecentAlbumRules.MAX_RECENT]
+ * 决定，不足时按实际个数显示，不占位。
+ */
+@Composable
+private fun RecentAlbumsRow(
+    albums: List<com.tabula.v3.data.model.Album>,
+    allImages: List<ImageFile>,
+    onAlbumSelected: (com.tabula.v3.data.model.Album) -> Unit,
+    textColor: Color,
+    secondaryTextColor: Color,
+    dividerColor: Color,
+    isDarkTheme: Boolean
+) {
+    val imageMap = remember(allImages) { allImages.groupBy { it.id } }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "最近归档",
+            color = secondaryTextColor,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            albums.forEach { album ->
+                val cover = album.coverImageId?.let { coverId ->
+                    resolveCoverRow(album.coverVolumeName, coverId, imageMap[coverId].orEmpty())
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (isDarkTheme) Color(0xFF2C2C2E) else Color(0xFFF2F2F7)
+                        )
+                        .clickable { onAlbumSelected(album) }
+                        .padding(vertical = 10.dp, horizontal = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isDarkTheme) Color(0xFF3A3A3C) else Color.White)
+                    ) {
+                        if (cover != null) {
+                            AsyncImage(
+                                model = cover.uri,
+                                contentDescription = album.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text(
+                                text = album.name.take(1),
+                                color = secondaryTextColor,
+                                fontSize = 18.sp,
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = album.name,
+                        color = textColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+        HorizontalDivider(
+            color = dividerColor,
+            thickness = 0.5.dp,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
         )
     }
 }
