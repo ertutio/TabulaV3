@@ -1,0 +1,16 @@
+# Shell 脚本必须保持 LF。
+#
+# CRLF 会让 Linux 上的 bash 把 `\r` 当成命令的一部分，报
+#   `set: +^M: invalid option`
+#   `$'\r': command not found`
+#   `syntax error near unexpected token 'elif'`
+# 而这类错误**只在 CI 的 Linux runner 上暴露**：Windows 本地 `bash -n` 能过、
+# Python 单测也能过（见 run 45374007433）。
+*.sh            text eol=lf
+
+# GitHub Actions 工作流由 Linux 上的 runner 解析，同样钉死。
+.github/workflows/*.yml  text eol=lf
+
+# 注意：**不**给 *.py 加 eol 规则。Python 能正确处理 CRLF，仓库里已有的
+# tools/run-liquid-glass-preview-probe.py 就是 CRLF 且在 Linux CI 上跑得通；
+# 加规则会把 964 行文件整体重写成 LF，制造纯噪声的巨型 diff。

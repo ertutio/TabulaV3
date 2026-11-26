@@ -197,6 +197,34 @@ class AppPreferences(context: Context) {
         }
 
     /**
+     * 随机漫步的抽样策略（审计意见 #89）。
+     *
+     * 两个可选值：
+     * - [WalkSamplingStrategy.UNIFORM]：**原随机**——纯均匀随机，改动前的行为
+     * - [WalkSamplingStrategy.SOURCE_BALANCED]：按来源分桶、平方根权重
+     *
+     * 默认值必须是 [WalkSamplingStrategy.UNIFORM]：审计要求"验证默认值和
+     * 升级后的既有用户行为"——老用户升级后不读这条键，拿到的必须是他们
+     * 熟悉的那套抽样，否则等于悄悄改变产品行为。
+     *
+     * 键名里带 v1：将来若要换默认值，用新键名而不是改这条，避免把
+     * 已经显式选过 UNIFORM 的用户一起改掉。
+     */
+    var walkSamplingStrategy: WalkSamplingStrategy
+        get() {
+            val value = prefs.getString(
+                KEY_WALK_SAMPLING_STRATEGY,
+                WalkSamplingStrategy.UNIFORM.name
+            )
+            return runCatching {
+                WalkSamplingStrategy.valueOf(value ?: WalkSamplingStrategy.UNIFORM.name)
+            }.getOrDefault(WalkSamplingStrategy.UNIFORM)
+        }
+        set(value) {
+            prefs.edit().putString(KEY_WALK_SAMPLING_STRATEGY, value.name).apply()
+        }
+
+    /**
      * 上次已知的图片数量（用于小组件检测新增照片）
      */
     var lastKnownImageCount: Int
@@ -281,15 +309,12 @@ class AppPreferences(context: Context) {
         set(value) = prefs.edit().putInt(KEY_TAGS_PER_ROW, value.coerceIn(4, 10)).apply()
 
     /**
-     * 液态玻璃实验室功能开关（仅在 Android 15+ 生效）
-     * 注意：该功能还未完善，暂时强制关闭
+     * 保存用户对液态玻璃实验功能的选择，默认关闭。
+     * 界面只在 Android 15 及以上应用此偏好。
      */
     var liquidGlassLabEnabled: Boolean
-        get() = false // 功能未完善，强制返回 false
-        set(value) {
-            // 功能未完善，不保存启用状态
-            // prefs.edit().putBoolean(KEY_LIQUID_GLASS_LAB_ENABLED, value).apply()
-        }
+        get() = prefs.getBoolean(KEY_LIQUID_GLASS_LAB_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_LIQUID_GLASS_LAB_ENABLED, value).apply()
 
     /**
      * 是否已完成引导流程
@@ -1152,6 +1177,62 @@ class AppPreferences(context: Context) {
         pinnedAlbumNames = current
     }
 
+    // ==================== 暂存清理（路线图第 1 项） ====================
+
+    /**
+     * 暂存清理选定的来源集合，元素格式 `卷|相对路径`（与
+     * [com.tabula.v3.data.cleanup.StagedCleanupRules.normalize] 同口径）。
+     *
+     * 首次进入为空 = 还没选过来源，界面据此显示来源勾选页；用户明确清空
+     * 也会得到空集，因此界面用 [hasStagedCleanupSourceChoice] 区分两者。
+     */
+    var stagedCleanupSourceKeys: Set<String>
+        get() = prefs.getStringSet(KEY_STAGED_CLEANUP_SOURCES, emptySet()) ?: emptySet()
+        set(value) = prefs.edit().putStringSet(KEY_STAGED_CLEANUP_SOURCES, value).apply()
+
+    /** 用户是否已经做过一次来源选择（哪怕选择结果为空）。 */
+    var hasStagedCleanupSourceChoice: Boolean
+        get() = prefs.getBoolean(KEY_STAGED_CLEANUP_SOURCE_CHOSEN, false)
+        set(value) = prefs.edit().putBoolean(KEY_STAGED_CLEANUP_SOURCE_CHOSEN, value).apply()
+
+    /**
+     * 长期保留的照片身份键（`卷|ID`），跨重启生效。
+     *
+     * 只影响暂存清理范围：命中的照片不再作为候选出现在暂存清理里，
+     * 但仍在卡片整理、图集等其它入口原样可见。
+     */
+    var stagedCleanupRetainedIdentityKeys: Set<String>
+        get() = prefs.getStringSet(KEY_STAGED_CLEANUP_RETAINED, emptySet()) ?: emptySet()
+        set(value) = prefs.edit().putStringSet(KEY_STAGED_CLEANUP_RETAINED, value).apply()
+
+    /**
+     * 本次跳过的照片身份键（`卷|ID`）——只压住当前进程内的候选列表。
+     *
+     * 与 [stagedCleanupRetainedIdentityKeys] 的区别：跳过是"这次先不看"，
+     * 重启后照片会重新出现；长期保留是"以后都别再提"，跨重启生效。
+     * 因此这里刻意只存内存（进程内会话级）。
+     */
+    var stagedCleanupSkippedIdentityKeys: Set<String> = emptySet()
+
+    fun retainStagedCleanupImages(identityKeys: Collection<String>) {
+        if (identityKeys.isEmpty()) return
+        stagedCleanupRetainedIdentityKeys = stagedCleanupRetainedIdentityKeys + identityKeys
+    }
+
+    fun releaseStagedCleanupRetention(identityKeys: Collection<String>) {
+        if (identityKeys.isEmpty()) return
+        stagedCleanupRetainedIdentityKeys = stagedCleanupRetainedIdentityKeys - identityKeys.toSet()
+    }
+
+    fun skipStagedCleanupImages(identityKeys: Collection<String>) {
+        if (identityKeys.isEmpty()) return
+        stagedCleanupSkippedIdentityKeys = stagedCleanupSkippedIdentityKeys + identityKeys
+    }
+
+    fun clearStagedCleanupSkips() {
+        stagedCleanupSkippedIdentityKeys = emptySet()
+    }
+
     companion object {
         private const val PREFS_NAME = "tabula_prefs"
         private const val KEY_SORT_ORDER = "sort_order"
@@ -1171,6 +1252,7 @@ class AppPreferences(context: Context) {
         private const val KEY_TOTAL_REVIEWED = "total_reviewed"
         private const val KEY_TOTAL_DELETED = "total_deleted"
         private const val KEY_RECOMMEND_MODE = "recommend_mode"
+        private const val KEY_WALK_SAMPLING_STRATEGY = "walk_sampling_strategy"
         private const val KEY_LAST_KNOWN_IMAGE_COUNT = "last_known_image_count"
         private const val KEY_FLUID_CLOUD_ENABLED = "fluid_cloud_enabled"
         private const val KEY_PENDING_BATCH_REMAINING = "pending_batch_remaining"
@@ -1201,6 +1283,11 @@ class AppPreferences(context: Context) {
         
         // "其他图集"收纳相关
         private const val KEY_PINNED_ALBUM_NAMES = "pinned_album_names"
+
+        // 暂存清理相关（路线图第 1 项）
+        private const val KEY_STAGED_CLEANUP_SOURCES = "staged_cleanup_sources"
+        private const val KEY_STAGED_CLEANUP_SOURCE_CHOSEN = "staged_cleanup_source_chosen"
+        private const val KEY_STAGED_CLEANUP_RETAINED = "staged_cleanup_retained"
 
         // 收纳阈值常量
         /** 系统图集总数超过此值时启用收纳 */
@@ -1272,6 +1359,17 @@ enum class TopBarDisplayMode {
 enum class RecommendMode {
     RANDOM_WALK,    // 随机漫步 - 真正随机，带冷却期
     SIMILAR         // 相似推荐 - 优先推荐相似照片
+}
+
+/**
+ * 随机漫步抽样策略（审计意见 #89）。
+ *
+ * UNIFORM 是改动前就有的行为，也是默认值——老用户升级后行为不变。
+ * SOURCE_BALANCED 是按来源分桶的均衡抽样，需要用户显式选择。
+ */
+enum class WalkSamplingStrategy {
+    UNIFORM,           // 原随机：纯均匀随机
+    SOURCE_BALANCED    // 均衡来源：按来源分桶、平方根权重
 }
 
 /**

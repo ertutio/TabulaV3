@@ -111,7 +111,16 @@ class AlbumManager(private val context: Context) {
         val imageUri: String,
         val albumId: String,
         val albumName: String,
-        val timestamp: Long = System.currentTimeMillis()
+        val timestamp: Long = System.currentTimeMillis(),
+        /**
+         * #90 第四轮：用户在**发起这次归档时**的会话与批次标识。
+         *
+         * 归档是延迟提交的（等 Snackbar 消失才真正复制）。若等到提交完成时
+         * 再去读"当前批次"，读到的是提交时刻的批次——换批之后就成了新批次，
+         * 旧动作会把统计记到新批次上。所以标识必须在排队时随动作一起带走。
+         */
+        val intentTicket: com.tabula.v3.data.balance.Ticket =
+            com.tabula.v3.data.balance.Ticket.None
     )
     
     // 待执行队列（栈结构，后进先撤销）
@@ -1285,14 +1294,16 @@ class AlbumManager(private val context: Context) {
         imageId: Long,
         imageUri: String,
         albumId: String,
-        albumName: String
+        albumName: String,
+        intentTicket: com.tabula.v3.data.balance.Ticket = com.tabula.v3.data.balance.Ticket.None
     ): PendingArchive {
         val action = PendingArchive(
             id = UUID.randomUUID().toString(),
             imageId = imageId,
             imageUri = imageUri,
             albumId = albumId,
-            albumName = albumName
+            albumName = albumName,
+            intentTicket = intentTicket
         )
         pendingArchiveQueue.add(action)
         Log.d(TAG, "Queued image for archive: imageId=$imageId -> album='$albumName' (pending, not copied yet)")
