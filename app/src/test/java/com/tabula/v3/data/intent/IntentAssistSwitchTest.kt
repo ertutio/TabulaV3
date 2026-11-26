@@ -43,7 +43,13 @@ class IntentAssistSwitchTest {
     ) : AssistTransport {
         val payloads = mutableListOf<String>()
         var calls = 0
-        override fun post(url: String, body: String, authHeader: String, timeoutMillis: Int): String {
+        override fun post(
+            url: String,
+            body: String,
+            authHeader: String,
+            timeoutMillis: Int,
+            headers: Map<String, String>
+        ): String {
             calls++
             payloads += body
             if (delayMs > 0) Thread.sleep(delayMs)
@@ -170,7 +176,13 @@ class IntentAssistSwitchTest {
         )
         cases.forEach { (label, responder) ->
             val transport = object : AssistTransport {
-                override fun post(url: String, body: String, authHeader: String, timeoutMillis: Int): String =
+                override fun post(
+                    url: String,
+                    body: String,
+                    authHeader: String,
+                    timeoutMillis: Int,
+                    headers: Map<String, String>
+                ): String =
                     @Suppress("UNCHECKED_CAST")
                     (responder as () -> String)()
             }

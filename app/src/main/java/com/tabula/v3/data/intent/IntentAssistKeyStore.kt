@@ -4,7 +4,7 @@ import android.content.Context
 import java.io.File
 
 /**
- * 可选文字辅助（DeepSeek）的 API Key 存储。
+ * 可选文字辅助的 API Key 存储（**每个服务一个独立文件**）。
  *
  * 明确的设计选择（#94 方案要求）：
  * - 存在 App 私有目录里的**独立文件**，用 [Context.getNoBackupFilesDir]：
@@ -17,12 +17,30 @@ import java.io.File
  *   这里只是把文件本身也设成同样的权限）。
  * - **永不**写日志、崩溃报告或导出：本类没有任何日志调用，读取失败只返回 null。
  *
+ * ## 多服务（本次新增）
+ *
+ * 服务由 [IntentAssistService] 指定，默认 [IntentAssistService.DEEPSEEK]：
+ * - DeepSeek 的文件名仍是 `intent-assist.key` —— **已有用户升级后 Key 不丢**，
+ *   构造签名 `IntentAssistKeyStore(context)` / `IntentAssistKeyStore(file)` 的语义也没变；
+ * - OpenCode Go 用 `intent-assist.opencode-go.key`。
+ *
+ * 两个文件互相独立：写/删一个不会碰另一个，因此「换服务后另一个服务的 Key 还在」。
+ * 这一点有测试钉住（`IntentOpenCodeGoAssistTest.servicesKeepSeparateKeys`）。
+ *
  * 已知边界（必须写进 PR 正文，不要假装没有）：
  * - Root 设备仍可读取该文件；建议用户使用独立、可撤销的 Key。
  */
-class IntentAssistKeyStore(private val keyFile: File) {
+class IntentAssistKeyStore(
+    private val keyFile: File,
+    /** 这份存储属于哪个服务。只影响界面文案与诊断，读写都只看 [keyFile]。 */
+    val service: IntentAssistService = IntentAssistService.DEEPSEEK
+) {
 
-    constructor(context: Context) : this(File(context.noBackupFilesDir, FILE_NAME))
+    /** 按服务解析默认文件名（默认 DeepSeek，文件名为 [FILE_NAME]）。 */
+    constructor(
+        context: Context,
+        service: IntentAssistService = IntentAssistService.DEEPSEEK
+    ) : this(File(context.noBackupFilesDir, service.keyFileName), service)
 
     /** 是否已配置 Key（只判断存在且非空，不判断是否有效）。 */
     fun hasKey(): Boolean = read() != null
@@ -70,7 +88,21 @@ class IntentAssistKeyStore(private val keyFile: File) {
         else -> "已配置"
     }
 
+    /**
+     * 按服务取一个存储实例——供上层在 Compose 里 `remember` 时少写一层 `File` 拼接。
+     *
+     * 与 [IntentAssistService.keyStore] 等价，保留两处入口是因为既有调用点用的是
+     * `IntentAssistKeyStore(context)` 这种构造函数风格。
+     */
     companion object {
+        /** DeepSeek（以及 #95 的默认服务）的 Key 文件名。**不要改**，改了老用户就丢 Key。 */
         const val FILE_NAME = "intent-assist.key"
+
+        /** OpenCode Go 的 Key 文件名（新增，独立于 DeepSeek）。 */
+        const val OPENCODE_GO_FILE_NAME = "intent-assist.opencode-go.key"
+
+        /** 指定服务的 Key 存储。 */
+        fun forService(context: Context, service: IntentAssistService): IntentAssistKeyStore =
+            IntentAssistKeyStore(context, service)
     }
 }

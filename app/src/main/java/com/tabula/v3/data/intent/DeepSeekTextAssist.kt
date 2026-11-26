@@ -11,7 +11,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 
 /**
  * 可选的文字辅助：把**已脱敏的 OCR 文字片段**交给 DeepSeek 做一次分类建议。
@@ -52,7 +51,7 @@ class DeepSeekTextAssist(
     private val timeoutMillis: Int = DEFAULT_TIMEOUT_MILLIS,
     /** 与上层共享的代际号；上层换批时 +1 即可让在途结果作废。 */
     private val sharedGeneration: AtomicInteger? = null
-) : TextAssist {
+) : InvalidatableTextAssist {
 
     private val ownGeneration = AtomicInteger(0)
     private val generation: AtomicInteger get() = sharedGeneration ?: ownGeneration
@@ -84,13 +83,13 @@ class DeepSeekTextAssist(
      * 调用点：用户关掉开关、离开页面、换批、删除 Key。
      * 之后即使有请求已经在网络上，它的返回值也会被标成 stale，上层不会采用。
      */
-    fun invalidate() {
+    override fun invalidate() {
         cancelled.set(true)
         generation.incrementAndGet()
     }
 
     /** 重新允许（用户在新批次里又打开了开关时调用）。 */
-    fun rearm() {
+    override fun rearm() {
         cancelled.set(false)
         generation.incrementAndGet()
     }
@@ -177,53 +176,10 @@ class DeepSeekTextAssist(
         EMPTY
     }
 
-    /**
-     * 从 OpenAI 兼容响应里取 `choices[0].message.content`。
-     *
-     * **为什么必须用 JSON 解析器**：上一版用固定字符串 `"content":"` 去 `indexOf`，
-     * 这假设了「冒号后紧跟引号、且没有任何空白」。真实响应常写成
-     * `"content": "KEEP"`（冒号后一个空格）或 pretty-print 的换行缩进，
-     * 于是查找失败 → 返回 null → 一份**完全合法的 KEEP 建议**被当成无建议，
-     * 静默回退本地。这类失败没有任何日志，用户只会觉得「开了辅助也没用」。
-     *
-     * 用解析器还顺手解决了手写状态机的几个边界：字段顺序、`\uXXXX` 转义、
-     * 嵌套同名键、以及 content 里含转义引号时的越界风险。
-     *
-     * 回退语义**逐条保留**（皆有回归用例）：
-     * - 非法 JSON / 不是对象 → null；
-     * - `choices` 缺失、不是数组、为空 → null；
-     * - `choices[0].message` 缺失、`content` 缺失/为 null/不是字符串 → null；
-     * - `content` 为空白串 → null（调用方按空建议处理）。
-     *
-     * 返回 null 的调用方行为不变：`parse` 里 `?:` 落到 [EMPTY]，即 `UNCERTAIN` + 空理由。
-     */
-    private fun extractContent(raw: String): String? = try {
-        val choices = JSONObject(raw).optJSONArray("choices") ?: return null
-        if (choices.length() == 0) return null
-        val message = choices.optJSONObject(0)?.optJSONObject("message") ?: return null
-        // optString 会把 null / 非字符串转成 ""，因此显式判类型，
-        // 避免把 {"content": 42} 这种异常响应当成空建议之外的别的东西。
-        if (!message.has("content") || message.isNull("content")) return null
-        val content = message.opt("content")
-        if (content !is String) return null
-        content.trim().ifEmpty { null }
-    } catch (e: Throwable) {
-        // 非法 JSON（含 HTML 错误页）一律按「读不到」处理，不抛给上层
-        null
-    }
+    /** 从 OpenAI 兼容响应里取 choices[0].message.content（与 Go 实现共用同一段解析）。 */
+    private fun extractContent(raw: String): String? = IntentAssistPrompt.extractContent(raw)
 
-    private fun escape(text: String): String = buildString {
-        text.forEach { c ->
-            when (c) {
-                '"' -> append("\\\"")
-                '\\' -> append("\\\\")
-                '\n' -> append("\\n")
-                '\r' -> append("\\r")
-                '\t' -> append("\\t")
-                else -> if (c.code < 0x20) append(' ') else append(c)
-            }
-        }
-    }
+    private fun escape(text: String): String = IntentAssistPrompt.escape(text)
 
     companion object {
         const val DEFAULT_BASE_URL = "https://api.deepseek.com"
@@ -231,14 +187,12 @@ class DeepSeekTextAssist(
         const val DEFAULT_TIMEOUT_MILLIS = 8_000
 
         /**
-         * 系统提示只在说「这些文字来自一张手机截图，请判断是否值得清理」，
-         * 并强制三种输出之一；不含任何引导模型扩权的措辞。
+         * 系统提示（与 [OpenCodeGoTextAssist] 共用 [IntentAssistPrompt.SYSTEM_PROMPT]）。
+         *
+         * 常量名保留是为了不改动既有文档与调用点；**值只有一处定义**，
+         * 于是「换服务不改变模型被要求做什么」在代码上是显然的。
          */
-        const val SYSTEM_PROMPT =
-            "你是手机截图整理助手。输入是从一张截图里提取并脱敏后的文字行。" +
-                "只回答一个词：KEEP（像订单、票据、凭证、课件、需要长期保存的资料）" +
-                "或 LOWER（像已过期的优惠、旧新闻、临时码、失效分享）。" +
-                "看不出来就回答 NONE。不要解释，不要输出其它内容。"
+        const val SYSTEM_PROMPT: String = IntentAssistPrompt.SYSTEM_PROMPT
 
         val EMPTY = AssistSuggestion(
             recommendation = IntentRecommendation.UNCERTAIN,
@@ -247,14 +201,43 @@ class DeepSeekTextAssist(
     }
 }
 
-/** 传输层抽象：测试用假实现即可完整断言「实际发了什么」。 */
+/**
+ * 传输层抽象：测试用假实现即可完整断言「实际发了什么」。
+ *
+ * ## 为什么是「加一个参数」而不是「新加一个重载」
+ *
+ * 第二种服务（[OpenCodeGoTextAssist]）必须带 `x-opencode-session`，而 DeepSeek 不需要任何
+ * 自定义头。两种做法都能跑通，这里选**加参数**，理由是可证伪性：
+ *
+ * - 若保留 4 参数版本、另加重载，测试假实现只要 override 旧方法就能编译通过，
+ *   于是「session 头真的传到了传输层」这件事在测试里**无法被断言**——而缺失这个头
+ *   正是官方网关返回 400 `MissingSessionID` 的原因，是本功能最该钉住的一条；
+ * - 加参数后，所有假实现都必须显式声明 `headers`，编译器强制每个 double 面对它，
+ *   记录型传输层因此能逐条断言头的内容。
+ *
+ * 代价是既有 4 个测试文件里的假实现要一起改（已同步更新，语义未变）。
+ * [DeepSeekTextAssist] 一侧传 `emptyMap()`，因此它对线上行为**零变化**。
+ */
 interface AssistTransport {
-    fun post(url: String, body: String, authHeader: String, timeoutMillis: Int): String
+    fun post(
+        url: String,
+        body: String,
+        authHeader: String,
+        timeoutMillis: Int,
+        /** 额外请求头（不含 Authorization；那个走 [authHeader]，避免 Key 混进可诊断的 map）。 */
+        headers: Map<String, String> = emptyMap()
+    ): String
 }
 
 /** 真实的 HTTPS 传输。任何非 2xx 都按失败处理（上层回退本地结果）。 */
 class HttpAssistTransport : AssistTransport {
-    override fun post(url: String, body: String, authHeader: String, timeoutMillis: Int): String {
+    override fun post(
+        url: String,
+        body: String,
+        authHeader: String,
+        timeoutMillis: Int,
+        headers: Map<String, String>
+    ): String {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = timeoutMillis
@@ -262,6 +245,7 @@ class HttpAssistTransport : AssistTransport {
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Authorization", authHeader)
+            headers.forEach { (name, value) -> setRequestProperty(name, value) }
         }
         try {
             OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { it.write(body) }

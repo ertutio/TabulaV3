@@ -2,7 +2,9 @@ name: Verify intent batch on emulator
 
 on:
   push:
-    branches: [feature/intent-batch-ocr-2026-11-25]
+    branches:
+      - feature/intent-batch-ocr-2026-11-25
+      - feature/intent-opencode-go-2026-11-25
   workflow_dispatch:
 
 permissions:
@@ -190,6 +192,16 @@ jobs:
             # 7 条：入口在暂存清理页、辅助默认关闭、订单截图不进推荐、
             # 真实交互提交→回收站→大图浮层恢复、三种「世界变了」不得提交、
             # 授权不随批次重建存活、Key 落盘
+            #
+            # 硬断言（不再「记录不通过」）：
+            # 上一版把这条 grep 降级成 `|| true`，理由是「加入服务选择行后
+            # 点缩略图不稳定」。复盘结论是**测试定位错误**，不是功能缺陷：
+            # 本页是「背景 DeckScreen + 前景凑一批」叠加，背景卡片里同一张照片
+            # 也带同名 contentDescription，按名字取首个节点会点到背景那张
+            # （它没有可点祖先），于是「点了但选中态不变」。
+            # 现在定位改为「只取有可点祖先的列表行缩略图」，并轮询等到
+            # 「已选 N 张」真的更新（a11y 快照比状态慢一拍），本机复跑
+            # `OK (1 test)` 全链路通过。断言恢复为精确匹配。
             grep -Fx 'OK (7 tests)' device-results/instrumentation-page.txt
       - name: Summarise
         if: always()
