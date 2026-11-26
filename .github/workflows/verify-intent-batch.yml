@@ -193,13 +193,16 @@ jobs:
             # 真实交互提交→回收站→大图浮层恢复、三种「世界变了」不得提交、
             # 授权不随批次重建存活、Key 落盘
             #
-            # 已知环境限制（Go 分支）：`tappingThumbnailEnablesSubmitAndSelectedGoesToRecycleBin`
-            # 依赖「点缩略图后底部按钮变为可用」。加入服务选择行后列表被往下推，
-            # 该用例在本机与 CI 上都不稳定（诊断：tap 命中但 selected=false）。
-            # 这是**测试脆弱性**，不是 Go 功能缺陷——同一条在 #95 分支上全绿。
-            # 因此这里改为「记录实际结果、不因它中断」，并把差异写进 summary，
-            # 不冒充通过。修 UI 点击留给后续提交。
-            grep -E 'OK \(|FAILURES|Tests run:' device-results/instrumentation-page.txt || true
+            # 硬断言（不再「记录不通过」）：
+            # 上一版把这条 grep 降级成 `|| true`，理由是「加入服务选择行后
+            # 点缩略图不稳定」。复盘结论是**测试定位错误**，不是功能缺陷：
+            # 本页是「背景 DeckScreen + 前景凑一批」叠加，背景卡片里同一张照片
+            # 也带同名 contentDescription，按名字取首个节点会点到背景那张
+            # （它没有可点祖先），于是「点了但选中态不变」。
+            # 现在定位改为「只取有可点祖先的列表行缩略图」，并轮询等到
+            # 「已选 N 张」真的更新（a11y 快照比状态慢一拍），本机复跑
+            # `OK (1 test)` 全链路通过。断言恢复为精确匹配。
+            grep -Fx 'OK (7 tests)' device-results/instrumentation-page.txt
       - name: Summarise
         if: always()
         run: |
