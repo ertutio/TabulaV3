@@ -16,9 +16,15 @@ fail=0
 pass() { echo "PASS: $1"; }
 bad()  { echo "FAIL: $1"; fail=1; }
 
+# 平台适配：Linux/CI 用 ./gradlew，Windows 用 gradlew.bat
+if [ -x "./gradlew" ]; then GRADLE="./gradlew"; else GRADLE="./gradlew.bat"; fi
+echo "using gradle wrapper: $GRADLE"
+
 echo "== E. prefetch failure, then real Gradle still runs =="
 # 模拟 Maven 429：把 HOME 隔离 + 代理指向不可路由端口
 work="$(mktemp -d)"
+# 转绝对路径：下面会改 HOME，相对路径会失效
+work="$(cd "$work" && pwd)"
 export HOME="$work/home"
 mkdir -p "$HOME"
 
@@ -32,7 +38,7 @@ grep -q '::warning::' "$work/prefetch.log" && pass "E1 prefetch warned" || bad "
 # 真实 Gradle：预取失败后必须仍能执行（这里只编译，不跑测试，速度可控）
 JAVA_HOME="${JAVA_HOME:-C:/tools/jdk-21}" \
 ANDROID_HOME="${ANDROID_HOME:-D:/snh/.tools/android-sdk}" \
-  ./gradlew.bat --no-daemon -q :app:compileDebugKotlin > "$work/gradle.log" 2>&1
+  "$GRADLE" --no-daemon -q :app:compileDebugKotlin > "$work/gradle.log" 2>&1
 gradle_code=$?
 if [ "$gradle_code" -eq 0 ]; then
   pass "E3 Gradle compiled after prefetch failure (exit 0)"
@@ -61,7 +67,7 @@ KT
 
 JAVA_HOME="${JAVA_HOME:-C:/tools/jdk-21}" \
 ANDROID_HOME="${ANDROID_HOME:-D:/snh/.tools/android-sdk}" \
-  ./gradlew.bat --no-daemon :app:testDebugUnitTest \
+  "$GRADLE" --no-daemon --console=plain :app:testDebugUnitTest \
   --tests 'com.tabula.v3.CiPrefetchProbeTest' > "$work/fail.log" 2>&1
 fail_code=$?
 rm -f "$probe"
@@ -71,10 +77,15 @@ if [ "$fail_code" -ne 0 ]; then
 else
   bad "F1 Gradle exited 0 despite a failing test"
 fi
-if grep -q 'deliberatelyFails\|controlled failure' "$work/fail.log"; then
-  pass "F2 the probe test actually ran and failed"
+# 用**测试结果 XML** 判定探针真的跑了，而不是解析 stdout——
+# Gradle 的输出流在改了 HOME 之后不稳定（实测 fail.log 会为空）。
+xml="app/build/test-results/testDebugUnitTest/TEST-com.tabula.v3.CiPrefetchProbeTest.xml"
+if [ -f "$xml" ] && grep -q 'deliberatelyFails' "$xml" && grep -q '<failure' "$xml"; then
+  pass "F2 the probe test actually ran and failed (per JUnit XML)"
 else
-  bad "F2 probe test did not run"
+  bad "F2 probe test did not run or did not fail"
+  ls -la "$(dirname "$xml")" 2>/dev/null | head -5 || true
+  tail -20 "$work/fail.log" 2>/dev/null || true
 fi
 
 rm -rf "$work"
