@@ -243,6 +243,25 @@ class AlbumUsageTracker(private val context: Context) {
     }
 
     /**
+     * 路线图 #83 第 3 项：所有图集的使用统计快照，供归档时的「最近图集」用。
+     *
+     * 与 [getAlbumStats] 口径一致（同一份窗口记录），但不做单图集过滤，
+     * 一次遍历返回全部，避免下拉弹层里逐图集调用。
+     */
+    fun getAllAlbumStats(): Map<String, AlbumUsageStats> {
+        if (usageRecords.isEmpty()) return emptyMap()
+        val now = System.currentTimeMillis()
+        return usageRecords.groupBy { it.albumId }.mapValues { (albumId, records) ->
+            AlbumUsageStats(
+                albumId = albumId,
+                weightedScore = calculateScore(records, now),
+                lastUsedAt = records.maxOf { it.timestamp },
+                totalCount = records.size
+            )
+        }
+    }
+
+    /**
      * 设置手动排序锁定
      * 
      * 当用户手动拖拽排序图集时调用，锁定期内保持用户设定的顺序。
