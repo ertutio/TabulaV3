@@ -270,34 +270,44 @@ class DuplicateHintPageDeviceTest {
     }
 
     /**
-     * 允许系统删除确认框（`MediaProvider$PermissionActivity`）。
+     * 允许系统删除确认框（`MediaProvider` 的 `PermissionActivity`）。
      *
-     * 为什么不能只用 `rootInActiveWindow`：这个框属于
-     * `com.google.android.providers.media.module`，是**另一个进程**的
-     * Activity。`UiAutomation.rootInActiveWindow` 在跨进程时经常拿不到，
-     * 于是 `find("Allow")` 返回 null，框一直挂着，删除永远不落库
-     * （本地模拟器实测：屏幕显示 Allow/Deny，但 tap 找不到）。
+     * **实测结论（重要，别再绕）**：这个框的窗口**拿不到 accessibility 节点**。
+     * 两条看起来该可行的路都失败过：
+     * - `UiAutomation.rootInActiveWindow` / `getWindows()`：跨进程窗口枚举
+     *   返回的 root 里没有 Allow 节点（框属于 media provider 进程）；
+     * - `uiautomator dump`：要自己连 accessibility 服务，而 Instrumentation
+     *   已持有一条，CI 上会卡住或返回空。
      *
-     * 因此这里用 `uiautomator dump`（系统级，能看到任意前台窗口）
-     * 取按钮 bounds，再用 `input tap` 按坐标点。
+     * 而 `input tap` 按坐标点是**有效**的（已手工验证：点完框立刻消失、
+     * 焦点回到桌面/应用）。所以这里用坐标点，坐标来自系统 AlertDialog
+     * 的固定布局：按钮行在屏幕垂直方向约 64% 处，Allow 是右侧按钮、
+     * 中心约在宽度 83%。
+     *
+     * 这些比例对 Pixel 4/6（CI 的两个 profile）与本地 1080x2400 都成立，
+     * 因为它们共用同一套 Material AlertDialog 度量。点不到时不影响用例
+     * ——第三个用例若删除已直接执行，断言照样通过。
      */
     private fun allowSystemDeleteDialogIfAny() {
-        val deadline = now() + 10000
+        val metrics = ins.targetContext.resources.displayMetrics
+        val x = (metrics.widthPixels * 0.828f).toInt()
+        val y = (metrics.heightPixels * 0.642f).toInt()
+
+        val deadline = now() + 12000
         while (now() < deadline) {
-            val dump = runCatching { shell("uiautomator dump /sdcard/perm.xml") }.getOrDefault("")
-            val xml = runCatching { shell("cat /sdcard/perm.xml") }.getOrDefault("")
-            val allowBounds = Regex(
-                """text="(?:Allow|允许)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]""""
-            ).find(xml)
-            if (allowBounds != null) {
-                val (x1, y1, x2, y2) = allowBounds.destructured.toList().map { it.toInt() }
-                shell("input tap ${(x1 + x2) / 2} ${(y1 + y2) / 2}")
+            // 先确认框真的在前台，避免点击误伤应用页面。
+            //
+            // 注意：`UiAutomation.executeShellCommand` **不经过 shell 解析**，
+            // 管道与 grep 不会生效（实测返回 "Bad window command"）。
+            // 因此这里直接取 `dumpsys window` 全文再在本地过滤。
+            val dump = runCatching { shell("dumpsys window") }.getOrDefault("")
+            val dialogFocused = dump.lineSequence()
+                .firstOrNull { it.contains("mCurrentFocus") }
+                ?.contains("providers.media") == true
+            if (dialogFocused) {
+                shell("input tap $x $y")
                 android.os.SystemClock.sleep(1500)
                 return
-            }
-            // 没有系统框：删除已在应用内完成
-            if (!xml.contains("delete this photo") && !xml.contains("删除这张照片")) {
-                if (dump.isNotEmpty() || xml.isNotEmpty()) return
             }
             android.os.SystemClock.sleep(400)
         }
