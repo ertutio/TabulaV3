@@ -30,21 +30,9 @@ jobs:
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
       - name: Pre-fetch Robolectric android-all jars
         run: |
-          # Robolectric 测试时在线下载 android-all jar；runner 网络偶发失败会
-          # 导致批量 AssertionError（MavenArtifactFetcher IOException）。
-          # 预先拉到本地仓库，测试期不再联网下载。
-          GROUP_DIR="$HOME/.m2/repository/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6"
-          mkdir -p "$GROUP_DIR"
-          JAR_URL="https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/14-robolectric-10818077-i6/android-all-instrumented-14-robolectric-10818077-i6.jar"
-          for attempt in 1 2 3; do
-            if curl -fsSL --retry 3 --retry-delay 5 -o "$GROUP_DIR/android-all-instrumented-14-robolectric-10818077-i6.jar" "$JAR_URL"; then
-              echo "android-all fetched (attempt $attempt)"
-              break
-            fi
-            echo "attempt $attempt failed"; sleep 10
-          done
-          test -s "$GROUP_DIR/android-all-instrumented-14-robolectric-10818077-i6.jar"
-          ls -la "$GROUP_DIR"
+          # 尽力执行：复用有效缓存 → 临时文件下载 → 校验后移入；
+          # 预取失败只告警，不阻断 Gradle（真正的失败判定留给测试）。
+          bash tools/prefetch-robolectric-jar.sh
 
       - name: Unit regressions, app APK and instrumented APK
         run: bash ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
