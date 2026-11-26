@@ -56,7 +56,8 @@ class IntentAssistResponseParsingTest {
             url: String,
             body: String,
             authHeader: String,
-            timeoutMillis: Int
+            timeoutMillis: Int,
+            headers: Map<String, String>
         ): String {
             calls++
             return response
