@@ -112,6 +112,8 @@ import com.tabula.v3.data.preferences.SwipeStyle
 import com.tabula.v3.data.preferences.TagSelectionMode
 import com.tabula.v3.data.preferences.TopBarDisplayMode
 import com.tabula.v3.data.repository.LocalImageRepository
+import com.tabula.v3.data.repository.SimilarGroup
+import com.tabula.v3.data.burst.BurstSelectionRules
 import androidx.compose.ui.geometry.Offset
 import com.tabula.v3.ui.components.ActionIconButton
 import com.tabula.v3.ui.components.AlbumDropTarget
@@ -278,6 +280,11 @@ fun DeckScreen(
     // 原图清理
     pendingCleanupCount: Int = 0,
     onCleanupSourceImages: () -> Unit = {},
+    // 连拍选片（路线图第 4 项 / 审计 #87）：推荐引擎返回的真实相似组。
+    // 非 null 才提供入口；组身份来自检测器的内容寻址摘要，不在这里重算。
+    activeSimilarGroup: SimilarGroup? = null,
+    excludedBurstKeys: Set<String> = emptySet(),
+    onOpenBurstSelection: ((SimilarGroup) -> Unit)? = null,
     // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示
     intentSourceName: String? = null,
     onAcceptIntent: (() -> Unit)? = null,
@@ -1081,7 +1088,32 @@ fun DeckScreen(
                 else -> {
                     // 浏览模式
                     val currentImage = currentBatch.getOrNull(currentIndex)
-                    
+
+                    // 路线图 #83 第 4 项 + 审计意见（#87）：
+                    // 入口使用**推荐引擎返回的真实 SimilarGroup**，不再按
+                    // currentBatch 的时间/相册重猜组。
+                    // effectiveGroup 会把已滑过、已归档、待删除、已不在批次
+                    // 里的成员剔除；剔除后不足两张就不出入口。
+                    val burstCandidate: SimilarGroup? = remember(
+                        currentBatch,
+                        currentIndex,
+                        activeSimilarGroup,
+                        excludedBurstKeys
+                    ) {
+                        if (onOpenBurstSelection == null || activeSimilarGroup == null) {
+                            null
+                        } else {
+                            // 审计 #87：按 currentIndex 排除已滑过的成员，
+                            // excludedBurstKeys 含回收站与待归档中的成员。
+                            BurstSelectionRules.effectiveGroup(
+                                group = activeSimilarGroup,
+                                currentBatch = currentBatch,
+                                currentIndex = currentIndex,
+                                excludedIdentityKeys = excludedBurstKeys
+                            )
+                        }
+                    }
+
                     // 过滤掉隐藏的图集，用于下滑归类功能
                     DeckContent(
                         images = currentBatch,
@@ -1262,6 +1294,16 @@ fun DeckScreen(
                         // LIST_POPUP 模式：下滑触发图集选择弹层
                         onShowAlbumSelectionSheet = {
                             showAlbumSelectionSheet = true
+                        },
+                        // 路线图 #83 第 4 项：连拍选片入口（只有判定像连拍时才非空）
+                        onBurstSelectionClick = burstCandidate?.let { group ->
+                            {
+                                android.util.Log.d(
+                                    "DeckScreen",
+                                    "Opening burst selection: ${group.size} images, id=${group.id}"
+                                )
+                                onOpenBurstSelection?.invoke(group)
+                            }
                         },
                         // 路线图 #83 第 7 项（审计 #90）：把意图提示透传到内容层
                         intentSourceName = intentSourceName,
@@ -1868,6 +1910,8 @@ private fun DeckContent(
     onCardClick: (ImageFile, SourceRect) -> Unit,
     onTrashClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    // 路线图 #83 第 4 项：非空时显示「连拍选片」入口；null = 当前批次不像连拍
+    onBurstSelectionClick: (() -> Unit)? = null,
     // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示。
     // suggestSourceName 非空时显示「这轮再看几张这个相册？」；
     // onAcceptIntent 接受后下一批优先该来源；onDismissIntent 忽略。
@@ -1968,6 +2012,55 @@ private fun DeckContent(
                     onAcceptIntent = onAcceptIntent,
                     onDismissIntent = onDismissIntent
                 )
+            }
+
+            // 路线图 #83 第 4 项：连拍选片入口。
+            // 只在当前批次被判定为一个连拍组时出现，不挤占 TopBar 的既有按钮；
+            // 点击进入对比页，那里才做保留/回收决定。
+            if (onBurstSelectionClick != null) {
+                val burstContext = LocalContext.current
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            (if (LocalIsDarkTheme.current) Color(0xFF2C2C2E) else Color.White)
+                        )
+                        .clickable {
+                            HapticFeedback.lightTap(burstContext)
+                            onBurstSelectionClick()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.PhotoLibrary,
+                        contentDescription = null,
+                        tint = Color(0xFF007AFF),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = "这批像连拍",
+                            color = if (LocalIsDarkTheme.current) Color.White else Color.Black,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "一起对比，留下想要的那几张",
+                            color = Color(0xFF8E8E93),
+                            fontSize = 11.sp
+                        )
+                    }
+                    Text(
+                        text = "去选片",
+                        color = Color(0xFF007AFF),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
 
             // 卡片堆叠区域
