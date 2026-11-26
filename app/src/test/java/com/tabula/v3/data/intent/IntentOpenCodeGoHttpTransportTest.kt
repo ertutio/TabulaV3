@@ -15,6 +15,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -136,12 +137,32 @@ class IntentOpenCodeGoHttpTransportTest {
      * （本轮实测：同一个用例的第 3 轮起请求数变成 0，「非 2xx 回退」看起来像没发请求）。
      * 保持连接可按复用语义工作，测试才在测我方代码而不是在测 JDK 的连接池。
      */
+    /**
+     * 从 [input] 读一行 ASCII（HTTP 头部），到 `\n` 为止并去掉行尾 `\r`。
+     *
+     * 不用 `BufferedReader.readLine()`：它会预读并缓存后续字节，与「按字节读 body」
+     * 混用会把 body 前段吞进缓冲区（本轮实测：解析到空 body）。
+     */
+    private fun readAsciiLine(input: java.io.InputStream): String? {
+        val sb = StringBuilder()
+        while (true) {
+            val b = input.read()
+            if (b < 0) return if (sb.isEmpty()) null else sb.toString()
+            if (b == '\n'.code) return sb.toString().trimEnd('\r')
+            sb.append(b.toChar())
+        }
+    }
+
     private fun handle(socket: Socket) {
         socket.soTimeout = 10_000
-        val reader = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.UTF_8))
+        // **只用一个 InputStream，不叠加 BufferedReader**：BufferedReader 会预读缓冲，
+        // 与「按字节读 body」混用就会把 body 的前若干字节吞进它的缓冲区，
+        // 于是解析到空 body（本轮实测：JSONException: End of input at character 0）。
+        // 头部按字节逐行解析，body 按 Content-Length 精确读够。
+        val input = socket.getInputStream()
         while (!socket.isClosed) {
             val requestLine = try {
-                reader.readLine()
+                readAsciiLine(input)
             } catch (e: Throwable) {
                 return
             } ?: return
@@ -153,7 +174,7 @@ class IntentOpenCodeGoHttpTransportTest {
             val headers = mutableMapOf<String, String>()
             while (true) {
                 val line = try {
-                    reader.readLine()
+                    readAsciiLine(input)
                 } catch (e: Throwable) {
                     return
                 } ?: return
@@ -167,18 +188,20 @@ class IntentOpenCodeGoHttpTransportTest {
             }
 
             val length = headers["content-length"]?.toIntOrNull() ?: 0
-            val chars = CharArray(length)
+            // **必须按字节读**：Content-Length 是字节数，而请求体含中文（UTF-8 每字符 3 字节）。
+            // 按字符读会少读、然后阻塞到超时，客户端表现为 IOException。
+            val bodyBytes = ByteArray(length)
             var read = 0
             while (read < length) {
                 val n = try {
-                    reader.read(chars, read, length - read)
+                    input.read(bodyBytes, read, length - read)
                 } catch (e: Throwable) {
                     return
                 }
                 if (n <= 0) break
                 read += n
             }
-            val body = String(chars, 0, read)
+            val body = String(bodyBytes, 0, read, Charsets.UTF_8)
 
             requestedCount.incrementAndGet()
             captured.set(Captured(method = method, path = path, headers = headers, body = body))
@@ -316,15 +339,18 @@ class IntentOpenCodeGoHttpTransportTest {
 
     @Test
     fun non2xxResponsesFallBackToLocalWithoutThrowing() = runBlocking {
-        val cases = listOf(
+        // 前五条是真正的非 2xx（传输层抛 IOException → lastFailure="network"）；
+        // 后两条是 **HTTP 200 但内容无效**（合法 JSON 里没建议 / HTML 错误页），
+        // 它们**不该**被记成网络失败——解析失败与传输失败是两件事，
+        // 混在一起断言会掩盖「解析器把合法响应读丢」这类缺陷（正是 #95 修的那个）。
+        val transportFailures = listOf(
             400 to """{"type":"error","error":{"type":"MissingSessionID"}}""",
             401 to """{"error":{"type":"authentication_error","message":"Invalid credential"}}""",
             403 to """{"error":{"type":"authentication_error","message":"OpenCode Go requires an API key"}}""",
             429 to """{"error":{"type":"rate_limit"}}""",
-            500 to "oops",
-            200 to "<html>not json</html>"
+            500 to "oops"
         )
-        cases.forEach { (code, payload) ->
+        transportFailures.forEach { (code, payload) ->
             respondWith = code to payload
             requestedCount.set(0)
             val assist = goAssist()
@@ -334,8 +360,25 @@ class IntentOpenCodeGoHttpTransportTest {
                 IntentRecommendation.UNCERTAIN, suggestion.recommendation
             )
             assertTrue("HTTP $code 不得给出任何分类结论", suggestion.reason.isEmpty())
-            assertTrue("HTTP $code 必须如实记下失败原因", assist.lastFailure != null)
+            assertEquals("HTTP $code 必须记成网络失败", "network", assist.lastFailure)
             assertEquals("HTTP $code 只应发出一次请求（不重试）", 1, requestedCount.get())
+        }
+
+        val contentFailures = listOf(
+            "合法 JSON 但无建议" to """{"choices":[{"message":{"content": ""}}]}""",
+            "HTML 错误页" to "<html>not json</html>"
+        )
+        contentFailures.forEach { (label, payload) ->
+            respondWith = 200 to payload
+            requestedCount.set(0)
+            val assist = goAssist()
+            val suggestion = assist.classify(safeSnippet())
+            assertEquals(
+                "$label 必须回退", IntentRecommendation.UNCERTAIN, suggestion.recommendation
+            )
+            assertTrue("$label 不得给出任何分类结论", suggestion.reason.isEmpty())
+            assertNull("$label 不该被记成传输失败：${assist.lastFailure}", assist.lastFailure)
+            assertEquals("$label 只应发出一次请求", 1, requestedCount.get())
         }
     }
 
@@ -448,6 +491,102 @@ class IntentOpenCodeGoHttpTransportTest {
         )
     }
 
+
+    // ==================== 5. 带空白的 JSON 真的被读出建议 ====================
+
+    /**
+     * **解析修复在 Go 路径上的端到端证明**（复用 #95 的修复）。
+     *
+     * #95 修掉了 `extractContent` 用固定字符串 `"content":"` 查找的缺陷——
+     * 那种写法遇到 `"content": "KEEP"`（冒号后有空格）就返回空、把合法建议丢掉。
+     * #96 把解析抽到共享的 `IntentAssistPrompt.extractContent`，两个服务共用同一份实现。
+     *
+     * 这条从**真实 HTTP 响应**出发验证 Go 客户端也拿到了这个修复：
+     * 服务端返回带空格的 JSON → `OpenCodeGoTextAssist.classify` 必须读出 KEEP/LOWER，
+     * 而不是回退成本地结果。同时证明请求头（session/UA/Bearer）与响应解析在同一次
+     * 往返里都成立。
+     */
+    @Test
+    fun goClientParsesRealResponseWithSpaceAfterColon() = runBlocking {
+        armRequestSignal()
+        respondWith = 200 to """{"choices":[{"message":{"role":"assistant","content": "KEEP"}}]}"""
+        val assist = goAssist()
+        val suggestion = assist.classify(safeSnippet())
+
+        assertTrue("请求必须真的到达服务端", awaitOneRequest())
+        assertNull(
+            "不该走网络回退（lastFailure 应为空）：${assist.lastFailure}",
+            assist.lastFailure
+        )
+        assertEquals(
+            "冒号后有空格也必须读出 KEEP（否则 #95 的修复没到 Go 路径）",
+            IntentRecommendation.KEEP, suggestion.recommendation
+        )
+        assertEquals(IntentCategory.PROTECTED, suggestion.category)
+
+        // 同一次往返里，官方要求的头仍然到位
+        val seen = requireNotNull(captured.get())
+        assertEquals("Bearer oc_sk_synthetic_not_a_real_key", seen.headers["authorization"])
+        assertTrue(
+            "session 头必须仍在：${seen.headers["x-opencode-session"]}",
+            seen.headers["x-opencode-session"]?.startsWith("ses_") == true
+        )
+    }
+
+    @Test
+    fun goClientParsesPrettyPrintedResponse() = runBlocking {
+        armRequestSignal()
+        // 用 \n 显式拼接而不是原始字符串：Kotlin 的 """ 内容会原样进入 HTTP 响应体，
+        // 而序列化器实际产出的是连续空白；这里要的是「合法 JSON 里的空白不影响解析」。
+        respondWith = 200 to buildString {
+            append("{\n")
+            append("  \"id\": \"chatcmpl-go-1\",\n")
+            append("  \"choices\": [\n")
+            append("    {\n")
+            append("      \"index\": 0,\n")
+            append("      \"message\": {\n")
+            append("        \"role\": \"assistant\",\n")
+            append("        \"content\": \"LOWER\"\n")
+            append("      },\n")
+            append("      \"finish_reason\": \"stop\"\n")
+            append("    }\n")
+            append("  ],\n")
+            append("  \"opencode\": { \"billing_source\": \"go\", \"allowance\": 0.00012 }\n")
+            append("}")
+        }
+        val suggestion = goAssist().classify(safeSnippet())
+
+        assertTrue("请求必须真的到达服务端", awaitOneRequest())
+        assertEquals(
+            "pretty-print（冒号后换行 + 缩进）也必须读出 LOWER",
+            IntentRecommendation.LOWER_PRIORITY, suggestion.recommendation
+        )
+    }
+
+    /** 空 content 在 Go 路径上同样回退（回退语义不能因为换解析器而放松）。 */
+    @Test
+    fun goClientEmptyContentStillFallsBack() = runBlocking {
+        armRequestSignal()
+        respondWith = 200 to """{"choices":[{"message":{"content": "   "}}]}"""
+        val assist = goAssist()
+        val suggestion = assist.classify(safeSnippet())
+
+        assertTrue("请求必须真的到达服务端", awaitOneRequest())
+        assertNull("解析成功、只是没有建议", assist.lastFailure)
+        assertEquals(IntentRecommendation.UNCERTAIN, suggestion.recommendation)
+        assertTrue("空建议不带理由", suggestion.reason.isEmpty())
+    }
+
+    /** 非法 JSON 在 Go 路径上回退，不抛异常。 */
+    @Test
+    fun goClientMalformedJsonStillFallsBack() = runBlocking {
+        armRequestSignal()
+        respondWith = 200 to """{"choices":[{"message":{"content": "KEEP""""
+        val suggestion = goAssist().classify(safeSnippet())
+
+        assertTrue("请求必须真的到达服务端", awaitOneRequest())
+        assertEquals(IntentRecommendation.UNCERTAIN, suggestion.recommendation)
+    }
 
     companion object {
         private const val SUCCESS_BODY =
