@@ -43,13 +43,20 @@ import androidx.compose.material.icons.outlined.Share
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.os.Build
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.preferences.AlbumCleanupDisplayMode
 import com.tabula.v3.data.preferences.TopBarDisplayMode
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import com.tabula.v3.ui.components.LocalLiquidGlassEnabled
+import com.tabula.v3.ui.components.LocalLiquidGlassBackdrop
 import com.tabula.v3.ui.components.PhysicalLiquidGlassBox
 import com.tabula.v3.ui.components.PhysicalLiquidGlassConfig
+import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropSpec
+import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropState
+import com.tabula.v3.ui.components.liquidglass.LIQUID_GLASS_BACKDROP_MIN_SDK
+import com.tabula.v3.ui.components.liquidglass.forCompactControl
+import com.tabula.v3.ui.components.liquidglass.shouldSampleCompactControl
 import com.tabula.v3.ui.theme.TabulaColors
 import com.tabula.v3.ui.util.HapticFeedback
 import java.text.SimpleDateFormat
@@ -157,8 +164,10 @@ fun TopBar(
             // 普通模式：显示索引或时间
             when (displayMode) {
                 TopBarDisplayMode.INDEX -> {
+                    // 图库为空时（空状态页复用本栏）不显示 "1/0" 这种没有意义的计数，
+                    // 只留右侧的回收站与设置入口。
                     AdaptiveTopBarText(
-                        text = "${currentIndex + 1}/$totalCount",
+                        text = if (totalCount > 0) "${currentIndex + 1}/$totalCount" else "",
                         baseFontSize = 36f, color = textColor,
                         modifier = Modifier.weight(1f)
                     )
@@ -166,7 +175,7 @@ fun TopBar(
                 TopBarDisplayMode.DATE -> {
                     val dateText = currentImage?.dateModified?.let { timestamp ->
                         formatDateForTopBar(timestamp)
-                    } ?: "${currentIndex + 1}/$totalCount"
+                    } ?: if (totalCount > 0) "${currentIndex + 1}/$totalCount" else ""
 
                     AdaptiveTopBarText(
                         text = dateText, baseFontSize = 32f, color = textColor,
@@ -301,6 +310,14 @@ fun ActionIconButton(
     enabled: Boolean = true
 ) {
     val isLiquidGlassEnabled = LocalLiquidGlassEnabled.current
+    // 顶部按钮沿用同一个背景来源；没有宿主提供背景时这里为 null
+    val backdropState = LocalLiquidGlassBackdrop.current
+    val backdropSpec = remember { LiquidGlassBackdropSpec.Default.forCompactControl() }
+    val sampleBackdrop = shouldSampleCompactControl(
+        liquidGlassEnabled = isLiquidGlassEnabled,
+        sdkInt = Build.VERSION.SDK_INT,
+        hasBackdropSource = backdropState != null
+    )
     
     // 当需要特殊高亮背景时，不使用液态玻璃模式
     if (isLiquidGlassEnabled && !forceNormalStyle) {
@@ -316,6 +333,9 @@ fun ActionIconButton(
                 surfaceAlpha = 0.18f,
                 tintStrength = 0.10f
             ),
+            // 采样层只影响玻璃下方的背景；高光/边缘/内阴影/噪点仍来自上面的 config
+            backdropState = if (sampleBackdrop) backdropState else null,
+            backdropSpec = backdropSpec,
             contentAlignment = Alignment.Center
         ) {
             Icon(

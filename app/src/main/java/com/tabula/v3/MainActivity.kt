@@ -58,9 +58,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.balance.RoundIntentRules
+import com.tabula.v3.data.balance.StagedSourceDisplayName
+import com.tabula.v3.data.balance.SourceBalanceRules
+import com.tabula.v3.data.balance.RoundSessionRules
+import com.tabula.v3.data.balance.ArchiveIdentityRules
+import com.tabula.v3.data.balance.DeferredActionLedger
+import com.tabula.v3.data.balance.PendingDelete
+import com.tabula.v3.data.balance.SessionBatchIds
+import com.tabula.v3.data.balance.Ticket
 import com.tabula.v3.BuildConfig
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.CardStyleMode
+import com.tabula.v3.data.preferences.RecommendMode
 import com.tabula.v3.data.preferences.SourceImageDeletionStrategy
 import com.tabula.v3.data.preferences.SwipeStyle
 import com.tabula.v3.data.preferences.TagSelectionMode
@@ -69,9 +79,12 @@ import com.tabula.v3.data.preferences.TopBarDisplayMode
 import com.tabula.v3.data.repository.DeletionVerification
 import com.tabula.v3.data.repository.FileOperationManager
 import com.tabula.v3.data.repository.LocalImageRepository
+import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.copyImagesResultMessage
 import com.tabula.v3.data.repository.moveImagesResultMessage
 import com.tabula.v3.data.repository.matchesSameMediaIdentity
+import com.tabula.v3.data.repository.mediaIdentityKey
+import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.partitionByConfirmedIdentity
 import com.tabula.v3.data.repository.projectSnapshot
@@ -104,6 +117,12 @@ import com.tabula.v3.ui.screens.DisclaimerScreen
 import com.tabula.v3.ui.screens.PrivacyPolicyScreen
 import com.tabula.v3.ui.screens.TutorialScreen
 import com.tabula.v3.ui.screens.OtherAlbumsScreen
+import com.tabula.v3.ui.screens.RelayReviewScreen
+import com.tabula.v3.data.relay.RelayMark
+import com.tabula.v3.data.relay.RelayRecycleTransaction
+import com.tabula.v3.data.relay.RelayReviewController
+import com.tabula.v3.data.relay.RelayReviewRules
+import com.tabula.v3.data.relay.ShareRelayStore
 import com.tabula.v3.data.repository.AlbumManager
 import com.tabula.v3.data.model.Album
 import androidx.compose.runtime.collectAsState
@@ -135,6 +154,25 @@ import com.tabula.v3.data.repository.resolveImagesByIdentitySelection
 import com.tabula.v3.data.duplicate.ContentDigestCalculator
 import com.tabula.v3.data.duplicate.DuplicateReverify
 import com.tabula.v3.data.duplicate.DuplicateRules
+import com.tabula.v3.data.burst.BurstCommit
+import com.tabula.v3.data.burst.BurstSelectionRules
+import com.tabula.v3.data.repository.SimilarGroup
+import com.tabula.v3.ui.screens.BurstSelectionScreen
+import com.tabula.v3.data.cleanup.StagedCleanupRules
+import com.tabula.v3.data.cleanup.StagedCleanupSelection
+import com.tabula.v3.data.cleanup.StagedCleanupSource
+import com.tabula.v3.data.cleanup.StagedSourceKey
+import com.tabula.v3.data.cleanup.cleanupIdentityKey
+import com.tabula.v3.ui.screens.StagedCleanupCandidateContent
+import com.tabula.v3.ui.screens.StagedCleanupSourcePickerContent
+
+/**
+ * 首次进入暂存清理时预勾选的来源上限。
+ *
+ * 截图通常只有一两个目录，下载目录最多两三个；限制上限是为了避免某些设备
+ * 上铺开的聊天软件保存目录被一次性全选，把用户没打算动的照片带进候选。
+ */
+private const val MAX_DEFAULT_STAGED_SOURCES = 3
 
 /**
  * T02b 恢复核验决策：未知保留在回收站，缺失清除死记录且不入图库，仅 PRESENT 继续恢复。
@@ -501,6 +539,59 @@ fun TabulaApp(
     var duplicateDetails by remember { mutableStateOf<Map<String, List<ImageFile>>>(emptyMap()) }
     var duplicateScanRevision by remember { mutableIntStateOf(0) }
 
+    // ========== 连拍选片状态（路线图第 4 项） ==========
+    // 只在相似推荐批次"看起来是一个连拍组"时才进入；进入后本界面的决定
+    // 不直接落库，确认才写回收站，取消/返回什么都不改。
+    var burstSelectionGroup by remember { mutableStateOf<SimilarGroup?>(null) }
+    // 审计修复（#87 四轮）：**原组身份**，用于完成时登记冷却。
+    //
+    // SimilarGroup.id 是成员集合的内容寻址摘要，部分回收成功后从
+    // burstSelectionGroup 里移除成功项会改变 id。若拿裁剪后的组去
+    // markSimilarGroupProcessed，登记的就是一个从未存在过的组，
+    // 原组永远不会进冷却。因此原组单独保存，提交完成时用它登记。
+    var burstOriginalGroup by remember { mutableStateOf<SimilarGroup?>(null) }
+    // 审计修复（#87）：推荐引擎这批实际用到的真实组。null = 这批不是相似组。
+    var activeSimilarGroup by remember { mutableStateOf<SimilarGroup?>(null) }
+    var burstKeptKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var burstCommitting by remember { mutableStateOf(false) }
+
+    // ========== 分享待清记录（#85：用户可达的清理界面） ==========
+    val shareRelayStore = remember { ShareRelayStore.getInstance(context) }
+    var relayMarks by remember { mutableStateOf<List<RelayMark>>(emptyList()) }
+    var relayShowReviewOnly by remember { mutableStateOf(false) }
+    var relayRevision by remember { mutableIntStateOf(0) }
+    LaunchedEffect(relayRevision) {
+        relayMarks = withContext(Dispatchers.IO) { shareRelayStore.load() }
+    }
+
+    // ========== 暂存清理状态（路线图第 1 项） ==========
+    // 只在进入暂存清理页时计算候选；离开不清空，返回时保留用户已勾选的选择。
+    var stagedCleanupSources by remember { mutableStateOf<List<StagedCleanupSource>>(emptyList()) }
+    var stagedCleanupSelection by remember { mutableStateOf<StagedCleanupSelection?>(null) }
+    var stagedCleanupSelectedKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var stagedCleanupLoading by remember { mutableStateOf(false) }
+    var stagedCleanupSaving by remember { mutableStateOf(false) }
+    // 本次会话内"跳过"与"长期保留"的身份键（保留跨重启，跳过只在内存）
+    var stagedCleanupRetainedKeys by remember {
+        mutableStateOf(preferences.stagedCleanupRetainedIdentityKeys)
+    }
+    var stagedCleanupSkippedKeys by remember {
+        mutableStateOf(preferences.stagedCleanupSkippedIdentityKeys)
+    }
+    // ========== 本轮整理意图（路线图第 7 项 / 审计 #90） ==========
+    // 全部是会话级状态：进程重启即归零，符合"只在当前整理会话内有效"。
+    var intentSuggestion by remember { mutableStateOf<String?>(null) }
+    var intentDismissed by remember { mutableStateOf(false) }
+    // #90：只统计成功处理的行为（保留/归档/删除），撤销与失败要回退
+    var roundSession by remember { mutableStateOf(RoundSessionRules.Session()) }
+    // #90：卡片页当前实际持有的批次（由 DeckScreen 回报），用于候选池与提示判定
+    var currentDeckBatch by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
+    // #90 第四轮：会话与批次的稳定标识。延迟动作（删除撤销期满、归档待提交）
+    // 在**发起时**绑定它，完成时再比对——旧批的动作不往新批记账。
+    var sessionBatchIds by remember { mutableStateOf(SessionBatchIds()) }
+    // 当前推荐模式（跟随设置切换；意图只在随机漫步的普通整理模式下生效）
+    var currentRecommendMode by remember { mutableStateOf(preferences.recommendMode) }
+
     // ========== 图片数据状态 ==========
     var allImages by remember { mutableStateOf<List<ImageFile>>(emptyList()) }
     // 用于主界面卡片整理的图片列表（排除已归类到 Tabula 图集的照片）
@@ -519,6 +610,43 @@ fun TabulaApp(
     val albumManager = remember { AlbumManager.getInstance(context) }
     val recommendationEngine = remember { RecommendationEngine.getInstance(context) }
     val albumCleanupEngine = remember { AlbumCleanupEngine.getInstance(context) }
+
+    /**
+     * 重置本轮整理意图的全部状态（审计 #90）。
+     *
+     * 审计要求：进入或退出专清、切换推荐模式、离开卡片页时，**统计、提示、
+     * 已接受来源与待消费意图**都要一起清掉。只清一半（例如只清提示）会让
+     * 上一个模式的来源偏好漏进下一个模式。
+     */
+    fun resetRoundIntentState() {
+        roundSession = RoundSessionRules.endSession()
+        intentSuggestion = null
+        intentDismissed = false
+        recommendationEngine.clearRoundIntent()
+        // 换会话：之前绑定的 ticket 全部作废，延迟动作不会记进新会话
+        sessionBatchIds = sessionBatchIds.newSession()
+    }
+
+    /**
+     * 真正换批（#90 第四轮审计）：手动「再来一组」与旧批全部失效后的自动重取
+     * 走同一个边界——清掉上一批统计与旧提示，并换一个批次标识。
+     *
+     * 删单张卡片、撤销、同批快照刷新都**不走**这里（见 [BatchChange]）。
+     */
+    fun advanceBatchBoundary() {
+        roundSession = RoundSessionRules.nextBatch(roundSession)
+        intentSuggestion = null
+        sessionBatchIds = sessionBatchIds.newBatch()
+    }
+
+    /**
+     * 绑定**发起这一刻**的会话与批次标识（#90 第四轮审计）。
+     *
+     * 延迟动作（归档待提交、删除撤销期满）必须带着它一路走到提交点，
+     * 而不是在提交点再读当前值——那时可能已经换批了。
+     */
+    fun capturedTicket(): Ticket = Ticket.None.capture(sessionBatchIds)
+
     val albums by albumManager.albums.collectAsState()
     val albumMappings by albumManager.mappings.collectAsState()
     val excludedAlbumCount by albumManager.excludedAlbumCount.collectAsState()
@@ -530,6 +658,12 @@ fun TabulaApp(
     // 图集清理模式状态（提升到 TabulaApp 级别，避免导航时丢失）
     var isAlbumCleanupMode by remember { mutableStateOf(false) }
     var selectedCleanupAlbum by remember { mutableStateOf<Album?>(null) }
+
+    // #90：模式隔离的单一判据——只有随机漫步的**普通整理模式**才记录、
+    // 展示、接受本轮意图。进入或退出专清、切到相似推荐时这套状态全部清掉。
+    val tracksRoundIntent =
+        currentRecommendMode == RecommendMode.RANDOM_WALK && !isAlbumCleanupMode
+
     
     // 刷新图集清理信息的回调
     fun refreshAlbumCleanupInfos() {
@@ -549,6 +683,72 @@ fun TabulaApp(
     // ========== 推荐模式刷新触发器 ==========
     // 用于在设置中切换推荐模式后，返回主页时刷新批次
     var recommendModeRefreshKey by remember { mutableIntStateOf(0) }
+
+    // #90：切换专清 / 相似推荐 / 换推荐模式 / 退出整理时，清理本轮的
+    // 统计、提示、已接受来源与待消费意图。意图是会话级的：这些切换代表
+    // "新一轮整理"，不能继承上一轮的来源偏好。
+    //
+    // 审计第三轮：这里必须清**全部**四项。之前只清统计和提示、漏了
+    // `currentDeckBatch` 与待消费意图，切模式后再回到卡片页，旧批次仍被
+    // 当作"当前批次"，候选池因此把该来源的可用照片算成批内照片。
+    LaunchedEffect(recommendModeRefreshKey) {
+        resetRoundIntentState()
+        currentDeckBatch = emptyList()
+        currentRecommendMode = preferences.recommendMode
+    }
+    // 进入/退出专清模式：同一个隔离动作（审计要求双向都要清）
+    LaunchedEffect(isAlbumCleanupMode) {
+        resetRoundIntentState()
+        currentDeckBatch = emptyList()
+    }
+    LaunchedEffect(currentScreen) {
+        if (currentScreen != AppScreen.DECK) {
+            resetRoundIntentState()
+            currentDeckBatch = emptyList()
+        }
+    }
+
+    /**
+     * 按**用户实际处理行为**评估是否提示本轮整理意图（审计 #90）。
+     *
+     * 触发条件（全部满足才提示）：
+     * - 当前是随机漫步的普通整理模式（专清 / 相似推荐下不提示）
+     * - 主来源至少 3 张成功处理记录，且 ≥60%
+     * - 该来源在**下一批候选**里仍有批外照片——候选池与抽样同口径：
+     *   扣屏蔽图集、扣冷却、扣当前批次（[RoundCandidateRules]）
+     * - 本轮没有接受过同一来源、用户也没忽略过
+     *
+     * 候选池用 RecommendationEngine.eligibleNextBatchCandidates 求，不再
+     * 自己拿 imagesForSorting 猜——"照片还在池子里"不等于"下一批抽得到"。
+     */
+    LaunchedEffect(
+        roundSession,
+        intentDismissed,
+        imagesForSorting,
+        currentDeckBatch,
+        currentRecommendMode,
+        isAlbumCleanupMode
+    ) {
+        // 模式隔离：只在随机漫步的普通整理模式判定与展示
+        val inPlainRandomWalk =
+            currentRecommendMode == RecommendMode.RANDOM_WALK && !isAlbumCleanupMode
+        if (!inPlainRandomWalk || intentDismissed || roundSession.isEmpty()) {
+            intentSuggestion = null
+            return@LaunchedEffect
+        }
+        val eligible = recommendationEngine.eligibleNextBatchCandidates(
+            allImages = imagesForSorting.filterNot { image ->
+                deletedImages.any { it.mediaIdentityKey() == image.mediaIdentityKey() }
+            },
+            currentBatch = currentDeckBatch
+        )
+        intentSuggestion = RoundSessionRules.shouldSuggest(
+            session = roundSession,
+            sourceKeyOf = { SourceBalanceRules.sourceKeyOf(it) },
+            eligibleImages = eligible,
+            dismissed = intentDismissed
+        )
+    }
     
     // ========== 原图删除提醒状态 ==========
     var showSourceImageDeletionDialog by remember { mutableStateOf(false) }
@@ -638,6 +838,17 @@ fun TabulaApp(
         verdict.invalidatedKeys.forEach { updated.remove(it) }
         duplicateDetails = updated
         duplicateCounts = updated.mapValues { it.value.size }
+        // #88 三轮：把这次实际做出的复核决定记下来。
+        // 用户可见反馈是 Toast，不在 AccessibilityNode 树里，设备用例无法
+        // 用它断言"复核真的拦下了"；这里提供进程内观测点（Release 下不记录）。
+        DuplicateReverifyTestHook.record(
+            DuplicateReverifyTestHook.Verdict(
+                targetKeys = toDelete.map { it.mediaIdentityKey() }.toSet(),
+                passed = !verdict.shouldStop,
+                invalidatedKeys = verdict.invalidatedKeys,
+                remainingHintKeys = updated.size
+            )
+        )
         return !verdict.shouldStop
     }
 
@@ -696,6 +907,63 @@ fun TabulaApp(
         }
         duplicateDetails = findings.associate {
             it.image.mediaIdentityKey() to it.duplicates
+        }
+    }
+
+
+    // ========== 暂存清理动作（路线图第 1 项） ==========
+    //
+    // 候选来源 = 截图/下载目录 (StagedCleanupRules.availableSources)。
+    // 候选照片 = 在选定来源内、扣除「长期保留」「本次跳过」「已在回收站」三组
+    // 身份键后，按存入时间 (DATE_ADDED) 分旧/新/未知三段。纯规则在
+    // StagedCleanupRules 里，JVM 单测覆盖；这里只负责把状态接起来。
+
+    fun recomputeStagedCleanupSelection() {
+        stagedCleanupLoading = true
+        scope.launch {
+            try {
+                val sourceKeys = preferences.stagedCleanupSourceKeys
+                val selectedSources = sourceKeys.mapNotNull { raw ->
+                    val separator = raw.indexOf('|')
+                    if (separator < 0) return@mapNotNull null
+                    StagedSourceKey(
+                        volumeName = raw.substring(0, separator),
+                        relativePath = raw.substring(separator + 1)
+                    )
+                }
+                stagedCleanupSelection = StagedCleanupRules.select(
+                    allImages = allImages,
+                    sources = selectedSources,
+                    retainedIdentityKeys = stagedCleanupRetainedKeys,
+                    skippedIdentityKeys = stagedCleanupSkippedKeys,
+                    recycledIdentityKeys = deletedImages.map { cleanupIdentityKey(it) }.toSet(),
+                    nowMillis = System.currentTimeMillis()
+                )
+                // 勾选集合与候选求交：来源换过、照片被恢复或删除后不留下幽灵勾选。
+                val validKeys = stagedCleanupSelection?.allCandidateImages.orEmpty()
+                    .map { cleanupIdentityKey(it) }
+                    .toSet()
+                stagedCleanupSelectedKeys = stagedCleanupSelectedKeys.intersect(validKeys)
+            } finally {
+                stagedCleanupLoading = false
+            }
+        }
+    }
+
+    fun openStagedCleanup() {
+        // 审计修复（#84）：列出全部可访问来源，不再只列截图/下载。
+        stagedCleanupSources = StagedCleanupRules.availableSources(allImages)
+        stagedCleanupSelectedKeys = emptySet()
+        currentScreen = AppScreen.STAGED_CLEANUP
+        if (preferences.hasStagedCleanupSourceChoice) {
+            recomputeStagedCleanupSelection()
+        } else {
+            // 首次进入：只预勾推荐来源（截图/下载），其它来源由用户自己决定。
+            stagedCleanupSelectedKeys = StagedCleanupRules.defaultSelectedSourceKeys(
+                stagedCleanupSources,
+                limit = MAX_DEFAULT_STAGED_SOURCES
+            )
+            stagedCleanupSelection = null
         }
     }
 
@@ -991,34 +1259,106 @@ fun TabulaApp(
         )
     }
 
-    fun commitPendingArchiveWithFeedback(actionId: String) {
+    /**
+     * #90：提交归档并记录成功行为。
+     *
+     * 审计要求：不要把 actionId 当照片 ID。完整媒体身份来自 PendingArchive
+     * 的 (imageUri 卷, imageId)，且**只在归档真实成功**（COMMITTED）时记账。
+     *
+     * #90 第四轮：记账还要看**发起时的会话与批次**（`action.intentTicket`）。
+     * 归档是延迟提交的——换批之后才完成的旧动作仍然照原逻辑复制文件、更新
+     * 图库，但**不往新批次记账**：那会让新批次的来源判断带上用户在这一批
+     * 根本没碰过的相册。
+     *
+     * @param action 从 getLastPendingArchive() 取出的真实待归档项
+     * @param snapshot 提交前的照片快照，用于按完整身份匹配真实 ImageFile
+     */
+    fun commitPendingArchiveWithFeedback(
+        action: AlbumManager.PendingArchive,
+        snapshot: List<ImageFile> = allImages + deletedImages
+    ) {
         scope.launch {
-            when (albumManager.commitPendingArchive(actionId)) {
+            // 从 PendingArchive 的 (imageUri 卷, imageId) 解析完整身份
+            val archivedImage = ArchiveIdentityRules.findInSnapshot(action, snapshot)
+
+            val outcome = albumManager.commitPendingArchive(action.id)
+            // 记账决策走 DeferredActionLedger（测试与生产同一条路径）：
+            // 只有 COMMITTED 且发起时的会话/批次仍有效才计入
+            if (tracksRoundIntent) {
+                roundSession = DeferredActionLedger.onArchiveCommitted(
+                    session = roundSession,
+                    archivedImage = archivedImage,
+                    action = action,
+                    outcome = outcome,
+                    currentIds = sessionBatchIds
+                )
+            }
+            when (outcome) {
+                AlbumManager.ArchiveCommitOutcome.COMMITTED -> Unit  // 记账已在上面处理
                 AlbumManager.ArchiveCommitOutcome.COPY_FAILED ->
                     Toast.makeText(context, "归档失败，照片未复制", Toast.LENGTH_LONG).show()
-                else -> {}
+                AlbumManager.ArchiveCommitOutcome.NOT_CLAIMED ->
+                    android.util.Log.w("TabulaApp", "Archive action not claimed (already committed/cancelled): ${action.id}")
             }
         }
     }
 
     val deckContent: @Composable () -> Unit = {
-        DeckScreen(
-            // 使用 imagesForSorting（排除已归类到 Tabula 图集的照片）
+        DeckScreen(            // 使用 imagesForSorting（排除已归类到 Tabula 图集的照片）
             // 这样已归类的照片不会再次出现在待整理列表中
             allImages = imagesForSorting,
             allImagesForCleanup = allImages,
             batchSize = currentBatchSize,
             isLoading = isLoading,
             topBarDisplayMode = currentTopBarMode,
-            onKeep = {
+            onKeep = { kept: ImageFile ->
                 preferences.totalReviewedCount++
+                // #90：成功保留也计入本轮统计（只在随机漫步普通整理模式）
+                if (tracksRoundIntent) {
+                    roundSession = RoundSessionRules.record(
+                        roundSession, kept, RoundSessionRules.HandledAction.KEEP
+                    )
+                }
             },
-            onRemove = { image ->
+            // #90：真正换批（手动「再来一组」/ 旧批全失效后自动重取）——
+            // 清上一批统计与旧提示，并换批次标识
+            onBatchAdvanced = {
+                advanceBatchBoundary()
+            },
+            // #90：卡片页回报它实际持有的批次——候选池与提示判定都以它为准
+            onBatchChanged = { batch -> currentDeckBatch = batch },
+            // #90 第五轮：上滑发起删除时用于绑定凭证（当前会话/批次）
+            currentIntentTicket = { capturedTicket() },
+            onRemove = { pending ->
+                // #90 第五轮：凭证由卡片的待删除记录带下来（上滑那一刻绑定的），
+                // 这里**不再**重取当前批次——撤销超时/被顶掉时可能已经换批，
+                // 重取会把旧批的动作记到新批统计上。
+                val image = pending.image
+                val deleteTicket = pending.ticket
                 scope.launch {
                     try {
                         recycleBinManager.addToRecycleBin(image)
                         albumCleanupEngine.recordUserRemovedImage(image)
                         val persisted = recycleBinManager.loadRecycleBin()
+                        // 写成功后才记账；只有发起时那批仍有效才计入
+                        val beforeKeys = roundSession.currentBatchIdentityKeys
+                        if (tracksRoundIntent) {
+                            roundSession = DeferredActionLedger.onDeletePersisted(
+                                session = roundSession,
+                                pending = DeferredActionLedger.Pending(image, deleteTicket),
+                                currentIds = sessionBatchIds
+                            )
+                        }
+                        // #90 第五轮（仅 DEBUG）：登记本次记账决策，供设备用例
+                        // 观察生产侧真实结果——规则函数本身测不出接线错误。
+                        PendingDeleteTestHook.record(
+                            imageKey = image.mediaIdentityKey(),
+                            ticket = deleteTicket,
+                            currentSession = sessionBatchIds.sessionId,
+                            currentBatch = sessionBatchIds.batchId,
+                            recorded = image.mediaIdentityKey() in roundSession.currentBatchIdentityKeys &&
+                                image.mediaIdentityKey() !in beforeKeys
+                        )
                         // 即时状态与刷新后的投影同口径：按媒体身份（卷, ID）过滤，
                         // 跨卷同数值 ID 的其他照片不受本次回收影响。
                         allImages = allImages.filterNot { row -> persisted.any { it.matchesSameMediaIdentity(row) } }
@@ -1031,6 +1371,13 @@ fun TabulaApp(
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
+                        // 失败回退：这张不计入本轮。同样只有发起时那批仍然有效
+                        // 才回退——换批后撤销旧动作不能删掉新批次里的记录
+                        roundSession = DeferredActionLedger.onDeleteFailed(
+                            session = roundSession,
+                            pending = DeferredActionLedger.Pending(image, deleteTicket),
+                            currentIds = sessionBatchIds
+                        )
                         Log.e("TabulaApp", "Could not mark photo for deletion", e)
                         Toast.makeText(context, "未能保存回收站记录，照片仍保留在待整理照片中", Toast.LENGTH_LONG).show()
                     }
@@ -1053,12 +1400,21 @@ fun TabulaApp(
                      // 先提交之前的 pending action（如果有）
                      // 这样快速连续归档时，前一个会被自动提交
                      albumManager.getLastPendingArchive()?.let {
-                         commitPendingArchiveWithFeedback(it.id)
+                         commitPendingArchiveWithFeedback(it)
                      }
                      
-                     // 加入新的 pending action（不立即复制）
+                     // 加入新的 pending action（不立即复制）。
+                     // #90 第四轮：把**发起这一刻**的会话/批次标识绑进动作，
+                     // 等 Snackbar 超时才提交时才有得比对——不能等到提交那一刻
+                     // 再去读当前批次，那时可能已经换批了。
                      val album = albums.find { it.id == albumId }
-                     albumManager.queueImageToAlbum(imageId, imageUri, albumId, album?.name ?: albumId)
+                     albumManager.queueImageToAlbum(
+                         imageId = imageId,
+                         imageUri = imageUri,
+                         albumId = albumId,
+                         albumName = album?.name ?: albumId,
+                         intentTicket = capturedTicket()
+                     )
                  }
             },
             onCreateAlbum = { name, color, emoji ->
@@ -1078,13 +1434,19 @@ fun TabulaApp(
                     try {
                         // 先提交之前的 pending action（如果有）
                         albumManager.getLastPendingArchive()?.let {
-                            commitPendingArchiveWithFeedback(it.id)
+                            commitPendingArchiveWithFeedback(it)
                         }
                         
                         // 1. 创建图集
                         val newAlbum = albumManager.createAlbum(name, color, emoji)
                         // 2. 将图片加入待归档队列
-                        albumManager.queueImageToAlbum(image.id, image.uri.toString(), newAlbum.id, newAlbum.name)
+                        albumManager.queueImageToAlbum(
+                            imageId = image.id,
+                            imageUri = image.uri.toString(),
+                            albumId = newAlbum.id,
+                            albumName = newAlbum.name,
+                            intentTicket = capturedTicket()
+                        )
                     } catch (e: Exception) {
                         Log.e("TabulaApp", "Failed to create album and classify: $name", e)
                         withContext(Dispatchers.Main) {
@@ -1103,7 +1465,7 @@ fun TabulaApp(
                 scope.launch {
                     // Snackbar 消失时提交归档，执行真正的复制
                     albumManager.getLastPendingArchive()?.let {
-                        commitPendingArchiveWithFeedback(it.id)
+                        commitPendingArchiveWithFeedback(it)
                     }
                 }
             },
@@ -1118,13 +1480,60 @@ fun TabulaApp(
             },
             // 推荐算法回调 - 使用 RecommendationEngine
             getRecommendedBatch = { images, size ->
-                recommendationEngine.getRecommendedBatch(
+                // 审计修复（#87）：用带组身份的入口，把推荐引擎实际用到的
+                // SimilarGroup 记下来交给 DeckScreen；不再让 UI 猜组。
+                val result = recommendationEngine.getRecommendedBatchWithGroup(
                     images, size,
                     identityCandidates = allImages + deletedImages
                 )
+                activeSimilarGroup = result.group
+                result.images
             },
             // 推荐模式刷新触发器（切换算法时刷新批次）
             recommendModeRefreshKey = recommendModeRefreshKey,
+            activeSimilarGroup = activeSimilarGroup,
+            // 审计 #87：进入选片时排除已在回收站的成员。待归档的照片仍
+            // 留在当前批次里、由 currentIndex 区分是否已处理，不在这里重复排除。
+            excludedBurstKeys = deletedImages.map { it.mediaIdentityKey() }.toSet(),
+            // 路线图 #83 第 4 项：进入连拍选片。签名是「交给我一个组」，
+            // DeckScreen 只在当前批次被判定为连拍时才会调用。
+            onOpenBurstSelection = { group ->
+                burstSelectionGroup = group
+                // 原组身份与显示组分开保存：显示组会随部分回收裁剪，原组不变。
+                burstOriginalGroup = group
+                burstKeptKeys = BurstSelectionRules.defaultKeptKeys(group)
+                currentScreen = AppScreen.BURST_SELECTION
+            },
+            // 路线图 #83 第 7 项（审计 #90）：本轮整理意图。
+            // 提示在批次装载后由 userHandledBatch 计算——只有用户真的在处理
+            // 某个来源时才出现，而不是一进卡片页就弹。
+            // 路线图 #83 第 7 项（审计 #90）：本轮整理意图。
+            // 只在本轮确实在处理同一来源、且下一批抽得到时才展示。
+            intentSourceName = if (tracksRoundIntent) {
+                intentSuggestion?.let { key -> StagedSourceDisplayName.of(key) }
+            } else {
+                null
+            },
+            onAcceptIntent = {
+                // 只在普通随机漫步模式接受；其它模式下这里根本不该出现提示
+                intentSuggestion?.takeIf { tracksRoundIntent }?.let { key ->
+                    recommendationEngine.acceptRoundIntent(key)
+                    // 同一轮里不再对同一来源重复提示（避免接受后又弹一次）
+                    roundSession = RoundSessionRules.markAccepted(roundSession, key)
+                    intentSuggestion = null
+                    intentDismissed = false
+                    Toast.makeText(
+                        context,
+                        "下一批优先「${StagedSourceDisplayName.of(key)}」",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            onDismissIntent = {
+                // 忽略：本次会话不再提示（不写偏好、不写意图，重启后重新评估）
+                intentDismissed = true
+                intentSuggestion = null
+            },
             // 从冷却池移除照片的回调（切换算法时移除未浏览的照片；
             // C1/T03-DECKCOOLDOWN：按完整媒体身份键移除）
             onRemoveFromCooldown = { unviewedImages ->
@@ -1236,7 +1645,8 @@ fun TabulaApp(
                         }
                     }
                 }
-            }
+            },
+            onOpenStagedCleanup = { openStagedCleanup() }
         )
     }
 
@@ -1350,10 +1760,108 @@ fun TabulaApp(
             onNavigateToHiddenAlbums = { currentScreen = AppScreen.HIDDEN_ALBUMS },
             onNavigateToPrivacyPolicy = { currentScreen = AppScreen.PRIVACY_POLICY },
             onNavigateToTutorial = { currentScreen = AppScreen.TUTORIAL },
+            onNavigateToStagedCleanup = { openStagedCleanup() },
+            stagedCleanupSummary = if (preferences.hasStagedCleanupSourceChoice) {
+                if (preferences.stagedCleanupSourceKeys.isEmpty()) "" else
+                    "${preferences.stagedCleanupSourceKeys.size} 个来源"
+            } else "",
+            onNavigateToRelayReview = {
+                relayRevision++
+                currentScreen = AppScreen.RELAY_REVIEW
+            },
+            relayPendingCount = RelayReviewRules.pendingReviewRows(
+                RelayReviewRules.resolveRows(relayMarks, allImages)
+            ).size,
             scrollState = settingsScrollState
         )
     }
     
+    // 系统分享产生的待清记录页面（#85）
+    val relayReviewContent: @Composable () -> Unit = {
+        // 只把当前图库里仍存在的照片作为定位来源；回收站中的不算"原图"
+        val recycledKeys = deletedImages.map { it.mediaIdentityKey() }.toSet()
+        val library = allImages.filterNot { it.mediaIdentityKey() in recycledKeys }
+        val rows = RelayReviewRules.resolveRows(
+            marks = relayMarks,
+            library = library,
+            recycleBinKeys = deletedImages.map { it.mediaIdentityKey() }.toSet()
+        )
+        RelayReviewScreen(
+            rows = rows,
+            library = library,
+            showReviewOnly = relayShowReviewOnly,
+            onToggleReviewOnly = { relayShowReviewOnly = !relayShowReviewOnly },
+            onRecycle = { image, mark ->
+                scope.launch {
+                    // #85：先写回收站并读回确认持久化，再移除待清标记。
+                    // 任一步失败都保留标记、如实提示；回收站按身份去重，
+                    // 重试不会重复写入或丢失记录。
+                    val transaction = RelayRecycleTransaction(
+                        recycleWrite = { recycleBinManager.addToRecycleBin(it) },
+                        recycleRead = { recycleBinManager.loadRecycleBin() },
+                        markRemove = { key -> shareRelayStore.remove(listOf(key)) },
+                        markRead = { shareRelayStore.loadResult() }
+                    )
+                    val outcome = withContext(Dispatchers.IO) {
+                        transaction.execute(mark, image)
+                    }
+                    when (outcome) {
+                        is RelayRecycleTransaction.Outcome.Done,
+                        is RelayRecycleTransaction.Outcome.MarkRemovalFailed -> {
+                            // 回收站确实写入成功：同步真实状态
+                            val persisted = recycleBinManager.loadRecycleBin()
+                            val moved = persisted.map { it.mediaIdentityKey() }.toSet()
+                            allImages = allImages.filterNot { it.mediaIdentityKey() in moved }
+                            imagesForSorting = imagesForSorting.filterNot { it.mediaIdentityKey() in moved }
+                            deletedImages = persisted
+                        }
+                        else -> Unit
+                    }
+                    if (outcome is RelayRecycleTransaction.Outcome.RecycleFailed) {
+                        Log.e("TabulaApp", "Relay recycle failed: ${outcome.reason}")
+                    }
+                    Toast.makeText(context, transaction.message(outcome), Toast.LENGTH_LONG).show()
+                    relayRevision++
+                }
+            },
+            onRemoveMark = { row ->
+                // 审计 #85：撤销/重试失败时保留页面状态并提示，不当作已完成
+                val result = RelayReviewController(shareRelayStore).undo(row.mark)
+                when (result) {
+                    is ShareRelayStore.WriteResult.Ok -> {
+                        Toast.makeText(context, "标记已移除", Toast.LENGTH_SHORT).show()
+                        relayRevision++
+                    }
+                    is ShareRelayStore.WriteResult.Failed -> {
+                        Toast.makeText(
+                            context,
+                            "标记移除失败：${result.reason}，记录已保留，可重试",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            },
+            onChooseImage = { row, chosen ->
+                val result = RelayReviewController(shareRelayStore).manualConfirm(row.mark, chosen)
+                Toast.makeText(
+                    context,
+                    when (result) {
+                        is ShareRelayStore.WriteResult.Ok -> {
+                            // 确认后按身份去重：同一张只留一条
+                            val total = shareRelayStore.load()
+                            "已关联原图，共 ${total.size} 条记录"
+                        }
+                        is ShareRelayStore.WriteResult.Failed ->
+                            "确认失败：${result.reason}，原记录保留"
+                    },
+                    Toast.LENGTH_LONG
+                ).show()
+                relayRevision++
+            },
+            onNavigateBack = { currentScreen = AppScreen.SETTINGS }
+        )
+    }
+
     // 使用教程页面
     val tutorialContent: @Composable () -> Unit = {
         TutorialScreen(
@@ -1711,6 +2219,324 @@ fun TabulaApp(
         )
     }
     
+    val stagedCleanupContent: @Composable () -> Unit = {
+        val selection = stagedCleanupSelection
+        if (selection == null && !preferences.hasStagedCleanupSourceChoice) {
+            StagedCleanupSourcePickerContent(
+                sources = stagedCleanupSources,
+                selectedSourceKeys = preferences.stagedCleanupSourceKeys.ifEmpty {
+                    stagedCleanupSelectedKeys
+                },
+                isLoading = stagedCleanupLoading,
+                onToggleSource = { key ->
+                    val current = preferences.stagedCleanupSourceKeys.ifEmpty {
+                        stagedCleanupSelectedKeys
+                    }
+                    val next = if (key in current) current - key else current + key
+                    preferences.stagedCleanupSourceKeys = next
+                    stagedCleanupSelectedKeys = next
+                },
+                onConfirm = {
+                    // 审计修复：首次进入时预勾的推荐来源只存在内存
+                    // （openStagedCleanup 写的是 stagedCleanupSelectedKeys），
+                    // 偏好里还是空的。确认时必须把内存里的选择落到偏好，
+                    // 否则 recomputeStagedCleanupSelection 读到空集合，
+                    // 候选页会显示"本轮 0 个来源"（run 45175633833 的真实原因）。
+                    val effective = preferences.stagedCleanupSourceKeys
+                        .ifEmpty { stagedCleanupSelectedKeys }
+                    preferences.stagedCleanupSourceKeys = effective
+                    preferences.hasStagedCleanupSourceChoice = true
+                    stagedCleanupSelectedKeys = effective
+                    recomputeStagedCleanupSelection()
+                },
+                onNavigateBack = { currentScreen = AppScreen.DECK }
+            )
+        } else {
+            StagedCleanupCandidateContent(
+                selection = selection ?: StagedCleanupRules.select(
+                    allImages = allImages,
+                    sources = emptyList(),
+                    nowMillis = System.currentTimeMillis()
+                ),
+                selectedIdentityKeys = stagedCleanupSelectedKeys,
+                isSaving = stagedCleanupSaving,
+                onToggleImage = { image ->
+                    val key = cleanupIdentityKey(image)
+                    stagedCleanupSelectedKeys = if (key in stagedCleanupSelectedKeys) {
+                        stagedCleanupSelectedKeys - key
+                    } else {
+                        stagedCleanupSelectedKeys + key
+                    }
+                },
+                onToggleGroup = { images, select ->
+                    val keys = images.map { cleanupIdentityKey(it) }
+                    stagedCleanupSelectedKeys = if (select) {
+                        stagedCleanupSelectedKeys + keys
+                    } else {
+                        stagedCleanupSelectedKeys - keys.toSet()
+                    }
+                },
+                onSelectAllOld = {
+                    stagedCleanupSelectedKeys = selection?.oldImages.orEmpty()
+                        .map { cleanupIdentityKey(it) }
+                        .toSet()
+                },
+                onClearSelection = { stagedCleanupSelectedKeys = emptySet() },
+                onSkip = {
+                    // 跳过 = 这次先不看：只压住进程内候选，重启后照片重新出现。
+                    val keys = selection?.allCandidateImages.orEmpty()
+                        .map { cleanupIdentityKey(it) }
+                    preferences.skipStagedCleanupImages(keys)
+                    stagedCleanupSkippedKeys = preferences.stagedCleanupSkippedIdentityKeys
+                    stagedCleanupSelectedKeys = emptySet()
+                    recomputeStagedCleanupSelection()
+                },
+                onRetainSelected = {
+                    // 长期保留 = 以后都别再提：写偏好，跨重启生效，只影响暂存清理范围。
+                    val keys = selection?.allCandidateImages.orEmpty()
+                        .filter { cleanupIdentityKey(it) in stagedCleanupSelectedKeys }
+                        .map { cleanupIdentityKey(it) }
+                    if (keys.isEmpty()) return@StagedCleanupCandidateContent
+                    preferences.retainStagedCleanupImages(keys)
+                    stagedCleanupRetainedKeys = preferences.stagedCleanupRetainedIdentityKeys
+                    stagedCleanupSelectedKeys = emptySet()
+                    recomputeStagedCleanupSelection()
+                    Toast.makeText(
+                        context,
+                        "${keys.size} 张照片已长期保留，暂存清理不再提示",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                },
+                onConfirm = {
+                    val toMove = selection?.allCandidateImages.orEmpty()
+                        .filter { cleanupIdentityKey(it) in stagedCleanupSelectedKeys }
+                    if (toMove.isEmpty() || stagedCleanupSaving) return@StagedCleanupCandidateContent
+                    stagedCleanupSaving = true
+                    scope.launch {
+                        try {
+                            // 与卡片上滑删除同一条路径：写入现有回收站，可在回收站恢复。
+                            recycleBinManager.addAllToRecycleBin(toMove)
+                            val persisted = recycleBinManager.loadRecycleBin()
+                            val movedKeys = persisted.map { cleanupIdentityKey(it) }.toSet()
+                            allImages = allImages.filterNot { cleanupIdentityKey(it) in movedKeys }
+                            imagesForSorting = imagesForSorting.filterNot { cleanupIdentityKey(it) in movedKeys }
+                            deletedImages = persisted
+                            preferences.totalReviewedCount += toMove.size
+                            preferences.totalDeletedCount += toMove.size
+                            recommendationEngine.invalidateSimilarGroupCache()
+                            stagedCleanupSelectedKeys = emptySet()
+                            recomputeStagedCleanupSelection()
+                            Toast.makeText(
+                                context,
+                                "${toMove.size} 张照片已移入回收站",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Log.e("TabulaApp", "Staged cleanup could not reach the recycle bin", e)
+                            Toast.makeText(
+                                context,
+                                "未能保存回收站记录，照片未移入；请重试",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } finally {
+                            stagedCleanupSaving = false
+                        }
+                    }
+                },
+                onNavigateBack = { currentScreen = AppScreen.DECK },
+                onChangeSources = {
+                    preferences.stagedCleanupSourceKeys = emptySet()
+                    preferences.hasStagedCleanupSourceChoice = false
+                    stagedCleanupSelectedKeys = emptySet()
+                    stagedCleanupSelection = null
+                }
+            )
+        }
+    }
+
+    val burstSelectionContent: @Composable () -> Unit = {
+        val group = burstSelectionGroup
+        if (group == null) {
+            // 没有有效组（例如进程被回收后恢复）——直接回卡片页，不留空白界面。
+            LaunchedEffect(Unit) { currentScreen = AppScreen.DECK }
+        } else {
+            BurstSelectionScreen(
+                group = group,
+                keptIdentityKeys = burstKeptKeys,
+                isCommitting = burstCommitting,
+                onToggleKeep = { image ->
+                    val key = image.mediaIdentityKey()
+                    burstKeptKeys = if (key in burstKeptKeys) burstKeptKeys - key else burstKeptKeys + key
+                },
+                onKeepAll = { burstKeptKeys = BurstSelectionRules.keepAllKeys(group) },
+                onCancel = {
+                    // 取消 = 什么都不提交；组进度保持原样，用户下次还能再进。
+                    burstSelectionGroup = null
+                    burstOriginalGroup = null
+                    burstKeptKeys = emptySet()
+                    currentScreen = AppScreen.DECK
+                },
+                onConfirm = {
+                    if (burstCommitting) return@BurstSelectionScreen
+                    val resolved = BurstSelectionRules.resolve(group, burstKeptKeys)
+                    val decision = (resolved as? BurstSelectionRules.Result.Valid)?.decision
+                    // 审计修复（#87 二轮）：这里**不能**再用
+                    // `decision.discardCandidates.isEmpty()` 当拒绝条件。
+                    // "全部保留"（discardCandidates 为空）是用户的**有效决定**，
+                    // 必须走「标记该组已处理 + 回卡片页 + 不写回收站」这条路；
+                    // 旧写法在提交前就 return 了，下面 keptEverything 分支永远
+                    // 不可达，等于用户点「都保留，结束这组」毫无反应。
+                    // 真正无效的只有 resolve 失败（一张没勾 / 勾了组外的照片）。
+                    if (decision == null) return@BurstSelectionScreen
+                    burstCommitting = true
+                    scope.launch {
+                        try {
+                            // 审计 #87：提交前**再次**按完整媒体身份核对——
+                            // 候选必须此刻仍在图库、且不在回收站里。
+                            val currentKeys = allImages.map { it.mediaIdentityKey() }.toSet()
+                            val recycleKeys = deletedImages.map { it.mediaIdentityKey() }.toSet()
+                            val toDiscard = BurstCommit.reverify(
+                                discard = decision.discardCandidates,
+                                libraryKeys = currentKeys,
+                                recycleKeys = recycleKeys
+                            )
+                            if (toDiscard.isEmpty()) {
+                                // 分两种情形，不能混为一谈：
+                                // 1) 用户主动"全部保留"——有效决定，把这组标记为已处理
+                                //    并回到卡片页，不写回收站；
+                                // 2) 候选已被外部处理（照片消失/已在回收站）——不重复写入。
+                                val keptEverything = decision.keepsEverything
+                                if (keptEverything) {
+                                    // 审计修复：全部保留也必须正确结束该组。
+                                    // 用**原组**登记——此时显示组尚未裁剪，但统一走同一口径。
+                                    recommendationEngine.markSimilarGroupProcessed(
+                                        burstOriginalGroup ?: group
+                                    )
+                                    recommendationEngine.invalidateSimilarGroupCache()
+                                    Toast.makeText(
+                                        context,
+                                        "这组都保留了",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "这些照片已不在待整理列表，未重复写入",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                                burstSelectionGroup = null
+                                burstOriginalGroup = null
+                                activeSimilarGroup = null
+                                burstKeptKeys = emptySet()
+                                currentScreen = AppScreen.DECK
+                                return@launch
+                            }
+
+                            // 与卡片上滑删除同一条路径：写现有回收站，可恢复。
+                            //
+                            // #87 四轮：DEBUG 下可由测试钩子限制本次真实写入条数，
+                            // 用来稳定制造"部分写入成功"。生产构建下 consumeLimit()
+                            // 恒为 null，行为与之前完全一致。
+                            val writeLimit = BurstCommitTestHook.consumeLimit()
+                            val toWrite = if (writeLimit != null) {
+                                toDiscard.take(writeLimit.coerceAtLeast(0))
+                            } else {
+                                toDiscard
+                            }
+                            if (toWrite.isNotEmpty()) {
+                                recycleBinManager.addAllToRecycleBin(toWrite)
+                            }
+                            val persisted = recycleBinManager.loadRecycleBin()
+                            val movedKeys = persisted.map { it.mediaIdentityKey() }.toSet()
+                            val result = BurstCommit.result(toDiscard, movedKeys)
+
+                            // 部分成功：同步真实回收站状态，不声称整组未提交，
+                            // 也不推进原组进度（失败的留待下次处理）。
+                            if (result.succeeded.isNotEmpty()) {
+                                val okKeys = result.succeeded.map { it.mediaIdentityKey() }.toSet()
+                                allImages = allImages.filterNot { it.mediaIdentityKey() in okKeys }
+                                imagesForSorting = imagesForSorting.filterNot { it.mediaIdentityKey() in okKeys }
+                                deletedImages = persisted
+                                preferences.totalReviewedCount += result.succeeded.size
+                                preferences.totalDeletedCount += result.succeeded.size
+                            }
+                            if (result.isComplete) {
+                                // 全部写入成功且状态一致，才推进该组进度。
+                                // 用**原组身份**登记：显示组已按入站结果裁剪过，
+                                // 它的 id 与检测器产出的组不同，拿它登记等于登记了一个
+                                // 从未存在过的组，原组永远不会进冷却。
+                                recommendationEngine.markSimilarGroupProcessed(
+                                    burstOriginalGroup ?: group
+                                )
+                                recommendationEngine.invalidateSimilarGroupCache()
+                            }
+
+                            val message = when {
+                                result.isComplete ->
+                                    "保留 ${decision.keepCount} 张，${result.succeeded.size} 张已移入回收站"
+                                result.isPartial ->
+                                    "${result.succeeded.size} 张已移入回收站，${result.failed.size} 张未能写入，可重试"
+                                else -> "未能写入回收站，标记已保留"
+                            }
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                            // 失败的部分留在组里；全部完成才离开选片页。
+                            if (result.isComplete) {
+                                burstSelectionGroup = null
+                                burstOriginalGroup = null
+                                burstKeptKeys = emptySet()
+                                activeSimilarGroup = null
+                                currentScreen = AppScreen.DECK
+                            } else {
+                                // 审计修复（#87 四轮）：按**实际入站身份**裁剪当前选片列表。
+                                //
+                                // 只把 burstKeptKeys 里的成功项去掉是不够的——选片页渲染的是
+                                // group.images，成功项若不从组里移除，会继续显示在列表上，
+                                // 用户以为没提交、再点确认就是重复操作。
+                                //
+                                // 保留项与失败项都要留下：保留项本来就不入站，失败项待重试。
+                                // 原组身份另存于 burstOriginalGroup，完成时用它登记冷却，
+                                // 因此这里裁剪不会影响进度登记口径。
+                                val succeededKeys = result.succeeded
+                                    .map { it.mediaIdentityKey() }
+                                    .toSet()
+                                val current = burstSelectionGroup
+                                if (current != null) {
+                                    val remaining = current.images.filterNot {
+                                        it.mediaIdentityKey() in succeededKeys
+                                    }
+                                    if (remaining.isNotEmpty()) {
+                                        burstSelectionGroup = current.copy(
+                                            images = remaining,
+                                            startTime = remaining.minOf { it.dateModified },
+                                            endTime = remaining.maxOf { it.dateModified }
+                                        )
+                                    }
+                                }
+                                // 待重试的候选不再处于勾选态，用户重新点选即可
+                                burstKeptKeys = burstKeptKeys - succeededKeys
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Log.e("TabulaApp", "Burst selection could not reach the recycle bin", e)
+                            Toast.makeText(
+                                context,
+                                "未能保存回收站记录，已写入的部分保持原样；可重试",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } finally {
+                            burstCommitting = false
+                        }
+                    }
+                }
+            )
+        }
+    }
+
+
     val otherAlbumsContent: @Composable () -> Unit = {
         OtherAlbumsScreen(
             albums = otherAlbumsForNavigation,
@@ -1805,6 +2631,9 @@ fun TabulaApp(
         AppScreen.ALBUM_VIEW -> deckContent to albumViewContent
         AppScreen.SYSTEM_ALBUM_VIEW -> deckContent to systemAlbumViewContent
         AppScreen.OTHER_ALBUMS -> deckContent to otherAlbumsContent
+        AppScreen.BURST_SELECTION -> deckContent to burstSelectionContent
+        AppScreen.STAGED_CLEANUP -> deckContent to stagedCleanupContent
+        AppScreen.RELAY_REVIEW -> settingsContent to relayReviewContent
         AppScreen.VIBRATION_SOUND -> settingsContent to vibrationSoundContent
         AppScreen.DISPLAY_SETTINGS -> settingsContent to displaySettingsContent
         AppScreen.LAB -> settingsContent to labContent
@@ -1832,6 +2661,9 @@ fun TabulaApp(
                     AppScreen.ALBUM_VIEW -> AppScreen.DECK
                     AppScreen.SYSTEM_ALBUM_VIEW -> AppScreen.DECK
                     AppScreen.OTHER_ALBUMS -> AppScreen.DECK
+                    AppScreen.BURST_SELECTION -> AppScreen.DECK
+                    AppScreen.STAGED_CLEANUP -> AppScreen.DECK
+                    AppScreen.RELAY_REVIEW -> AppScreen.SETTINGS
                     AppScreen.VIBRATION_SOUND -> AppScreen.SETTINGS
                     AppScreen.DISPLAY_SETTINGS -> AppScreen.SETTINGS
                     AppScreen.LAB -> AppScreen.SETTINGS

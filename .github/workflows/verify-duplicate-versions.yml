@@ -131,11 +131,16 @@ jobs:
             cat device-results/instrumentation-dup.txt
             timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.DuplicateDeleteGateDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-gate.txt 2>&1 || true
             cat device-results/instrumentation-gate.txt
+            timeout 900s adb shell am instrument -w -r -e class com.tabula.v3.DuplicateHintPageDeviceTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-hint.txt 2>&1 || true
+            cat device-results/instrumentation-hint.txt
             grep -E 'INSTRUMENTATION_STATUS: (class|numtests|test=)|OK \(|FAILURES' device-results/instrumentation-dup.txt > device-results/summary.txt
             cat device-results/summary.txt
-            # 精确断言：7 条用例，不接受任意 "OK (N tests)"
+            # 精确断言：不接受任意 "OK (N tests)"。
+            # hint 类是真实回收站页面链路，此前漏跑；它依赖系统删除确认框
+            # （MediaStore.createDeleteRequest），用例内已处理。
             grep -Fx 'OK (6 tests)' device-results/instrumentation-dup.txt
             grep -Fx 'OK (4 tests)' device-results/instrumentation-gate.txt
+            grep -Fx 'OK (3 tests)' device-results/instrumentation-hint.txt
       - name: Summarise
         if: always()
         run: |

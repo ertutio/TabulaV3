@@ -3,6 +3,9 @@ package com.tabula.v3.data.repository
 import android.content.Context
 import com.tabula.v3.data.cache.ImageHashCache
 import com.tabula.v3.data.model.ImageFile
+import com.tabula.v3.data.balance.RoundCandidateRules
+import com.tabula.v3.data.balance.RoundIntentRules
+import com.tabula.v3.data.balance.SourceBalanceRules
 import com.tabula.v3.data.preferences.AppPreferences
 import com.tabula.v3.data.preferences.RecommendMode
 import kotlinx.coroutines.CancellationException
@@ -73,6 +76,61 @@ class RecommendationEngine(
                 // 清理过期的相似组记录
                 preferences.cleanupExpiredSimilarGroupRecords()
                 getSimilarBatch(filteredImages)
+            }
+        }
+    }
+
+    /**
+     * 一批推荐结果 + 这批照片来自哪个相似组（审计意见 #87）。
+     *
+     * 为什么需要它：旧实现让 UI 用 `currentBatch` 的时间跨度与相册去**猜**
+     * 组关系，猜出来的"组"与检测器的内容寻址身份无关——冷却、进度、
+     * 持久化全都对不上。现在由推荐引擎把它实际用到的 `SimilarGroup` 一并
+     * 交出来，UI 直接用真实身份。
+     *
+     * 随机漫步模式返回的 [group] 为 null（那批照片本来就互不相关）。
+     */
+    data class BatchResult(
+        val images: List<ImageFile>,
+        val group: SimilarGroup?
+    )
+
+    suspend fun getRecommendedBatchWithGroup(
+        allImages: List<ImageFile>,
+        batchSize: Int,
+        identityCandidates: List<ImageFile> = allImages
+    ): BatchResult = withContext(Dispatchers.IO) {
+        if (allImages.isEmpty()) return@withContext BatchResult(emptyList(), null)
+        val filteredImages = filterExcludedAlbums(allImages)
+        if (filteredImages.isEmpty()) return@withContext BatchResult(emptyList(), null)
+
+        when (preferences.recommendMode) {
+            RecommendMode.RANDOM_WALK -> {
+                preferences.cleanupExpiredPickRecords()
+                migrateLegacyPickRecords(identityCandidates + allImages)
+                BatchResult(getRandomWalkBatch(filteredImages, batchSize), null)
+            }
+            RecommendMode.SIMILAR -> {
+                preferences.cleanupExpiredSimilarGroupRecords()
+                // 与 getSimilarBatch 同一套取组逻辑，但把组对象一并返回
+                val group = runCatching { getNextSimilarGroup(filteredImages) }.getOrNull()
+                if (group == null) {
+                    BatchResult(getRandomWalkBatch(filteredImages, batchSize), null)
+                } else {
+                    // 审计修复（#87 三轮）：**必须**复用 getSimilarBatch 的登记语义。
+                    //
+                    // getSimilarBatch 在把组交出去的同时立刻 markSimilarGroupProcessed，
+                    // 使该组进入冷却——这是"同一个组不会连续出现两次"的唯一保证。
+                    // 本方法此前只取组、不登记，于是用户若始终走普通卡片浏览
+                    // （从不进连拍选片页），点「再来一组」会反复拿到同一个组。
+                    //
+                    // 注意语义边界：这里登记的是"已出过"，不是"已处理完"。
+                    // 连拍选片页在部分回收失败时**不**推进该组进度，靠的是
+                    // 选片页自己不再调用取组入口；出组登记与提交进度是两件事，
+                    // 后者仍由 BurstCommit / markSimilarGroupProcessed 在页面上控制。
+                    markSimilarGroupProcessed(group)
+                    BatchResult(group.images, group)
+                }
             }
         }
     }
@@ -200,6 +258,71 @@ class RecommendationEngine(
         }
     }
 
+    /**
+     * 本轮整理意图（路线图 #83 第 7 项 / 审计 #90）。
+     *
+     * 由 UI 在用户接受提示时写入，**会话级、不持久化**：
+     * 进程重启后归零，符合"只在当前整理会话内有效"的约束。
+     *
+     * 审计修复：意图由**引擎自己原子消费**，不再靠 UI 回调清空。
+     * [consumeRoundIntent] 用 synchronized 保证"取出并清空"是一个原子动作——
+     * 并发或重复取批不会重复使用同一个意图。UI 只通过 [roundIntent] 读取
+     * 展示状态，不承担消费职责。
+     */
+    @Volatile
+    var roundIntent: RoundIntentRules.Intent = RoundIntentRules.clear()
+        private set
+
+    /**
+     * 原子取出并消费意图：返回当前 active 意图并立即清空。
+     * 第二个调用者只会拿到 cleared（null），不会复用同一意图。
+     */
+    @Synchronized
+    fun consumeRoundIntent(): RoundIntentRules.Intent? {
+        val current = roundIntent
+        if (!current.isActive) return null
+        roundIntent = RoundIntentRules.consume(current)
+        return current
+    }
+
+    /** 接受意图：下一批优先该来源。 */
+    @Synchronized
+    fun acceptRoundIntent(sourceKey: String, nowMillis: Long = System.currentTimeMillis()) {
+        roundIntent = RoundIntentRules.accept(sourceKey, nowMillis)
+    }
+
+    /** 清空意图（用户退出整理 / 会话结束）。 */
+    @Synchronized
+    fun clearRoundIntent() {
+        roundIntent = RoundIntentRules.clear()
+    }
+
+    /**
+     * 下一批候选池（审计 #90）：与 [getRandomWalkBatch] 同口径。
+     *
+     * 提示「这轮再看几张这个相册」之前必须先用这个方法确认那个来源在下一批
+     * 里真抽得到东西。资格判定与抽样一致：扣屏蔽图集 → 扣冷却 → 扣当前批次。
+     *
+     * 只在随机漫步的普通整理模式有意义；专清 / 相似推荐的候选由各自的引擎
+     * 负责，不用这个池子。
+     *
+     * @param allImages 完整照片池（调用方已排除已归集照片）
+     * @param currentBatch 页面当前持有的批次，其身份要从候选里扣掉
+     */
+    fun eligibleNextBatchCandidates(
+        allImages: List<ImageFile>,
+        currentBatch: List<ImageFile> = emptyList()
+    ): List<ImageFile> {
+        val cooldown = preferences.getPickCooldownIndex()
+        return RoundCandidateRules.eligibleForNextBatch(
+            allImages = filterExcludedAlbums(allImages),
+            excludedAlbumIds = emptySet(), // 已在 filterExcludedAlbums 扣过
+            cooldownIdentityKeys = cooldown.byIdentityKey.keys,
+            cooldownLegacyBareIds = cooldown.byLegacyBareId.keys,
+            currentBatch = currentBatch
+        )
+    }
+
     private fun getRandomWalkBatch(
         allImages: List<ImageFile>,
         batchSize: Int
@@ -220,32 +343,43 @@ class RecommendationEngine(
         // 分离可用照片和冷却中的照片
         val (cooldownImages, availableImages) = allImages.partition(::inCooldown)
 
-        val result = mutableListOf<ImageFile>()
-        val usedKeys = mutableSetOf<String>()  // 防止批次内重复（身份键：跨卷同 ID 不互斥）
-
-        // 优先从可用照片中随机抽取
-        val shuffledAvailable = availableImages.shuffled()
-        val newlyPicked = shuffledAvailable.take(batchSize)
-        for (img in newlyPicked) {
-            val key = img.mediaIdentityKey()
-            if (key !in usedKeys) {
-                result.add(img)
-                usedKeys.add(key)
-            }
+        // 路线图 #83 第 6 项 + 审计意见（#89）：
+        // 抽样策略由用户选择，默认 UNIFORM（改动前的行为）。
+        // 两条路径共用同一套冷却判定、跨卷身份去重与冷却回填，只有
+        // "从可用池里选哪几张"这一步不同。
+        //
+        // 路线图 #83 第 7 项（审计 #90）：若有用户主动接受的本轮意图，
+        // **下一批**优先从该来源取；意图是一次性的，取完即失效。
+        // 审计第三轮：意图耗尽 / 补齐时回落到**用户所选策略**，
+        // 不再固定改成均衡抽样。
+        val strategy = when (preferences.walkSamplingStrategy) {
+            com.tabula.v3.data.preferences.WalkSamplingStrategy.UNIFORM ->
+                SourceBalanceRules.Strategy.UNIFORM
+            com.tabula.v3.data.preferences.WalkSamplingStrategy.SOURCE_BALANCED ->
+                SourceBalanceRules.Strategy.SOURCE_BALANCED
         }
+
+        // 审计 #90：引擎自己原子消费意图——取出即清空，并发/重复取批
+        // 不会复用同一意图；界面回调不再负责清空展示状态。
+        val consumedIntent = consumeRoundIntent()
+        val newlyPicked: List<ImageFile> = RoundIntentRules.sampleWithIntent(
+            available = availableImages,
+            batchSize = batchSize,
+            intent = consumedIntent ?: RoundIntentRules.clear(),
+            strategy = strategy,
+            random = kotlin.random.Random.Default
+        )
+
+        val result = newlyPicked.toMutableList()
+        val usedKeys = result.map { it.mediaIdentityKey() }.toMutableSet()
 
         // 如果可用照片不足，从冷却中的照片补充（优先选择冷却期即将结束的）
-        if (result.size < batchSize && cooldownImages.isNotEmpty()) {
-            val sortedCooldown = cooldownImages.sortedBy { img -> pickedAt(img) }
-            for (img in sortedCooldown) {
-                if (result.size >= batchSize) break
-                val key = img.mediaIdentityKey()
-                if (key !in usedKeys) {
-                    result.add(img)
-                    usedKeys.add(key)
-                }
-            }
-        }
+        result += SourceBalanceRules.backfillFromCooldown(
+            cooldownImages = cooldownImages,
+            alreadyPicked = result,
+            batchSize = batchSize,
+            pickedAt = ::pickedAt
+        )
 
         // 只记录新抽取的照片（不在冷却中的），避免重置从冷却中补充的照片的冷却期
         preferences.recordImagesPickedByIdentity(newlyPicked.map { it.mediaIdentityKey() })

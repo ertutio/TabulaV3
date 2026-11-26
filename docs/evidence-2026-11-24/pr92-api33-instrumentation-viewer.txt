@@ -1,0 +1,68 @@
+INSTRUMENTATION_STATUS: class=com.tabula.v3.RecycleBinViewerBackdropDeviceTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stream=
+com.tabula.v3.RecycleBinViewerBackdropDeviceTest:
+INSTRUMENTATION_STATUS: test=viewerBackdropFallsBackWhileScrollingZoomingAndPanning
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.tabula.v3.RecycleBinViewerBackdropDeviceTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stack=java.lang.IllegalStateException: timed out waiting for 回收站
+	at com.tabula.v3.PartialSelectionUi.await(PartialSelectionUi.kt:161)
+	at com.tabula.v3.PartialSelectionUi.waitFor(PartialSelectionUi.kt:165)
+	at com.tabula.v3.RecycleBinViewerBackdropDeviceTest$viewerBackdropFallsBackWhileScrollingZoomingAndPanning$1.invokeSuspend(RecycleBinViewerBackdropDeviceTest.kt:172)
+	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:263)
+	at kotlinx.coroutines.BlockingCoroutine.joinBlocking(Builders.kt:94)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking(Builders.kt:70)
+	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source:1)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:48)
+	at kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source:1)
+	at com.tabula.v3.RecycleBinViewerBackdropDeviceTest.viewerBackdropFallsBackWhileScrollingZoomingAndPanning(RecycleBinViewerBackdropDeviceTest.kt:137)
+
+INSTRUMENTATION_STATUS: stream=
+Error in viewerBackdropFallsBackWhileScrollingZoomingAndPanning(com.tabula.v3.RecycleBinViewerBackdropDeviceTest):
+java.lang.IllegalStateException: timed out waiting for 回收站
+	at com.tabula.v3.PartialSelectionUi.await(PartialSelectionUi.kt:161)
+	at com.tabula.v3.PartialSelectionUi.waitFor(PartialSelectionUi.kt:165)
+	at com.tabula.v3.RecycleBinViewerBackdropDeviceTest$viewerBackdropFallsBackWhileScrollingZoomingAndPanning$1.invokeSuspend(RecycleBinViewerBackdropDeviceTest.kt:172)
+	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:263)
+	at kotlinx.coroutines.BlockingCoroutine.joinBlocking(Builders.kt:94)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking(Builders.kt:70)
+	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source:1)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:48)
+	at kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source:1)
+	at com.tabula.v3.RecycleBinViewerBackdropDeviceTest.viewerBackdropFallsBackWhileScrollingZoomingAndPanning(RecycleBinViewerBackdropDeviceTest.kt:137)
+
+INSTRUMENTATION_STATUS: test=viewerBackdropFallsBackWhileScrollingZoomingAndPanning
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_RESULT: stream=
+
+Time: 31.91
+There was 1 failure:
+1) viewerBackdropFallsBackWhileScrollingZoomingAndPanning(com.tabula.v3.RecycleBinViewerBackdropDeviceTest)
+java.lang.IllegalStateException: timed out waiting for 回收站
+	at com.tabula.v3.PartialSelectionUi.await(PartialSelectionUi.kt:161)
+	at com.tabula.v3.PartialSelectionUi.waitFor(PartialSelectionUi.kt:165)
+	at com.tabula.v3.RecycleBinViewerBackdropDeviceTest$viewerBackdropFallsBackWhileScrollingZoomingAndPanning$1.invokeSuspend(RecycleBinViewerBackdropDeviceTest.kt:172)
+	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:263)
+	at kotlinx.coroutines.BlockingCoroutine.joinBlocking(Builders.kt:94)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking(Builders.kt:70)
+	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source:1)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:48)
+	at kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source:1)
+	at com.tabula.v3.RecycleBinViewerBackdropDeviceTest.viewerBackdropFallsBackWhileScrollingZoomingAndPanning(RecycleBinViewerBackdropDeviceTest.kt:137)
+
+FAILURES!!!
+Tests run: 1,  Failures: 1
+
+
+INSTRUMENTATION_CODE: -1

@@ -45,6 +45,7 @@ import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -98,6 +99,8 @@ import com.tabula.v3.ui.util.refreshedCleanupMonth
 import com.tabula.v3.ui.components.buildMonthInfos
 import com.tabula.v3.ui.util.relocatedIndexAfterSync
 import com.tabula.v3.ui.util.syncCleanupBatchToSnapshot
+import com.tabula.v3.data.balance.PendingDelete
+import com.tabula.v3.data.balance.Ticket
 import com.tabula.v3.ui.util.syncRowsToSnapshot
 import com.tabula.v3.data.repository.resolveCoverRow
 import com.tabula.v3.ui.util.coverImageRequest
@@ -109,6 +112,8 @@ import com.tabula.v3.data.preferences.SwipeStyle
 import com.tabula.v3.data.preferences.TagSelectionMode
 import com.tabula.v3.data.preferences.TopBarDisplayMode
 import com.tabula.v3.data.repository.LocalImageRepository
+import com.tabula.v3.data.repository.SimilarGroup
+import com.tabula.v3.data.burst.BurstSelectionRules
 import androidx.compose.ui.geometry.Offset
 import com.tabula.v3.ui.components.ActionIconButton
 import com.tabula.v3.ui.components.AlbumDropTarget
@@ -143,6 +148,8 @@ import com.tabula.v3.ui.components.MonthInfo
 import com.tabula.v3.ui.components.AlbumSelectionSheet
 import com.tabula.v3.data.repository.AlbumCleanupEngine
 import com.tabula.v3.data.repository.AlbumCleanupInfo
+import com.tabula.v3.data.repository.AlbumUsageTracker
+import com.tabula.v3.data.album.RecentAlbumRules
 import com.tabula.v3.data.repository.AlbumCleanupBatch
 import com.tabula.v3.di.CoilSetup
 import kotlinx.coroutines.Job
@@ -192,8 +199,18 @@ fun DeckScreen(
     loadingScanned: Int = 0,
     loadingTotal: Int = 0,
     topBarDisplayMode: TopBarDisplayMode = TopBarDisplayMode.INDEX,
-    onRemove: (ImageFile) -> Unit,
-    onKeep: () -> Unit = {},
+    // #90 第五轮：删除是延迟动作，回调必须带上**上滑那一刻**绑定的凭证
+    // （照片 + 原索引 + 会话/批次 ticket）。等到超时才去取当前批次，
+    // 「再来一组」之后旧批最后一张的删除就会记到新批统计上。
+    onRemove: (PendingDelete) -> Unit,
+    // #90：上滑发起删除时用于绑定会话/批次凭证（由上层提供当前值）
+    currentIntentTicket: () -> Ticket = { Ticket.None },
+    onKeep: (ImageFile) -> Unit = {},
+    // #90：批次真正切换到新的一批后回调，用于归档本轮统计、避免上一批进入下一批判断
+    onBatchAdvanced: () -> Unit = {},
+    // #90：把卡片页**实际持有**的批次回报给上层——候选池与提示判定都以它为准，
+    // 不能在上层另算一份"当前批次"（两份会漂移，提示就会问一个抽不出来的来源）
+    onBatchChanged: (List<ImageFile>) -> Unit = {},
     onNavigateToTrash: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAlbumDetail: (Album) -> Unit = {},
@@ -262,7 +279,18 @@ fun DeckScreen(
     onNavigateToOtherAlbums: (List<Album>) -> Unit = {},
     // 原图清理
     pendingCleanupCount: Int = 0,
-    onCleanupSourceImages: () -> Unit = {}
+    onCleanupSourceImages: () -> Unit = {},
+    // 连拍选片（路线图第 4 项 / 审计 #87）：推荐引擎返回的真实相似组。
+    // 非 null 才提供入口；组身份来自检测器的内容寻址摘要，不在这里重算。
+    activeSimilarGroup: SimilarGroup? = null,
+    excludedBurstKeys: Set<String> = emptySet(),
+    onOpenBurstSelection: ((SimilarGroup) -> Unit)? = null,
+    // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示
+    intentSourceName: String? = null,
+    onAcceptIntent: (() -> Unit)? = null,
+    onDismissIntent: (() -> Unit)? = null,
+    // 暂存清理（路线图第 1 项）：进入按来源与存入时间整理的旧图清理
+    onOpenStagedCleanup: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -292,10 +320,11 @@ fun DeckScreen(
     var lastClassifyWasSwipe by remember { mutableStateOf(false) }  // 是否是下滑归类
     
     // ========== 删除撤销状态 ==========
-    // 记住最后一次删除（上滑移入回收站）操作的图片和位置
-    var lastDeletedImage by remember { mutableStateOf<ImageFile?>(null) }
-    var lastDeletedIndex by remember { mutableIntStateOf(-1) }
-    var isDeletePending by remember { mutableStateOf(false) }  // 是否有待确认的删除操作
+    // #90 第五轮：待删除记录是一个**整体**——照片、原索引、以及上滑那一刻
+    // 绑定的会话/批次凭证一起保存在 PendingDelete 里。凭证不能等到提交
+    // （撤销超时 / 被下一次删除或归档顶掉）时再取，那时可能已经换批了。
+    var pendingDelete by remember { mutableStateOf<PendingDelete?>(null) }
+    val isDeletePending = pendingDelete != null
     
     // 下滑归类模式状态（用于隐藏底部切换按钮）
     var isClassifyMode by remember { mutableStateOf(false) }
@@ -309,6 +338,30 @@ fun DeckScreen(
     // 用于异步初始化批次
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var needsInitialBatch by remember { mutableStateOf(true) }
+
+    /**
+     * 提交待删除记录（#90 第五轮）：带上**记录里存的**凭证，不重取当前值。
+     *
+     * 三条路径都走这里——撤销超时（[UndoSnackbar] 的 onDismiss）、被下一次
+     * 删除/归档顶掉时提前提交、页面进入完成态前收尾。清空记录即清除整条，
+     * 照片/索引/凭证一起没了。
+     */
+    fun commitPendingDelete() {
+        pendingDelete?.let { pending -> onRemove(pending) }
+        pendingDelete = null
+    }
+    // #90 第四轮：区分"首次装载"与"旧批全部失效后的自动重取"。
+    // 只有后者算真正换批（BatchChange.AUTO_REFILL_AFTER_INVALIDATION）。
+    var pendingAutoRefill by remember { mutableStateOf(false) }
+
+    // #90：把**页面实际持有**的批次回报给上层（候选池与提示判定都以它为准）。
+    // currentBatch 是所有加载路径（site-1…site-10）的汇合点，所以在这里上报
+    // 不会漏掉任何一条装载路径，也不会和上层的猜测漂移。
+    androidx.compose.runtime.LaunchedEffect(currentBatch, isAlbumCleanupMode) {
+        // 专清模式持有的是 currentCleanupBatch，不是这批普通整理的批次；
+        // 那里上报空批次，上层据此不做来源意图判定。
+        onBatchChanged(if (isAlbumCleanupMode) emptyList() else currentBatch)
+    }
     
     // ========== 快捷操作按钮状态 ==========
     val safeArea = rememberSafeArea()
@@ -556,6 +609,14 @@ fun DeckScreen(
                     currentIndex = 0
                     markedCount = 0
                     deckState = DeckState.BROWSING
+                    // #90 第四轮：本条路径既是"首次装载"也是"旧批全部失效后的
+                    // 自动重取"。只有后者是真正的换批（清上一批统计、换批次标识）；
+                    // 首次装载不换。判据由失效点埋下的 pendingAutoRefill 给出，
+                    // 语义映射集中在 BatchChange，装载点不各自猜。
+                    if (pendingAutoRefill) {
+                        pendingAutoRefill = false
+                        onBatchAdvanced()
+                    }
                 } else {
                     // 如果推荐结果为空（例如都在冷却中），直接显示完成状态
                     deckState = DeckState.COMPLETED
@@ -646,6 +707,8 @@ fun DeckScreen(
                     currentIndex = 0
                     markedCount = 0
                     deckState = DeckState.BROWSING
+                    // #90：新批次真正装载成功后才归档上一批统计
+                    onBatchAdvanced()
                 } else {
                     deckState = DeckState.COMPLETED
                 }
@@ -781,9 +844,12 @@ fun DeckScreen(
                         currentIndex = 0
                         deckState = DeckState.BROWSING
                     } else {
+                        // 旧批可见行全部失效（图库变化 / 权限收窄）：
+                        // 清空并标记"这次重取是换批"，由装载点消费
                         currentIndex = 0
                         currentBatch = syncedDeck.also { logBatchRows("batch-site-7", it) }
                         needsInitialBatch = true
+                        pendingAutoRefill = true
                     }
                 } else {
                     currentIndex = relocatedIndexAfterSync(currentBatch, syncedDeck, currentIndex)
@@ -998,7 +1064,11 @@ fun DeckScreen(
                     scanned = loadingScanned,
                     total = loadingTotal
                 )
-                "empty" -> EmptyState()
+                "empty" -> EmptyState(
+                    onTrashClick = onNavigateToTrash,
+                    onSettingsClick = onNavigateToSettings,
+                    topBarDisplayMode = topBarDisplayMode
+                )
                 "completed" -> {
                     BatchCompletionScreen(
                         totalReviewed = currentBatch.size,
@@ -1018,7 +1088,32 @@ fun DeckScreen(
                 else -> {
                     // 浏览模式
                     val currentImage = currentBatch.getOrNull(currentIndex)
-                    
+
+                    // 路线图 #83 第 4 项 + 审计意见（#87）：
+                    // 入口使用**推荐引擎返回的真实 SimilarGroup**，不再按
+                    // currentBatch 的时间/相册重猜组。
+                    // effectiveGroup 会把已滑过、已归档、待删除、已不在批次
+                    // 里的成员剔除；剔除后不足两张就不出入口。
+                    val burstCandidate: SimilarGroup? = remember(
+                        currentBatch,
+                        currentIndex,
+                        activeSimilarGroup,
+                        excludedBurstKeys
+                    ) {
+                        if (onOpenBurstSelection == null || activeSimilarGroup == null) {
+                            null
+                        } else {
+                            // 审计 #87：按 currentIndex 排除已滑过的成员，
+                            // excludedBurstKeys 含回收站与待归档中的成员。
+                            BurstSelectionRules.effectiveGroup(
+                                group = activeSimilarGroup,
+                                currentBatch = currentBatch,
+                                currentIndex = currentIndex,
+                                excludedIdentityKeys = excludedBurstKeys
+                            )
+                        }
+                    }
+
                     // 过滤掉隐藏的图集，用于下滑归类功能
                     DeckContent(
                         images = currentBatch,
@@ -1047,7 +1142,7 @@ fun DeckScreen(
                                 }
                             } else {
                                 if (newIndex > currentIndex) {
-                                    onKeep()
+                                    currentBatch.getOrNull(currentIndex)?.let(onKeep)
                                 }
                                 // 防止空列表时索引越界
                                 currentIndex = if (currentBatch.isEmpty()) {
@@ -1059,20 +1154,19 @@ fun DeckScreen(
                         },
                         onRemove = { image ->
                             // 如果已有待确认的删除操作，先提交它
-                            if (isDeletePending) {
-                                lastDeletedImage?.let { pendingImage ->
-                                    onRemove(pendingImage)
-                                }
-                                lastDeletedImage = null
-                                lastDeletedIndex = -1
-                                isDeletePending = false
-                            }
+                            // （它自己的凭证在记录里，不会被这里顶替）
+                            commitPendingDelete()
                             
-                            // 记录撤销信息（在移除前记录索引位置）
+                            // #90 第五轮：在**上滑这一刻**把照片、原索引和当时的
+                            // 会话/批次凭证绑成一个待删除记录。之后无论过多久
+                            // 才真正写回收站（撤销超时 / 被下一次动作顶掉），
+                            // 用的都是这份凭证，不会误记到换批后的新统计上。
                             val imageIndex = currentBatch.indexOf(image)
-                            lastDeletedImage = image
-                            lastDeletedIndex = imageIndex
-                            isDeletePending = true
+                            pendingDelete = PendingDelete(
+                                image = image,
+                                originalIndex = imageIndex,
+                                ticket = currentIntentTicket()
+                            )
                             
                             // 显示撤销 Snackbar（延迟执行真正的删除）
                             undoMessage = "已移入回收站"
@@ -1106,14 +1200,7 @@ fun DeckScreen(
                         onAlbumClick = { album ->
                             currentImage?.let { image ->
                                 // 如果有待确认的删除操作，先提交它
-                                if (isDeletePending) {
-                                    lastDeletedImage?.let { pendingImage ->
-                                        onRemove(pendingImage)
-                                    }
-                                    lastDeletedImage = null
-                                    lastDeletedIndex = -1
-                                    isDeletePending = false
-                                }
+                                commitPendingDelete()
                                 
                                 // 记录撤销信息
                                 lastClassifiedImage = image
@@ -1126,7 +1213,7 @@ fun DeckScreen(
                                 // 自动进入下一张
                                 if (currentIndex < currentBatch.lastIndex) {
                                     currentIndex++
-                                    onKeep()
+                                    // 归档在 onAlbumSelect 里单独记为成功行为
                                 }
                             }
                         },
@@ -1141,14 +1228,7 @@ fun DeckScreen(
                         // 因为 Genie 动画的 onComplete 是异步的，currentImage 可能已经变化
                         onSwipeClassifyToAlbum = { image, album ->
                             // 如果有待确认的删除操作，先提交它
-                            if (isDeletePending) {
-                                lastDeletedImage?.let { pendingImage ->
-                                    onRemove(pendingImage)
-                                }
-                                lastDeletedImage = null
-                                lastDeletedIndex = -1
-                                isDeletePending = false
-                            }
+                            commitPendingDelete()
                             
                             // 记录撤销信息（在移除前记录索引位置）
                             val imageIndex = currentBatch.indexOf(image)
@@ -1214,7 +1294,21 @@ fun DeckScreen(
                         // LIST_POPUP 模式：下滑触发图集选择弹层
                         onShowAlbumSelectionSheet = {
                             showAlbumSelectionSheet = true
-                        }
+                        },
+                        // 路线图 #83 第 4 项：连拍选片入口（只有判定像连拍时才非空）
+                        onBurstSelectionClick = burstCandidate?.let { group ->
+                            {
+                                android.util.Log.d(
+                                    "DeckScreen",
+                                    "Opening burst selection: ${group.size} images, id=${group.id}"
+                                )
+                                onOpenBurstSelection?.invoke(group)
+                            }
+                        },
+                        // 路线图 #83 第 7 项（审计 #90）：把意图提示透传到内容层
+                        intentSourceName = intentSourceName,
+                        onAcceptIntent = onAcceptIntent,
+                        onDismissIntent = onDismissIntent
                     )
                 }
             }
@@ -1251,7 +1345,8 @@ fun DeckScreen(
                     onToggleShowHidden = onToggleShowHidden,
                     onNavigateToOtherAlbums = onNavigateToOtherAlbums,
                     pendingCleanupCount = pendingCleanupCount,
-                    onCleanupSourceImages = onCleanupSourceImages
+                    onCleanupSourceImages = onCleanupSourceImages,
+                    onOpenStagedCleanup = onOpenStagedCleanup
                 )
             }
         }
@@ -1300,7 +1395,7 @@ fun DeckScreen(
             },
             onNext = {
                 if (currentIndex < currentBatch.lastIndex) {
-                    onKeep()
+                    currentBatch.getOrNull(currentIndex)?.let(onKeep)
                     currentIndex++
                 }
             },
@@ -1332,7 +1427,7 @@ fun DeckScreen(
             onUndo = {
                 if (isDeletePending) {
                     // ========== 删除撤销 ==========
-                    lastDeletedImage?.let { image ->
+                    pendingDelete?.let { pending -> val image = pending.image
                         // 检查图片是否已在批次中（防止重复插入）
                         val isDuplicate = currentBatch.any { it.id == image.id }
                         
@@ -1340,8 +1435,10 @@ fun DeckScreen(
                             // 将图片重新插入 batch
                             val newBatch = currentBatch.toMutableList()
                             // 使用安全的插入索引：如果原索引仍有效则使用，否则插入到当前位置
-                            val insertIndex = if (lastDeletedIndex >= 0 && lastDeletedIndex <= newBatch.size) {
-                                lastDeletedIndex
+                            val insertIndex = if (
+                                pending.originalIndex >= 0 && pending.originalIndex <= newBatch.size
+                            ) {
+                                pending.originalIndex
                             } else {
                                 // 原索引无效，插入到当前位置或末尾
                                 currentIndex.coerceIn(0, newBatch.size)
@@ -1358,10 +1455,9 @@ fun DeckScreen(
                         }
                     }
                     
-                    // 清理删除撤销状态
-                    lastDeletedImage = null
-                    lastDeletedIndex = -1
-                    isDeletePending = false
+                    // #90 第五轮：清除整条待删除记录（照片/索引/凭证一起走）。
+                    // 撤销不写回收站，因此也没有任何来源统计要回退。
+                    pendingDelete = null
                 } else {
                     // ========== 归档撤销 ==========
                     // 执行数据层撤销（取消待执行的归档操作）
@@ -1406,16 +1502,10 @@ fun DeckScreen(
             onDismiss = { 
                 if (isDeletePending) {
                     // ========== 确认删除 ==========
-                    // Snackbar 超时消失 = 用户确认删除
-                    // 执行真正的删除操作
-                    lastDeletedImage?.let { image ->
-                        onRemove(image)
-                    }
-                    
-                    // 清理删除撤销状态
-                    lastDeletedImage = null
-                    lastDeletedIndex = -1
-                    isDeletePending = false
+                    // Snackbar 超时消失 = 用户确认删除。
+                    // #90 第五轮：带着记录里**上滑时绑定的**凭证提交，
+                    // 即使此刻已经换批也不会记进新批次统计。
+                    commitPendingDelete()
                 } else {
                     // ========== 确认归档 ==========
                     // Snackbar 超时消失 = 用户确认归档
@@ -1435,21 +1525,25 @@ fun DeckScreen(
     // LIST_POPUP 模式：图集选择弹层（过滤掉隐藏的图集）
     if (showAlbumSelectionSheet) {
         val currentImage = currentBatch.getOrNull(currentIndex)
+        val visibleAlbums = albums.filter { !it.isHidden }
+        // 路线图 #83 第 3 项：最近成功归档过的图集置顶。
+        // 数据取自同一份使用记录（AlbumUsageTracker），每天进弹层时重算一次；
+        // RecentAlbumRules 按当前可见列表求交，隐藏/删除的目标不会残留。
+        val recentAlbums = remember(showAlbumSelectionSheet, visibleAlbums) {
+            RecentAlbumRules.recentAlbums(
+                albums = visibleAlbums,
+                stats = AlbumUsageTracker.getInstance(context).getAllAlbumStats()
+            )
+        }
         AlbumSelectionSheet(
-            albums = albums.filter { !it.isHidden },
+            albums = visibleAlbums,
             allImages = allImages,
+            recentAlbums = recentAlbums,
             onAlbumSelected = { album ->
                 showAlbumSelectionSheet = false
                 currentImage?.let { image ->
                     // 如果有待确认的删除操作，先提交它
-                    if (isDeletePending) {
-                        lastDeletedImage?.let { pendingImage ->
-                            onRemove(pendingImage)
-                        }
-                        lastDeletedImage = null
-                        lastDeletedIndex = -1
-                        isDeletePending = false
-                    }
+                    commitPendingDelete()
                     
                     // 记录撤销信息
                     lastClassifiedImage = image
@@ -1494,14 +1588,7 @@ fun DeckScreen(
                 val pending = pendingClassifyImage
                 if (pending != null) {
                     // 如果有待确认的删除操作，先提交它
-                    if (isDeletePending) {
-                        lastDeletedImage?.let { pendingImage ->
-                            onRemove(pendingImage)
-                        }
-                        lastDeletedImage = null
-                        lastDeletedIndex = -1
-                        isDeletePending = false
-                    }
+                    commitPendingDelete()
                     
                     // 有待归档的图片，创建图集后自动归档
                     onCreateAlbumAndClassify(name, color, emoji, pending)
@@ -1823,6 +1910,14 @@ private fun DeckContent(
     onCardClick: (ImageFile, SourceRect) -> Unit,
     onTrashClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    // 路线图 #83 第 4 项：非空时显示「连拍选片」入口；null = 当前批次不像连拍
+    onBurstSelectionClick: (() -> Unit)? = null,
+    // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示。
+    // suggestSourceName 非空时显示「这轮再看几张这个相册？」；
+    // onAcceptIntent 接受后下一批优先该来源；onDismissIntent 忽略。
+    intentSourceName: String? = null,
+    onAcceptIntent: (() -> Unit)? = null,
+    onDismissIntent: (() -> Unit)? = null,
     onAlbumClick: (Album) -> Unit,
     onAddAlbumClick: (ImageFile?) -> Unit,  // 可选参数：待归档的图片
     onAlbumsClick: () -> Unit,
@@ -1908,6 +2003,66 @@ private fun DeckContent(
                 onAlbumCleanupClick = onAlbumCleanupClick
             )
 
+            // 路线图 #83 第 7 项（审计 #90）：本轮整理意图提示。
+            // 只在用户确实在集中处理同一来源时出现；接受只影响下一批，
+            // 忽略则本次会话不再打扰。
+            if (intentSourceName != null && onAcceptIntent != null && onDismissIntent != null) {
+                com.tabula.v3.ui.components.RoundIntentBanner(
+                    intentSourceName = intentSourceName,
+                    onAcceptIntent = onAcceptIntent,
+                    onDismissIntent = onDismissIntent
+                )
+            }
+
+            // 路线图 #83 第 4 项：连拍选片入口。
+            // 只在当前批次被判定为一个连拍组时出现，不挤占 TopBar 的既有按钮；
+            // 点击进入对比页，那里才做保留/回收决定。
+            if (onBurstSelectionClick != null) {
+                val burstContext = LocalContext.current
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            (if (LocalIsDarkTheme.current) Color(0xFF2C2C2E) else Color.White)
+                        )
+                        .clickable {
+                            HapticFeedback.lightTap(burstContext)
+                            onBurstSelectionClick()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.PhotoLibrary,
+                        contentDescription = null,
+                        tint = Color(0xFF007AFF),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = "这批像连拍",
+                            color = if (LocalIsDarkTheme.current) Color.White else Color.Black,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "一起对比，留下想要的那几张",
+                            color = Color(0xFF8E8E93),
+                            fontSize = 11.sp
+                        )
+                    }
+                    Text(
+                        text = "去选片",
+                        color = Color(0xFF007AFF),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
             // 卡片堆叠区域
             // 固定标签模式下有双行标签，卡片位置较高；其他模式卡片可以更靠下
             val cardTopPadding = if (tagSelectionMode == TagSelectionMode.FIXED_TAP) 32.dp else 48.dp
@@ -1923,7 +2078,7 @@ private fun DeckContent(
                         images = images,
                         currentIndex = currentIndex,
                         onIndexChange = onIndexChange,
-                        onRemove = onRemove,
+                        onRemove = { image -> onRemove(image) },
                         onCardClick = onCardClick,
                         showHdrBadges = showHdrBadges,
                         showMotionBadges = showMotionBadges,
@@ -2232,7 +2387,7 @@ private fun LoadingState(
         ) {
             // Logo
             Image(
-                painter = painterResource(id = R.drawable.logo),
+                painter = coil.compose.rememberAsyncImagePainter(model = R.drawable.logo),
                 contentDescription = "Tabula Logo",
                 modifier = Modifier.size(100.dp)
             )
@@ -2276,40 +2431,68 @@ private fun LoadingState(
  * 空状态
  */
 @Composable
-private fun EmptyState() {
+private fun EmptyState(
+    onTrashClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    topBarDisplayMode: TopBarDisplayMode = TopBarDisplayMode.INDEX
+) {
     val isDarkTheme = LocalIsDarkTheme.current
     val textColor = if (isDarkTheme) Color.White else TabulaColors.CatBlack
 
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(32.dp)
+        // 空图库同样保留顶部栏：回收站与设置是用户在图库为空时唯一还能做的两件事。
+        // 缺了它，图库一旦为空（权限刚恢复、照片被外部清空、暂存清理把可见照片
+        // 全部移入回收站），用户就被困在一个只有 Logo 的页面上，连回收站都进不去。
+        // 这是产品缺陷，不是测试问题（#84 的 fullPageFlowThroughHardRestart 正是
+        // 撞在这里：它把唯一一张照片移入回收站后重启，图库为空 → 顶部栏消失 →
+        // 找不到「回收站」，而回收站里恰恰躺着那张待恢复的照片）。
+        TopBar(
+            currentIndex = 0,
+            totalCount = 0,
+            currentImage = null,
+            displayMode = topBarDisplayMode,
+            onTrashClick = onTrashClick,
+            onSettingsClick = onSettingsClick
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentAlignment = Alignment.Center
         ) {
-            // Logo
-            Image(
-                painter = painterResource(id = R.drawable.logo),
-                contentDescription = "Tabula Logo",
-                modifier = Modifier.size(120.dp)
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = "没有找到照片",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold
-                ),
-                color = textColor
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "请确保已授权访问相册",
-                style = MaterialTheme.typography.bodyMedium,
-                color = textColor.copy(alpha = 0.6f),
-                textAlign = TextAlign.Center
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(32.dp)
+            ) {
+                // Logo
+                Image(
+                    painter = coil.compose.rememberAsyncImagePainter(model = R.drawable.logo),
+                    contentDescription = "Tabula Logo",
+                    modifier = Modifier.size(120.dp)
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "没有找到照片",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = textColor
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "请确保已授权访问相册",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = textColor.copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -2393,7 +2576,8 @@ private fun AlbumsGridContent(
     onToggleShowHidden: () -> Unit = {},
     onNavigateToOtherAlbums: (List<Album>) -> Unit = {},
     pendingCleanupCount: Int = 0,
-    onCleanupSourceImages: () -> Unit = {}
+    onCleanupSourceImages: () -> Unit = {},
+    onOpenStagedCleanup: () -> Unit = {}
 ) {
     val isDarkTheme = LocalIsDarkTheme.current
     val context = LocalContext.current
@@ -2652,6 +2836,18 @@ private fun AlbumsGridContent(
                                 )
                             }
                             
+                            // 暂存清理按钮（截图与下载旧图，按来源与存入时间整理）
+                            ActionIconButton(
+                                icon = Icons.Outlined.PhotoLibrary,
+                                contentDescription = "暂存清理",
+                                onClick = {
+                                    com.tabula.v3.ui.util.HapticFeedback.lightTap(context)
+                                    onOpenStagedCleanup()
+                                },
+                                backgroundColor = buttonBgColor,
+                                iconColor = buttonIconColor
+                            )
+
                             // 设置按钮
                             ActionIconButton(
                                 icon = Icons.Outlined.Settings,

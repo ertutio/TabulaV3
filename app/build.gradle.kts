@@ -71,6 +71,16 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // JVM 单测与设备测试共用的测试侧工具。
+    //
+    // 动机：批次日志解析这类逻辑原先只写在 androidTest 里，写错了要跑五分钟
+    // 模拟器才暴露（见 BatchLogLine 的注释）。放进 sharedTest 后两边都能用，
+    // JVM 上秒级就能钉住。
+    sourceSets {
+        getByName("test").java.srcDir("src/sharedTest/java")
+        getByName("androidTest").java.srcDir("src/sharedTest/java")
+    }
 }
 
 dependencies {
@@ -114,6 +124,10 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     androidTestImplementation("androidx.test:runner:1.6.2")
+    // #87 审计：真实选片界面（BurstSelectionScreen）的 Compose 界面测试
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }
 

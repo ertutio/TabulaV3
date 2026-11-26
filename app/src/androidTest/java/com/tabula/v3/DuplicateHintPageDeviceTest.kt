@@ -51,6 +51,8 @@ class DuplicateHintPageDeviceTest {
         prefs = AppPreferences(ctx)
         prefs.hasCompletedOnboarding = true
         prefs.hasAcknowledgedDisclaimer = true
+        // 复核观测点是进程级单例，用例之间必须清零，否则读到上一条的记录。
+        DuplicateReverifyTestHook.reset()
         grantMedia()
     }
 
@@ -251,12 +253,54 @@ class DuplicateHintPageDeviceTest {
      *
      * 注意：多选栏的删除**不弹确认框**（`SelectionModeTopBar` 的
      * `onDeleteSelected` 直接调 `onPermanentDeleteBatch`）。查看器里的
-     * 「彻底删除」才弹「要允许 Tabula 删除这张照片吗？」。
+     * 「彻底删除」才弹**应用内**的确认框。
      * 走多选路径是为了让页面上的副本提示真的渲染出来——提示只挂在
      * `SelectionModeTopBar` 上。
+     *
+     * **平台级确认框（必须处理）**：真正的删除走
+     * `MediaStore.createDeleteRequest`（API 30+ 的批量删除），系统会弹
+     * 「Allow <app> to delete this photo?」。这是平台强制行为，不是应用
+     * 的确认框，任何真实设备上都会出现。不点 Allow 就永远删不掉，
+     * 用例会在"删除必须真的执行"处失败（本地模拟器已实测）。
+     * 点完之后删除才真正落库。
      */
     private fun tapDeleteSelected() {
         tap("删除所选")
+        allowSystemDeleteDialogIfAny()
+    }
+
+    /**
+     * 允许系统删除确认框（`MediaProvider$PermissionActivity`）。
+     *
+     * 为什么不能只用 `rootInActiveWindow`：这个框属于
+     * `com.google.android.providers.media.module`，是**另一个进程**的
+     * Activity。`UiAutomation.rootInActiveWindow` 在跨进程时经常拿不到，
+     * 于是 `find("Allow")` 返回 null，框一直挂着，删除永远不落库
+     * （本地模拟器实测：屏幕显示 Allow/Deny，但 tap 找不到）。
+     *
+     * 因此这里用 `uiautomator dump`（系统级，能看到任意前台窗口）
+     * 取按钮 bounds，再用 `input tap` 按坐标点。
+     */
+    private fun allowSystemDeleteDialogIfAny() {
+        val deadline = now() + 10000
+        while (now() < deadline) {
+            val dump = runCatching { shell("uiautomator dump /sdcard/perm.xml") }.getOrDefault("")
+            val xml = runCatching { shell("cat /sdcard/perm.xml") }.getOrDefault("")
+            val allowBounds = Regex(
+                """text="(?:Allow|允许)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]""""
+            ).find(xml)
+            if (allowBounds != null) {
+                val (x1, y1, x2, y2) = allowBounds.destructured.toList().map { it.toInt() }
+                shell("input tap ${(x1 + x2) / 2} ${(y1 + y2) / 2}")
+                android.os.SystemClock.sleep(1500)
+                return
+            }
+            // 没有系统框：删除已在应用内完成
+            if (!xml.contains("delete this photo") && !xml.contains("删除这张照片")) {
+                if (dump.isNotEmpty() || xml.isNotEmpty()) return
+            }
+            android.os.SystemClock.sleep(400)
+        }
     }
 
     // ==================== 用例 ====================
@@ -297,23 +341,32 @@ class DuplicateHintPageDeviceTest {
             bmp.recycle()
         }
 
-        // 在页面上点删除（多选栏的「删除所选」，不弹确认框）
+        // 在页面上点删除（多选栏的「删除所选」）
         tapDeleteSelected()
 
-        // 断言：删除没有执行（回收站记录数不变），且给出提示
+        // 断言：**生产代码实际做出的复核决定**是"拦下"。
+        //
+        // 为什么不用 Toast 文案：Toast 不进 AccessibilityNode 树，
+        // `screenTexts()` 读不到，早先的写法因此在真实设备上必然失败。
+        // 这里读进程内观测点（Release 下不记录），再配合下面的持久化断言。
         val deadline = now() + 20000
         var stopped = false
+        var lastVerdict: DuplicateReverifyTestHook.Verdict? = null
         while (now() < deadline) {
-            val texts = screenTexts()
-            if (texts.any { it.contains("提示已更新") } || texts.any { it.contains("副本状态已变化") }) {
+            lastVerdict = DuplicateReverifyTestHook.snapshot().lastOrNull()
+            if (lastVerdict != null && !lastVerdict.passed) {
                 stopped = true
                 break
             }
             android.os.SystemClock.sleep(250)
         }
         assertTrue(
-            "副本被外部修改后，页面必须提示「提示已更新、请重新删除」（屏幕：${screenTexts()}）",
+            "副本被外部修改后，复核必须判为不通过并中止删除（实际：$lastVerdict，屏幕：${screenTexts()}）",
             stopped
+        )
+        assertTrue(
+            "失效的提示键必须包含本次要删的照片（实际：${lastVerdict?.invalidatedKeys}）",
+            lastVerdict!!.invalidatedKeys.contains(mainKey)
         )
         assertEquals(
             "副本失效时不得执行删除，回收站记录数必须不变",
@@ -363,16 +416,17 @@ class DuplicateHintPageDeviceTest {
 
         val deadline = now() + 20000
         var stopped = false
+        var lastVerdict2: DuplicateReverifyTestHook.Verdict? = null
         while (now() < deadline) {
-            val texts = screenTexts()
-            if (texts.any { it.contains("提示已更新") } || texts.any { it.contains("副本状态已变化") }) {
+            lastVerdict2 = DuplicateReverifyTestHook.snapshot().lastOrNull()
+            if (lastVerdict2 != null && !lastVerdict2.passed) {
                 stopped = true
                 break
             }
             android.os.SystemClock.sleep(250)
         }
         assertTrue(
-            "副本被外部删除后，页面必须提示「提示已更新、请重新删除」（屏幕：${screenTexts()}）",
+            "副本被外部删除后，复核必须判为不通过并中止删除（实际：$lastVerdict2，屏幕：${screenTexts()}）",
             stopped
         )
         assertEquals(
