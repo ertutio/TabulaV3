@@ -4,6 +4,12 @@
 
 目标是缩短大图库里的等待、减少重复读图和计算，并让依赖升级能逐项验证和回退。开发顺序为 **刷新基线 → 两个小型代码优化 → 大图库与 OCR 优化 → 按结果调整后续排期**。依赖盘点可与基线准备并行，实际升级在预览版基线可复现后单独提交。
 
+## 开发与验收集中在云端
+
+本地开发环境计划清理，仅保留 Android SDK 等基础设施。性能基线的工具开发与调试集中在云端工作区，APK 构建、Android 模拟器测量和报告生成统一在 GitHub Actions 执行。后续性能 PR 和依赖 PR 的基线对照也沿用这条路径，可以在本地 AVD、Gradle 缓存、测试照片和日志清理后继续推进。
+
+从全新云端 runner 验证流程可以重建。工作流按仓库配置准备 JDK、SDK 和系统镜像，用仓库里的生成器创建合成数据。把基线报告、APK 与环境摘要、原始日志和 trace 上传到 Actions 产物，并在 PR 中记录 run 链接与对应提交。需要长期复现的夹具参数和报告摘要随仓库保存。真机验证留作后续补充。
+
 ## 现有结果
 
 - 仓库已有 [API 36 云模拟器协议](../benchmark/protocol-v1.json)、[Macrobenchmark](../benchmark/macrobenchmark/src/main/java/com/tabula/v3/benchmark/TabulaPerformanceBenchmark.kt) 和 [GitHub Actions 工作流](../.github/workflows/performance-baseline.yml)。[历史 A/A 报告](../benchmark/results/aa-2026-11-13/README.md) 的应用 SHA 是 `474129ed`，两轮各用 96 张合成 JPEG。冷启动首帧中位数为约 1,763 ms，同一构建的两轮热启动中位数相差 42.3%。这组数据可验证测量流程和估计云端波动。4.0 预览版的性能待测。 [历史运行](https://github.com/ertutio/TabulaV3/actions/runs/43387329019)
