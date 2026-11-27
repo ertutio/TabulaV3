@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,7 +58,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -260,7 +263,7 @@ fun IntentBatchContent(
                     Column {
                         Text(
                             "开启后，仅当本地规则判断证据不足时，才会向 ${assistService.displayName} 发送" +
-                                "**必要的脱敏 OCR 文字片段**（已掩掉验证码、提取码、链接、手机号、订单号）。",
+                                "必要的脱敏 OCR 文字片段（已遮盖验证码、提取码、链接、手机号、订单号）。",
                             fontSize = 13.sp
                         )
                         Spacer(Modifier.height(8.dp))
@@ -514,7 +517,7 @@ private fun ColumnScope.IntentBatchSettlePlaceholder(
         }
         IntentBatchSettleState.Empty -> {
             title = "这批范围里没有找到足够明确的候选。"
-            detail = "证据不足时我们不会硬凑一批；可以换来源，或过几天再来。"
+            detail = "换个来源，或过几天再试。"
             showAnalyze = true
         }
         is IntentBatchSettleState.Failure -> {
@@ -718,16 +721,20 @@ fun IntentAssistKeyDialog(
         properties = DialogProperties(
             // 自绘宽度，才能在窄屏/大字体下自己决定内边距
             usePlatformDefaultWidth = false,
-            // 键盘弹出时不让系统把对话框整体推走：我们在内部用 imePadding 处理
             decorFitsSystemWindows = false
         )
     ) {
+        val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                // 键盘：把可用高度让给输入框与其下方的底栏
                 .imePadding()
-                .padding(horizontal = 20.dp, vertical = 24.dp),
+                .padding(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = 24.dp,
+                    bottom = if (keyboardVisible) 48.dp else 24.dp
+                ),
             contentAlignment = Alignment.Center
         ) {
             Column(
@@ -735,8 +742,6 @@ fun IntentAssistKeyDialog(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
                     .background(cardColor)
-                    // 撑满可用高度但不超过：正文超高时自己滚，底栏不下移
-                    .heightIn(max = Dp.Infinity)
             ) {
                 // ===== 标题：不滚动 =====
                 Text(
@@ -747,8 +752,7 @@ fun IntentAssistKeyDialog(
                     modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 4.dp)
                 )
                 Text(
-                    "Key 只保存在 App 私有目录（不参与备份与迁移），不写入日志或导出。" +
-                        "不配置也能用本地规则；失效时自动回退本地结果。",
+                    "Key 仅保存在此设备，不进入备份、迁移、日志或导出。未配置或失效时继续用本地规则。",
                     color = secondary,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(horizontal = 20.dp)
@@ -767,7 +771,7 @@ fun IntentAssistKeyDialog(
                             // 两种含义必须分开：
                             //   点服务名 = 编辑它的 Key（不影响外发对象）
                             //   「使用此服务」= 真的把这一批切到它（会吊销本批授权）
-                            Text("选择要管理的服务", color = secondary, fontSize = 11.sp)
+                            Text("选择要配置的服务", color = secondary, fontSize = 11.sp)
                             Spacer(Modifier.height(6.dp))
                             // 用 FlowRow：1.5× 字体下两个服务名放不下就换行，
                             // 不会再互相挤压或被裁掉
@@ -790,6 +794,7 @@ fun IntentAssistKeyDialog(
                                                 editing = candidate
                                                 input = ""
                                             }
+                                            .heightIn(min = 48.dp)
                                             .padding(horizontal = 8.dp, vertical = 4.dp)
                                     ) {
                                         Text(
@@ -861,6 +866,10 @@ fun IntentAssistKeyDialog(
                             onValueChange = { input = it },
                             label = { Text("粘贴新的 Key（${editing.keyHint}，留空表示不修改）") },
                             singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = textColor,
+                                unfocusedTextColor = textColor
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .focusRequester(focusRequester)

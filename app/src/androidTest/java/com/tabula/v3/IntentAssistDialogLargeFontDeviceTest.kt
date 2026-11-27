@@ -341,6 +341,20 @@ class IntentAssistDialogLargeFontDeviceTest {
         )
     }
 
+    private fun openOpenCodeGoKeyboard() {
+        assertTrue(tap(IntentAssistService.OPENCODE_GO.displayName))
+        val field = allNodes().firstOrNull { it.className?.contains("EditText") == true }
+        assertNotNull("弹层必须有 Key 输入框（屏幕：${texts()}）", field)
+        val bounds = android.graphics.Rect()
+        field!!.getBoundsInScreen(bounds)
+        shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
+        repeat(30) {
+            if (shell("dumpsys input_method").contains("mInputShown=true")) return
+            android.os.SystemClock.sleep(100)
+        }
+        throw AssertionError("键盘没有弹出")
+    }
+
     /** 键盘弹出后，`保存` 与 `关闭` 仍必须在屏幕内且可点；保存要真写进目标服务。 */
     @Test
     fun saveAndCloseStayReachableWithKeyboardShown() {
@@ -350,16 +364,7 @@ class IntentAssistDialogLargeFontDeviceTest {
         openIntentBatch()
         openDialog()
 
-        // 切到 OpenCode Go 再输入，覆盖"文案更长 + 键盘弹出"的最坏组合
-        assertTrue(tap(IntentAssistService.OPENCODE_GO.displayName))
-        android.os.SystemClock.sleep(800)
-
-        val field = allNodes().firstOrNull { it.className?.contains("EditText") == true }
-        assertNotNull("弹层必须有 Key 输入框（屏幕：${texts()}）", field)
-        val r = android.graphics.Rect(); field!!.getBoundsInScreen(r)
-        shell("input tap ${r.centerX()} ${r.centerY()}")
-        android.os.SystemClock.sleep(900)
-        // 键盘此时应已弹出：断言底栏两个动作仍在屏幕内
+        openOpenCodeGoKeyboard()
         shell("input text lf_synthetic_key_0001")
         android.os.SystemClock.sleep(900)
         shot("03-dialog-keyboard")
@@ -383,5 +388,13 @@ class IntentAssistDialogLargeFontDeviceTest {
             "保存后弹层必须关闭（屏幕：${texts()}）",
             texts().any { it.contains("文字辅助 API Key") }
         )
+        assertEquals("保存不得写入 DeepSeek", null, deepSeekStore.read())
+
+        openDialog()
+        openOpenCodeGoKeyboard()
+        shell("input text lf_unsaved_key_0002")
+        assertTrue("键盘弹出时必须能点关闭", tap("关闭"))
+        assertFalse("关闭后弹层必须消失", waitText("文字辅助 API Key", 1000))
+        assertEquals("关闭不得保存新值", "lf_synthetic_key_0001", goStore.read())
     }
 }
