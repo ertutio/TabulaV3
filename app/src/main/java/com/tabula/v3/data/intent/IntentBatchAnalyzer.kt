@@ -2,11 +2,21 @@ package com.tabula.v3.data.intent
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.SystemClock
 import com.tabula.v3.data.model.ImageFile
 import java.util.TimeZone
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+
+sealed interface IntentBatchProgress {
+    data object Preparing : IntentBatchProgress
+    data class Checking(val checked: Int, val total: Int) : IntentBatchProgress
+    data object Organizing : IntentBatchProgress
+    data object Stopped : IntentBatchProgress
+}
 
 /**
  * 「按整理目的凑一批图」的编排层：把暂存清理已经筛好的候选 → OCR → 规则 → 可选文字辅助 → 排序。
@@ -77,13 +87,31 @@ class IntentBatchAnalyzer(
         nowMillis: Long,
         retainedIdentityKeys: Set<String> = emptySet(),
         allowTextAssist: Boolean = false,
-        timeZone: TimeZone = TimeZone.getDefault()
+        timeZone: TimeZone = TimeZone.getDefault(),
+        startedGeneration: Int = batchGeneration(),
+        onProgress: (suspend (IntentBatchProgress) -> Unit)? = null
     ): Analysis = withContext(Dispatchers.Default) {
         val startedAt = System.currentTimeMillis()
-        val startedGeneration = batchGeneration()
         val assistEnabled = allowTextAssist && textAssist?.isEnabled == true
         val assistTag = if (assistEnabled) "$assistCachePrefix-on" else "$assistCachePrefix-off"
 
+        val inputs = mutableListOf<IntentCandidateInput>()
+        var cachedCount = 0
+        var ocrCount = 0
+        var assistCount = 0
+
+        fun staleAnalysis() = Analysis(
+            batch = IntentBatch(emptyList(), emptyList(), emptyList(), emptyList(), batchLimit),
+            engineAvailable = true,
+            engineNote = null,
+            usedCacheCount = cachedCount,
+            ocrAttemptCount = ocrCount,
+            assistRequestCount = assistCount,
+            elapsedMillis = System.currentTimeMillis() - startedAt,
+            stale = true
+        )
+
+        if (batchGeneration() != startedGeneration) return@withContext staleAnalysis()
         if (!recognizer.isAvailable) {
             return@withContext Analysis(
                 batch = IntentBatch(emptyList(), emptyList(), emptyList(), emptyList(), batchLimit),
@@ -97,11 +125,20 @@ class IntentBatchAnalyzer(
             )
         }
 
-        val inputs = mutableListOf<IntentCandidateInput>()
-        var cachedCount = 0
-        var ocrCount = 0
+        var lastProgressAt = SystemClock.elapsedRealtime()
+        suspend fun publishChecked(checked: Int) {
+            if (onProgress == null || batchGeneration() != startedGeneration) return
+            val now = SystemClock.elapsedRealtime()
+            if (checked <= 1 || checked == images.size || now - lastProgressAt >= 200L) {
+                onProgress(IntentBatchProgress.Checking(checked, images.size))
+                lastProgressAt = now
+            }
+        }
 
-        for (image in images) {
+        publishChecked(0)
+        for ((index, image) in images.withIndex()) {
+            ensureActive()
+            if (batchGeneration() != startedGeneration) return@withContext staleAnalysis()
             val identity = IntentBatchBuilder.cleanupIdentity(image)
             val fingerprint = IntentVerdictCache.mediaFingerprint(
                 image.volumeName, image.id, image.size, image.dateModified
@@ -116,6 +153,7 @@ class IntentBatchAnalyzer(
                     ocrConfidence = cached.ocrConfidence,
                     precomputedVerdict = cached
                 )
+                publishChecked(index + 1)
                 continue
             }
             val ocr = runCatching { recognizeOne(image) }.getOrElse { error ->
@@ -146,15 +184,18 @@ class IntentBatchAnalyzer(
                 ocrLines = lines,
                 ocrConfidence = confidence
             )
+            publishChecked(index + 1)
         }
 
+        ensureActive()
+        if (batchGeneration() != startedGeneration) return@withContext staleAnalysis()
+        onProgress?.invoke(IntentBatchProgress.Organizing)
         val classified = IntentBatchBuilder.classifyAll(
             candidates = inputs,
             nowMillis = nowMillis,
             timeZone = timeZone,
             retainedIdentityKeys = retainedIdentityKeys
         )
-        var assistCount = 0
         val countingAssist = if (assistEnabled) {
             CountingAssist(textAssist!!) { assistCount++ }
         } else {
@@ -166,18 +207,8 @@ class IntentBatchAnalyzer(
 
         // 代际已变（用户换批/关开关/离开页面）：本次结果整体作废，
         // 既不写缓存也不交给界面。
-        if (batchGeneration() != startedGeneration) {
-            return@withContext Analysis(
-                batch = IntentBatch(emptyList(), emptyList(), emptyList(), emptyList(), batchLimit),
-                engineAvailable = true,
-                engineNote = null,
-                usedCacheCount = cachedCount,
-                ocrAttemptCount = ocrCount,
-                assistRequestCount = assistCount,
-                elapsedMillis = elapsed,
-                stale = true
-            )
-        }
+        ensureActive()
+        if (batchGeneration() != startedGeneration) return@withContext staleAnalysis()
 
         // 只回写「这次真的重新算过」的条目，命中缓存的不重写（避免无谓的偏好写入）
         if (ocrCount > 0) {
@@ -187,7 +218,12 @@ class IntentBatchAnalyzer(
                 val fingerprint = IntentVerdictCache.mediaFingerprint(
                     image.volumeName, image.id, image.size, image.dateModified
                 )
-                cache.write(identity, candidate.verdict, fingerprint, recognizer.engineId, assistTag)
+                // MainActivity advances the generation under this same lock.
+                synchronized(cache) {
+                    ensureActive()
+                    if (batchGeneration() != startedGeneration) return@withContext staleAnalysis()
+                    cache.write(identity, candidate.verdict, fingerprint, recognizer.engineId, assistTag)
+                }
             }
         }
 
@@ -214,6 +250,7 @@ class IntentBatchAnalyzer(
             null
         } ?: return OcrResult.Failed("decode")
         return try {
+            currentCoroutineContext().ensureActive()
             recognizer.recognize(bitmap)
         } finally {
             if (!bitmap.isRecycled) bitmap.recycle()

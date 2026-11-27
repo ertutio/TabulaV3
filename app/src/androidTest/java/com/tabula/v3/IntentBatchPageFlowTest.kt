@@ -473,6 +473,138 @@ class IntentBatchPageFlowTest {
         error("没能进入凑一批页（屏幕：${screenTexts()}）")
     }
 
+    @Test
+    fun progressStopAndLateRecognitionAreVisibleThroughRealEntry() {
+        val fixture = UUID.randomUUID().toString().take(8)
+        val path = "DCIM/Progress-$fixture/"
+        val first = insertCouponScreenshot("progress-a-$fixture.png", path)
+        val second = insertCouponScreenshot("progress-b-$fixture.png", path)
+        val third = insertCouponScreenshot("progress-c-$fixture.png", path)
+        waitIndexed(first)
+        waitIndexed(second)
+        waitIndexed(third)
+        prefs.hasStagedCleanupSourceChoice = true
+        prefs.stagedCleanupSourceKeys = setOf("external_primary|${path.trimEnd('/').lowercase()}")
+        val gates = List(2) { java.util.concurrent.CountDownLatch(1) }
+        val calls = java.util.concurrent.atomic.AtomicInteger()
+        val fake = object : com.tabula.v3.data.intent.TextRecognizer {
+            override val isAvailable = true
+            override val engineId = "progress-device-$fixture"
+            override suspend fun recognize(bitmap: Bitmap): com.tabula.v3.data.intent.OcrResult {
+                val index = calls.getAndIncrement()
+                if (index < gates.size) check(gates[index].await(180, java.util.concurrent.TimeUnit.SECONDS))
+                return com.tabula.v3.data.intent.OcrResult.Empty
+            }
+            override fun close() = Unit
+        }
+        com.tabula.v3.data.intent.IntentTesseractFactory.override(fake)
+        try {
+            startApp()
+            openStagedCleanupCandidates(hasSelectedSource = true)
+            openIntentBatch()
+            waitForTextContaining("已检查 0 / 3 张")
+            gates[0].countDown()
+            waitForTextContaining("已检查 1 / 3 张")
+            val secondDeadline = now() + 30000
+            while (calls.get() < 2 && now() < secondDeadline) android.os.SystemClock.sleep(50)
+            assertTrue("第二张识别必须已开始", calls.get() >= 2)
+            tap("停止")
+            waitForTextContaining("已停止检查")
+            waitForTextContaining("重新分析")
+            gates[1].countDown()
+            android.os.SystemClock.sleep(1500)
+            assertTrue("旧识别返回后仍应保持停止状态：${screenTexts()}", screenTexts().any { it.contains("已停止检查") })
+            assertEquals("停止后不得启动第三张识别", 2, calls.get())
+            assertEquals("已取消的批次不得写入判定缓存", 0, IntentVerdictCache(ctx.getSharedPreferences("tabula_intent_verdicts", android.content.Context.MODE_PRIVATE)).size())
+            tap("重新分析")
+            waitForAnalysisSettled()
+        } finally {
+            gates.forEach { it.countDown() }
+            com.tabula.v3.data.intent.IntentTesseractFactory.override(null)
+        }
+    }
+    @Test
+    fun changingSourceWhileRecognitionRunsRejectsLateOldResult() {
+        val fixture = UUID.randomUUID().toString().take(8)
+        val oldPath = "DCIM/Old-$fixture/"
+        val newPath = "DCIM/New-$fixture/"
+        val old = insertCouponScreenshot("old-$fixture.png", oldPath)
+        val fresh = insertCouponScreenshot("new-$fixture.png", newPath)
+        waitIndexed(old)
+        waitIndexed(fresh)
+        prefs.hasStagedCleanupSourceChoice = true
+        prefs.stagedCleanupSourceKeys = setOf("external_primary|${oldPath.trimEnd('/').lowercase()}")
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val oldReturned = java.util.concurrent.atomic.AtomicBoolean(false)
+        val calls = java.util.concurrent.atomic.AtomicInteger()
+        val fake = object : com.tabula.v3.data.intent.TextRecognizer {
+            override val isAvailable = true
+            override val engineId = "source-device-$fixture"
+            override suspend fun recognize(bitmap: Bitmap): com.tabula.v3.data.intent.OcrResult {
+                if (calls.getAndIncrement() == 0) {
+                    entered.countDown()
+                    check(release.await(180, java.util.concurrent.TimeUnit.SECONDS))
+                    oldReturned.set(true)
+                }
+                return com.tabula.v3.data.intent.OcrResult.Empty
+            }
+            override fun close() = Unit
+        }
+        com.tabula.v3.data.intent.IntentTesseractFactory.override(fake)
+        try {
+            startApp()
+            openStagedCleanupCandidates(hasSelectedSource = true)
+            openIntentBatch()
+            assertTrue("旧来源识别必须已开始", entered.await(30, java.util.concurrent.TimeUnit.SECONDS))
+            // 前景页在树中排在背景 Deck 之后，选择最后一个返回节点。
+            val matches = mutableListOf<AccessibilityNodeInfo>()
+            fun collect(node: AccessibilityNodeInfo?) {
+                if (node == null) return
+                if (node.contentDescription?.toString() == "返回") matches += node
+                for (i in 0 until node.childCount) collect(node.getChild(i))
+            }
+            collect(ins.uiAutomation.rootInActiveWindow)
+            var back: AccessibilityNodeInfo? = matches.lastOrNull()
+            while (back != null && !back.isClickable) back = back.parent
+            assertNotNull("必须找到前景返回按钮", back)
+            assertTrue("前景返回按钮必须响应", back!!.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+            waitForTextContaining("换来源")
+            tap("换来源")
+            waitForTextContaining("选择要清理的来源")
+            // 非推荐来源未预选；按独立目录名勾选新来源。
+            var visible = find("New-$fixture") != null
+            repeat(8) {
+                if (!visible) {
+                    shell("input swipe 500 1600 500 500 400")
+                    android.os.SystemClock.sleep(300)
+                    visible = find("New-$fixture") != null
+                }
+            }
+            assertTrue("来源选择器应显示新目录：${screenTexts()}", visible)
+            tap("New-$fixture")
+            val view = screenTexts().firstOrNull { it.startsWith("查看") && it.endsWith("个来源的旧图") }
+            assertNotNull("必须能确认新来源", view)
+            tap(view!!)
+            waitForTextContaining("换来源")
+            assertTrue("新来源必须被选中", prefs.stagedCleanupSourceKeys.any { it.contains("new-$fixture") })
+            assertFalse("旧来源不得保留", prefs.stagedCleanupSourceKeys.any { it.contains("old-$fixture") })
+            openIntentBatch()
+            waitForAnalysisSettled()
+            assertFalse("切换期间旧识别必须仍在等待", oldReturned.get())
+            release.countDown()
+            val returnedDeadline = now() + 10000
+            while (!oldReturned.get() && now() < returnedDeadline) android.os.SystemClock.sleep(50)
+            assertTrue("旧识别必须实际返回", oldReturned.get())
+            android.os.SystemClock.sleep(1500)
+            assertTrue("旧结果返回后新批次仍应完成", screenTexts().any { it.contains("本轮：推荐") || it.contains("没有找到足够明确的候选") })
+            val oldKey = "intent_verdict_external_primary|${android.content.ContentUris.parseId(old)}"
+            assertFalse("旧来源的迟到结果不得写缓存", ctx.getSharedPreferences("tabula_intent_verdicts", android.content.Context.MODE_PRIVATE).contains(oldKey))
+        } finally {
+            release.countDown()
+            com.tabula.v3.data.intent.IntentTesseractFactory.override(null)
+        }
+    }
     // ==================== 用例 ====================
 
     @Test
