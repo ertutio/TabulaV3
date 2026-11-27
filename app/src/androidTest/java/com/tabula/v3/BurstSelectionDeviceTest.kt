@@ -851,6 +851,84 @@ class BurstSelectionDeviceTest {
     }
 
     @Test
+    fun deckBatchUndoLeavesSinglePhotoSwipeToCommit() = verifyOverlappingDeckUndo(undoBatch = true)
+
+    @Test
+    fun deckSinglePhotoUndoLeavesBatchInRecycleBin() = verifyOverlappingDeckUndo(undoBatch = false)
+
+    private fun verifyOverlappingDeckUndo(undoBatch: Boolean) = runBlocking {
+        val mine = openPickerWithOnlyFixtures(3)
+        val discarded = mine[1]
+        val bin = RecycleBinManager.getInstance(ctx)
+        val before = bin.loadRecycleBin().map { it.uri }.toSet()
+        tap("这组都留")
+        tap(discarded.displayName)
+        waitForTextContaining("回收 1 张")
+        tap("确认：回收 1 张")
+        waitForTextContaining("已移入回收站 1 张", timeout = 2500)
+
+        // Perform a real swipe only when the current card can be identified as one of our fixtures.
+        val keptFixtures = mine.filter { it.uri != discarded.uri }
+        val card = keptFixtures.mapNotNull { photo ->
+            find(photo.displayName)?.let { android.graphics.Rect().also(it::getBoundsInScreen) }
+        }.filter { it.width() > 100 && it.height() > 100 }
+            .maxByOrNull { it.width() * it.height() }
+        val cardBounds = requireNotNull(card) {
+            "返回卡片页后找不到测试照片（屏幕：${screenTexts()}）"
+        }
+        val x = cardBounds.centerX()
+        val y = cardBounds.centerY()
+        shell("input swipe $x $y $x ${(y - cardBounds.height() / 2).coerceAtLeast(60)} 400")
+        waitFor("已移入回收站", timeout = 1600)
+
+        fun undoButtons(): List<android.graphics.Rect> {
+            val buttons = mutableListOf<android.graphics.Rect>()
+            fun walk(node: android.view.accessibility.AccessibilityNodeInfo?) {
+                if (node == null) return
+                if (node.text?.toString() == "撤销" && node.isVisibleToUser) {
+                    buttons += android.graphics.Rect().also(node::getBoundsInScreen)
+                }
+                for (i in 0 until node.childCount) walk(node.getChild(i))
+            }
+            walk(ins.uiAutomation.rootInActiveWindow)
+            return buttons.sortedBy { it.top }
+        }
+
+        val buttons = undoButtons()
+        assertEquals("两种撤销都必须可见", 2, buttons.size)
+        assertTrue("两种撤销的可点范围不能重叠：$buttons", buttons[0].bottom <= buttons[1].top)
+        assertEquals("单张上滑应在超时后才入站", before + discarded.uri,
+            bin.loadRecycleBin().map { it.uri }.toSet())
+        if (undoBatch) captureBatchUndoEvidence(ins, ctx, "deck-both-undo")
+        val action = buttons[if (undoBatch) 0 else 1]
+        shell("input tap ${action.centerX()} ${action.centerY()}")
+
+        if (undoBatch) {
+            waitForBinUris(bin, before)
+            val end = now() + 4500
+            var afterTimeout = bin.loadRecycleBin().map { it.uri }.toSet()
+            while (now() < end && afterTimeout == before) {
+                android.os.SystemClock.sleep(100)
+                afterTimeout = bin.loadRecycleBin().map { it.uri }.toSet()
+            }
+            val newlyCommitted = (afterTimeout - before).single()
+            assertTrue("只能提交另一张测试照片：$newlyCommitted",
+                keptFixtures.any { it.uri == newlyCommitted })
+            assertEquals(before + newlyCommitted, afterTimeout)
+            val remaining = keptFixtures.single { it.uri != newlyCommitted }
+            waitFor(remaining.displayName, timeout = 2000)
+            assertTrue("已处理的单张照片应离开卡片列表",
+                find(keptFixtures.single { it.uri == newlyCommitted }.displayName) == null)
+        } else {
+            val end = now() + 4500
+            while (now() < end && find("已移入回收站") != null) android.os.SystemClock.sleep(100)
+            assertTrue("上滑撤销应消失，批次记录应保留", find("已移入回收站") == null)
+            android.os.SystemClock.sleep(3000)
+            assertEquals(before + discarded.uri, bin.loadRecycleBin().map { it.uri }.toSet())
+        }
+    }
+
+    @Test
     fun twoBurstSubmissionsKeepIndependentUndoActions() = runBlocking {
         val mine = openPickerWithOnlyFixtures(3)
         val discard = mine.drop(1)

@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -133,6 +132,7 @@ import com.tabula.v3.ui.theme.TabulaColors
 import com.tabula.v3.ui.screens.AlbumTagManagementScreen
 import com.tabula.v3.ui.util.HapticFeedback
 import com.tabula.v3.ui.theme.TabulaTheme
+import com.tabula.v3.ui.components.UNDO_SNACKBAR_DURATION_MS
 import com.tabula.v3.ui.components.UndoSnackbar
 import com.tabula.v3.ui.components.LocalLiquidGlassEnabled
 import com.tabula.v3.service.FluidCloudService
@@ -1750,9 +1750,50 @@ fun TabulaApp(
         }
     }
 
+    LaunchedEffect(currentScreen) {
+        pendingBatchUndos = pendingBatchUndos.filter { it.canShowOn(currentScreen) }
+    }
+    val currentBatchUndo = pendingBatchUndos.firstOrNull { it.canShowOn(currentScreen) }
+        ?.takeUnless { batchUndoInFlight }
+    // Keep a receipt's timeout attached to that receipt when the burst picker closes.
+    LaunchedEffect(currentBatchUndo) {
+        if (currentBatchUndo != null) {
+            kotlinx.coroutines.delay(UNDO_SNACKBAR_DURATION_MS)
+            pendingBatchUndos = pendingBatchUndos - currentBatchUndo
+        }
+    }
+    val batchUndoContent: @Composable (Modifier) -> Unit = { modifier ->
+        val undo = currentBatchUndo
+        if (undo != null) {
+            key(undo) {
+                UndoSnackbar(
+                    visible = true,
+                    message = buildString {
+                        append("已移入回收站 ${undo.records.size} 张")
+                        if (undo.report.isNotEmpty()) append("\n${undo.report}")
+                    },
+                    onUndo = {
+                        if (undo in pendingBatchUndos && undo.canShowOn(currentScreen) &&
+                            !batchUndoInFlight && !isDeletingRecycleBin && !deletePermissionInFlight &&
+                            !intentBatchSaving && !burstCommitting
+                        ) {
+                            pendingBatchUndos = pendingBatchUndos - undo
+                            restoreImagesInOneTransaction(undo.records, undo)
+                        }
+                    },
+                    modifier = modifier,
+                    animate = false
+                )
+            }
+        }
+    }
+
     val deckContent: @Composable () -> Unit = {
         DeckScreen(            // 使用 imagesForSorting（排除已归类到 Tabula 图集的照片）
             // 这样已归类的照片不会再次出现在待整理列表中
+            batchUndo = { modifier ->
+                if (currentScreen == AppScreen.DECK) batchUndoContent(modifier)
+            },
             allImages = imagesForSorting,
             allImagesForCleanup = allImages,
             batchSize = currentBatchSize,
@@ -2811,6 +2852,9 @@ fun TabulaApp(
         val currentBatch: IntentBatch = intentBatch
             ?: IntentBatch(emptyList(), emptyList(), emptyList(), emptyList(), 0)
         IntentBatchContent(
+            batchUndo = { modifier ->
+                if (currentScreen == AppScreen.INTENT_BATCH) batchUndoContent(modifier)
+            },
             title = "按整理目的凑一批",
             batch = currentBatch,
             selectedIdentityKeys = intentBatchSelectedKeys,
@@ -2999,7 +3043,13 @@ fun TabulaApp(
                         rebuildIntentBatch()
                     }
                 },
-                onDismiss = { showIntentAssistKeyDialog = false }
+                onDismiss = { showIntentAssistKeyDialog = false },
+                // 「使用此服务」：这是**切换外发对象**的唯一界面入口。
+                // 与「编辑 Key」分开：编辑只影响文件，这里才改这一批用谁。
+                // 走 selectIntentAssistService（吊销本批授权 + 作废在途 + 关闭态重算），
+                // 因此切换后必须由用户主动重新开启。
+                activeService = intentAssistService,
+                onUseService = { service -> selectIntentAssistService(service) }
             )
         }
     }
@@ -3011,6 +3061,9 @@ fun TabulaApp(
             LaunchedEffect(Unit) { currentScreen = AppScreen.DECK }
         } else {
             BurstSelectionScreen(
+                batchUndo = { modifier ->
+                    if (currentScreen == AppScreen.BURST_SELECTION) batchUndoContent(modifier)
+                },
                 group = group,
                 keptIdentityKeys = burstKeptKeys,
                 isCommitting = burstCommitting,
@@ -3333,33 +3386,6 @@ fun TabulaApp(
             foregroundContent = foregroundContent ?: {}
         )
         
-        LaunchedEffect(currentScreen) {
-            pendingBatchUndos = pendingBatchUndos.filter { it.canShowOn(currentScreen) }
-        }
-        val undo = pendingBatchUndos.firstOrNull { it.canShowOn(currentScreen) }
-        if (undo != null && !batchUndoInFlight) {
-            key(undo) {
-                UndoSnackbar(
-                    visible = true,
-                    message = buildString {
-                        append("已移入回收站 ${undo.records.size} 张")
-                        if (undo.report.isNotEmpty()) append("\n${undo.report}")
-                    },
-                    onUndo = {
-                        if (undo in pendingBatchUndos && undo.canShowOn(currentScreen) &&
-                            !batchUndoInFlight && !isDeletingRecycleBin && !deletePermissionInFlight &&
-                            !intentBatchSaving && !burstCommitting
-                        ) {
-                            pendingBatchUndos = pendingBatchUndos - undo
-                            restoreImagesInOneTransaction(undo.records, undo)
-                        }
-                    },
-                    onDismiss = { pendingBatchUndos = pendingBatchUndos - undo },
-                    modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
-                )
-            }
-        }
-
         // ========== 原图删除提醒对话框 ==========
         if (showSourceImageDeletionDialog) {
             SourceImageDeletionDialog(
