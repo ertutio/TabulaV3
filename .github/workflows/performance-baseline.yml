@@ -8,8 +8,12 @@ on:
       - .github/workflows/performance-baseline.yml
   workflow_dispatch:
     inputs:
+      baseline_commit:
+        description: 'Optional 40-character baseline SHA; leave blank for the historical protocol default'
+        required: false
+        default: ''
       candidate_commit:
-        description: 'Optional 40-character candidate SHA; baseline is fixed in protocol-v1.json'
+        description: 'Optional comparison SHA; leave blank for two sessions using one baseline APK (A/A)'
         required: false
         default: ''
       emulator_build:
@@ -30,7 +34,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
-      BASE_COMMIT: 474129ed4d5262befc8bdab0fbd60e4df81411f2
+      BASE_COMMIT: ${{ github.event.inputs.baseline_commit }}
       CANDIDATE_COMMIT: ${{ github.event.inputs.candidate_commit }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
