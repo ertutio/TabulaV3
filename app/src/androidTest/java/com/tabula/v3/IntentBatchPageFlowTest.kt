@@ -610,7 +610,8 @@ class IntentBatchPageFlowTest {
         val fixture = UUID.randomUUID().toString().take(8)
         val path = "DCIM/Bench-$fixture/"
         val fixtureCount = 12
-        val images = (1..fixtureCount).map { insertCouponScreenshot("bench-$fixture-$it.png", path) }
+        val fixtureNames = (1..fixtureCount).map { "bench-$fixture-$it.png" }
+        val images = fixtureNames.map { insertCouponScreenshot(it, path) }
         images.forEach { waitIndexed(it) }
         prefs.hasStagedCleanupSourceChoice = true
         prefs.stagedCleanupSourceKeys = setOf("external_primary|${path.trimEnd('/').lowercase()}")
@@ -625,16 +626,18 @@ class IntentBatchPageFlowTest {
             val started = now()
             shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
             val deadline = started + 180_000L
-            var texts = screenTexts()
-            while (now() < deadline &&
-                (texts.none { it.contains("本轮：推荐") } || texts.none { it.startsWith("本地识别") })
-            ) {
+            var readyRow: String? = null
+            var ocrStatus: String? = null
+            while (now() < deadline) {
+                ocrStatus = screenTexts().firstOrNull { it.startsWith("本地识别") }
+                if (ocrStatus != null) {
+                    readyRow = fixtureNames.firstOrNull { intentListThumbNodes(it).isNotEmpty() }
+                    if (readyRow != null) break
+                }
                 android.os.SystemClock.sleep(50)
-                texts = screenTexts()
             }
             val firstReadyMs = now() - started
-            assertTrue("凑一批必须显示可操作的结果：$texts", texts.any { it.contains("本轮：推荐") })
-            val ocrStatus = texts.firstOrNull { it.startsWith("本地识别") }
+            assertNotNull("凑一批必须显示可操作的结果", readyRow)
             assertNotNull("必须显示实际的识别张数", ocrStatus)
             val attempts = checkNotNull(Regex("本地识别 (\\d+) 张").find(ocrStatus!!)).groupValues[1].toInt()
             val hits = Regex("复用缓存 (\\d+) 张").find(ocrStatus)?.groupValues?.get(1)?.toInt() ?: 0
@@ -644,7 +647,7 @@ class IntentBatchPageFlowTest {
                 .put("cacheState", pass).put("candidateCount", fixtureCount)
                 .put("width", 720).put("height", 1280)
                 .put("textAssist", false).put("firstReadyMs", firstReadyMs)
-                .put("result", texts.first { it.contains("本轮：推荐") })
+                .put("actionableRowVisible", true)
                 .put("ocrAttempts", attempts).put("cacheHits", hits).put("ocrStatus", ocrStatus))
             if (pass == "cold") {
                 val backNodes = mutableListOf<AccessibilityNodeInfo>()
