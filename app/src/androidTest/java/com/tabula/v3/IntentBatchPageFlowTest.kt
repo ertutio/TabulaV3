@@ -625,6 +625,7 @@ class IntentBatchPageFlowTest {
             com.tabula.v3.data.intent.IntentTesseractFactory.override(null)
         }
     }
+
     @Test
     fun measuresTimeToFirstUsableBatchFromCleanup() {
         val fixture = UUID.randomUUID().toString().take(8)
