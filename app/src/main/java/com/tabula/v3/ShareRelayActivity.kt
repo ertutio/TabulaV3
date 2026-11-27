@@ -190,7 +190,7 @@ private fun RelayScreen(
 
             else -> {
                 Text(
-                    text = if (forwardStarted) "已转交" else "正在准备…",
+                    text = if (forwardStarted) "继续分享" else "正在准备…",
                     color = textColor,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
@@ -216,28 +216,27 @@ private fun RelayScreen(
                     ) {
                         Column {
                             Text(
-                                text = "${res.forwardUris.size} 张图已转交",
+                                text = "共 ${res.forwardUris.size} 张照片",
                                 color = textColor,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
-                            if (res.confirmedCount > 0) {
+                            if (res.confirmedCount > 0 && markFailure == null) {
                                 Spacer(Modifier.height(6.dp))
                                 Text(
-                                    text = if (markFailure != null) {
-                                        "分享可继续，但未能保存待清标记"
-                                    } else {
-                                        "${res.confirmedCount} 张已标记为待清"
-                                    },
-                                    color = if (markFailure != null) Color(0xFFFF9500) else secondaryTextColor,
+                                    text = "${res.confirmedCount} 张已标记为待清",
+                                    color = secondaryTextColor,
                                     fontSize = 12.sp
                                 )
                             }
                             if (res.reviewCount > 0) {
                                 Spacer(Modifier.height(6.dp))
                                 Text(
-                                    text = "${res.reviewCount} 张无法唯一定位原图，标记待核对。" +
-                                        "不影响转发。",
+                                    text = if (markFailure == null) {
+                                        "${res.reviewCount} 张已标记为待核对"
+                                    } else {
+                                        "${res.reviewCount} 张无法唯一定位原图"
+                                    },
                                     color = Color(0xFFFF9500),
                                     fontSize = 12.sp
                                 )
@@ -245,7 +244,7 @@ private fun RelayScreen(
                             if (markFailure != null) {
                                 Spacer(Modifier.height(6.dp))
                                 Text(
-                                    text = "待清标记保存失败：$markFailure。这次分享不会被记录。",
+                                    text = "未能保存待清标记，仍可继续分享。",
                                     color = Color(0xFFFF9500),
                                     fontSize = 12.sp
                                 )
