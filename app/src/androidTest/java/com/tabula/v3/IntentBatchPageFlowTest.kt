@@ -625,6 +625,67 @@ class IntentBatchPageFlowTest {
             com.tabula.v3.data.intent.IntentTesseractFactory.override(null)
         }
     }
+
+    @Test
+    fun measuresTimeToFirstUsableBatchFromCleanup() {
+        val fixture = UUID.randomUUID().toString().take(8)
+        val path = "DCIM/Bench-$fixture/"
+        val fixtureCount = 12
+        val fixtureNames = (1..fixtureCount).map { "bench-$fixture-$it.png" }
+        val images = fixtureNames.map { insertCouponScreenshot(it, path) }
+        images.forEach { waitIndexed(it) }
+        prefs.hasStagedCleanupSourceChoice = true
+        prefs.stagedCleanupSourceKeys = setOf("external_primary|${path.trimEnd('/').lowercase()}")
+        startApp()
+        openStagedCleanupCandidates(hasSelectedSource = true)
+
+        for (pass in listOf("cold", "warm")) {
+            waitForTextContaining("按整理目的凑一批")
+            val target = checkNotNull(find("按整理目的凑一批"))
+            val bounds = android.graphics.Rect().also { target.getBoundsInScreen(it) }
+            assertTrue("凑一批入口必须可见", !bounds.isEmpty)
+            val started = now()
+            shell("input tap ${bounds.centerX()} ${bounds.centerY()}")
+            val deadline = started + 180_000L
+            var readyRow: String? = null
+            var ocrStatus: String? = null
+            while (now() < deadline) {
+                ocrStatus = screenTexts().firstOrNull { it.startsWith("本地识别") }
+                if (ocrStatus != null) {
+                    readyRow = fixtureNames.firstOrNull { intentListThumbNodes(it).isNotEmpty() }
+                    if (readyRow != null) break
+                }
+                android.os.SystemClock.sleep(50)
+            }
+            val firstReadyMs = now() - started
+            assertNotNull("凑一批必须显示可操作的结果", readyRow)
+            assertNotNull("必须显示实际的识别张数", ocrStatus)
+            val attempts = checkNotNull(Regex("本地识别 (\\d+) 张").find(ocrStatus!!)).groupValues[1].toInt()
+            val hits = Regex("复用缓存 (\\d+) 张").find(ocrStatus)?.groupValues?.get(1)?.toInt() ?: 0
+            assertEquals(fixtureCount, attempts + hits)
+            if (pass == "cold") assertEquals(0, hits) else assertTrue("暖轮必须复用缓存", hits > 0)
+            println("[ocr-ui-benchmark] " + org.json.JSONObject()
+                .put("cacheState", pass).put("candidateCount", fixtureCount)
+                .put("width", 720).put("height", 1280)
+                .put("textAssist", false).put("firstReadyMs", firstReadyMs)
+                .put("actionableRowVisible", true)
+                .put("ocrAttempts", attempts).put("cacheHits", hits).put("ocrStatus", ocrStatus))
+            if (pass == "cold") {
+                val backNodes = mutableListOf<AccessibilityNodeInfo>()
+                fun collectBack(node: AccessibilityNodeInfo?) {
+                    if (node == null) return
+                    if (node.contentDescription?.toString() == "返回") backNodes += node
+                    for (i in 0 until node.childCount) collectBack(node.getChild(i))
+                }
+                collectBack(ins.uiAutomation.rootInActiveWindow)
+                var back = backNodes.lastOrNull()
+                while (back != null && !back.isClickable) back = back.parent
+                assertTrue("前景返回按钮必须响应", back?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true)
+                waitForTextContaining("换来源")
+            }
+        }
+    }
+
     // ==================== 用例 ====================
 
     @Test
