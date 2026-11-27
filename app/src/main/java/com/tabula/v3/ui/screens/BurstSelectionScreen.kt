@@ -80,7 +80,8 @@ fun BurstSelectionScreen(
     onToggleKeep: (ImageFile) -> Unit,
     onKeepAll: () -> Unit,
     onCancel: () -> Unit,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
+    batchUndo: @Composable (Modifier) -> Unit = {}
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -292,6 +293,8 @@ fun BurstSelectionScreen(
                 }
             }
         }
+
+        batchUndo(Modifier)
 
         // ========== 底部确认条 ==========
         Column(

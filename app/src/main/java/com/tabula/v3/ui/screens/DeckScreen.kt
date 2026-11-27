@@ -290,7 +290,8 @@ fun DeckScreen(
     onAcceptIntent: (() -> Unit)? = null,
     onDismissIntent: (() -> Unit)? = null,
     // 暂存清理（路线图第 1 项）：进入按来源与存入时间整理的旧图清理
-    onOpenStagedCleanup: () -> Unit = {}
+    onOpenStagedCleanup: () -> Unit = {},
+    batchUndo: @Composable (Modifier) -> Unit = {}
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -1169,7 +1170,7 @@ fun DeckScreen(
                             )
                             
                             // 显示撤销 Snackbar（延迟执行真正的删除）
-                            undoMessage = "已移入回收站"
+                            undoMessage = "单张：将移入回收站"
                             showUndoSnackbar = true
                             
                             markedCount++
@@ -1420,106 +1421,112 @@ fun DeckScreen(
             )
         }
 
-        // 撤销 Snackbar（支持归档撤销和删除撤销）
-        UndoSnackbar(
-            visible = showUndoSnackbar,
-            message = undoMessage,
-            onUndo = {
-                if (isDeletePending) {
-                    // ========== 删除撤销 ==========
-                    pendingDelete?.let { pending -> val image = pending.image
-                        // 检查图片是否已在批次中（防止重复插入）
-                        val isDuplicate = currentBatch.any { it.id == image.id }
-                        
-                        if (!isDuplicate) {
-                            // 将图片重新插入 batch
-                            val newBatch = currentBatch.toMutableList()
-                            // 使用安全的插入索引：如果原索引仍有效则使用，否则插入到当前位置
-                            val insertIndex = if (
-                                pending.originalIndex >= 0 && pending.originalIndex <= newBatch.size
-                            ) {
-                                pending.originalIndex
-                            } else {
-                                // 原索引无效，插入到当前位置或末尾
-                                currentIndex.coerceIn(0, newBatch.size)
-                            }
-                            newBatch.add(insertIndex, image)
-                            currentBatch = newBatch.also { logBatchRows("batch-site-13", it) }
-                            currentIndex = insertIndex
-                            // 减少删除计数（因为撤销了）
-                            markedCount = (markedCount - 1).coerceAtLeast(0)
-                            // 如果之前进入了完成状态，恢复浏览状态
-                            if (deckState == DeckState.COMPLETED) {
-                                deckState = DeckState.BROWSING
-                            }
-                        }
-                    }
-                    
-                    // #90 第五轮：清除整条待删除记录（照片/索引/凭证一起走）。
-                    // 撤销不写回收站，因此也没有任何来源统计要回退。
-                    pendingDelete = null
-                } else {
-                    // ========== 归档撤销 ==========
-                    // 执行数据层撤销（取消待执行的归档操作）
-                    onUndoAlbumAction()
-                    
-                    // 恢复 UI 状态
-                    lastClassifiedImage?.let { image ->
-                        // 检查图片是否已在批次中（防止重复插入）
-                        val isDuplicate = currentBatch.any { it.id == image.id }
-                        
-                        if (lastClassifyWasSwipe && !isDuplicate) {
-                            // 下滑归类：将图片重新插入 batch
-                            val newBatch = currentBatch.toMutableList()
-                            // 使用安全的插入索引：如果原索引仍有效则使用，否则插入到当前位置
-                            val insertIndex = if (lastClassifiedIndex >= 0 && lastClassifiedIndex <= newBatch.size) {
-                                lastClassifiedIndex
-                            } else {
-                                // 原索引无效，插入到当前位置或末尾
-                                currentIndex.coerceIn(0, newBatch.size)
-                            }
-                            newBatch.add(insertIndex, image)
-                            currentBatch = newBatch.also { logBatchRows("batch-site-14", it) }
-                            currentIndex = insertIndex
-                            // 如果之前进入了完成状态，恢复浏览状态
-                            if (deckState == DeckState.COMPLETED) {
-                                deckState = DeckState.BROWSING
-                            }
-                        } else if (!lastClassifyWasSwipe) {
-                            // 点击 Chip 归类：回退索引
-                            if (currentIndex > 0 && currentIndex > lastClassifiedIndex) {
-                                currentIndex = lastClassifiedIndex
+        Column(
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            batchUndo(Modifier)
+            // 撤销 Snackbar（支持归档撤销和删除撤销）
+            UndoSnackbar(
+                visible = showUndoSnackbar,
+                message = undoMessage,
+                undoText = if (isDeletePending) "撤销单张" else "撤销",
+                onUndo = {
+                    if (isDeletePending) {
+                        // ========== 删除撤销 ==========
+                        pendingDelete?.let { pending -> val image = pending.image
+                            // 检查图片是否已在批次中（防止重复插入）
+                            val isDuplicate = currentBatch.any { it.id == image.id }
+
+                            if (!isDuplicate) {
+                                // 将图片重新插入 batch
+                                val newBatch = currentBatch.toMutableList()
+                                // 使用安全的插入索引：如果原索引仍有效则使用，否则插入到当前位置
+                                val insertIndex = if (
+                                    pending.originalIndex >= 0 && pending.originalIndex <= newBatch.size
+                                ) {
+                                    pending.originalIndex
+                                } else {
+                                    // 原索引无效，插入到当前位置或末尾
+                                    currentIndex.coerceIn(0, newBatch.size)
+                                }
+                                newBatch.add(insertIndex, image)
+                                currentBatch = newBatch.also { logBatchRows("batch-site-13", it) }
+                                currentIndex = insertIndex
+                                // 减少删除计数（因为撤销了）
+                                markedCount = (markedCount - 1).coerceAtLeast(0)
+                                // 如果之前进入了完成状态，恢复浏览状态
+                                if (deckState == DeckState.COMPLETED) {
+                                    deckState = DeckState.BROWSING
+                                }
                             }
                         }
+
+                        // #90 第五轮：清除整条待删除记录（照片/索引/凭证一起走）。
+                        // 撤销不写回收站，因此也没有任何来源统计要回退。
+                        pendingDelete = null
+                    } else {
+                        // ========== 归档撤销 ==========
+                        // 执行数据层撤销（取消待执行的归档操作）
+                        onUndoAlbumAction()
+
+                        // 恢复 UI 状态
+                        lastClassifiedImage?.let { image ->
+                            // 检查图片是否已在批次中（防止重复插入）
+                            val isDuplicate = currentBatch.any { it.id == image.id }
+
+                            if (lastClassifyWasSwipe && !isDuplicate) {
+                                // 下滑归类：将图片重新插入 batch
+                                val newBatch = currentBatch.toMutableList()
+                                // 使用安全的插入索引：如果原索引仍有效则使用，否则插入到当前位置
+                                val insertIndex = if (lastClassifiedIndex >= 0 && lastClassifiedIndex <= newBatch.size) {
+                                    lastClassifiedIndex
+                                } else {
+                                    // 原索引无效，插入到当前位置或末尾
+                                    currentIndex.coerceIn(0, newBatch.size)
+                                }
+                                newBatch.add(insertIndex, image)
+                                currentBatch = newBatch.also { logBatchRows("batch-site-14", it) }
+                                currentIndex = insertIndex
+                                // 如果之前进入了完成状态，恢复浏览状态
+                                if (deckState == DeckState.COMPLETED) {
+                                    deckState = DeckState.BROWSING
+                                }
+                            } else if (!lastClassifyWasSwipe) {
+                                // 点击 Chip 归类：回退索引
+                                if (currentIndex > 0 && currentIndex > lastClassifiedIndex) {
+                                    currentIndex = lastClassifiedIndex
+                                }
+                            }
+                        }
+
+                        // 清理归档撤销状态
+                        lastClassifiedImage = null
+                        lastClassifiedIndex = -1
                     }
-                    
-                    // 清理归档撤销状态
-                    lastClassifiedImage = null
-                    lastClassifiedIndex = -1
+                    showUndoSnackbar = false
+                },
+                onDismiss = {
+                    if (isDeletePending) {
+                        // ========== 确认删除 ==========
+                        // Snackbar 超时消失 = 用户确认删除。
+                        // #90 第五轮：带着记录里**上滑时绑定的**凭证提交，
+                        // 即使此刻已经换批也不会记进新批次统计。
+                        commitPendingDelete()
+                    } else {
+                        // ========== 确认归档 ==========
+                        // Snackbar 超时消失 = 用户确认归档
+                        // 执行真正的复制操作
+                        onCommitArchive()
+
+                        // 清理归档撤销状态
+                        lastClassifiedImage = null
+                        lastClassifiedIndex = -1
+                    }
+                    showUndoSnackbar = false
                 }
-                showUndoSnackbar = false
-            },
-            onDismiss = { 
-                if (isDeletePending) {
-                    // ========== 确认删除 ==========
-                    // Snackbar 超时消失 = 用户确认删除。
-                    // #90 第五轮：带着记录里**上滑时绑定的**凭证提交，
-                    // 即使此刻已经换批也不会记进新批次统计。
-                    commitPendingDelete()
-                } else {
-                    // ========== 确认归档 ==========
-                    // Snackbar 超时消失 = 用户确认归档
-                    // 执行真正的复制操作
-                    onCommitArchive()
-                    
-                    // 清理归档撤销状态
-                    lastClassifiedImage = null
-                    lastClassifiedIndex = -1
-                }
-                showUndoSnackbar = false 
-            },
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
+            )
+        }
     }
 
     // LIST_POPUP 模式：图集选择弹层（过滤掉隐藏的图集）

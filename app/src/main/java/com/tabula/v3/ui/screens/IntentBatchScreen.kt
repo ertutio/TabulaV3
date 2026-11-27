@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -123,7 +124,8 @@ fun IntentBatchContent(
     onRetainSelected: () -> Unit,
     onConfirm: () -> Unit,
     onAnalyze: () -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    batchUndo: @Composable (Modifier) -> Unit = {}
 ) {
     val context = LocalContext.current
     val isDark = LocalIsDarkTheme.current
@@ -135,6 +137,7 @@ fun IntentBatchContent(
     val warn = Color(0xFFFF9500)
     val imageLoader = remember(context) { CoilSetup.getImageLoader(context) }
     // 「开启前确认」对话框：每次进页面回到 false，不跨批次记住。
+    val listState = rememberLazyListState()
     var showAssistNotice by remember { mutableStateOf(false) }
     // 「切换服务会撤销本批授权」的提示条：切完显示一次，用户下次操作即消失。
     var serviceSwitchNotice by remember { mutableStateOf(false) }
@@ -293,15 +296,6 @@ fun IntentBatchContent(
             )
         }
 
-        if (statusLine.isNotBlank()) {
-            Text(
-                statusLine,
-                color = secondary,
-                fontSize = 11.sp,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-            )
-        }
-
         // ---------- 主体：加载 / 空 / 失败 三种状态共用同一布局 ----------
         //
         // 之前三种状态各自实现（有的 32dp 内边距、有的没有；有的居中 Box、有的列内），
@@ -316,22 +310,37 @@ fun IntentBatchContent(
         }
 
         if (settleState != null) {
+            if (statusLine.isNotBlank()) {
+                Text(
+                    statusLine,
+                    color = secondary,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                )
+            }
             IntentBatchSettlePlaceholder(
                 state = settleState,
                 accent = accent,
                 secondary = secondary,
                 onAnalyze = onAnalyze
             )
+            batchUndo(Modifier.navigationBarsPadding())
         }
 
         if (settleState == null) {
             // 走到这里说明 batch 非空（settleState 的判定里已经排除了 null / isEmpty）
             val visibleBatch = requireNotNull(batch) { "settleState == null 时 batch 必须非空" }
             LazyColumn(
+                state = listState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                if (statusLine.isNotBlank()) {
+                    item(key = "status") {
+                        Text(statusLine, color = secondary, fontSize = 11.sp)
+                    }
+                }
                 item(key = "hint") {
                     Text(
                         "按「为什么值得清」排序：有可核对截止时间的在前，越新越靠前。",
@@ -339,7 +348,7 @@ fun IntentBatchContent(
                         fontSize = 11.sp
                     )
                 }
-                items(visibleBatch.ordered, key = { "rec_${it.image.volumeName}|${it.image.id}" }) { candidate ->
+                items(visibleBatch.ordered, key = { intentIdentity(it) }) { candidate ->
                         IntentCandidateRow(
                             candidate = candidate,
                             checked = intentIdentity(candidate) in selectedIdentityKeys,
@@ -360,7 +369,7 @@ fun IntentBatchContent(
                                 modifier = Modifier.padding(top = 8.dp)
                             )
                         }
-                        items(visibleBatch.uncertain, key = { "unc_${it.image.volumeName}|${it.image.id}" }) { candidate ->
+                        items(visibleBatch.uncertain, key = { intentIdentity(it) }) { candidate ->
                             IntentCandidateRow(
                                 candidate = candidate,
                                 checked = intentIdentity(candidate) in selectedIdentityKeys,
@@ -399,6 +408,8 @@ fun IntentBatchContent(
                         }
                     }
                 }
+
+                batchUndo(Modifier)
 
                 // ---------- 底部操作条（与暂存清理同一条回收站链路） ----------
                 Column(
@@ -443,7 +454,7 @@ fun IntentBatchContent(
                             disabledContainerColor = warn.copy(alpha = 0.3f)
                         ),
                         shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                     ) {
                         when {
                             isSaving -> CircularProgressIndicator(
@@ -465,7 +476,7 @@ fun IntentBatchContent(
                         }
                     }
                     Text(
-                        "移入回收站后可在回收站恢复，不会立刻删除文件。",
+                        "可在回收站恢复",
                         color = secondary,
                         fontSize = 11.sp,
                         modifier = Modifier.padding(top = 6.dp)
