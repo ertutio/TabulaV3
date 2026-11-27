@@ -61,7 +61,10 @@ for label, commit in [("baseline", BASE)] + ([("candidate", CANDIDATE)] if CANDI
     manifest.write_text('<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application><profileable android:shell="true"/></application></manifest>\n')
     if tree_digest(source / "app/src/main") != original_main:
         raise RuntimeError("Production source unexpectedly changed")
-    run(["bash", "./gradlew", "--no-daemon", "--stacktrace", ":app:assembleBenchmark", ":macrobenchmark:assembleBenchmark"], cwd=source)
+    run([
+        "bash", str(ROOT / "tools/run-ci-gradle.sh"), "--no-daemon", "--stacktrace",
+        ":app:assembleBenchmark", ":macrobenchmark:assembleBenchmark"
+    ], cwd=source)
     app = source / "app/build/outputs/apk/benchmark/app-benchmark.apk"
     test = source / "macrobenchmark/build/outputs/apk/benchmark/macrobenchmark-benchmark.apk"
     dest = OUT / label
