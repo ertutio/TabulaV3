@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,6 +30,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -153,32 +155,42 @@ fun IntentBatchContent(
             }
         }
 
-        // ---------- 文字辅助（实验性，默认关闭，只在本批次生效） ----------
+        // ---------- 文字辅助（压成一行，实验性，默认关闭，只在本批次生效） ----------
         //
         // 四条必须让用户看见的事：
         // 1. 标「实验性」——它不是默认路径，本地 OCR + 规则才是；
         // 2. 打开前明确说明「只发送必要的脱敏 OCR 文字」，用户确认后才允许打开；
         // 3. 每次进入新批次都恢复关闭（由调用方保证），界面这里只反映当前状态；
         // 4. **服务可选**（DeepSeek / OpenCode Go），各用各的 Key；换服务 = 换外发对象，
-        //    本批授权必须回收，界面在此明确写出来。
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        //    本批授权必须回收。
+        //
+        // 布局：一行为主体（标签 + 服务名 + 状态 + 开关），服务选择与两套 Key 的
+        // 管理都收进同一个配置入口（现有弹层）。这样列表能往上提，照片是页面主体。
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // 「文字辅助 · 实验性」：分成两段是为了让「实验性」保留警示色
                 Text("文字辅助", color = textColor, fontSize = 13.sp)
-                Spacer(Modifier.width(6.dp))
+                Text(" · ", color = secondary, fontSize = 13.sp)
                 Text(
                     "实验性",
                     color = warn,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(warn.copy(alpha = 0.12f))
-                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
                 )
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = onOpenAssistSettings) {
-                    Text("设置 Key", color = accent, fontSize = 12.sp)
-                }
+                // 当前服务：点这一处进配置（服务选择 + 两套 Key）
+                Text(
+                    text = assistService.displayName,
+                    color = if (serviceKeyConfigured) secondary else warn,
+                    fontSize = 11.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable(enabled = assistAvailable) {
+                            HapticFeedback.lightTap(context)
+                            onOpenAssistSettings()
+                        }
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                )
                 Switch(
                     checked = assistEnabledForBatch && serviceKeyConfigured && assistNoticeAcknowledged,
                     enabled = assistAvailable && serviceKeyConfigured,
@@ -196,63 +208,32 @@ fun IntentBatchContent(
                 )
             }
 
-            // ---- 服务选择（两个选项，各管各的 Key）----
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("服务", color = secondary, fontSize = 11.sp)
-                Spacer(Modifier.width(8.dp))
-                IntentAssistService.entries.forEach { service ->
-                    val isCurrent = service == assistService
-                    val hasKey = assistKeyConfiguredByService[service] ?: (isCurrent && assistKeyConfigured)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .padding(end = 6.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                if (isCurrent) accent.copy(alpha = 0.12f) else Color.Transparent
-                            )
-                            .clickable(enabled = assistAvailable && !isCurrent) {
-                                HapticFeedback.lightTap(context)
-                                // 换服务 → 调用方吊销本批授权并重跑本地分析（关闭态）
-                                serviceSwitchNotice = true
-                                onSelectAssistService(service)
-                            }
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    ) {
-                        Text(
-                            service.displayName,
-                            color = if (isCurrent) accent else secondary,
-                            fontSize = 11.sp,
-                            fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal
-                        )
-                        if (hasKey) {
-                            Spacer(Modifier.width(3.dp))
-                            Text("•", color = accent, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-
+            // 状态/配置入口：缺 Key 时这里就是明确的配置入口（整行可点）
             Text(
-                when {
+                text = when {
                     !assistAvailable -> "本地 OCR 与规则照常可用；此处未提供文字辅助实现"
                     !serviceKeyConfigured ->
                         // 保留「未配置 Key」这个连续短语：既有页面流程测试按它断言
                         // （IntentBatchPageFlowTest.assistSwitchIsOffByDefaultAndBlockedWithoutKey）。
-                        "未配置 Key（当前服务 ${assistService.displayName}）。" +
-                            "默认路径是本地 OCR + 规则，不需要它"
+                        "未配置 Key（当前服务 ${assistService.displayName}）· 点此配置"
                     assistEnabledForBatch -> "本批次已启用：只发送脱敏后的文字片段，不发原图"
-                    else -> "默认关闭。开启后只向 ${assistService.displayName} 发送必要的脱敏 OCR 文字"
+                    else -> "默认关闭 · 只向 ${assistService.displayName} 发送脱敏文字"
                 },
-                color = secondary,
-                fontSize = 11.sp
+                color = if (!assistAvailable || serviceKeyConfigured) secondary else warn,
+                fontSize = 11.sp,
+                modifier = if (assistAvailable && !serviceKeyConfigured) {
+                    Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable {
+                            HapticFeedback.lightTap(context)
+                            onOpenAssistSettings()
+                        }
+                        .padding(vertical = 2.dp)
+                } else {
+                    Modifier.padding(vertical = 2.dp)
+                }
             )
-            Text(
-                "默认关闭、按批授权；只发送脱敏文字，不发原图。" +
-                    "当前服务 ${assistService.displayName}（Key 与另一服务独立存放）。",
-                color = secondary,
-                fontSize = 10.sp
-            )
+
             if (serviceSwitchNotice) {
                 Text(
                     "切换会撤销本批授权，需要重新开启。",
@@ -309,54 +290,44 @@ fun IntentBatchContent(
             )
         }
 
-        when {
-            engineNote != null -> {
-                Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text(engineNote, color = secondary, fontSize = 14.sp)
+        // ---------- 主体：加载 / 空 / 失败 三种状态共用同一布局 ----------
+        //
+        // 之前三种状态各自实现（有的 32dp 内边距、有的没有；有的居中 Box、有的列内），
+        // 切换时会看到文字上下跳。现在统一走同一个占位块：同样的居中方式、
+        // 同样的 32dp 边距、同样的文字层级（标题 14sp / 说明 12sp / 可选操作按钮）。
+        // 照片列表是页面主体，只在真正有候选时才换成列表。
+        val settleState: IntentBatchSettleState? = when {
+            engineNote != null -> IntentBatchSettleState.Failure(engineNote)
+            isAnalyzing -> IntentBatchSettleState.Loading
+            batch == null || batch.isEmpty -> IntentBatchSettleState.Empty
+            else -> null
+        }
+
+        if (settleState != null) {
+            IntentBatchSettlePlaceholder(
+                state = settleState,
+                accent = accent,
+                secondary = secondary,
+                onAnalyze = onAnalyze
+            )
+        }
+
+        if (settleState == null) {
+            // 走到这里说明 batch 非空（settleState 的判定里已经排除了 null / isEmpty）
+            val visibleBatch = requireNotNull(batch) { "settleState == null 时 batch 必须非空" }
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item(key = "hint") {
+                    Text(
+                        "按「为什么值得清」排序：有可核对截止时间的在前，越新越靠前。",
+                        color = secondary,
+                        fontSize = 11.sp
+                    )
                 }
-            }
-            isAnalyzing -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(color = accent)
-                        Spacer(Modifier.height(12.dp))
-                        Text("正在本地识别文字…", color = secondary, fontSize = 13.sp)
-                    }
-                }
-            }
-            batch == null || batch.isEmpty -> {
-                Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            "这批范围里没有找到足够明确的候选。",
-                            color = secondary,
-                            fontSize = 14.sp
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "证据不足时我们不会硬凑一批；可以换来源，或过几天再来。",
-                            color = secondary,
-                            fontSize = 12.sp
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Button(onClick = onAnalyze) { Text("重新分析") }
-                    }
-                }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    item(key = "hint") {
-                        Text(
-                            "按「为什么值得清」排序：有可核对截止时间的在前，越新越靠前。",
-                            color = secondary,
-                            fontSize = 11.sp
-                        )
-                    }
-                    items(batch.ordered, key = { "rec_${it.image.volumeName}|${it.image.id}" }) { candidate ->
+                items(visibleBatch.ordered, key = { "rec_${it.image.volumeName}|${it.image.id}" }) { candidate ->
                         IntentCandidateRow(
                             candidate = candidate,
                             checked = intentIdentity(candidate) in selectedIdentityKeys,
@@ -368,7 +339,7 @@ fun IntentBatchContent(
                             onToggle = { onToggleImage(candidate) }
                         )
                     }
-                    if (batch.uncertain.isNotEmpty()) {
+                    if (visibleBatch.uncertain.isNotEmpty()) {
                         item(key = "uncertain_header") {
                             Text(
                                 "证据不足，需要你自己看（默认不勾选）",
@@ -377,7 +348,7 @@ fun IntentBatchContent(
                                 modifier = Modifier.padding(top = 8.dp)
                             )
                         }
-                        items(batch.uncertain, key = { "unc_${it.image.volumeName}|${it.image.id}" }) { candidate ->
+                        items(visibleBatch.uncertain, key = { "unc_${it.image.volumeName}|${it.image.id}" }) { candidate ->
                             IntentCandidateRow(
                                 candidate = candidate,
                                 checked = intentIdentity(candidate) in selectedIdentityKeys,
@@ -393,22 +364,22 @@ fun IntentBatchContent(
                     item(key = "footer") {
                         Column(modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)) {
                             Text(
-                                "本轮：推荐 ${batch.recommended.size} 张 · 低优先级 ${batch.lowerPriority.size} 张" +
-                                    " · 待定 ${batch.uncertain.size} 张",
+                                "本轮：推荐 ${visibleBatch.recommended.size} 张 · 低优先级 ${visibleBatch.lowerPriority.size} 张" +
+                                    " · 待定 ${visibleBatch.uncertain.size} 张",
                                 color = secondary,
                                 fontSize = 11.sp
                             )
-                            if (batch.protectedCount > 0 || batch.evergreenCount > 0) {
+                            if (visibleBatch.protectedCount > 0 || visibleBatch.evergreenCount > 0) {
                                 Text(
-                                    "已排除 ${batch.protectedCount} 张保护项（票务/订单/凭证/课件/长期保留）" +
-                                        if (batch.evergreenCount > 0) "，以及 ${batch.evergreenCount} 张长文资料" else "",
+                                    "已排除 ${visibleBatch.protectedCount} 张保护项（票务/订单/凭证/课件/长期保留）" +
+                                        if (visibleBatch.evergreenCount > 0) "，以及 ${visibleBatch.evergreenCount} 张长文资料" else "",
                                     color = secondary,
                                     fontSize = 11.sp
                                 )
                             }
-                            if (batch.shortOfLimit) {
+                            if (visibleBatch.shortOfLimit) {
                                 Text(
-                                    "只找到 ${batch.ordered.size} 张足够明确的候选，没有为了凑满批次硬塞。",
+                                    "只找到 ${visibleBatch.ordered.size} 张足够明确的候选，没有为了凑满批次硬塞。",
                                     color = secondary,
                                     fontSize = 11.sp
                                 )
@@ -425,23 +396,33 @@ fun IntentBatchContent(
                         .navigationBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
+                    // 第一行：选中数量（左，作为状态）＋ 长期保留（右，次要操作）。
+                    // 数量用主文本色而不是次要灰：它是这一屏最需要一眼看到的当前状态。
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "已选 ${selectedIdentityKeys.size} 张",
-                            color = secondary,
-                            fontSize = 12.sp
+                            text = if (selectedIdentityKeys.isEmpty()) "未选择照片"
+                            else "已选 ${selectedIdentityKeys.size} 张",
+                            color = if (selectedIdentityKeys.isEmpty()) secondary else textColor,
+                            fontSize = 13.sp,
+                            fontWeight = if (selectedIdentityKeys.isEmpty()) FontWeight.Normal
+                            else FontWeight.Medium
                         )
-                        TextButton(
+                        OutlinedButton(
                             onClick = { HapticFeedback.lightTap(context); onRetainSelected() },
-                            enabled = selectedIdentityKeys.isNotEmpty() && !isSaving
+                            enabled = selectedIdentityKeys.isNotEmpty() && !isSaving,
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Text("长期保留", color = secondary, fontSize = 12.sp)
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    // 主操作：以结果命名（「移入回收站」），不用「提交」这类抽象词。
+                    // 未选择时按钮禁用并说明原因；保存中显示进度且不显示数量（避免看似可点）。
                     Button(
                         onClick = { HapticFeedback.mediumTap(context); onConfirm() },
                         enabled = selectedIdentityKeys.isNotEmpty() && !isSaving,
@@ -452,16 +433,19 @@ fun IntentBatchContent(
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth().height(48.dp)
                     ) {
-                        if (isSaving) {
-                            CircularProgressIndicator(
+                        when {
+                            isSaving -> CircularProgressIndicator(
                                 modifier = Modifier.size(18.dp),
                                 color = Color.White,
                                 strokeWidth = 2.dp
                             )
-                        } else {
-                            Text(
-                                if (selectedIdentityKeys.isEmpty()) "选择要移入回收站的照片"
-                                else "移入回收站（${selectedIdentityKeys.size} 张）",
+                            selectedIdentityKeys.isEmpty() -> Text(
+                                "选择照片后可移入回收站",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 15.sp
+                            )
+                            else -> Text(
+                                "移入回收站（${selectedIdentityKeys.size} 张）",
                                 color = Color.White,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -475,6 +459,81 @@ fun IntentBatchContent(
                         modifier = Modifier.padding(top = 6.dp)
                     )
                 }
+            }
+    }
+}
+
+/**
+ * 凑一批页的三种「没有照片可看」状态。
+ *
+ * 抽成一个 sealed 类而不是三个 `when` 分支，是为了让**布局只有一份**：
+ * 加载、空结果、失败共用同一个占位块（相同的居中方式、边距、文字层级），
+ * 切换状态时不会看到文字上下跳。
+ */
+private sealed interface IntentBatchSettleState {
+    /** 正在本地识别文字。 */
+    data object Loading : IntentBatchSettleState
+
+    /** 这批范围里没有足够明确的候选。 */
+    data object Empty : IntentBatchSettleState
+
+    /** 分析失败（引擎不可用等），带一句说明。 */
+    data class Failure(val note: String) : IntentBatchSettleState
+}
+
+/**
+ * 三种状态共用的占位块。
+ *
+ * 文字层级固定：主文案 14sp、说明 12sp、可选操作按钮。加载态用同样大小的
+ * 圆形进度替换主文案位置，因此高度变化只在「有/无按钮」这一处。
+ */
+@Composable
+private fun ColumnScope.IntentBatchSettlePlaceholder(
+    state: IntentBatchSettleState,
+    accent: Color,
+    secondary: Color,
+    onAnalyze: () -> Unit
+) {
+    val title: String
+    val detail: String
+    val showAnalyze: Boolean
+    when (state) {
+        IntentBatchSettleState.Loading -> {
+            title = "正在本地识别文字…"
+            detail = "只在本机识别，不上传照片"
+            showAnalyze = false
+        }
+        IntentBatchSettleState.Empty -> {
+            title = "这批范围里没有找到足够明确的候选。"
+            detail = "证据不足时我们不会硬凑一批；可以换来源，或过几天再来。"
+            showAnalyze = true
+        }
+        is IntentBatchSettleState.Failure -> {
+            title = state.note
+            detail = "本地规则仍可用；可以重试，或换一批来源"
+            showAnalyze = true
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f)
+            .padding(horizontal = 32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (state is IntentBatchSettleState.Loading) {
+                CircularProgressIndicator(color = accent, modifier = Modifier.size(28.dp))
+            }
+            Text(title, color = secondary, fontSize = 14.sp)
+            Text(detail, color = secondary, fontSize = 12.sp)
+            if (showAnalyze) {
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onAnalyze) { Text("重新分析") }
             }
         }
     }
