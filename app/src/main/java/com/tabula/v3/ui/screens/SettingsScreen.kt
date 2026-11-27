@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -95,10 +96,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -117,6 +120,7 @@ import com.tabula.v3.data.preferences.TopBarDisplayMode
 import com.tabula.v3.ui.components.GlassBottomSheet
 import com.tabula.v3.ui.components.GlassDivider
 import com.tabula.v3.ui.components.LocalLiquidGlassEnabled
+import com.tabula.v3.ui.components.SettingsPageLayout
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import com.tabula.v3.ui.theme.TabulaColors
 import com.tabula.v3.ui.util.HapticFeedback
@@ -210,14 +214,11 @@ fun SettingsScreen(
     var showWalkStrategySheet by remember { mutableStateOf(false) }
     var currentWalkStrategy by remember { mutableStateOf(preferences.walkSamplingStrategy) }
 
-    Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(backgroundColor)
-                .statusBarsPadding()
-                // navigationBarsPadding 移到滚动内容底部，实现沉浸式效果
-        ) {
-            // ========== 顶部大标题栏 ==========
+    val effectiveScrollState = scrollState ?: rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) }
+    SettingsPageLayout(
+        background = backgroundColor,
+        scrollState = effectiveScrollState,
+        header = {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -247,17 +248,9 @@ fun SettingsScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
-
-            // ========== 内容滚动区 ==========
-            // 使用外部传入的滚动状态（如果有），否则使用本地状态
-            val effectiveScrollState = scrollState ?: rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) }
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(effectiveScrollState)
-                    .padding(horizontal = 20.dp)
-            ) {
-                Spacer(modifier = Modifier.height(12.dp))
+        }
+    ) {
+            Spacer(modifier = Modifier.height(12.dp))
 
             // ========== 外观 (带小黑猫彩蛋) ==========
             SectionHeader("外观", textColor)
@@ -603,7 +596,6 @@ fun SettingsScreen(
 
             // 底部留出导航栏空间，实现沉浸式效果
             Spacer(modifier = Modifier.height(40.dp).navigationBarsPadding())
-        }
     }
 
     // ========== 各种底栏 (Modals) ==========
@@ -2173,6 +2165,8 @@ fun SettingsItem(
     showArrow: Boolean = true,
     onClick: () -> Unit
 ) {
+    val stackValue = value.isNotEmpty() &&
+        (LocalConfiguration.current.screenWidthDp < 360 || LocalDensity.current.fontScale >= 1.3f)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -2184,20 +2178,22 @@ fun SettingsItem(
         
         Spacer(modifier = Modifier.width(16.dp))
         
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = FontWeight.Medium
-            ),
-            color = textColor,
-            modifier = Modifier.weight(1f)
-        )
-        
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = secondaryTextColor
-        )
+        val titleStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+        if (stackValue) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = titleStyle, color = textColor)
+                Text(value, style = MaterialTheme.typography.bodyMedium, color = secondaryTextColor)
+            }
+        } else {
+            Text(title, style = titleStyle, color = textColor, modifier = Modifier.weight(1f))
+            Text(
+                value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = secondaryTextColor,
+                textAlign = TextAlign.End,
+                modifier = Modifier.widthIn(max = 128.dp)
+            )
+        }
         
         if (showArrow) {
             Spacer(modifier = Modifier.width(8.dp))
