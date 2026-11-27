@@ -1,0 +1,128 @@
+name: Sign Tabula preview APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Run ID of the verified preview build
+        required: true
+        type: string
+      source_sha:
+        description: Full SHA of the preview release commit
+        required: true
+        type: string
+      version_name:
+        description: APK version name, for example 4.0.1-preview
+        required: true
+        type: string
+      version_code:
+        description: Android version code, for example 8
+        required: true
+        type: string
+      unsigned_sha256:
+        description: SHA-256 of the verified unsigned APK
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  sign:
+    if: github.repository == 'ertutio/TabulaV3' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    environment: release-signing
+    timeout-minutes: 15
+    env:
+      BUILD_RUN_ID: ${{ inputs.build_run_id }}
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      PREVIEW_VERSION: ${{ inputs.version_name }}
+      PREVIEW_CODE: ${{ inputs.version_code }}
+      UNSIGNED_SHA256: ${{ inputs.unsigned_sha256 }}
+    steps:
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android signing tools
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;35.0.0"'
+      - name: Check and download the unsigned release build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$UNSIGNED_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          [[ "$PREVIEW_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?-preview$ ]]
+          [[ "$PREVIEW_CODE" =~ ^[1-9][0-9]*$ ]]
+          branch="release/v$PREVIEW_VERSION"
+          repo="repos/$GITHUB_REPOSITORY"
+          test "$(gh api "$repo/git/ref/heads/$branch" --jq .object.sha)" = "$SOURCE_SHA"
+          comparison=$(gh api "$repo/compare/$GITHUB_SHA...$SOURCE_SHA")
+          jq -e '
+            .status == "ahead" and .ahead_by == 1 and
+            ([.files[].filename] == ["app/build.gradle.kts"]) and
+            (.files[0].patch != null)' <<< "$comparison"
+          changed_lines=$(jq -r '.files[0].patch' <<< "$comparison" | sed -n 's/^[+-][[:blank:]]*//p')
+          if grep -Ev '^versionCode = [0-9]+$|^versionName = "[0-9.]+(-preview)?"$|^buildConfigField\("String", "RELEASE_DATE", "\\"[0-9.]+\\""\)$' <<< "$changed_lines"; then
+            echo 'The release commit changes more than version metadata.' >&2
+            exit 1
+          fi
+          gh api "$repo/actions/runs/$BUILD_RUN_ID" | jq -e \
+            --arg source "$SOURCE_SHA" --arg branch "$branch" --arg repo "$GITHUB_REPOSITORY" '
+              .head_sha == $source and .head_branch == $branch and .head_repository.full_name == $repo and
+              .event == "workflow_dispatch" and .path == ".github/workflows/verify-liquid-glass-backdrop.yml"'
+          gh api "$repo/actions/runs/$BUILD_RUN_ID/jobs" | jq -e '
+            any(.jobs[]; .name == "verify" and .conclusion == "success")'
+
+          gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "Tabula-liquid-glass-$SOURCE_SHA" --dir "$RUNNER_TEMP/preview-build"
+          apk="$RUNNER_TEMP/preview-build/artifacts/TabulaV3-liquid-glass-release-unsigned.apk"
+          printf '%s  %s\n' "$UNSIGNED_SHA256" "$apk" | sha256sum --check
+          badging=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk")
+          grep -Fq "package: name='com.tabula.v3' versionCode='$PREVIEW_CODE' versionName='$PREVIEW_VERSION'" <<< "$badging"
+          if grep -q '^application-debuggable' <<< "$badging"; then
+            echo 'The preview APK is debuggable.' >&2
+            exit 1
+          fi
+      - name: Sign and check the published certificate
+        env:
+          TABULA_KEYSTORE_BASE64: ${{ secrets.TABULA_KEYSTORE_BASE64 }}
+          TABULA_STORE_PASSWORD: ${{ secrets.TABULA_STORE_PASSWORD }}
+          TABULA_KEY_ALIAS: ${{ secrets.TABULA_KEY_ALIAS }}
+          TABULA_KEY_PASSWORD: ${{ secrets.TABULA_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          : "${TABULA_KEYSTORE_BASE64:?Missing TABULA_KEYSTORE_BASE64}"
+          : "${TABULA_STORE_PASSWORD:?Missing TABULA_STORE_PASSWORD}"
+          : "${TABULA_KEY_ALIAS:?Missing TABULA_KEY_ALIAS}"
+          : "${TABULA_KEY_PASSWORD:?Missing TABULA_KEY_PASSWORD}"
+          umask 077
+          keystore=$(mktemp "$RUNNER_TEMP/tabula-keystore.XXXXXX")
+          trap 'rm -f "$keystore"' EXIT
+          printf '%s' "$TABULA_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          unset TABULA_KEYSTORE_BASE64
+
+          output="$RUNNER_TEMP/signed-preview"
+          mkdir "$output"
+          apk="TabulaV3-$PREVIEW_VERSION-code$PREVIEW_CODE-signed.apk"
+          apksigner="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$apksigner" sign --ks "$keystore" --ks-key-alias "$TABULA_KEY_ALIAS" \
+            --ks-pass env:TABULA_STORE_PASSWORD --key-pass env:TABULA_KEY_PASSWORD \
+            --out "$output/$apk" "$RUNNER_TEMP/preview-build/artifacts/TabulaV3-liquid-glass-release-unsigned.apk"
+
+          cd "$output"
+          certificate=$("$apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          # Certificate of the published V4.0-preview APK.
+          test "$certificate" = d483b29a8f509b6f9d70d48f459da319a0395a59ba8cf451c155cef46f0e301b
+          sha256sum "$apk" > SHA256SUMS-preview.txt
+          printf 'Source SHA: %s\nBuild run: %s\nUnsigned SHA-256: %s\nCertificate SHA-256: %s\n' \
+            "$SOURCE_SHA" "$BUILD_RUN_ID" "$UNSIGNED_SHA256" "$certificate" > BUILD.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: TabulaV3-${{ inputs.version_name }}-signed
+          path: ${{ runner.temp }}/signed-preview/
+          if-no-files-found: error
+          retention-days: 7
