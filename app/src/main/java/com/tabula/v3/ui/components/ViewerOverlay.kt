@@ -44,6 +44,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -66,6 +69,8 @@ import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropSpec
 import com.tabula.v3.ui.components.liquidglass.ViewerBackdropSync
 import com.tabula.v3.ui.components.liquidglass.ViewerBackdropDecision
 import com.tabula.v3.ui.components.liquidglass.rememberLiquidGlassBackdropState
+import com.tabula.v3.ui.components.liquidglass.PhotoDisplayRect
+import com.tabula.v3.ui.components.liquidglass.ViewerBackdropAuditLine
 import com.tabula.v3.ui.components.liquidglass.rememberViewerBackdropWiring
 import com.tabula.v3.ui.components.ActionIconButton
 import com.tabula.v3.ui.components.LocalLiquidGlassEnabled
@@ -123,6 +128,12 @@ fun ViewerOverlay(
 
     // 容器尺寸（由 BoxWithConstraints 提供，在下方计算）
     var containerWidthPx by remember { mutableFloatStateOf(0f) }
+    // 照片在宿主坐标系里**实际渲染**的矩形。用 onGloballyPositioned 量：
+    // 它拿到的是经过 graphicsLayer（translation + scale）之后的最终位置，
+    // 而这正是采样层需要对齐的东西。自己用 targetWidth/currentWidth 推算
+    // 只能得到"逻辑尺寸"，一旦有缩放或平移就对不上。
+    var photoRectInHost by remember { mutableStateOf<Rect?>(null) }
+
     var containerHeightPx by remember { mutableFloatStateOf(0f) }
 
     // 源位置信息 - 使用remember保存初始值，确保退出动画时使用正确的位置
@@ -406,14 +417,34 @@ fun ViewerOverlay(
         currentPhotoData = image.uri,
         statusBarInsetPx = statusBarInsetPxLocal
     )
+    // 照片在宿主里的真实矩形（像素）。入场动画期间照片从卡片位置移到居中位置，
+    // 采样层若按"整个宿主 Fit"来摆照片，两端都会错位——照片被放大、多出的部分
+    // 顶到按钮下方，而屏幕上那个位置是黑边。
+    //
+    // 只在**停稳且原比例原位置**时才交给采样层：
+    //   · 动画没结束（animProgress != 1）→ 位置还在动，量到的矩形下一帧就失效；
+    //   · 放大或平移过 → 屏幕上的画面与"原图 Fit"不是同一幅，必须回退；
+    //   · 矩形无效（照片未就绪 / 尺寸为 0）→ 没有可信来源，回退。
+    // 三者任一成立就传 null，采样层回到实色按钮（由 viewerSync 的 fallback 决定）。
     val viewerSync = ViewerBackdropSync(
         pagerSettled = true,
         scale = animScale,
         panX = animOffsetX,
         panY = animOffsetY
     )
-    val backdropSpec = remember(viewerSync) {
-        LiquidGlassBackdropSpec.Default.copy(viewerSync = viewerSync)
+    val settledPhotoRect = run {
+        if (animProgress.value < 0.999f) return@run null
+        if (!viewerSync.canSample) return@run null
+        // 矩形本身就是"照片已渲染"的证据：没渲染过就不会被量到。
+        PhotoDisplayRect.of(photoRectInHost)
+    }
+    val backdropSpec = remember(viewerSync, settledPhotoRect) {
+        LiquidGlassBackdropSpec.Default.copy(
+            viewerSync = viewerSync,
+            // 未就绪/变换中/无效 → null：采样层按整宿主 Fit 之外，还要求
+            // canSample 为真才真的采样，因此这里 null 与 fallback 是同一件事的两面。
+            photoRectPx = settledPhotoRect
+        )
     }
     val viewerBackdropState = rememberLiquidGlassBackdropState()
 
@@ -425,7 +456,24 @@ fun ViewerOverlay(
         backdropSpec = backdropSpec,
         state = viewerBackdropState,
         background = Color.Black,
-        topBar = { decision -> ExitButtonWithBackdrop(decision, isExiting, ::exitViewer) },
+        // **新增的关闭按钮只在试点内存在。**
+        // 开关关闭 / 系统不支持（SDK < 33）/ 本机判定不采样时，这里什么都不画：
+        // 回到试点前的操作方式——点背景退出，分享按钮照旧在右上角。
+        // 采样暂不可用但试点开着时，按钮仍在，只是走实色样式（见 ViewerExitButton）。
+        topBar = { decision ->
+            // **渲染证据出口**（只 debug 变体渲染）：审计行与 decision 同源，
+            // 而 decision 同时决定下面画哪条分支，因此"读数说在采样、屏幕在回退"
+            // 不可能发生。设备测试靠它拿到 sampled / reason / ready / photorect。
+            ViewerBackdropAuditLine(
+                decision = decision,
+                state = viewerBackdropState,
+                viewerSync = viewerSync,
+                page = 1
+            )
+            if (decision.pilotActive) {
+                ExitButtonWithBackdrop(decision, isExiting, ::exitViewer)
+            }
+        },
         content = {
         BoxWithConstraints(
             // 外层玻璃层已 fillMaxSize，这里只承载语义与手势
@@ -463,6 +511,11 @@ fun ViewerOverlay(
                     .size(currentWidthDp, currentHeightDp)
                     .onSizeChanged { size ->
                         contentSize = Size(size.width.toFloat(), size.height.toFloat())
+                    }
+                    .onGloballyPositioned { coords ->
+                        // 宿主角落 → 采样层用的像素坐标是同一个（都是整屏像素）。
+                        val r = coords.boundsInRoot()
+                        photoRectInHost = if (r.width > 0.5f && r.height > 0.5f) r else null
                     }
                     .clip(RoundedCornerShape(currentCornerRadius.dp))
                     .background(Color.Black)

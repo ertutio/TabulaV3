@@ -90,6 +90,14 @@ fun ViewerBackdropAuditLine(
             append(" effect=- drawplan=-")
         }
 
+        // 照片矩形的实测值：坐标对齐是本轮修的缺陷，必须能在设备上读到，
+        // 否则"采样层按整宿主 Fit"这种错误只能靠看图猜。
+        append(" photorect=").append(
+            decision.photoRect?.let { r ->
+                "%.0f,%.0f,%.0fx%.0f".format(r.left, r.top, r.width, r.height)
+            } ?: "-"
+        )
+
         if (viewerSync != null) {
             append(" sync=").append(if (viewerSync.canSample) "ok" else "blocked")
             append(" scale=").append(viewerSync.scale)

@@ -88,11 +88,27 @@ fun DrawScope.drawPhotoBackdrop(
     bitmap: Bitmap?,
     background: Color = Color.Black,
     topScrimHeightPx: Float = 0f,
-    topScrimAlpha: Float = 0.5f
+    topScrimAlpha: Float = 0.5f,
+    /**
+     * 照片在屏幕上实际占据的矩形（宿主坐标，像素）。
+     *
+     * 提供时按它摆放，不再对整个宿主做 Fit。这是普通查看器的必需项：
+     * 那里的照片缩在容器的 95%×90% 里居中，若采样层按整宿主 Fit，
+     * 照片会被放大、上下多出的部分顶到按钮下方——按钮采到的是照片，
+     * 屏幕上那个位置却是黑边。
+     *
+     * null = 沿用旧行为（整个宿主 Fit），供满屏查看器等场景。
+     */
+    photoRectPx: PhotoDisplayRect? = null
 ) {
     drawRect(background, Offset.Zero, Size(size.width, size.height))
     if (bitmap != null && !bitmap.isRecycled) {
-        val target = fitInsideRect(
+        // 有真实矩形就用它；否则退回"整个宿主按 Fit"。
+        val explicit = photoRectPx?.takeIf { it.isValid }
+        val target = explicit?.let {
+            // 复用同一个返回类型，避免下游两套分支
+            FitInsideRect(it.left, it.top, it.width, it.height)
+        } ?: fitInsideRect(
             contentWidth = bitmap.width,
             contentHeight = bitmap.height,
             boxWidth = size.width,
