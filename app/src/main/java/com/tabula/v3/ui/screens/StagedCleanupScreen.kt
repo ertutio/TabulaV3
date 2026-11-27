@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -55,6 +56,7 @@ import com.tabula.v3.data.cleanup.StagedCleanupSource
 import com.tabula.v3.data.cleanup.cleanupIdentityKey
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.di.CoilSetup
+import com.tabula.v3.ui.components.SubPageHeader
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import com.tabula.v3.ui.util.HapticFeedback
 import java.text.SimpleDateFormat
@@ -85,7 +87,9 @@ fun StagedCleanupSourcePickerContent(
     isLoading: Boolean,
     onToggleSource: (String) -> Unit,
     onConfirm: () -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    relayCount: Int = 0,
+    onOpenRelayReview: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -108,6 +112,10 @@ fun StagedCleanupSourcePickerContent(
             secondaryTextColor = secondaryTextColor,
             onNavigateBack = onNavigateBack
         )
+
+        if (relayCount > 0) {
+            RelayPendingEntry(relayCount, cardColor, accentColor, onOpenRelayReview)
+        }
 
         Text(
             text = "先选来源：截图、下载，以及聊天软件保存图片的目录。" +
@@ -254,7 +262,9 @@ fun StagedCleanupCandidateContent(
      * 新能力的输入范围（已勾选来源、已扣除保留/跳过/已回收），
      * 用户不需要再选一次来源，也不会误以为它能扫全库。
      */
-    onOpenIntentBatch: (() -> Unit)? = null
+    onOpenIntentBatch: (() -> Unit)? = null,
+    relayCount: Int = 0,
+    onOpenRelayReview: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -281,25 +291,44 @@ fun StagedCleanupCandidateContent(
             onNavigateBack = onNavigateBack
         )
 
+        if (relayCount > 0) {
+            RelayPendingEntry(relayCount, cardColor, accentColor, onOpenRelayReview)
+        }
+
         if (onOpenIntentBatch != null) {
+            // 收短成一个列表项：整行是点击目标，副文案只说「先排序，再由你选择处理」。
+            //
+            // 之前是一行小字 + 右侧独立的「看看」按钮：两个可点目标争同一行空间，
+            // 窄屏/大字体下标题会被挤成两行、按钮还可能被挤到换行。现在整行可点，
+            // 目标更大、文案更短，也不再需要一个单独的按钮占位。
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .clickable {
+                        HapticFeedback.lightTap(context)
+                        onOpenIntentBatch()
+                    }
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "按整理目的凑一批：先看最值得清的（只排序，不自动删）",
-                    color = accentColor,
-                    fontSize = 12.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = {
-                    HapticFeedback.lightTap(context)
-                    onOpenIntentBatch()
-                }) {
-                    Text("看看", color = accentColor, fontSize = 12.sp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "按整理目的凑一批",
+                        color = textColor,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "先排序，再由你选择处理",
+                        color = secondaryTextColor,
+                        fontSize = 12.sp
+                    )
                 }
+                Text(
+                    text = "›",
+                    color = secondaryTextColor,
+                    fontSize = 20.sp
+                )
             }
         }
 
@@ -550,29 +579,15 @@ private fun StagedCleanupHeader(
     secondaryTextColor: Color,
     onNavigateBack: () -> Unit
 ) {
-    val context = LocalContext.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = {
-            HapticFeedback.lightTap(context)
-            onNavigateBack()
-        }) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                contentDescription = "返回",
-                tint = textColor,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-        Column(Modifier.weight(1f)) {
-            Text(title, color = textColor, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = secondaryTextColor, fontSize = 13.sp)
-        }
-    }
+    // 三个子页（暂存清理 / 分享待清 / 连拍选片）共用同一份头部：
+    // 返回按钮尺寸、标题层级与左右边距只维护一处。
+    SubPageHeader(
+        title = title,
+        subtitle = subtitle,
+        textColor = textColor,
+        secondaryTextColor = secondaryTextColor,
+        onNavigateBack = onNavigateBack
+    )
 }
 
 @Composable
@@ -788,4 +803,22 @@ private fun SourceRowItem(
         }
     )
     Spacer(Modifier.height(8.dp))
+}
+
+
+@Composable
+private fun RelayPendingEntry(count: Int, surface: Color, accent: Color, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(surface)
+            .clickable(onClick = onClick)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("分享待清 · $count 张", color = accent, fontSize = 14.sp)
+    }
 }

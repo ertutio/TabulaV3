@@ -51,6 +51,7 @@ import com.tabula.v3.ui.util.HapticFeedback
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.tabula.v3.ui.components.SubPageHeader
 
 /** 系统分享产生的待清记录：用户可见、可撤销、可核对、可移入回收站。 */
 @Composable
@@ -81,33 +82,28 @@ fun RelayReviewScreen(
     var confirmCandidate by remember { mutableStateOf<Pair<RelayReviewRules.ReviewRow, ImageFile>?>(null) }
 
     Column(Modifier.fillMaxSize().background(bg)) {
-        Row(
-            Modifier.fillMaxWidth().padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = {
-                HapticFeedback.lightTap(context)
+        SubPageHeader(
+            title = if (pickingFor != null) "选择原图" else "分享待清",
+            subtitle = if (pickingFor != null) {
+                "点一张你确认的就是分享的那张"
+            } else {
+                "标记不是删除；撤销不会移动照片"
+            },
+            textColor = text,
+            secondaryTextColor = secondary,
+            onNavigateBack = {
                 if (pickingFor != null) pickingFor = null else onNavigateBack()
-            }) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回", tint = text)
-            }
-            Column(Modifier.weight(1f)) {
-                Text(
-                    if (pickingFor != null) "选择原图" else "分享待清",
-                    color = text, fontSize = 20.sp, fontWeight = FontWeight.Bold
-                )
-                Text(
-                    if (pickingFor != null) "点一张你确认的就是分享的那张"
-                    else "标记不是删除；撤销不会移动照片",
-                    color = secondary, fontSize = 12.sp
-                )
-            }
-            if (pickingFor == null) {
-                TextButton(onClick = onToggleReviewOnly) {
-                    Text(if (showReviewOnly) "全部记录" else "待核对", color = accent)
+            },
+            trailing = if (pickingFor == null) {
+                {
+                    TextButton(onClick = onToggleReviewOnly) {
+                        Text(if (showReviewOnly) "全部记录" else "待核对", color = accent)
+                    }
                 }
+            } else {
+                null
             }
-        }
+        )
 
         if (pickingFor != null) {
             // ===== 原图选择：全部可访问照片的缩略图网格 =====
@@ -263,7 +259,7 @@ fun RelayReviewScreen(
                                     TextButton(onClick = {
                                         HapticFeedback.lightTap(context)
                                         pickingFor = row
-                                    }) { Text("浏览图库指定原图", color = accent) }
+                                    }) { Text("指定原图", color = accent) }
                                 }
                             }
                         }

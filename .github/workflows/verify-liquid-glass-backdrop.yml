@@ -207,8 +207,45 @@ jobs:
           "$AAPT" dump badging "$APK_RELEASE" > release-badging.txt
           grep -F "package: name='com.tabula.v3'" release-badging.txt
           test -s app/build/outputs/mapping/release/mapping.txt
-          # 背景采样层是纯 Kotlin/AGSL，不引入新依赖，APK 体积不应明显增长
-          test "$(stat -c %s "$APK_RELEASE")" -lt 35000000
+
+          # 「背景采样层是纯 Kotlin/AGSL，不引入新依赖」这条，原先写成
+          # `size < 35 MB`。35 MB 是 191afd7（11-23）写下时的体积，之后
+          # master 合入 #94 本地中文 OCR（Tesseract4Android），release APK 的
+          # native 部分从 0 涨到约 27.5 MB（4 个 ABI × libtesseract/libleptonica），
+          # 实际体积约 56.6 MB。**基线本身就越过了这条线**，所以它不是本分支
+          # 引入的回归，而是断言没跟上基线：任何基于当前 master 的提交都会红。
+          #
+          # 换成两条各自对准原意的断言，不再随基线漂移失效：
+          #   1. native 库集合必须与基线完全一致 —— 这才是「不引入新依赖」；
+          #   2. 体积给一个只兜「误打包大资源」的粗上限，不冒充精确体积门。
+          # 用 python3 读 APK（本 workflow 其余步骤也依赖它），避免依赖 unzip 版本差异。
+          python3 - "$APK_RELEASE" <<'PY'
+          import sys, zipfile
+          apk = sys.argv[1]
+          expected = {
+              "libandroidx.graphics.path.so", "libjpeg.so",
+              "libleptonica.so", "libpngx.so", "libtesseract.so",
+          }
+          with zipfile.ZipFile(apk) as z:
+              names = z.namelist()
+          # lib/<abi>/<libname>.so —— ABI 在第 2 段，库名在第 3 段
+          entries = [n.split("/") for n in names if n.startswith("lib/") and n.count("/") == 2]
+          libs = {parts[2] for parts in entries}
+          abis = {parts[1] for parts in entries}
+          if libs != expected:
+              print("native 库集合与基线不一致")
+              print("  仅在基线:", sorted(expected - libs))
+              print("  仅在本包:", sorted(libs - expected))
+              sys.exit(1)
+          if len(abis) != 4:
+              print(f"ABI 数量应为 4，实际 {len(abis)}: {sorted(abis)}")
+              sys.exit(1)
+          print(f"native ok: {len(libs)} 个库 × {len(abis)} 个 ABI")
+          PY
+
+          APK_BYTES="$(stat -c %s "$APK_RELEASE")"
+          echo "release APK: $APK_BYTES bytes（含 OCR native 约 27.5 MB）"
+          test "$APK_BYTES" -lt 70000000
 
       - name: Collect artifacts
         if: always()

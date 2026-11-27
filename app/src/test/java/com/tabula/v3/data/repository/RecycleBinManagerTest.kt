@@ -42,6 +42,69 @@ class RecycleBinManagerTest {
         catch (expected: RecycleBinPersistenceException) { assertNotNull(expected.cause) }
     }
 
+    @Test fun partialBatchReceiptOnlyIncludesNewRowsAndKeepsOtherVolumes() = runBlocking {
+        val manager = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        val preexisting = fixturePhoto(1).copy(
+            uri = Uri.parse("content://media/external_primary/images/media/1"),
+            volumeName = "external_primary"
+        )
+        val newPhoto = preexisting.copy(
+            uri = Uri.parse("content://media/card/images/media/1"),
+            volumeName = "card"
+        )
+        manager.addToRecycleBin(preexisting)
+
+        val addition = manager.addBatchToRecycleBin(listOf(preexisting, newPhoto, newPhoto))
+
+        assertEquals(listOf(newPhoto.uri), addition.added.map { it.uri })
+        assertEquals(setOf(preexisting.uri, newPhoto.uri), addition.records.map { it.uri }.toSet())
+        val undone = manager.removeBatchRecords(addition.added, emptyList())
+        assertEquals(listOf(newPhoto.uri), undone.restored.map { it.uri })
+        assertEquals(listOf(preexisting.uri), manager.loadRecycleBin().map { it.uri })
+    }
+
+    @Test fun consecutiveBatchesAndDuplicateUndoNeverRemoveNewerEntries() = runBlocking {
+        val manager = RecycleBinManager(MemoryRecycleBinStorage(), MemoryRecycleBinStorage())
+        val photo = fixturePhoto(1)
+        val first = manager.addBatchToRecycleBin(listOf(photo)).added
+        val second = manager.addBatchToRecycleBin(listOf(fixturePhoto(2))).added
+
+        assertEquals(first, manager.removeBatchRecords(first, emptyList()).restored)
+        assertEquals(second, manager.loadRecycleBin())
+        val repeated = manager.removeBatchRecords(first, emptyList())
+        assertEquals(1, repeated.alreadyRestored)
+        assertTrue(repeated.restored.isEmpty())
+
+        val readded = manager.addBatchToRecycleBin(listOf(photo)).added
+        val stale = manager.removeBatchRecords(first, emptyList())
+        assertTrue(stale.restored.isEmpty())
+        assertEquals(0, stale.alreadyRestored)
+        assertEquals(second + readded, manager.loadRecycleBin())
+        assertEquals(readded, manager.removeBatchRecords(readded, emptyList()).restored)
+    }
+
+    @Test fun failedUndoWriteRetainsEveryRecordAndRetryRestoresOnlyVerifiedRows() = runBlocking {
+        val storage = MemoryRecycleBinStorage()
+        val manager = RecycleBinManager(storage, MemoryRecycleBinStorage())
+        val records = manager.addBatchToRecycleBin((1L..4L).map(::fixturePhoto)).added
+        val (restorable, missing, pending, unknown) = records
+        manager.beginDeletion(listOf(pending.uri))
+
+        storage.failWrite = true
+        expectFailure {
+            manager.removeBatchRecords(listOf(restorable, pending), listOf(missing))
+        }
+        assertEquals(records, manager.loadRecycleBin())
+
+        storage.failWrite = false
+        val result = manager.removeBatchRecords(listOf(restorable, pending), listOf(missing))
+        assertEquals(listOf(restorable), result.restored)
+        assertEquals(listOf(missing), result.missing)
+        assertEquals(0, result.alreadyRestored)
+        assertEquals(listOf(pending, unknown), manager.loadRecycleBin())
+        assertEquals(listOf(pending.uri), manager.pendingDeletionUris())
+    }
+
     @Test fun failedCleanupAcknowledgementRetainsRecordsAndDeletionJournalForRetry() = runBlocking {
         val storage = MemoryRecycleBinStorage()
         val pending = MemoryRecycleBinStorage()

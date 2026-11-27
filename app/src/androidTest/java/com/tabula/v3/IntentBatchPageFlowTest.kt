@@ -66,10 +66,6 @@ class IntentBatchPageFlowTest {
         // 清空回收站记录：`clickSubmit` 以「记录 +1」为判据，残留会让它误判失败。
         // 正常收尾时 @After 会清，但用例被超时/中断打断时不会跑到。
         runBlocking { runCatching { RecycleBinManager.getInstance(ctx).clearRecycleBin() } }
-        // 删掉之前用例插入的合成图：本机反复跑后图库里会累积十几张 `intent-*` 图，
-        // 于是「订单截图不进推荐」「未选中时按钮禁用」这类用例的前置条件被旧图破坏
-        // （第 4 轮实测：14 张待整理，断言全线偏移）。按文件名前缀清理，只动本测试自己的产物。
-        purgeTestScreenshots()
         // 清掉上一次跑留下的分析结果与 Key，保证「默认关闭」这条能被真实断言
         IntentVerdictCache(ctx.getSharedPreferences("tabula_intent_verdicts", android.content.Context.MODE_PRIVATE)).clear()
         IntentAssistKeyStore(ctx).delete()
@@ -114,28 +110,6 @@ class IntentBatchPageFlowTest {
         error("等待分析结束超时（屏幕：${screenTexts()}）")
     }
 
-    /** 删除本测试插入过的合成图（按 `intent-` 前缀识别，绝不碰用户图）。 */
-    private fun purgeTestScreenshots() {
-        val projection = arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME)
-        ctx.contentResolver.query(
-            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
-            projection, null, null, null
-        )?.use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
-            val ids = mutableListOf<Uri>()
-            while (cursor.moveToNext()) {
-                val name = cursor.getString(nameCol) ?: continue
-                if (!name.startsWith("intent-")) continue
-                ids += MediaStore.Images.Media
-                    .getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-                    .buildUpon().appendPath(cursor.getLong(idCol).toString()).build()
-            }
-            ids.forEach { uri -> runCatching { ctx.contentResolver.delete(uri, null, null) } }
-        }
-        android.os.SystemClock.sleep(600)
-    }
-
     private fun grantMedia() {
         listOf(
             "android.permission.READ_MEDIA_IMAGES",
@@ -148,7 +122,11 @@ class IntentBatchPageFlowTest {
     }
 
     /** 插入一张「看起来像过期优惠截图」的合成图（真实可被 OCR 读出文字）。 */
-    private fun insertCouponScreenshot(name: String): Uri {
+    private fun insertCouponScreenshot(
+        name: String,
+        relativePath: String = "DCIM/Screenshots/",
+        daysAgo: Long = 10
+    ): Uri {
         val bitmap = Bitmap.createBitmap(720, 1280, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.WHITE)
@@ -175,7 +153,7 @@ class IntentBatchPageFlowTest {
                 ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, name)
                     put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, "DCIM/Screenshots/")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
                     put(MediaStore.MediaColumns.IS_PENDING, 1)
                 }
             )
@@ -184,7 +162,7 @@ class IntentBatchPageFlowTest {
         ctx.contentResolver.openOutputStream(uri)!!.use { out ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
-        val old = (System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000) / 1000
+        val old = (System.currentTimeMillis() - daysAgo * 24 * 60 * 60 * 1000) / 1000
         check(
             ctx.contentResolver.update(
                 uri,
@@ -428,7 +406,7 @@ class IntentBatchPageFlowTest {
     }
 
     /** 设置 → 暂存清理 → 选来源 → 候选页。 */
-    private fun openStagedCleanupCandidates() {
+    private fun openStagedCleanupCandidates(hasSelectedSource: Boolean = false) {
         waitForTextContaining("设置")
         tapByBounds("设置")
         android.os.SystemClock.sleep(800)
@@ -440,6 +418,11 @@ class IntentBatchPageFlowTest {
             android.os.SystemClock.sleep(250)
         }
         android.os.SystemClock.sleep(800)
+
+        if (hasSelectedSource) {
+            waitForTextContaining("换来源")
+            return
+        }
 
         // 来源选择页：点「查看 N 个来源的旧图」
         val viewButton = run {
@@ -467,16 +450,21 @@ class IntentBatchPageFlowTest {
         )
     }
 
-    /** 候选页 → 点「看看」进「按整理目的凑一批」。 */
+    /**
+     * 候选页 → 点列表项「按整理目的凑一批」。
+     *
+     * UI 改版后入口是**整行可点的列表项**（原来是小字 + 右侧独立的「看看」按钮）。
+     * 定位方式随之改为点这一行的标题文字——行本身是点击目标，点文字即可命中，
+     * 不需要再找那个已被移除的按钮。
+     *
+     * 进入判据必须是**只在凑一批页存在**的文案：不能用 contains("只排序")，
+     * 因为候选页的入口副文案是「先排序，再由你选择处理」，语义相近但文字不同；
+     * 这里仍用凑一批页头的副标题作判据，避免点失败时误判已进入。
+     */
     private fun openIntentBatch() {
         waitForTextContaining("按整理目的凑一批", timeout = 20000)
-        val opened = tapByBounds("看看")
-        assertTrue("「按整理目的凑一批」入口必须可点", opened)
-        // 进入判据必须是**只在凑一批页存在**的文案。
-        // 不能用 contains("只排序")：暂存清理入口那一行是
-        // 「按整理目的凑一批：先看最值得清的（只排序，不自动删）」，也含这四个字，
-        // 于是点击失败时这条等待会立刻返回，后续断言就都打在了暂存清理页上
-        // （设备实测：断言里读到的是「换来源」「存放超过 7 天」这些候选页文案）。
+        val opened = tapByBounds("按整理目的凑一批")
+        assertTrue("「按整理目的凑一批」列表项必须可点", opened)
         val deadline = now() + 30000
         while (now() < deadline) {
             if (screenTexts().any { it.contains("只排序，不会自动删除；仍由你决定保留或移入回收站") }) return
@@ -577,16 +565,29 @@ class IntentBatchPageFlowTest {
      * 而不是匹配文案——按钮禁用态与启用态文案不同，匹配文案容易跨帧读到旧值。
      */
     @Test
-    fun tappingThumbnailEnablesSubmitAndSelectedGoesToRecycleBin() = runBlocking {
-        val coupon = insertCouponScreenshot("intent-flow-" + UUID.randomUUID().toString().take(6) + ".png")
-        val other = insertCouponScreenshot("intent-keep-" + UUID.randomUUID().toString().take(6) + ".png")
+    fun tappingThumbnailEnablesSubmitAndSelectedGoesToRecycleBin() = verifyBatchRecovery(useUndo = false)
+
+    @Test
+    fun snackbarUndoRestoresOnlyTheSelectedIntentPhoto() = verifyBatchRecovery(useUndo = true)
+
+    private fun verifyBatchRecovery(useUndo: Boolean) = runBlocking {
+        val fixtureId = UUID.randomUUID().toString().take(8)
+        val couponName = "intent-flow-$fixtureId.png"
+        val sourcePath = if (useUndo) "DCIM/BatchUndo-$fixtureId/" else "DCIM/Screenshots/"
+        val other = insertCouponScreenshot("intent-keep-$fixtureId.png", relativePath = sourcePath)
+        // The newer candidate sorts first, so its exact thumbnail is reachable in the narrow viewport.
+        val coupon = insertCouponScreenshot(couponName, relativePath = sourcePath, daysAgo = 9)
+        if (useUndo) {
+            prefs.hasStagedCleanupSourceChoice = true
+            prefs.stagedCleanupSourceKeys = setOf("external_primary|${sourcePath.trimEnd('/').lowercase()}")
+        }
         waitIndexed(coupon)
         waitIndexed(other)
 
         startApp()
-        openStagedCleanupCandidates()
+        openStagedCleanupCandidates(hasSelectedSource = useUndo)
         openIntentBatch()
-        waitForAnalysisSettled()
+        if (!useUndo) waitForAnalysisSettled()
 
         // 1) 未选任何图时，提交按钮必须是禁用态
         val submitBefore = submitButtonState()
@@ -598,7 +599,7 @@ class IntentBatchPageFlowTest {
         val thumbName = run {
             val deadline = now() + 30000
             while (now() < deadline) {
-                screenTexts().firstOrNull { it.startsWith("intent-flow-") && it.endsWith(".png") }
+                screenTexts().firstOrNull { it == couponName }
                     ?.let { return@run it }
                 android.os.SystemClock.sleep(250)
             }
@@ -615,12 +616,21 @@ class IntentBatchPageFlowTest {
         val submitAfter = waitForEnabledSubmit()
         assertNotNull("选中后提交按钮必须存在", submitAfter)
         assertTrue("选中 1 张后提交按钮必须变为可用", submitAfter!!.enabled)
+        if (useUndo) {
+            val retainAction = find("长期保留")
+            assertTrue("选中 1 张后长期保留按钮必须可用",
+                retainAction?.isEnabled == true && retainAction.isClickable)
+        }
 
         // 4) 点提交
         val clickTarget = submitAfter.clickable
         assertNotNull("提交按钮必须是可点击节点", clickTarget)
         clickTarget!!.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-        android.os.SystemClock.sleep(4000)
+        if (useUndo) {
+            waitForTextContaining("已移入回收站 1 张", timeout = 20000)
+        } else {
+            android.os.SystemClock.sleep(4000)
+        }
 
         // 5) 按完整媒体身份确认：所选图进了回收站，未选图仍在图库
         val bin = RecycleBinManager.getInstance(ctx)
@@ -630,6 +640,20 @@ class IntentBatchPageFlowTest {
             afterBin.size > selectedBefore
         )
         val binUris = afterBin.map { it.uri }.toSet()
+        if (useUndo) {
+            fun bounds(label: String): android.graphics.Rect =
+                android.graphics.Rect().also { requireNotNull(find(label)).getBoundsInScreen(it) }
+
+            val undo = bounds("撤销")
+            val retain = bounds("长期保留")
+            val confirm = bounds("选择照片后可移入回收站")
+            assertTrue("恢复说明应可见", !bounds("可在回收站恢复").isEmpty)
+            assertTrue("撤销提示要位于两个底部操作按钮之上：$undo / $retain / $confirm",
+                !undo.isEmpty && !retain.isEmpty && !confirm.isEmpty &&
+                    undo.bottom <= minOf(retain.top, confirm.top))
+            captureBatchUndoEvidence(ins, ctx, "intent-undo")
+            tap("撤销", timeout = 2500)
+        }
         val libraryUris = com.tabula.v3.data.repository.LocalImageRepository(ctx)
             .loadAllData().allImages.map { it.uri }.toSet()
         assertTrue("所选图必须出现在回收站里（$coupon）", coupon in binUris)
@@ -645,8 +669,41 @@ class IntentBatchPageFlowTest {
             coupon in libraryUris
         )
 
-        // 6) 从真实回收站页恢复
-        restoreFromRecycleBinScreen(coupon)
+        if (useUndo) {
+            val deadline = now() + 8000
+            while (now() < deadline && bin.loadRecycleBin().map { it.uri }.toSet() != binUris - coupon) {
+                android.os.SystemClock.sleep(100)
+            }
+            assertEquals("撤销只应撤回本次新增的回收站记录",
+                binUris - coupon, bin.loadRecycleBin().map { it.uri }.toSet())
+
+            waitForTextContaining("复用缓存 2 张", timeout = 8000)
+            val lastCandidate = "intent-keep-$fixtureId.png"
+            fun candidateVisible() = intentListThumbNodes(lastCandidate).any { (thumbnail, row) ->
+                val thumbBounds = android.graphics.Rect().also(thumbnail::getBoundsInScreen)
+                row.isVisibleToUser && thumbnail.isVisibleToUser && !thumbBounds.isEmpty
+            }
+
+            val keyStatus = screenTexts().single { it.contains("未配置 Key") }
+            val listTop = android.graphics.Rect().also(requireNotNull(find(keyStatus))::getBoundsInScreen).bottom
+            val footer = android.graphics.Rect().also(requireNotNull(find("长期保留"))::getBoundsInScreen)
+            val inset = (12 * ctx.resources.displayMetrics.density).toInt()
+            val startY = footer.top - inset * 2
+            val endY = listTop + inset
+            val x = ctx.resources.displayMetrics.widthPixels / 2
+            assertTrue("前景候选列表必须有可滑动高度：$listTop..${footer.top}", startY > endY + inset)
+            for (attempt in 1..3) {
+                if (candidateVisible()) break
+                shell("input swipe $x $startY $x $endY 400")
+                android.os.SystemClock.sleep(250)
+            }
+            assertTrue("最后一张候选的缩略图应可见（${screenTexts()}）", candidateVisible())
+            assertTrue("最后一张候选应可点选（${screenTexts()}）",
+                tapIntentThumb(lastCandidate, expectedSelected = 1))
+            captureBatchUndoEvidence(ins, ctx, "intent-last-candidate")
+        } else {
+            restoreFromRecycleBinScreen(coupon)
+        }
         val afterRestore = bin.loadRecycleBin()
         assertTrue(
             "恢复后目标图不应再在回收站（${afterRestore.map { it.uri }}）",
@@ -750,10 +807,12 @@ class IntentBatchPageFlowTest {
         fun walk(n: AccessibilityNodeInfo?, depth: Int) {
             if (n == null || depth > 24) return
             val text = n.text?.toString().orEmpty()
-            // 只认按钮自身的两条文案：「选择要移入回收站的照片」与「移入回收站（N 张）」。
+            // 只认按钮自身的两条文案：禁用态「选择照片后可移入回收站」与
+            // 可用态「移入回收站（N 张）」。禁用语在 PR A 里改过（原「选择要移入回收站的照片」），
+            // 这里同步更新——**断言强度不变**，仍然只匹配按钮自己的文案。
             // 不能用 contains("移入回收站")：页头副标题「…仍由你决定保留或移入回收站」
             // 也含这四个字，会被当成按钮，于是 enabled 判定取的是副标题的祖先链。
-            if (text == "选择要移入回收站的照片" || Regex("^移入回收站（\\d+ 张）$").matches(text)) {
+            if (text == "选择照片后可移入回收站" || Regex("^移入回收站（\\d+ 张）$").matches(text)) {
                 matches += n
             }
             for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)

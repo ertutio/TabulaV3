@@ -69,6 +69,14 @@ class RecycleBinManager internal constructor(
     }
 
     private val mutex = Mutex()
+    private var lastInsertionTime = 0L
+
+    internal data class BatchAddition(val added: List<ImageFile>, val records: List<ImageFile>)
+    internal data class BatchRemoval(
+        val restored: List<ImageFile>,
+        val missing: List<ImageFile>,
+        val alreadyRestored: Int
+    )
 
     private suspend fun <T> transaction(action: () -> T): T = withContext(Dispatchers.IO) {
         mutex.withLock {
@@ -86,17 +94,49 @@ class RecycleBinManager internal constructor(
 
     suspend fun addToRecycleBin(image: ImageFile) = addAllToRecycleBin(listOf(image))
 
-    suspend fun addAllToRecycleBin(images: List<ImageFile>) = transaction {
+    suspend fun addAllToRecycleBin(images: List<ImageFile>) {
+        addBatchToRecycleBin(images)
+    }
+
+    internal suspend fun addBatchToRecycleBin(images: List<ImageFile>) = transaction {
         val items = loadUnlocked().toMutableList()
-        val now = System.currentTimeMillis()
-        // T03：去重按媒体身份（同 ID 且同卷；任一侧卷未知退化纯 ID）——
-        // 不同卷的同数值 ID 是不同照片，各自独立入站。
+        val added = mutableListOf<ImageFile>()
+        // Even two writes in the same millisecond must have distinct undo receipts.
+        val now = maxOf(System.currentTimeMillis(), lastInsertionTime + 1)
         images.forEach { image ->
             if (items.none { it.matchesSameMediaIdentity(image) }) {
-                items.add(image.copy(deletedAt = now))
+                val row = image.copy(deletedAt = now)
+                items.add(row)
+                added.add(row)
             }
         }
-        saveUnlocked(items)
+        if (added.isNotEmpty()) {
+            saveUnlocked(items)
+            lastInsertionTime = now
+        }
+        BatchAddition(added, items)
+    }
+
+    internal suspend fun removeBatchRecords(
+        restorable: List<ImageFile>,
+        missing: List<ImageFile>
+    ) = transaction {
+        val items = loadUnlocked()
+        val pending = pendingUnlocked().toSet()
+        // Check the receipt again under the write lock. A restored and subsequently
+        // re-added photo belongs to its new batch, even when its media ID is unchanged.
+        val available = items.filter { it.uri !in pending }
+        val restored = restorable.filter { receipt -> available.any { receipt.isSameRecycleRecord(it) } }
+        val dropped = missing.filter { receipt -> available.any { receipt.isSameRecycleRecord(it) } }
+        if (dropped.isNotEmpty()) beforeDiscard(dropped)
+        val removed = restored + dropped
+        if (removed.isNotEmpty()) {
+            saveUnlocked(items.filterNot { row -> removed.any { it.isSameRecycleRecord(row) } })
+        }
+        val alreadyRestored = restorable.count { receipt ->
+            receipt.uri !in pending && items.none { it.matchesSameMediaIdentity(receipt) }
+        }
+        BatchRemoval(restored, dropped, alreadyRestored)
     }
 
     suspend fun removeFromRecycleBin(image: ImageFile) = removeAllFromRecycleBin(listOf(image))
@@ -217,3 +257,6 @@ class RecycleBinManager internal constructor(
         storage.write(array.toString())
     }
 }
+
+internal fun ImageFile.isSameRecycleRecord(other: ImageFile): Boolean =
+    mediaIdentityKey() == other.mediaIdentityKey() && uri == other.uri && deletedAt == other.deletedAt

@@ -1,5 +1,7 @@
 package com.tabula.v3.ui.components
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -36,6 +38,8 @@ import androidx.compose.ui.unit.sp
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import kotlinx.coroutines.delay
 
+internal const val UNDO_SNACKBAR_DURATION_MS = 3000L
+
 /**
  * 撤销操作 Snackbar
  *
@@ -47,23 +51,24 @@ import kotlinx.coroutines.delay
  * @param undoText 撤销按钮文字
  * @param duration 自动消失时间（毫秒）
  * @param onUndo 撤销回调
- * @param onDismiss 消失回调
+ * @param onDismiss 超时回调。由调用方计时时留空。
  */
 @Composable
 fun UndoSnackbar(
     visible: Boolean,
     message: String,
     undoText: String = "撤销",
-    duration: Long = 3000L,
+    duration: Long = UNDO_SNACKBAR_DURATION_MS,
     onUndo: () -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    onDismiss: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    animate: Boolean = true
 ) {
     val isDarkTheme = LocalIsDarkTheme.current
 
-    // 自动消失计时
+    // 有独立计时的调用方只使用这里的展示和按钮。
     LaunchedEffect(visible) {
-        if (visible) {
+        if (visible && onDismiss != null) {
             delay(duration)
             onDismiss()
         }
@@ -71,14 +76,14 @@ fun UndoSnackbar(
 
     AnimatedVisibility(
         visible = visible,
-        enter = slideInVertically(
+        enter = if (animate) slideInVertically(
             initialOffsetY = { it },
             animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
-        ) + fadeIn(),
-        exit = slideOutVertically(
+        ) + fadeIn() else EnterTransition.None,
+        exit = if (animate) slideOutVertically(
             targetOffsetY = { it },
             animationSpec = spring(stiffness = Spring.StiffnessMedium)
-        ) + fadeOut(),
+        ) + fadeOut() else ExitTransition.None,
         modifier = modifier
     ) {
         Box(
