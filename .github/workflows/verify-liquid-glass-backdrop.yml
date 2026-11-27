@@ -1,4 +1,4 @@
-name: Diagnose glass emulator process exit
+name: Capture Tabula settings UI
 
 on:
   workflow_dispatch:
@@ -12,12 +12,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - label: swiftshader-no-guest-vulkan
-            gpu_options: '-gpu swiftshader -feature -Vulkan'
-          - label: swangle-no-guest-vulkan
-            gpu_options: '-gpu swangle -feature -Vulkan'
-    name: API 35 viewer (${{ matrix.label }})
+        theme: [light, dark]
+    name: API 35 settings (${{ matrix.theme }})
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -28,16 +24,15 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Download the previously published preview's test build
+      - name: Download #106 debug APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh run download 46037164689 --repo "$GITHUB_REPOSITORY" \
-            --name Tabula-liquid-glass-8c7898b36946295e04c4f4592002a8c43f5fdaa8 --dir input/
+          gh run download 46048798698 --repo "$GITHUB_REPOSITORY" \
+            --name Tabula-liquid-glass-8063998e8f55f20688e83af4b15592599786f356 --dir input/
           mkdir -p app/build/outputs/apk/debug app/build/outputs/apk/androidTest/debug device-results
           cp input/artifacts/TabulaV3-liquid-glass-debug.apk app/build/outputs/apk/debug/app-debug.apk
-          cp input/artifacts/TabulaV3-liquid-glass-androidTest.apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-          sha256sum app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          sha256sum app/build/outputs/apk/debug/app-debug.apk
       - name: Enable KVM and sample host memory
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -51,7 +46,7 @@ jobs:
             sleep 3
           done' > device-results/host-samples.txt 2>&1 </dev/null &
           echo "$!" > device-results/host-sampler.pid
-      - name: Run the existing viewer assertions
+      - name: Open settings and capture scrolling
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
           api-level: 35
@@ -61,9 +56,9 @@ jobs:
           cores: 2
           ram-size: 3072M
           disk-size: 8G
-          emulator-options: -no-window ${{ matrix.gpu_options }} -no-snapshot -noaudio -no-boot-anim -no-metrics
+          emulator-options: -no-window -gpu swiftshader -feature -Vulkan -no-snapshot -noaudio -no-boot-anim -no-metrics
           disable-animations: true
-          script: API_LEVEL=35 MODE=viewer VIEWER_ATTEMPTS=1 bash tools/run-emulator-evidence.sh
+          script: TABULA_SMOKE_THEME=${{ matrix.theme }} python3 tools/capture-settings-smoke.py
       - name: Check host kernel for emulator exits
         if: always()
         run: |
@@ -74,7 +69,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: glass-emulator-diagnostic-${{ matrix.label }}
+          name: glass-settings-smoke-${{ matrix.theme }}
           path: device-results/
           if-no-files-found: warn
           retention-days: 7
