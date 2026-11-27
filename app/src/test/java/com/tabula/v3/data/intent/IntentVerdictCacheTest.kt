@@ -162,6 +162,38 @@ class IntentVerdictCacheTest {
     }
 
     @Test
+    fun couponExcludedByLimitEntersRecommendationsAfterItsDeadline() = runBlocking {
+        val before = java.time.Instant.parse("2026-12-30T12:00:00Z").toEpochMilli()
+        val after = java.time.Instant.parse("2027-01-01T12:00:00Z").toEpochMilli()
+        val images = (1L..11L).map { photo(it) }
+        val lastCoupon = OcrResult.Success(listOf("满199减30", "有效期至 2026-12-31"), 0.9f)
+        val recognizer = TestRecognizer { call -> if (call <= 10) expiredCoupon else lastCoupon }
+        val analyzer = IntentBatchAnalyzer(context, recognizer, cache)
+
+        val initial = analyzer.analyze(images, batchLimit = 10, nowMillis = before, timeZone = utc)
+
+        assertEquals((10L downTo 1L).toList(), initial.batch.recommended.map { it.image.id })
+        assertTrue(initial.batch.lowerPriority.isEmpty())
+        assertEquals(11, initial.ocrAttemptCount)
+        assertEquals(11, cache.size())
+
+        val afterDeadline = analyzer.analyze(images, batchLimit = 10, nowMillis = after, timeZone = utc)
+
+        assertEquals("Only the coupon that just expired should be recognized again", 1, afterDeadline.ocrAttemptCount)
+        assertEquals(10, afterDeadline.usedCacheCount)
+        val newRecommendation = afterDeadline.batch.recommended.single { it.image.id == 11L }.verdict
+        assertEquals(ExpiryState.EXPIRED, newRecommendation.expiry)
+        assertEquals(IntentRecommendation.RECOMMEND, newRecommendation.recommendation)
+        assertTrue(newRecommendation.reason.contains("2026-12-31"))
+        assertFalse(newRecommendation.reason.contains("还没到"))
+
+        val repeated = analyzer.analyze(images, batchLimit = 10, nowMillis = after, timeZone = utc)
+        assertEquals(11, repeated.usedCacheCount)
+        assertEquals(0, repeated.ocrAttemptCount)
+        assertEquals(afterDeadline.batch, repeated.batch)
+    }
+
+    @Test
     fun mixedBatchLeavesHitAndRetainedOverrideOutOfWrites() = runBlocking {
         val cached = photo(1)
         val retained = photo(2)
