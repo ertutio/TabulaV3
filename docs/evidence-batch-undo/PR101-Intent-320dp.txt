@@ -1,0 +1,71 @@
+INSTRUMENTATION_STATUS: class=com.tabula.v3.IntentBatchPageFlowTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stream=
+com.tabula.v3.IntentBatchPageFlowTest:
+INSTRUMENTATION_STATUS: test=snackbarUndoRestoresOnlyTheSelectedIntentPhoto
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.tabula.v3.IntentBatchPageFlowTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stack=java.lang.AssertionError: 最后一张候选应可滚动到（[2026 Nov, 设置, 03-dialog-keyboard.png, 02-dialog-opencodego.png, 卡片, 图库, 返回, 按整理目的凑一批, 只排序，不会自动删除；仍由你决定保留或移入回收站, 文字辅助,  · , 实验性, DeepSeek, 未配置 Key（当前服务 DeepSeek）· 点此配置, 本地识别 0 张，复用缓存 2 张，用时 0 ms, 按「为什么值得清」排序：有可核对截止时间的在前，越新越靠前。, intent-flow-ea1667a4.png, 优惠,  · 低优先级, 优惠截图，但没写可核对的截止时间, 未选择照片, 长期保留, 选择照片后可移入回收站, 可在回收站恢复]）
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.tabula.v3.IntentBatchPageFlowTest$verifyBatchRecovery$1.invokeSuspend(IntentBatchPageFlowTest.kt:697)
+	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:263)
+	at kotlinx.coroutines.BlockingCoroutine.joinBlocking(Builders.kt:94)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking(Builders.kt:70)
+	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source:1)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:48)
+	at kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source:1)
+	at com.tabula.v3.IntentBatchPageFlowTest.verifyBatchRecovery(IntentBatchPageFlowTest.kt:573)
+	at com.tabula.v3.IntentBatchPageFlowTest.snackbarUndoRestoresOnlyTheSelectedIntentPhoto(IntentBatchPageFlowTest.kt:571)
+
+INSTRUMENTATION_STATUS: stream=
+Error in snackbarUndoRestoresOnlyTheSelectedIntentPhoto(com.tabula.v3.IntentBatchPageFlowTest):
+java.lang.AssertionError: 最后一张候选应可滚动到（[2026 Nov, 设置, 03-dialog-keyboard.png, 02-dialog-opencodego.png, 卡片, 图库, 返回, 按整理目的凑一批, 只排序，不会自动删除；仍由你决定保留或移入回收站, 文字辅助,  · , 实验性, DeepSeek, 未配置 Key（当前服务 DeepSeek）· 点此配置, 本地识别 0 张，复用缓存 2 张，用时 0 ms, 按「为什么值得清」排序：有可核对截止时间的在前，越新越靠前。, intent-flow-ea1667a4.png, 优惠,  · 低优先级, 优惠截图，但没写可核对的截止时间, 未选择照片, 长期保留, 选择照片后可移入回收站, 可在回收站恢复]）
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.tabula.v3.IntentBatchPageFlowTest$verifyBatchRecovery$1.invokeSuspend(IntentBatchPageFlowTest.kt:697)
+	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:263)
+	at kotlinx.coroutines.BlockingCoroutine.joinBlocking(Builders.kt:94)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking(Builders.kt:70)
+	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source:1)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:48)
+	at kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source:1)
+	at com.tabula.v3.IntentBatchPageFlowTest.verifyBatchRecovery(IntentBatchPageFlowTest.kt:573)
+	at com.tabula.v3.IntentBatchPageFlowTest.snackbarUndoRestoresOnlyTheSelectedIntentPhoto(IntentBatchPageFlowTest.kt:571)
+
+INSTRUMENTATION_STATUS: test=snackbarUndoRestoresOnlyTheSelectedIntentPhoto
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_RESULT: stream=
+
+Time: 39.497
+There was 1 failure:
+1) snackbarUndoRestoresOnlyTheSelectedIntentPhoto(com.tabula.v3.IntentBatchPageFlowTest)
+java.lang.AssertionError: 最后一张候选应可滚动到（[2026 Nov, 设置, 03-dialog-keyboard.png, 02-dialog-opencodego.png, 卡片, 图库, 返回, 按整理目的凑一批, 只排序，不会自动删除；仍由你决定保留或移入回收站, 文字辅助,  · , 实验性, DeepSeek, 未配置 Key（当前服务 DeepSeek）· 点此配置, 本地识别 0 张，复用缓存 2 张，用时 0 ms, 按「为什么值得清」排序：有可核对截止时间的在前，越新越靠前。, intent-flow-ea1667a4.png, 优惠,  · 低优先级, 优惠截图，但没写可核对的截止时间, 未选择照片, 长期保留, 选择照片后可移入回收站, 可在回收站恢复]）
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at com.tabula.v3.IntentBatchPageFlowTest$verifyBatchRecovery$1.invokeSuspend(IntentBatchPageFlowTest.kt:697)
+	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:263)
+	at kotlinx.coroutines.BlockingCoroutine.joinBlocking(Builders.kt:94)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking(Builders.kt:70)
+	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source:1)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:48)
+	at kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source:1)
+	at com.tabula.v3.IntentBatchPageFlowTest.verifyBatchRecovery(IntentBatchPageFlowTest.kt:573)
+	at com.tabula.v3.IntentBatchPageFlowTest.snackbarUndoRestoresOnlyTheSelectedIntentPhoto(IntentBatchPageFlowTest.kt:571)
+
+FAILURES!!!
+Tests run: 1,  Failures: 1
+
+
+INSTRUMENTATION_CODE: -1

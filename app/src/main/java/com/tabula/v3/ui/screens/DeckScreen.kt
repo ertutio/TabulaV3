@@ -1170,7 +1170,7 @@ fun DeckScreen(
                             )
                             
                             // 显示撤销 Snackbar（延迟执行真正的删除）
-                            undoMessage = "已移入回收站"
+                            undoMessage = "单张：将移入回收站"
                             showUndoSnackbar = true
                             
                             markedCount++
@@ -1430,6 +1430,7 @@ fun DeckScreen(
             UndoSnackbar(
                 visible = showUndoSnackbar,
                 message = undoMessage,
+                undoText = if (isDeletePending) "撤销单张" else "撤销",
                 onUndo = {
                     if (isDeletePending) {
                         // ========== 删除撤销 ==========

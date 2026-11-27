@@ -647,6 +647,7 @@ class IntentBatchPageFlowTest {
             val undo = bounds("撤销")
             val retain = bounds("长期保留")
             val confirm = bounds("选择照片后可移入回收站")
+            assertTrue("恢复说明应可见", !bounds("可在回收站恢复").isEmpty)
             assertTrue("撤销提示要位于两个底部操作按钮之上：$undo / $retain / $confirm",
                 !undo.isEmpty && !retain.isEmpty && !confirm.isEmpty &&
                     undo.bottom <= minOf(retain.top, confirm.top))
@@ -669,16 +670,31 @@ class IntentBatchPageFlowTest {
         )
 
         if (useUndo) {
-            waitForTextContaining("复用缓存 2 张", timeout = 20000)
-            // The restored row can be outside the anchor-preserving viewport on a narrow screen.
-            val configuration = ctx.resources.configuration
-            if (configuration.screenWidthDp >= 360 || configuration.fontScale < 1.5f) {
-                waitForTextContaining(thumbName, timeout = 4000)
+            val deadline = now() + 8000
+            while (now() < deadline && bin.loadRecycleBin().map { it.uri }.toSet() != binUris - coupon) {
+                android.os.SystemClock.sleep(100)
             }
-            assertTrue(
-                "撤销只应撤回本次新增的回收站记录",
-                bin.loadRecycleBin().map { it.uri }.toSet() == binUris - coupon
-            )
+            assertEquals("撤销只应撤回本次新增的回收站记录",
+                binUris - coupon, bin.loadRecycleBin().map { it.uri }.toSet())
+
+            val lastCandidate = "intent-keep-$fixtureId.png"
+            fun lastCandidateVisible() =
+                intentListThumbNodes(lastCandidate).any { (_, row) -> row.isVisibleToUser }
+
+            val hint = "按「为什么值得清」排序：有可核对截止时间的在前，越新越靠前。"
+            val visibleListLabel = sequenceOf(hint, thumbName, "优惠截图，但没写可核对的截止时间")
+                .filterNotNull()
+                .mapNotNull(::find)
+                .firstOrNull { node ->
+                    node.isVisibleToUser && generateSequence(node) { it.parent }.any { it.isScrollable }
+                }
+            val list = generateSequence(visibleListLabel) { it.parent }.firstOrNull { it.isScrollable }
+            val findLastDeadline = now() + 7000
+            while (!lastCandidateVisible() && now() < findLastDeadline) {
+                if (list?.refresh() == true) list.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
+                android.os.SystemClock.sleep(250)
+            }
+            assertTrue("最后一张候选应可滚动到（${screenTexts()}）", lastCandidateVisible())
         } else {
             restoreFromRecycleBinScreen(coupon)
         }

@@ -839,7 +839,7 @@ class BurstSelectionDeviceTest {
         waitForTextContaining("已移入回收站 1 张", timeout = 20000)
         assertEquals(before + discarded.uri, bin.loadRecycleBin().map { it.uri }.toSet())
         captureBatchUndoEvidence(ins, ctx, "burst-undo")
-        tap("撤销", timeout = 2500)
+        tap("撤销整批", timeout = 2500)
 
         val deadline = now() + 10000
         while (now() < deadline && bin.loadRecycleBin().any { it.uri == discarded.uri }) {
@@ -865,7 +865,7 @@ class BurstSelectionDeviceTest {
         tap(discarded.displayName)
         waitForTextContaining("回收 1 张")
         tap("确认：回收 1 张")
-        waitForTextContaining("已移入回收站 1 张", timeout = 2500)
+        waitFor("选片：已移入回收站 1 张", timeout = 2500)
 
         // Perform a real swipe only when the current card can be identified as one of our fixtures.
         val keptFixtures = mine.filter { it.uri != discarded.uri }
@@ -879,28 +879,23 @@ class BurstSelectionDeviceTest {
         val x = cardBounds.centerX()
         val y = cardBounds.centerY()
         shell("input swipe $x $y $x ${(y - cardBounds.height() / 2).coerceAtLeast(60)} 400")
-        waitFor("已移入回收站", timeout = 1600)
-
-        fun undoButtons(): List<android.graphics.Rect> {
-            val buttons = mutableListOf<android.graphics.Rect>()
-            fun walk(node: android.view.accessibility.AccessibilityNodeInfo?) {
-                if (node == null) return
-                if (node.text?.toString() == "撤销" && node.isVisibleToUser) {
-                    buttons += android.graphics.Rect().also(node::getBoundsInScreen)
-                }
-                for (i in 0 until node.childCount) walk(node.getChild(i))
+        waitFor("单张：将移入回收站", timeout = 1600)
+        fun actionBounds(label: String): android.graphics.Rect {
+            val node = requireNotNull(find(label)) { "找不到$label（屏幕：${screenTexts()}）" }
+            return android.graphics.Rect().also(node::getBoundsInScreen).also {
+                assertTrue("$label 必须可见且可点：$it", node.isVisibleToUser &&
+                    (node.isClickable || node.parent?.isClickable == true) && !it.isEmpty)
             }
-            walk(ins.uiAutomation.rootInActiveWindow)
-            return buttons.sortedBy { it.top }
         }
-
-        val buttons = undoButtons()
-        assertEquals("两种撤销都必须可见", 2, buttons.size)
-        assertTrue("两种撤销的可点范围不能重叠：$buttons", buttons[0].bottom <= buttons[1].top)
+        val batchAction = actionBounds("撤销整批")
+        val singleAction = actionBounds("撤销单张")
+        assertFalse("两种撤销的可点范围不能重叠",
+            android.graphics.Rect.intersects(batchAction, singleAction))
         assertEquals("单张上滑应在超时后才入站", before + discarded.uri,
             bin.loadRecycleBin().map { it.uri }.toSet())
         if (undoBatch) captureBatchUndoEvidence(ins, ctx, "deck-both-undo")
-        val action = buttons[if (undoBatch) 0 else 1]
+        val action = if (undoBatch) batchAction else singleAction
+        val singlePhoto = keptFixtures.single { find(it.displayName) == null }
         shell("input tap ${action.centerX()} ${action.centerY()}")
 
         if (undoBatch) {
@@ -913,7 +908,7 @@ class BurstSelectionDeviceTest {
             }
             val newlyCommitted = (afterTimeout - before).single()
             assertTrue("只能提交另一张测试照片：$newlyCommitted",
-                keptFixtures.any { it.uri == newlyCommitted })
+                singlePhoto.uri == newlyCommitted)
             assertEquals(before + newlyCommitted, afterTimeout)
             val remaining = keptFixtures.single { it.uri != newlyCommitted }
             waitFor(remaining.displayName, timeout = 2000)
@@ -921,8 +916,9 @@ class BurstSelectionDeviceTest {
                 find(keptFixtures.single { it.uri == newlyCommitted }.displayName) == null)
         } else {
             val end = now() + 4500
-            while (now() < end && find("已移入回收站") != null) android.os.SystemClock.sleep(100)
-            assertTrue("上滑撤销应消失，批次记录应保留", find("已移入回收站") == null)
+            while (now() < end && find("单张：将移入回收站") != null) android.os.SystemClock.sleep(100)
+            assertTrue("上滑撤销应消失，批次记录应保留", find("单张：将移入回收站") == null)
+            waitFor(singlePhoto.displayName, timeout = 2500)
             android.os.SystemClock.sleep(3000)
             assertEquals(before + discarded.uri, bin.loadRecycleBin().map { it.uri }.toSet())
         }
@@ -952,11 +948,11 @@ class BurstSelectionDeviceTest {
         assertEquals(before + first + second, bin.loadRecycleBin().map { it.uri }.toSet())
         // The partial-write detail identifies which of the two active receipts is shown.
         waitForTextContaining("1 张未能移入回收站，可重试", timeout = 1500)
-        tap("撤销", timeout = 1500)
+        tap("撤销整批", timeout = 1500)
         waitForBinUris(bin, before + second)
 
         waitForTextContaining("已移入回收站 1 张", timeout = 2500)
-        tap("撤销", timeout = 1500)
+        tap("撤销整批", timeout = 1500)
         waitForBinUris(bin, before)
     }
 
@@ -976,7 +972,7 @@ class BurstSelectionDeviceTest {
 
         FileOperationManager.debugForceUnknownUris = setOf(unknown.uri.toString())
         try {
-            tap("撤销", timeout = 1500)
+            tap("撤销整批", timeout = 1500)
             waitForBinUris(bin, before + unknown.uri)
             assertEquals(
                 setOf(verified.uri, unknown.uri),

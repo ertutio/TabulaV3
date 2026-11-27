@@ -296,15 +296,6 @@ fun IntentBatchContent(
             )
         }
 
-        if (statusLine.isNotBlank()) {
-            Text(
-                statusLine,
-                color = secondary,
-                fontSize = 11.sp,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-            )
-        }
-
         // ---------- 主体：加载 / 空 / 失败 三种状态共用同一布局 ----------
         //
         // 之前三种状态各自实现（有的 32dp 内边距、有的没有；有的居中 Box、有的列内），
@@ -319,6 +310,14 @@ fun IntentBatchContent(
         }
 
         if (settleState != null) {
+            if (statusLine.isNotBlank()) {
+                Text(
+                    statusLine,
+                    color = secondary,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                )
+            }
             IntentBatchSettlePlaceholder(
                 state = settleState,
                 accent = accent,
@@ -337,6 +336,11 @@ fun IntentBatchContent(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                if (statusLine.isNotBlank()) {
+                    item(key = "status") {
+                        Text(statusLine, color = secondary, fontSize = 11.sp)
+                    }
+                }
                 item(key = "hint") {
                     Text(
                         "按「为什么值得清」排序：有可核对截止时间的在前，越新越靠前。",
@@ -472,7 +476,7 @@ fun IntentBatchContent(
                         }
                     }
                     Text(
-                        "移入回收站后可在回收站恢复，不会立刻删除文件。",
+                        "可在回收站恢复",
                         color = secondary,
                         fontSize = 11.sp,
                         modifier = Modifier.padding(top = 6.dp)

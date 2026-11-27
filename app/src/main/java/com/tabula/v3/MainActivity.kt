@@ -1767,12 +1767,15 @@ fun TabulaApp(
         val undo = currentBatchUndo
         if (undo != null) {
             key(undo) {
+                val isOnDeck = currentScreen == AppScreen.DECK
                 UndoSnackbar(
                     visible = true,
                     message = buildString {
+                        if (isOnDeck) append("选片：")
                         append("已移入回收站 ${undo.records.size} 张")
                         if (undo.report.isNotEmpty()) append("\n${undo.report}")
                     },
+                    undoText = if (isOnDeck) "撤销整批" else "撤销",
                     onUndo = {
                         if (undo in pendingBatchUndos && undo.canShowOn(currentScreen) &&
                             !batchUndoInFlight && !isDeletingRecycleBin && !deletePermissionInFlight &&

@@ -276,11 +276,11 @@ class DeckScreenPendingDeleteBoundaryTest {
         return true
     }
 
-    /** 等撤销提示出现，返回其文案（删除给"已移入回收站"，归类给"已添加到"）。 */    private fun awaitUndoLabel(timeoutMs: Long = 6000): String? {
+    /** 等撤销提示出现，返回其文案（删除给"单张：将移入回收站"，归类给"已添加到"）。 */    private fun awaitUndoLabel(timeoutMs: Long = 6000): String? {
         val end = now() + timeoutMs
         while (now() < end) {
-            if (find("撤销") != null) {
-                return listOf("已移入回收站", "已添加到").firstOrNull { find(it) != null } ?: "撤销"
+            if (find("撤销单张") != null || find("撤销") != null) {
+                return listOf("单张：将移入回收站", "已添加到").firstOrNull { find(it) != null } ?: "撤销"
             }
             sleep(120)
         }
@@ -388,8 +388,8 @@ class DeckScreenPendingDeleteBoundaryTest {
             victimKey = keyOf(name)
             if (!swipeUp()) break
             assertEquals(
-                "上滑必须走删除路径（撤销提示应为『已移入回收站』）",
-                "已移入回收站", awaitUndoLabel()
+                "上滑必须走删除路径（撤销提示应为『单张：将移入回收站』）",
+                "单张：将移入回收站", awaitUndoLabel()
             )
             deleted++
             // 等这一张的退场动画，下一张才会成为"当前卡"
@@ -458,8 +458,8 @@ class DeckScreenPendingDeleteBoundaryTest {
 
         assertTrue("前置：需要能在当前卡片上发起上滑", swipeUp())
         assertEquals(
-            "上滑必须走删除路径（撤销提示应为『已移入回收站』）",
-            "已移入回收站", awaitUndoLabel()
+            "上滑必须走删除路径（撤销提示应为『单张：将移入回收站』）",
+            "单张：将移入回收站", awaitUndoLabel()
         )
         // 不换批：等撤销期结束，删除在同批内完成。
         // 不对"哪张卡"预设断言——上滑生效的那张由生产侧决策记录告诉我们，
@@ -476,7 +476,7 @@ class DeckScreenPendingDeleteBoundaryTest {
         }
         assertNotNull(
             "同批删除必须产生记账决策（观察到=${seen.map { it.imageKey }}，" +
-                "界面卡片=${currentCardName()}，撤销提示=${find("已移入回收站") != null}）",
+                "界面卡片=${currentCardName()}，撤销提示=${find("单张：将移入回收站") != null}）",
             decision
         )
         assertEquals(
@@ -513,10 +513,10 @@ class DeckScreenPendingDeleteBoundaryTest {
 
         assertTrue("前置：需要能在当前卡片上发起上滑", swipeUp())
         assertEquals(
-            "上滑必须走删除路径（撤销提示应为『已移入回收站』）",
-            "已移入回收站", awaitUndoLabel()
+            "上滑必须走删除路径（撤销提示应为『单张：将移入回收站』）",
+            "单张：将移入回收站", awaitUndoLabel()
         )
-        tap("撤销")
+        tap("撤销单张")
 
         // 等过撤销期（3s）再加余量
         sleep(6000)
@@ -540,7 +540,7 @@ class DeckScreenPendingDeleteBoundaryTest {
         val first = currentCardName()
         assertNotNull("前置：需要至少两张卡", first)
         assertTrue("前置：需要能在当前卡片上发起上滑", swipeUp())
-        assertEquals("上滑必须走删除路径", "已移入回收站", awaitUndoLabel())
+        assertEquals("上滑必须走删除路径", "单张：将移入回收站", awaitUndoLabel())
         val second = currentCardName()
         if (second == null) return   // 单卡批次：跳过（前置不足，不算失败）
 
