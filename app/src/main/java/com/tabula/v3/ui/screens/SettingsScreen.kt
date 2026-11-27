@@ -714,7 +714,7 @@ fun SettingsScreen(
             ) {
                 OptionItem(
                     title = "原随机",
-                    subtitle = "改动前的行为：所有照片一起均匀随机（默认，升级后保持不变）",
+                    subtitle = "从所有照片中随机抽取（默认）",
                     isSelected = currentWalkStrategy == WalkSamplingStrategy.UNIFORM,
                     accentColor = accentColor,
                     textColor = textColor
@@ -726,7 +726,7 @@ fun SettingsScreen(
                 }
                 OptionItem(
                     title = "均衡来源",
-                    subtitle = "按相册分桶、平方根权重，避免大相册淹没小相册",
+                    subtitle = "兼顾不同相册，减少大相册占比过高",
                     isSelected = currentWalkStrategy == WalkSamplingStrategy.SOURCE_BALANCED,
                     accentColor = accentColor,
                     textColor = textColor
