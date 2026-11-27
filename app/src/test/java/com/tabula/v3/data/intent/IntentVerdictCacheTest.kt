@@ -194,6 +194,37 @@ class IntentVerdictCacheTest {
     }
 
     @Test
+    fun newsExcludedByLimitEntersRecommendationsAfterSevenDays() = runBlocking {
+        val dayMillis = 86_400_000L
+        val images = (1L..10L).map { photo(it) } + photo(11, savedAtMillis = now - 6 * dayMillis)
+        val recognizer = TestRecognizer {
+            OcrResult.Success(listOf("即时快讯", "城市公交新增两条线路"), 0.9f)
+        }
+        val analyzer = IntentBatchAnalyzer(context, recognizer, cache)
+
+        val initial = analyzer.analyze(images, batchLimit = 10, nowMillis = now, timeZone = utc)
+
+        assertEquals((10L downTo 1L).toList(), initial.batch.recommended.map { it.image.id })
+        assertTrue(initial.batch.lowerPriority.isEmpty())
+        assertEquals(11, initial.ocrAttemptCount)
+        assertEquals(11, cache.size())
+
+        val sevenDays = now + dayMillis
+        val afterRecheck = analyzer.analyze(images, batchLimit = 10, nowMillis = sevenDays, timeZone = utc)
+
+        assertEquals("Only the news item that just reached seven days should be recognized again", 1, afterRecheck.ocrAttemptCount)
+        assertEquals(10, afterRecheck.usedCacheCount)
+        val recommendation = afterRecheck.batch.recommended.single { it.image.id == 11L }.verdict
+        assertEquals(IntentCategory.STALE_NEWS, recommendation.category)
+        assertEquals(IntentRecommendation.RECOMMEND, recommendation.recommendation)
+
+        val repeated = analyzer.analyze(images, batchLimit = 10, nowMillis = sevenDays, timeZone = utc)
+        assertEquals(11, repeated.usedCacheCount)
+        assertEquals(0, repeated.ocrAttemptCount)
+        assertEquals(afterRecheck.batch, repeated.batch)
+    }
+
+    @Test
     fun mixedBatchLeavesHitAndRetainedOverrideOutOfWrites() = runBlocking {
         val cached = photo(1)
         val retained = photo(2)
@@ -292,7 +323,7 @@ class IntentVerdictCacheTest {
         assertNull(small.read("new", "new-fp", "engine-v1", "assist-off"))
     }
 
-    private fun photo(id: Long): ImageFile {
+    private fun photo(id: Long, savedAtMillis: Long = now - 10L * 86_400_000L): ImageFile {
         val file = File(context.cacheDir, "intent-cache-$id.png")
         file.writeBytes(imageBytes)
         return ImageFile(
@@ -306,7 +337,7 @@ class IntentVerdictCacheTest {
             bucketDisplayName = "Screenshots",
             volumeName = "external_primary",
             relativePath = "DCIM/Screenshots/",
-            dateAdded = now - 10L * 86_400_000L
+            dateAdded = savedAtMillis
         )
     }
 
