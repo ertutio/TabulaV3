@@ -582,10 +582,30 @@ class IntentBatchPageFlowTest {
                 }
             }
             assertTrue("来源选择器应显示新目录：${screenTexts()}", visible)
+            val newKey = "external_primary|${newPath.trimEnd('/').lowercase()}"
             tap("New-$fixture")
-            val view = screenTexts().firstOrNull { it.startsWith("查看") && it.endsWith("个来源的旧图") }
-            assertNotNull("必须能确认新来源", view)
-            tap(view!!)
+            // ACTION_CLICK can return without changing Compose state on this device.
+            // Check the actual selection before trying the coordinate fallback.
+            var selectDeadline = now() + 3000
+            while (newKey !in prefs.stagedCleanupSourceKeys && now() < selectDeadline) {
+                android.os.SystemClock.sleep(100)
+            }
+            if (newKey !in prefs.stagedCleanupSourceKeys) {
+                assertTrue("新来源坐标必须可点：${screenTexts()}", tapByBounds("New-$fixture"))
+                selectDeadline = now() + 10000
+                while (newKey !in prefs.stagedCleanupSourceKeys && now() < selectDeadline) {
+                    android.os.SystemClock.sleep(100)
+                }
+            }
+            assertTrue("新来源必须真正勾选：${screenTexts()}", newKey in prefs.stagedCleanupSourceKeys)
+            val viewDeadline = now() + 10000
+            var view: String? = null
+            while (view == null && now() < viewDeadline) {
+                view = screenTexts().firstOrNull { it.startsWith("查看") && it.endsWith("个来源的旧图") }
+                if (view == null) android.os.SystemClock.sleep(100)
+            }
+            assertNotNull("必须能确认新来源（屏幕：${screenTexts()}）", view)
+            assertTrue("确认来源按钮必须可点", tapByBounds(view!!))
             waitForTextContaining("换来源")
             assertTrue("新来源必须被选中", prefs.stagedCleanupSourceKeys.any { it.contains("new-$fixture") })
             assertFalse("旧来源不得保留", prefs.stagedCleanupSourceKeys.any { it.contains("old-$fixture") })
