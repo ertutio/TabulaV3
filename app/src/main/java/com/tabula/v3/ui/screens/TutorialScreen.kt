@@ -85,26 +85,23 @@ fun TutorialScreen(
     val isDarkTheme = LocalIsDarkTheme.current
     val isLiquidGlass = LocalLiquidGlassEnabled.current
     
-    // 主题色配置
+    val colors = MaterialTheme.colorScheme
     val backgroundColor = when {
+        isLiquidGlass -> colors.background
         isDarkTheme -> Color.Black
         else -> Color(0xFFF2F2F7)
     }
     val cardColor = when {
-        isLiquidGlass -> TabulaColors.LiquidGlass.GlassSurface
+        isLiquidGlass -> colors.surface
         isDarkTheme -> Color(0xFF1C1C1E)
         else -> Color.White
     }
     val textColor = when {
-        isLiquidGlass -> TabulaColors.LiquidGlass.TextPrimary
+        isLiquidGlass -> colors.onSurface
         isDarkTheme -> Color.White
         else -> Color.Black
     }
-    val secondaryTextColor = when {
-        isLiquidGlass -> TabulaColors.LiquidGlass.TextSecondary
-        isDarkTheme -> Color(0xFF8E8E93)
-        else -> Color(0xFF8E8E93)
-    }
+    val secondaryTextColor = if (isLiquidGlass) colors.onSurfaceVariant else Color(0xFF8E8E93)
     val accentColor = TabulaColors.EyeGold
     
     // Pager 状态

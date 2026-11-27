@@ -109,44 +109,31 @@ private val DarkColorScheme = darkColorScheme(
     onError = CatBlack
 )
 
-/**
- * 液态玻璃主题 - 半透明玻璃效果
- * 
- * 设计理念：
- * - 背景使用渐变色彩，让玻璃折射效果更明显
- * - 表面颜色使用半透明，配合液态玻璃组件
- * - 保持金色强调色，延续品牌风格
- */
-private val LiquidGlassColorScheme = lightColorScheme(
+// Glass effects are drawn over readable backing surfaces in both themes.
+private val LiquidGlassLightColorScheme = LightColorScheme.copy(
     primary = EyeGold,
     onPrimary = CatBlack,
     primaryContainer = EyeGoldDark,
     onPrimaryContainer = CatBlack,
-
-    secondary = CatBlack,
-    onSecondary = Color.White,
-    secondaryContainer = Color(0x30000000),  // 半透明黑
-    onSecondaryContainer = Color.White,
-
-    tertiary = SuccessGreen,
-    onTertiary = Color.White,
-
-    // 液态玻璃背景 - 使用渐变蓝紫色增强视觉效果
-    background = Color(0xFF8B9DC3),  // 柔和蓝灰色背景
-    onBackground = Color.White,
-
-    // 表面使用半透明
-    surface = Color(0x30FFFFFF),        // 半透明白
+    background = Color(0xFFDAE1EC),
+    onBackground = CatBlack,
+    surface = Color(0xFFF5F8FD),
     onSurface = CatBlack,
-    surfaceVariant = Color(0x20FFFFFF), // 更透明的白
-    onSurfaceVariant = Color(0xFF4A4A4A),
-
-    outline = Color(0x40FFFFFF),
-    outlineVariant = Color(0x30FFFFFF),
-
-    error = DangerRed,
-    onError = Color.White
+    surfaceVariant = Color(0xFFE9EDF7),
+    onSurfaceVariant = Color(0xFF3E485F)
 )
+
+private val LiquidGlassDarkColorScheme = DarkColorScheme.copy(
+    background = Color(0xFF101217),
+    onBackground = Color(0xFFF3F5FA),
+    surface = Color(0xFF242A36),
+    onSurface = Color(0xFFF3F5FA),
+    surfaceVariant = Color(0xFF30394B),
+    onSurfaceVariant = Color(0xFFBBC5D6)
+)
+
+internal fun liquidGlassColorScheme(darkTheme: Boolean) =
+    if (darkTheme) LiquidGlassDarkColorScheme else LiquidGlassLightColorScheme
 
 /**
  * 用于在组件中获取当前是否为深色模式
@@ -171,7 +158,7 @@ fun TabulaTheme(
 ) {
     val colorScheme = when {
         // 液态玻璃主题优先
-        liquidGlassEnabled -> LiquidGlassColorScheme
+        liquidGlassEnabled -> liquidGlassColorScheme(darkTheme)
         // 动态取色
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
@@ -212,26 +199,4 @@ object TabulaColors {
     // 卡片渐变
     val CardGradientStart = Color(0xFF2D2D2D)
     val CardGradientEnd = Color(0xFF1A1A1A)
-    
-    // 液态玻璃主题色彩
-    object LiquidGlass {
-        // 背景渐变色
-        val BackgroundStart = Color(0xFF667EEA)    // 靛蓝紫
-        val BackgroundMiddle = Color(0xFF8B9DC3)   // 柔和蓝灰
-        val BackgroundEnd = Color(0xFFA8C0FF)      // 淡蓝
-        
-        // 玻璃表面颜色（半透明）
-        val GlassSurface = Color(0x30FFFFFF)
-        val GlassSurfaceLight = Color(0x40FFFFFF)
-        val GlassSurfaceDark = Color(0x20000000)
-        
-        // 卡片颜色
-        val CardBackground = Color(0x25FFFFFF)
-        val CardBorder = Color(0x40FFFFFF)
-        
-        // 文字颜色
-        val TextPrimary = Color(0xFF1A1A1A)
-        val TextSecondary = Color(0xFF4A4A4A)
-        val TextOnGlass = Color.White
-    }
 }

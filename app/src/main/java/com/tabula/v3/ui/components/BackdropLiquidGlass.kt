@@ -1,14 +1,18 @@
 package com.tabula.v3.ui.components
 
 import android.os.Build
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -68,8 +72,8 @@ data class BackdropLiquidGlassConfig(
             blurRadius = 12.dp,
             refractionHeight = 12.dp,
             refractionAmount = 24.dp,
-            surfaceAlpha = 0.4f,
-            borderAlpha = 0.3f,
+            surfaceAlpha = 0.08f,
+            borderAlpha = 0.42f,
             highlightAlpha = 0.2f
         )
         
@@ -169,10 +173,16 @@ fun BackdropLiquidGlassSettings(
     contentAlignment: Alignment = Alignment.TopStart,
     content: @Composable BoxScope.() -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+    val config = BackdropLiquidGlassConfig.Settings.copy(surfaceColor = colors.surface)
+    val actualShape = shape ?: RoundedCornerShape(config.cornerRadius)
+    val backing = Brush.verticalGradient(
+        listOf(colors.surface, lerp(colors.surface, colors.surfaceVariant, 0.45f))
+    )
     BackdropLiquidGlassBox(
-        modifier = modifier,
-        shape = shape,
-        config = BackdropLiquidGlassConfig.Settings,
+        modifier = modifier.background(backing, actualShape),
+        shape = actualShape,
+        config = config,
         contentAlignment = contentAlignment,
         content = content
     )

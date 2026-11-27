@@ -146,7 +146,8 @@ data class PhysicalLiquidGlassConfig(
     val noiseDitherEnabled: Boolean = true,      // 启用 dither 模式
     
     // 边框
-    val borderAlpha: Float = 0.30f
+    val borderAlpha: Float = 0.30f,
+    val borderColor: Color = Color.White
 ) {
     companion object {
         val Default = PhysicalLiquidGlassConfig()
@@ -311,16 +312,19 @@ data class PhysicalLiquidGlassConfig(
             dispersionEdge = 0.0055f,
             fresnelPower = 2.1f,
             fresnelIntensity = 0.62f,
-            tintStrength = 0.12f,
-            surfaceAlpha = 0.20f,
-            primarySpecularIntensity = 0.17f,
-            primarySpecularWidth = 0.88f,
-            secondarySpecularIntensity = 0.85f,
+            tintColor = Color(0xFFB1BAC8),
+            tintStrength = 0.065f,
+            surfaceAlpha = 0.14f,
+            // The shape-following rim already defines the edge of compact buttons.
+            primarySpecularIntensity = 0f,
+            secondarySpecularIntensity = 0.38f,
+            edgeGlowIntensity = 0.24f,
             secondarySpecularSize = 0.11f,
             specularYBias = -0.18f,
-            topRimLightAlpha = 0.50f,
-            topInnerDarkAlpha = 0.11f,
-            bottomInnerHighlightAlpha = 0.17f,
+            topRimLightAlpha = 0f,
+            topInnerDarkAlpha = 0f,
+            bottomSeparatorHeight = 0.dp,
+            bottomInnerHighlightAlpha = 0f,
             cornerFadeEnabled = true,
             cornerFadeDistance = 20.dp,
             cornerFadeAmount = 0.15f,
@@ -331,7 +335,7 @@ data class PhysicalLiquidGlassConfig(
             scrollResponseEnabled = false,
             noiseAlpha = 0.010f,
             noiseDitherEnabled = true,
-            borderAlpha = 0.32f
+            borderAlpha = 0.18f
         )
         
         val Toggle = PhysicalLiquidGlassConfig(
@@ -668,8 +672,17 @@ private fun calculatePixelAlignedHairline(
  * 判断是否需要使用 1px fallback（当 0.5dp 不稳定时）
  */
 private fun shouldUseFallbackHairline(requestedHeightPx: Float): Boolean {
-    return requestedHeightPx < 1f
+    return requestedHeightPx > 0f && requestedHeightPx < 1f
 }
+
+internal fun compactActionGlassConfig(darkSurface: Boolean): PhysicalLiquidGlassConfig =
+    PhysicalLiquidGlassConfig.Button.copy(
+        cornerRadius = 12.dp,
+        tintColor = if (darkSurface) Color(0xFFA7B7D0) else Color(0xFF8796AA),
+        borderColor = if (darkSurface) Color(0xFFDCE7FC) else Color(0xFF70819D),
+        borderAlpha = if (darkSurface) 0.30f else 0.20f,
+        edgeGlowIntensity = if (darkSurface) 0.30f else 0.16f
+    )
 
 /**
  * 物理液态玻璃容器 v3
@@ -714,17 +727,17 @@ fun PhysicalLiquidGlassBox(
     val noiseBrush = rememberNoiseBrush()
     
     // 边框渐变
-    val borderGradient = remember(config.borderAlpha) {
+    val borderGradient = remember(config.borderColor, config.borderAlpha) {
         Brush.sweepGradient(
-            0f to Color.White.copy(alpha = config.borderAlpha * 1.15f),
-            0.12f to Color.White.copy(alpha = config.borderAlpha * 0.18f),
-            0.25f to Color.White.copy(alpha = config.borderAlpha * 0.72f),
-            0.38f to Color.White.copy(alpha = config.borderAlpha * 0.10f),
-            0.5f to Color.White.copy(alpha = config.borderAlpha * 0.52f),
-            0.62f to Color.White.copy(alpha = config.borderAlpha * 0.08f),
-            0.75f to Color.White.copy(alpha = config.borderAlpha * 0.62f),
-            0.88f to Color.White.copy(alpha = config.borderAlpha * 0.14f),
-            1f to Color.White.copy(alpha = config.borderAlpha * 1.15f)
+            0f to config.borderColor.copy(alpha = config.borderAlpha * 1.15f),
+            0.12f to config.borderColor.copy(alpha = config.borderAlpha * 0.18f),
+            0.25f to config.borderColor.copy(alpha = config.borderAlpha * 0.72f),
+            0.38f to config.borderColor.copy(alpha = config.borderAlpha * 0.10f),
+            0.5f to config.borderColor.copy(alpha = config.borderAlpha * 0.52f),
+            0.62f to config.borderColor.copy(alpha = config.borderAlpha * 0.08f),
+            0.75f to config.borderColor.copy(alpha = config.borderAlpha * 0.62f),
+            0.88f to config.borderColor.copy(alpha = config.borderAlpha * 0.14f),
+            1f to config.borderColor.copy(alpha = config.borderAlpha * 1.15f)
         )
     }
     
