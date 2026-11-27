@@ -92,6 +92,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -175,27 +176,23 @@ fun SettingsScreen(
     val isDarkTheme = LocalIsDarkTheme.current
     val isLiquidGlass = LocalLiquidGlassEnabled.current
     
-    // 主题色配置 - 根据主题类型调整
-    // 液态玻璃主题使用纯白/纯黑背景，只有卡片有玻璃效果
+    val colors = MaterialTheme.colorScheme
     val backgroundColor = when {
+        isLiquidGlass -> colors.background
         isDarkTheme -> Color.Black
         else -> Color(0xFFF2F2F7) // iOS 风格背景灰
     }
     val cardColor = when {
-        isLiquidGlass -> TabulaColors.LiquidGlass.GlassSurface
+        isLiquidGlass -> colors.surface
         isDarkTheme -> Color(0xFF1C1C1E)
         else -> Color.White
     }
     val textColor = when {
-        isLiquidGlass -> TabulaColors.LiquidGlass.TextPrimary
+        isLiquidGlass -> colors.onSurface
         isDarkTheme -> Color.White
         else -> Color.Black
     }
-    val secondaryTextColor = when {
-        isLiquidGlass -> TabulaColors.LiquidGlass.TextSecondary
-        isDarkTheme -> Color(0xFF8E8E93)
-        else -> Color(0xFF8E8E93)
-    }
+    val secondaryTextColor = if (isLiquidGlass) colors.onSurfaceVariant else Color(0xFF8E8E93)
     
     // 品牌强调色
     val accentColor = TabulaColors.EyeGold
@@ -2102,13 +2099,18 @@ fun ReminderSettingsScreen(
 
 @Composable
 fun SectionHeader(title: String, textColor: Color) {
+    val headerColor = if (LocalLiquidGlassEnabled.current) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        textColor.copy(alpha = 0.6f)
+    }
     Text(
         text = title,
         style = MaterialTheme.typography.titleSmall.copy(
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp
         ),
-        color = textColor.copy(alpha = 0.6f),
+        color = headerColor,
         modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)
     )
 }
@@ -2144,6 +2146,23 @@ fun SettingsGroup(
 }
 
 @Composable
+private fun SettingsRowIcon(icon: ImageVector, tint: Color, description: String? = null) {
+    val glassEnabled = LocalLiquidGlassEnabled.current
+    val frame = if (glassEnabled) Modifier else Modifier.background(
+        tint.copy(alpha = 0.15f),
+        RoundedCornerShape(8.dp)
+    )
+    val iconColor = if (glassEnabled && !LocalIsDarkTheme.current) {
+        lerp(tint, MaterialTheme.colorScheme.onSurface, 0.25f)
+    } else {
+        tint
+    }
+    Box(Modifier.size(32.dp).then(frame), contentAlignment = Alignment.Center) {
+        Icon(icon, contentDescription = description, tint = iconColor, modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable
 fun SettingsItem(
     icon: ImageVector,
     iconTint: Color,
@@ -2161,21 +2180,7 @@ fun SettingsItem(
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 图标背景
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(iconTint.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+        SettingsRowIcon(icon, iconTint)
         
         Spacer(modifier = Modifier.width(16.dp))
         
@@ -2199,7 +2204,8 @@ fun SettingsItem(
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
                 contentDescription = null,
-                tint = secondaryTextColor.copy(alpha = 0.4f),
+                tint = if (LocalLiquidGlassEnabled.current) secondaryTextColor
+                    else secondaryTextColor.copy(alpha = 0.4f),
                 modifier = Modifier.size(16.dp)
             )
         }
@@ -2222,20 +2228,7 @@ fun SettingsSwitchItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(iconTint.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+        SettingsRowIcon(icon, iconTint)
         
         Spacer(modifier = Modifier.width(16.dp))
         
@@ -2296,20 +2289,7 @@ fun SettingsSliderItem(
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(iconTint.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            SettingsRowIcon(icon, iconTint)
 
             Spacer(modifier = Modifier.width(16.dp))
 
@@ -2657,21 +2637,7 @@ private fun BeautifulSectionCard(
                 .padding(start = 4.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 图标背景
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(iconTint.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    tint = iconTint,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            SettingsRowIcon(icon, iconTint, description = title)
             
             Spacer(modifier = Modifier.width(12.dp))
             
@@ -3075,7 +3041,11 @@ fun OptionItem(
     textColor: Color,
     onClick: () -> Unit
 ) {
-    val secondaryTextColor = textColor.copy(alpha = 0.6f)
+    val secondaryTextColor = if (LocalLiquidGlassEnabled.current) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        textColor.copy(alpha = 0.6f)
+    }
     
     Row(
         modifier = Modifier

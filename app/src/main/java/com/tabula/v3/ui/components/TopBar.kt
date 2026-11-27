@@ -328,11 +328,7 @@ fun ActionIconButton(
                 .alpha(if (enabled) 1f else 0.38f)
                 .clip(RoundedCornerShape(12.dp))
                 .clickable(enabled = enabled, onClick = onClick),
-            config = PhysicalLiquidGlassConfig.Button.copy(
-                cornerRadius = 12.dp,
-                surfaceAlpha = 0.18f,
-                tintStrength = 0.10f
-            ),
+            config = PhysicalLiquidGlassConfig.Button.copy(cornerRadius = 12.dp),
             // 采样层只影响玻璃下方的背景；高光/边缘/内阴影/噪点仍来自上面的 config
             backdropState = if (sampleBackdrop) backdropState else null,
             backdropSpec = backdropSpec,
