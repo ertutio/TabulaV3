@@ -18,6 +18,14 @@ sealed interface IntentBatchProgress {
     data object Stopped : IntentBatchProgress
 }
 
+data class IntentBatchTimings(
+    val initializationNanos: Long,
+    val decodeNanos: Long,
+    val nativeRecognitionNanos: Long,
+    val cacheWriteNanos: Long,
+    val decodedSizes: List<Pair<Int, Int>>
+)
+
 /**
  * 「按整理目的凑一批图」的编排层：把暂存清理已经筛好的候选 → OCR → 规则 → 可选文字辅助 → 排序。
  *
@@ -89,6 +97,7 @@ class IntentBatchAnalyzer(
         allowTextAssist: Boolean = false,
         timeZone: TimeZone = TimeZone.getDefault(),
         startedGeneration: Int = batchGeneration(),
+        onTimings: ((IntentBatchTimings) -> Unit)? = null,
         onProgress: (suspend (IntentBatchProgress) -> Unit)? = null
     ): Analysis = withContext(Dispatchers.Default) {
         val startedAt = System.currentTimeMillis()
@@ -99,6 +108,7 @@ class IntentBatchAnalyzer(
         var cachedCount = 0
         var ocrCount = 0
         var assistCount = 0
+        val timings = onTimings?.let { Timings() }
 
         fun staleAnalysis() = Analysis(
             batch = IntentBatch(emptyList(), emptyList(), emptyList(), emptyList(), batchLimit),
@@ -112,7 +122,12 @@ class IntentBatchAnalyzer(
         )
 
         if (batchGeneration() != startedGeneration) return@withContext staleAnalysis()
-        if (!recognizer.isAvailable) {
+        val initializationStart = timings?.let { System.nanoTime() }
+        val engineAvailable = recognizer.isAvailable
+        if (timings != null && initializationStart != null) {
+            timings.initializationNanos = System.nanoTime() - initializationStart
+        }
+        if (!engineAvailable) {
             return@withContext Analysis(
                 batch = IntentBatch(emptyList(), emptyList(), emptyList(), emptyList(), batchLimit),
                 engineAvailable = false,
@@ -156,7 +171,7 @@ class IntentBatchAnalyzer(
                 publishChecked(index + 1)
                 continue
             }
-            val ocr = runCatching { recognizeOne(image) }.getOrElse { error ->
+            val ocr = runCatching { recognizeOne(image, timings) }.getOrElse { error ->
                 if (error is CancellationException) throw error
                 OcrResult.Failed(error.javaClass.simpleName)
             }
@@ -212,6 +227,7 @@ class IntentBatchAnalyzer(
 
         // 只回写「这次真的重新算过」的条目，命中缓存的不重写（避免无谓的偏好写入）
         if (ocrCount > 0) {
+            val cacheWriteStart = timings?.let { System.nanoTime() }
             batch.allCandidates().forEach { candidate ->
                 val image = candidate.image
                 val identity = IntentBatchBuilder.cleanupIdentity(image)
@@ -225,8 +241,12 @@ class IntentBatchAnalyzer(
                     cache.write(identity, candidate.verdict, fingerprint, recognizer.engineId, assistTag)
                 }
             }
+            if (timings != null && cacheWriteStart != null) {
+                timings.cacheWriteNanos = System.nanoTime() - cacheWriteStart
+            }
         }
 
+        if (timings != null) onTimings?.invoke(timings.finish())
         Analysis(
             batch = batch,
             engineAvailable = true,
@@ -243,18 +263,38 @@ class IntentBatchAnalyzer(
         images.forEach { cache.invalidate(IntentBatchBuilder.cleanupIdentity(it)) }
     }
 
-    private suspend fun recognizeOne(image: ImageFile): OcrResult {
-        val bitmap: Bitmap = try {
+    private suspend fun recognizeOne(image: ImageFile, timings: Timings?): OcrResult {
+        val decodeStart = timings?.let { System.nanoTime() }
+        val decoded: Bitmap? = try {
             TesseractTextRecognizer.decodeForOcr(context, image.uri)
         } catch (e: SecurityException) {
             null
-        } ?: return OcrResult.Failed("decode")
+        }
+        if (timings != null && decodeStart != null) timings.decodeNanos += System.nanoTime() - decodeStart
+        val bitmap = decoded ?: return OcrResult.Failed("decode")
         return try {
             currentCoroutineContext().ensureActive()
-            recognizer.recognize(bitmap)
+            timings?.decodedSizes?.add(bitmap.width to bitmap.height)
+            if (timings != null && recognizer is TesseractTextRecognizer) {
+                recognizer.recognize(bitmap) { timings.nativeRecognitionNanos += it }
+            } else {
+                recognizer.recognize(bitmap)
+            }
         } finally {
             if (!bitmap.isRecycled) bitmap.recycle()
         }
+    }
+
+    private class Timings {
+        var initializationNanos = 0L
+        var decodeNanos = 0L
+        var nativeRecognitionNanos = 0L
+        var cacheWriteNanos = 0L
+        val decodedSizes = mutableListOf<Pair<Int, Int>>()
+
+        fun finish() = IntentBatchTimings(
+            initializationNanos, decodeNanos, nativeRecognitionNanos, cacheWriteNanos, decodedSizes.toList()
+        )
     }
 
     /** 记录文字辅助的实际调用次数（「到底发了几次请求」）。 */

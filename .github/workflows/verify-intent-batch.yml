@@ -180,8 +180,9 @@ jobs:
             cat device-results/intent-e2e.txt
             grep -E 'INSTRUMENTATION_STATUS: (class|numtests|test=)|OK \(|FAILURES' device-results/instrumentation.txt > device-results/summary.txt || true
             cat device-results/summary.txt
-            # 6 条用例：引擎可用、端到端对账、无字图不确定、日期可提取、脱敏不外发链接、保护信号存活
-            grep -Fx 'OK (6 tests)' device-results/instrumentation.txt
+            grep -Fx 'OK (7 tests)' device-results/instrumentation.txt
+            grep -F '[ocr-benchmark] ' device-results/stdout.txt > device-results/ocr-benchmark.txt
+            test "$(wc -l < device-results/ocr-benchmark.txt)" -eq 7
             # 页面链路：入口在暂存清理页、辅助默认关闭、订单截图不进推荐、回收站复用、Key 落盘
             adb logcat -c || true
             timeout 1500s adb shell am instrument -w -r -e class com.tabula.v3.IntentBatchPageFlowTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-page.txt 2>&1 || true
@@ -189,7 +190,7 @@ jobs:
             adb logcat -d -s System.out > device-results/stdout-page.txt || true
             grep -E 'INSTRUMENTATION_STATUS: (class|numtests|test=)|OK \(|FAILURES' device-results/instrumentation-page.txt > device-results/summary-page.txt || true
             cat device-results/summary-page.txt
-            # 10 条：进度、停止与迟到返回，以及入口、辅助默认关闭、订单截图不进推荐、
+            # 11 条：实际入口的冷暖用时、进度、停止与迟到返回，以及入口、辅助默认关闭、订单截图不进推荐、
             # 真实交互提交→回收站→大图浮层恢复、三种「世界变了」不得提交、
             # 授权不随批次重建存活、Key 落盘
             #
@@ -202,7 +203,9 @@ jobs:
             # 现在定位改为「只取有可点祖先的列表行缩略图」，并轮询等到
             # 「已选 N 张」真的更新（a11y 快照比状态慢一拍），本机复跑
             # `OK (1 test)` 全链路通过。断言恢复为精确匹配。
-            grep -Fx 'OK (10 tests)' device-results/instrumentation-page.txt
+            grep -Fx 'OK (11 tests)' device-results/instrumentation-page.txt
+            grep -F '[ocr-ui-benchmark] ' device-results/stdout-page.txt > device-results/ocr-ui-benchmark.txt
+            test "$(wc -l < device-results/ocr-ui-benchmark.txt)" -eq 2
       - name: Summarise
         if: always()
         run: |
