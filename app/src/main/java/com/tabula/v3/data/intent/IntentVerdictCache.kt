@@ -14,12 +14,18 @@ import android.content.SharedPreferences
  * 2. 规则版本变化：[IntentRules.RULES_VERSION]；
  * 3. 引擎/模型版本变化：`engineId`（换 OCR 引擎或换语言包）；
  * 4. 文字辅助开关变化：开/关 DeepSeek 辅助会算出不同结果，用 `assistTag` 区分；
- * 5. 权限撤回：条目被标成 [stale]，下次读取时直接丢弃。
+ * 5. 权限撤回：移除该条目，下次读取时重新判定。
  */
 class IntentVerdictCache(
     private val prefs: SharedPreferences,
     private val maxEntries: Int = MAX_ENTRIES
 ) {
+
+    internal data class Write(
+        val identityKey: String,
+        val verdict: IntentVerdict,
+        val mediaFingerprint: String
+    )
 
     /** 一条缓存记录。字段刻意最小化。 */
     data class IntentCachedVerdict(
@@ -67,45 +73,66 @@ class IntentVerdictCache(
     }
 
     fun write(identityKey: String, verdict: IntentVerdict, mediaFingerprint: String, engineId: String, assistTag: String) {
-        val entry = IntentCachedVerdict(
-            category = verdict.category,
-            recommendation = verdict.recommendation,
-            expiry = verdict.expiry,
-            reason = verdict.reason,
-            signals = verdict.signals,
-            ocrConfidence = verdict.ocrConfidence,
-            deadlineMillis = verdict.deadlineMillis,
-            assistantUsed = verdict.assistantUsed,
-            mediaFingerprint = mediaFingerprint,
-            rulesVersion = IntentRules.RULES_VERSION,
-            engineId = engineId,
-            assistTag = assistTag
-        )
-        val all = prefs.all.toMutableMap()
-        all[keyOf(identityKey)] = encode(entry)
-        // 超限时按写入顺序丢最旧的（SharedPreferences 不保证顺序，这里用插入序号）
-        if (all.size > maxEntries) {
-            val oldest = all.keys
-                .filter { it.startsWith(KEY_PREFIX) }
-                .sortedBy { key ->
-                    @Suppress("UNCHECKED_CAST")
-                    (all[key] as? String)?.substringBefore(SEP)?.toLongOrNull() ?: Long.MAX_VALUE
-                }
-                .take(all.size - maxEntries)
-            val editor = prefs.edit()
-            oldest.forEach { editor.remove(it) }
-            editor.apply()
-        }
-        prefs.edit().putString(keyOf(identityKey), encode(entry)).apply()
+        writeBatch(listOf(Write(identityKey, verdict, mediaFingerprint)), engineId, assistTag)
     }
 
-    /** 标记为陈旧（例如权限被撤回、目录已不可访问）。下次读取返回 null。 */
-    fun invalidate(identityKey: String) {
+    internal fun writeBatch(
+        writes: List<Write>,
+        engineId: String,
+        assistTag: String,
+        beforeApply: () -> Unit = {}
+    ) = synchronized(prefs) {
+        if (writes.isEmpty()) return@synchronized
+        val pending = LinkedHashMap<String, Write>()
+        writes.forEach { write ->
+            val key = keyOf(write.identityKey)
+            pending.remove(key)
+            pending[key] = write
+        }
+        val all = prefs.all
+        val olderKeys = all.keys.filter { it.startsWith(KEY_PREFIX) && it !in pending }
+        val surplus = olderKeys.size + pending.size - maxEntries
+        val evicted = if (surplus > 0) {
+            // 新写入的条目比快照里的条目更新。同一批的写入按候选顺序淘汰。
+            (olderKeys.sortedWith(compareBy<String> { key ->
+                (all[key] as? String)?.substringBefore(SEP)?.toLongOrNull() ?: Long.MAX_VALUE
+            }.thenBy { it }) + pending.keys).take(surplus).toSet()
+        } else {
+            emptySet()
+        }
+        val editor = prefs.edit()
+        evicted.forEach { if (it in all) editor.remove(it) }
+        val writtenAt = System.currentTimeMillis()
+        pending.forEach { (key, write) ->
+            if (key in evicted) return@forEach
+            val verdict = write.verdict
+            val entry = IntentCachedVerdict(
+                category = verdict.category,
+                recommendation = verdict.recommendation,
+                expiry = verdict.expiry,
+                reason = verdict.reason,
+                signals = verdict.signals,
+                ocrConfidence = verdict.ocrConfidence,
+                deadlineMillis = verdict.deadlineMillis,
+                assistantUsed = verdict.assistantUsed,
+                mediaFingerprint = write.mediaFingerprint,
+                rulesVersion = IntentRules.RULES_VERSION,
+                engineId = engineId,
+                assistTag = assistTag
+            )
+            editor.putString(key, encode(entry, writtenAt))
+        }
+        beforeApply()
+        editor.apply()
+    }
+
+    /** 移除陈旧条目（例如权限被撤回、目录已不可访问）。下次读取返回 null。 */
+    fun invalidate(identityKey: String) = synchronized(prefs) {
         prefs.edit().remove(keyOf(identityKey)).apply()
     }
 
     /** 全量清空（换 OCR 引擎、用户主动清除分析结果时用）。 */
-    fun clear() {
+    fun clear() = synchronized(prefs) {
         val editor = prefs.edit()
         prefs.all.keys.filter { it.startsWith(KEY_PREFIX) }.forEach { editor.remove(it) }
         editor.apply()
@@ -122,8 +149,8 @@ class IntentVerdictCache(
      * 极简编码：用不会出现在这些枚举名/理由里的分隔符 `\u0001`，避免引入 JSON 依赖。
      * 理由文本在写入前已经过 [IntentTextSanitizer]，不会带控制字符。
      */
-    private fun encode(e: IntentCachedVerdict): String = listOf(
-        System.currentTimeMillis().toString(),
+    private fun encode(e: IntentCachedVerdict, writtenAt: Long): String = listOf(
+        writtenAt.toString(),
         e.category.name,
         e.recommendation.name,
         e.expiry.name,

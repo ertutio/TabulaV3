@@ -82,22 +82,34 @@ class TesseractTextRecognizer(
         return dataDir
     }
 
-    override suspend fun recognize(bitmap: Bitmap): OcrResult = withContext(Dispatchers.Default) {
+    override suspend fun recognize(bitmap: Bitmap): OcrResult = recognize(bitmap, null)
+
+    internal suspend fun recognize(
+        bitmap: Bitmap,
+        onNativeRecognition: ((Long) -> Unit)?
+    ): OcrResult = withContext(Dispatchers.Default) {
         synchronized(this@TesseractTextRecognizer) {
             // A cancelled caller may have been waiting for a previous native call to finish.
             ensureActive()
-            recognizeLocked(bitmap)
+            recognizeLocked(bitmap, onNativeRecognition)
         }
     }
 
-    private fun recognizeLocked(bitmap: Bitmap): OcrResult {
+    private fun recognizeLocked(bitmap: Bitmap, onNativeRecognition: ((Long) -> Unit)?): OcrResult {
         val api = ensureEngine() ?: return OcrResult.Unavailable(
             initFailure ?: "OCR 引擎不可用"
         )
         return try {
-            api.setImage(bitmap)
-            val raw = api.getUTF8Text().orEmpty()
-            val confidence = (api.meanConfidence().coerceIn(0, 100)) / 100f
+            val nativeStarted = if (onNativeRecognition != null) System.nanoTime() else 0L
+            val raw: String
+            val confidence: Float
+            try {
+                api.setImage(bitmap)
+                raw = api.getUTF8Text().orEmpty()
+                confidence = (api.meanConfidence().coerceIn(0, 100)) / 100f
+            } finally {
+                onNativeRecognition?.invoke(System.nanoTime() - nativeStarted)
+            }
             val lines = raw.split('\n')
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }

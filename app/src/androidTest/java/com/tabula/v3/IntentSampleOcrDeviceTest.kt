@@ -1,22 +1,32 @@
 package com.tabula.v3
 
 import android.content.ContentValues
+import android.content.ContentUris
+import android.content.Context
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.MediaStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tabula.v3.data.intent.IntentCategory
+import com.tabula.v3.data.intent.IntentBatchAnalyzer
+import com.tabula.v3.data.intent.IntentBatchTimings
 import com.tabula.v3.data.intent.IntentDateExtractor
 import com.tabula.v3.data.intent.IntentRecommendation
 import com.tabula.v3.data.intent.IntentRules
 import com.tabula.v3.data.intent.IntentSignal
 import com.tabula.v3.data.intent.IntentTextSanitizer
+import com.tabula.v3.data.intent.IntentVerdictCache
 import com.tabula.v3.data.intent.OcrResult
 import com.tabula.v3.data.intent.TesseractTextRecognizer
+import com.tabula.v3.data.intent.allCandidates
+import com.tabula.v3.data.model.ImageFile
 import java.io.File
+import java.util.Calendar
 import java.util.TimeZone
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
+import org.json.JSONArray
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -124,6 +134,110 @@ class IntentSampleOcrDeviceTest {
                 savedDaysAgo = o.optInt("screenshot_saved_days_ago", 10),
                 sensitiveTokens = tokens
             )
+        }
+    }
+
+    @Test
+    fun measuresColdAndWarmBatchWithRealOcr() = runBlocking {
+        val fixtureNames = setOf(
+            "coupon-expired-01.png", "coupon-expired-02.png", "coupon-expired-03.png",
+            "coupon-expired-04.png", "event-signup-01.png", "hard-blurry-01.png",
+            "hard-mixed-01.png", "hard-nowords-01.png", "news-flash-old-01.png",
+            "protect-invoice-01.png", "protect-order-01.png", "protect-ticket-01.png"
+        )
+        val timeZone = TimeZone.getTimeZone("Asia/Shanghai")
+        val reference = Calendar.getInstance(timeZone).apply {
+            clear()
+            set(2026, Calendar.NOVEMBER, 28, 12, 0)
+        }.timeInMillis
+        val golden = loadGolden().filter { it.file in fixtureNames }
+        assertEquals(fixtureNames.size, golden.size)
+        val images = golden.map { sample ->
+            val uri = stageSample(sample.file, sample.savedDaysAgo)
+            val file = File(cacheDir, sample.file)
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, bounds)
+            ImageFile(
+                id = ContentUris.parseId(uri),
+                uri = uri,
+                displayName = sample.file,
+                dateModified = reference,
+                size = file.length(),
+                width = bounds.outWidth,
+                height = bounds.outHeight,
+                bucketDisplayName = "Screenshots",
+                volumeName = MediaStore.VOLUME_EXTERNAL_PRIMARY,
+                relativePath = "DCIM/Screenshots/",
+                dateAdded = reference - sample.savedDaysAgo * 86_400_000L
+            )
+        }
+        val cache = IntentVerdictCache(context.getSharedPreferences("ocr_batch_measurement", Context.MODE_PRIVATE))
+        println("[ocr-benchmark] " + JSONObject()
+            .put("fixtures", JSONArray(images.map { image ->
+                JSONObject().put("name", image.displayName).put("width", image.width)
+                    .put("height", image.height).put("bytes", image.size)
+            }))
+            .put("cacheCapacity", IntentVerdictCache.MAX_ENTRIES)
+            .put("candidateCount", images.size)
+            .put("exceedsCapacity", images.size > IntentVerdictCache.MAX_ENTRIES)
+            .put("textAssist", false))
+
+        try {
+            repeat(3) { round ->
+                cache.clear()
+                recognizer.close()
+                recognizer = TesseractTextRecognizer(context)
+                val analyzer = IntentBatchAnalyzer(context, recognizer, cache)
+                var coldVerdicts = emptyMap<String, List<Any?>>()
+                for (pass in listOf("cold", "warm")) {
+                    var timings: IntentBatchTimings? = null
+                    val start = System.nanoTime()
+                    val result = analyzer.analyze(
+                        images = images,
+                        batchLimit = 10,
+                        nowMillis = reference,
+                        timeZone = timeZone,
+                        allowTextAssist = false,
+                        onTimings = { timings = it }
+                    )
+                    val readyNanos = System.nanoTime() - start
+                    val phases = checkNotNull(timings)
+                    assertTrue(result.engineAvailable)
+                    assertEquals(0, result.assistRequestCount)
+                    val verdicts = result.batch.allCandidates().associate { candidate ->
+                        val verdict = candidate.verdict
+                        candidate.image.displayName to listOf(
+                            verdict.category.name, verdict.recommendation.name,
+                            verdict.expiry.name, verdict.deadlineMillis
+                        )
+                    }
+                    if (pass == "cold") {
+                        assertEquals(images.size, result.ocrAttemptCount)
+                        assertEquals(0, result.usedCacheCount)
+                        coldVerdicts = verdicts
+                    } else {
+                        assertTrue(result.usedCacheCount > 0)
+                        assertEquals(coldVerdicts, verdicts)
+                    }
+                    val recommended = result.batch.recommended.map { it.image.displayName }.toSet()
+                    assertTrue(golden.filter { it.mustKeepProtected }.none { it.file in recommended })
+                    println("[ocr-benchmark] " + JSONObject()
+                        .put("round", round + 1).put("pass", pass)
+                        .put("initializationNanos", phases.initializationNanos)
+                        .put("decodeNanos", phases.decodeNanos)
+                        .put("nativeRecognitionNanos", phases.nativeRecognitionNanos)
+                        .put("cacheWriteNanos", phases.cacheWriteNanos)
+                        .put("analysisReadyNanos", readyNanos)
+                        .put("ocrAttempts", result.ocrAttemptCount)
+                        .put("cacheHits", result.usedCacheCount).put("cacheEntries", cache.size())
+                        .put("decodedSizes", JSONArray(phases.decodedSizes.map { (width, height) ->
+                            JSONArray(listOf(width, height))
+                        }))
+                        .put("verdicts", JSONObject(verdicts.mapValues { (_, verdict) -> JSONArray(verdict) })))
+                }
+            }
+        } finally {
+            cache.clear()
         }
     }
 
