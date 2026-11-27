@@ -54,7 +54,7 @@ fun RoundIntentBanner(
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = "接受后下一批优先这个来源，只影响一批",
+                text = "下一批优先选择这个来源，仅对下一批生效",
                 color = Color(0xFF8E8E93),
                 fontSize = 11.sp
             )
