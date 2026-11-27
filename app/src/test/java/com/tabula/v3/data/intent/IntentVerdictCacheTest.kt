@@ -3,12 +3,11 @@ package com.tabula.v3.data.intent
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Base64
 import com.tabula.v3.data.model.ImageFile
-import java.awt.image.BufferedImage
 import java.io.File
 import java.util.TimeZone
 import java.util.concurrent.atomic.AtomicInteger
-import javax.imageio.ImageIO
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -43,6 +42,11 @@ class IntentVerdictCacheTest {
     private val utc = TimeZone.getTimeZone("UTC")
     private val expiredCoupon = OcrResult.Success(
         listOf("满199减30", "活动已于 2026-11-10 23:59 结束"), 0.9f
+    )
+    // A 16 × 16 RGB PNG. The recognizer is fake, but the analyzer uses its normal decoder.
+    private val imageBytes = Base64.decode(
+        "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAEElEQVR4nGNgGAWjYBTAAAADEAABPywr7AAAAABJRU5ErkJggg==",
+        Base64.DEFAULT
     )
 
     private val verdict = IntentVerdict(
@@ -258,7 +262,7 @@ class IntentVerdictCacheTest {
 
     private fun photo(id: Long): ImageFile {
         val file = File(context.cacheDir, "intent-cache-$id.png")
-        check(ImageIO.write(BufferedImage(16, 16, BufferedImage.TYPE_INT_RGB), "png", file))
+        file.writeBytes(imageBytes)
         return ImageFile(
             id = id,
             uri = Uri.fromFile(file),
