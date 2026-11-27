@@ -1,6 +1,25 @@
 # Tabula 开发路线图：暂存图片清理与选片
 
-以 master 的 `b56cf3a`（3.4）为评估起点。本计划合入后取代[原开发路线 PR #12](https://github.com/ertutio/TabulaV3/pull/12) 的排期。液态玻璃主题升级、依赖更新专项和[性能基线对比](performance-baseline-plan-v1.md)暂缓，已有基线、测试和历史验收记录保留供回归使用。以下是待开发项；可行性判断来自源码走查。
+以 master 的 `b56cf3a`（3.4）为评估起点。本计划合入后取代[原开发路线 PR #12](https://github.com/ertutio/TabulaV3/pull/12) 的排期。依赖更新专项和[性能基线对比](performance-baseline-plan-v1.md)继续暂缓，已有基线、测试和历史验收记录保留供回归使用。液态玻璃材质升级改为**独立并行开发**（见下节），不占本计划的排期。以下是待开发项；可行性判断来自源码走查。
+
+## 液态玻璃材质升级（独立并行开发，不进本计划排期）
+
+液态玻璃不再作为"暂缓项"，改为与上面的功能开发**并行**推进：单独开分支、单独开 PR，
+从 `master` 切出，只开和更新 PR，不合并、不启用自动合并、不直推 `master`。
+
+- 开发线：`feature/liquid-glass-material-*`；原型分支 `feature/liquid-glass-material-2026-11-23`（PR #91）
+- 第一步：可审计的**背景采样层渲染原型** —— 沿用 `PhysicalLiquidGlassBox`、
+  `PhysicalLiquidGlassConfig`、`FallbackGlassBox`，保留现有高光/边缘/内阴影/噪点/形状，
+  在其下增加可选背景层；调用方未提供背景时沿用原有效果
+- 接入顺序：顶部操作按钮（堆叠 PR #92，依赖原型）→ 归档弹层 → 卡片页 → 清理页，
+  各自界面稳定后逐个接入，避免与 #84、#86 等功能 PR 同时改同一处
+- 并行约束：依赖升级与完整性能基线继续暂缓；不因这条线改动功能 PR 涉及的界面文件
+- 验收：独立调试预览（可移动网格 + 合成照片 + 折射开关）、debug 构建与相关测试、
+  Android 15+ 实验室开关与新效果、Android 12 走原有显示、同设备同场景开关前后掉帧对照
+- 参考实现按固定提交记录（Kyant0/AndroidLiquidGlass `896a94a`、chrisbanes/haze `a0398c5`、
+  QmDeve/AndroidLiquidGlassView `d4238c5`），复用外部代码时按对应许可证保留声明并在 PR 列明
+
+仍暂缓的两项保持不变：**依赖更新专项**、**完整性能基线对比**。
 
 ## 优先解决两类暂存图片
 
