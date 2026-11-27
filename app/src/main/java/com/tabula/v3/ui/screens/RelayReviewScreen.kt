@@ -263,7 +263,7 @@ fun RelayReviewScreen(
                                     TextButton(onClick = {
                                         HapticFeedback.lightTap(context)
                                         pickingFor = row
-                                    }) { Text("浏览图库指定原图", color = accent) }
+                                    }) { Text("指定原图", color = accent) }
                                 }
                             }
                         }

@@ -584,10 +584,11 @@ fun TabulaApp(
 
     // ========== 分享待清记录（#85：用户可达的清理界面） ==========
     val shareRelayStore = remember { ShareRelayStore.getInstance(context) }
+    var relayReviewOrigin by rememberSaveable { mutableStateOf(AppScreen.SETTINGS) }
     var relayMarks by remember { mutableStateOf<List<RelayMark>>(emptyList()) }
     var relayShowReviewOnly by remember { mutableStateOf(false) }
     var relayRevision by remember { mutableIntStateOf(0) }
-    LaunchedEffect(relayRevision) {
+    LaunchedEffect(relayRevision, mediaAccessRevision) {
         relayMarks = withContext(Dispatchers.IO) { shareRelayStore.load() }
     }
 
@@ -2129,6 +2130,7 @@ fun TabulaApp(
                     "${preferences.stagedCleanupSourceKeys.size} 个来源"
             } else "",
             onNavigateToRelayReview = {
+                relayReviewOrigin = AppScreen.SETTINGS
                 relayRevision++
                 currentScreen = AppScreen.RELAY_REVIEW
             },
@@ -2221,7 +2223,7 @@ fun TabulaApp(
                 ).show()
                 relayRevision++
             },
-            onNavigateBack = { currentScreen = AppScreen.SETTINGS }
+            onNavigateBack = { currentScreen = relayReviewOrigin }
         )
     }
 
@@ -2584,6 +2586,11 @@ fun TabulaApp(
     
     val stagedCleanupContent: @Composable () -> Unit = {
         val selection = stagedCleanupSelection
+        val openRelayReview: () -> Unit = {
+            relayReviewOrigin = AppScreen.STAGED_CLEANUP
+            relayRevision++
+            currentScreen = AppScreen.RELAY_REVIEW
+        }
         if (selection == null && !preferences.hasStagedCleanupSourceChoice) {
             StagedCleanupSourcePickerContent(
                 sources = stagedCleanupSources,
@@ -2591,6 +2598,8 @@ fun TabulaApp(
                     stagedCleanupSelectedKeys
                 },
                 isLoading = stagedCleanupLoading,
+                relayCount = relayMarks.size,
+                onOpenRelayReview = openRelayReview,
                 onToggleSource = { key ->
                     val current = preferences.stagedCleanupSourceKeys.ifEmpty {
                         stagedCleanupSelectedKeys
@@ -2715,7 +2724,9 @@ fun TabulaApp(
                     stagedCleanupSelectedKeys = emptySet()
                     stagedCleanupSelection = null
                 },
-                onOpenIntentBatch = { openIntentBatch() }
+                onOpenIntentBatch = { openIntentBatch() },
+                relayCount = relayMarks.size,
+                onOpenRelayReview = openRelayReview
             )
         }
     }
@@ -3201,7 +3212,10 @@ fun TabulaApp(
         AppScreen.OTHER_ALBUMS -> deckContent to otherAlbumsContent
         AppScreen.BURST_SELECTION -> deckContent to burstSelectionContent
         AppScreen.STAGED_CLEANUP -> deckContent to stagedCleanupContent
-        AppScreen.RELAY_REVIEW -> settingsContent to relayReviewContent
+        AppScreen.RELAY_REVIEW -> {
+            val previous = if (relayReviewOrigin == AppScreen.STAGED_CLEANUP) stagedCleanupContent else settingsContent
+            previous to relayReviewContent
+        }
         AppScreen.INTENT_BATCH -> deckContent to intentBatchContent
         AppScreen.VIBRATION_SOUND -> settingsContent to vibrationSoundContent
         AppScreen.DISPLAY_SETTINGS -> settingsContent to displaySettingsContent
@@ -3235,7 +3249,7 @@ fun TabulaApp(
                     AppScreen.OTHER_ALBUMS -> AppScreen.DECK
                     AppScreen.BURST_SELECTION -> AppScreen.DECK
                     AppScreen.STAGED_CLEANUP -> AppScreen.DECK
-                    AppScreen.RELAY_REVIEW -> AppScreen.SETTINGS
+                    AppScreen.RELAY_REVIEW -> relayReviewOrigin
                     // 返回暂存清理：这一批的范围就是从那里来的，用户要能一眼看到原列表
                     AppScreen.INTENT_BATCH -> AppScreen.STAGED_CLEANUP
                     AppScreen.VIBRATION_SOUND -> AppScreen.SETTINGS

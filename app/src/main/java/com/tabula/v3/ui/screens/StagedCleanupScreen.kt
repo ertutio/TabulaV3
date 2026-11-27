@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -85,7 +86,9 @@ fun StagedCleanupSourcePickerContent(
     isLoading: Boolean,
     onToggleSource: (String) -> Unit,
     onConfirm: () -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    relayCount: Int = 0,
+    onOpenRelayReview: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -108,6 +111,10 @@ fun StagedCleanupSourcePickerContent(
             secondaryTextColor = secondaryTextColor,
             onNavigateBack = onNavigateBack
         )
+
+        if (relayCount > 0) {
+            RelayPendingEntry(relayCount, cardColor, accentColor, onOpenRelayReview)
+        }
 
         Text(
             text = "先选来源：截图、下载，以及聊天软件保存图片的目录。" +
@@ -254,7 +261,9 @@ fun StagedCleanupCandidateContent(
      * 新能力的输入范围（已勾选来源、已扣除保留/跳过/已回收），
      * 用户不需要再选一次来源，也不会误以为它能扫全库。
      */
-    onOpenIntentBatch: (() -> Unit)? = null
+    onOpenIntentBatch: (() -> Unit)? = null,
+    relayCount: Int = 0,
+    onOpenRelayReview: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isDarkTheme = LocalIsDarkTheme.current
@@ -280,6 +289,10 @@ fun StagedCleanupCandidateContent(
             secondaryTextColor = secondaryTextColor,
             onNavigateBack = onNavigateBack
         )
+
+        if (relayCount > 0) {
+            RelayPendingEntry(relayCount, cardColor, accentColor, onOpenRelayReview)
+        }
 
         if (onOpenIntentBatch != null) {
             Row(
@@ -788,4 +801,22 @@ private fun SourceRowItem(
         }
     )
     Spacer(Modifier.height(8.dp))
+}
+
+
+@Composable
+private fun RelayPendingEntry(count: Int, surface: Color, accent: Color, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(surface)
+            .clickable(onClick = onClick)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("分享待清 · $count 张", color = accent, fontSize = 14.sp)
+    }
 }
