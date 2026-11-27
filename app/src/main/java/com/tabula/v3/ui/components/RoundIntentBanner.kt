@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
@@ -37,39 +38,45 @@ fun RoundIntentBanner(
 ) {
     val intentContext = LocalContext.current
     val isDark = LocalIsDarkTheme.current
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(if (isDark) Color(0xFF2C2C2E) else Color.White)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 14.dp, vertical = 10.dp)
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = "这轮再看几张「$intentSourceName」？",
-                color = if (isDark) Color.White else Color.Black,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = "接受后下一批优先这个来源，只影响一批",
-                color = Color(0xFF8E8E93),
-                fontSize = 11.sp
-            )
-        }
-        TextButton(onClick = {
-            HapticFeedback.lightTap(intentContext)
-            onDismissIntent()
-        }) {
-            Text("忽略", color = Color(0xFF8E8E93), fontSize = 13.sp)
-        }
-        TextButton(onClick = {
-            HapticFeedback.lightTap(intentContext)
-            onAcceptIntent()
-        }) {
-            Text("看这个", color = Color(0xFF007AFF), fontSize = 13.sp)
+        Text(
+            text = "下一批优先看这个来源？",
+            color = if (isDark) Color.White else Color.Black,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = intentSourceName,
+            color = if (isDark) Color.White else Color.Black,
+            fontSize = 13.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = "只影响下一批",
+            color = Color(0xFF8E8E93),
+            fontSize = 11.sp
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = {
+                HapticFeedback.lightTap(intentContext)
+                onDismissIntent()
+            }) {
+                Text("忽略", color = Color(0xFF8E8E93), fontSize = 13.sp)
+            }
+            TextButton(onClick = {
+                HapticFeedback.lightTap(intentContext)
+                onAcceptIntent()
+            }) {
+                Text("看这个", color = Color(0xFF007AFF), fontSize = 13.sp)
+            }
         }
     }
-}
+}\n
