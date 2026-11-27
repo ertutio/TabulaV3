@@ -1,4 +1,4 @@
-name: Tabula emulator performance baseline v1
+name: Tabula 4.0.1 preview emulator performance baseline
 
 on:
   push:
@@ -30,7 +30,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
-      BASE_COMMIT: 474129ed4d5262befc8bdab0fbd60e4df81411f2
       CANDIDATE_COMMIT: ${{ github.event.inputs.candidate_commit }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803

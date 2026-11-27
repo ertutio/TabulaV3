@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "name": "Tabula emulator performance baseline v1",
-  "baselineCommit": "474129ed4d5262befc8bdab0fbd60e4df81411f2",
+  "name": "Tabula 4.0.1 preview emulator performance baseline",
+  "baselineCommit": "9904af78905a10e857cf286e3d3cca9aadccc081",
   "packageName": "com.tabula.v3",
   "runner": "ubuntu-24.04",
   "apiLevel": 36,
