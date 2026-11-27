@@ -823,6 +823,47 @@ class BurstSelectionDeviceTest {
         )
     }
 
+    @Test
+    fun snackbarUndoRestoresOnlyTheDiscardedBurstPhoto() = runBlocking {
+        val fixtures = (1..3).map { insertIdenticalPhoto() }.toSet()
+        val photos = library()
+        val mine = photos.filter { it.uri in fixtures }
+        assertEquals("三张测试照都必须在媒体库里", fixtures, mine.map { it.uri }.toSet())
+        prefs.recommendMode = com.tabula.v3.data.preferences.RecommendMode.SIMILAR
+        val engine = com.tabula.v3.data.repository.RecommendationEngine.getInstance(ctx)
+        ctx.getSharedPreferences("tabula_similar_groups", Context.MODE_PRIVATE)
+            .edit().clear().commit()
+        engine.invalidateSimilarGroupCache()
+        val group = checkNotNull(engine.getNextSimilarGroup(photos))
+        assertEquals("实际选片组必须只含本用例照片", fixtures, group.images.map { it.uri }.toSet())
+
+        startApp()
+        waitForTextContaining("这批像连拍", timeout = 60000)
+        tap("去选片")
+        waitFor("连拍选片", timeout = 20000)
+        mine.forEach { waitFor(it.displayName, timeout = 5000) }
+        tap("这组都留")
+        waitForTextContaining("回收 0 张", timeout = 10000)
+        val discarded = mine.sortedBy { it.dateModified }[1]
+        tap(discarded.displayName)
+        waitForTextContaining("回收 1 张", timeout = 10000)
+        val bin = RecycleBinManager.getInstance(ctx)
+        val before = bin.loadRecycleBin().map { it.uri }.toSet()
+
+        tap("确认：回收 1 张")
+        waitForTextContaining("已移入回收站 1 张", timeout = 20000)
+        assertEquals(before + discarded.uri, bin.loadRecycleBin().map { it.uri }.toSet())
+        tap("撤销", timeout = 2500)
+
+        val deadline = now() + 10000
+        while (now() < deadline && bin.loadRecycleBin().any { it.uri == discarded.uri }) {
+            android.os.SystemClock.sleep(100)
+        }
+        assertEquals(before, bin.loadRecycleBin().map { it.uri }.toSet())
+        assertTrue("撤销后应仍在卡片页", screenTexts().contains("回收站") &&
+            !screenTexts().contains("连拍选片"))
+    }
+
     private fun groupToSimilar(images: List<ImageFile>) =
         com.tabula.v3.data.repository.SimilarGroup(
             images = images,

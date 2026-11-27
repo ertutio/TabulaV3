@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -82,6 +83,7 @@ import com.tabula.v3.data.repository.LocalImageRepository
 import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.copyImagesResultMessage
 import com.tabula.v3.data.repository.moveImagesResultMessage
+import com.tabula.v3.data.repository.isSameRecycleRecord
 import com.tabula.v3.data.repository.matchesSameMediaIdentity
 import com.tabula.v3.data.repository.mediaIdentityKey
 import com.tabula.v3.data.repository.mediaIdentityKey
@@ -131,6 +133,7 @@ import com.tabula.v3.ui.theme.TabulaColors
 import com.tabula.v3.ui.screens.AlbumTagManagementScreen
 import com.tabula.v3.ui.util.HapticFeedback
 import com.tabula.v3.ui.theme.TabulaTheme
+import com.tabula.v3.ui.components.UndoSnackbar
 import com.tabula.v3.ui.components.LocalLiquidGlassEnabled
 import com.tabula.v3.service.FluidCloudService
 import android.content.Context
@@ -488,6 +491,16 @@ class MainActivity : ComponentActivity() {
  *
  * 包含路由管理和预测性返回动画
  */
+private class BatchRecycleUndo(
+    val records: List<ImageFile>,
+    val source: AppScreen,
+    val groupId: String? = null,
+    val report: String = ""
+) {
+    fun canShowOn(screen: AppScreen): Boolean =
+        screen == source || (source == AppScreen.BURST_SELECTION && screen == AppScreen.DECK)
+}
+
 @Composable
 fun TabulaApp(
     preferences: AppPreferences,
@@ -569,6 +582,8 @@ fun TabulaApp(
     // ========== 连拍选片状态（路线图第 4 项） ==========
     // 只在相似推荐批次"看起来是一个连拍组"时才进入；进入后本界面的决定
     // 不直接落库，确认才写回收站，取消/返回什么都不改。
+    var pendingBatchUndos by remember { mutableStateOf<List<BatchRecycleUndo>>(emptyList()) }
+    var batchUndoInFlight by remember { mutableStateOf(false) }
     var burstSelectionGroup by remember { mutableStateOf<SimilarGroup?>(null) }
     // 审计修复（#87 四轮）：**原组身份**，用于完成时登记冷却。
     //
@@ -1451,8 +1466,9 @@ fun TabulaApp(
      * T02c：恢复（单条/批量共用）——单次对账、单次核验、逐项决策、共享记录事务。
      * UNKNOWN 保留在回收站，MISSING 清除死记录且不入图库，仅 PRESENT 恢复进图库。
      */
-    fun restoreImagesInOneTransaction(images: List<ImageFile>) {
+    fun restoreImagesInOneTransaction(images: List<ImageFile>, undo: BatchRecycleUndo? = null) {
         if (images.isEmpty() || isDeletingRecycleBin || deletePermissionInFlight) return
+        if (undo != null) batchUndoInFlight = true
         scope.launch {
             try {
                 val recovered = reconcileRecycleBinDeletion(
@@ -1473,26 +1489,56 @@ fun TabulaApp(
                 val verification = withContext(Dispatchers.IO) {
                     fileOperationManager.verifyDeletionState(verifiable.map { it.uri })
                 }
+                // The deletion probe also sees entries in Android's system trash. For
+                // undo, require the exact photo to be visible in the normal media query.
+                val visibleByIdentity = if (undo != null && verifiable.any {
+                        decideRestoreAction(it.uri, verification) == RestoreDecision.PROCEED_RESTORE
+                    }) {
+                    LocalImageRepository(context).loadAllData().allImages.associateBy { it.mediaIdentityKey() }
+                } else emptyMap()
                 val restorable = mutableListOf<ImageFile>()
                 val missing = mutableListOf<ImageFile>()
                 var keptUnknown = images.count { it.uri in recovered.unknown } + unconfirmedUris.size
                 candidates.forEach { image ->
                     if (image.uri !in confirmedSet) return@forEach
                     when (decideRestoreAction(image.uri, verification)) {
-                        RestoreDecision.PROCEED_RESTORE -> restorable += image
+                        RestoreDecision.PROCEED_RESTORE -> {
+                            if (undo == null || visibleByIdentity[image.mediaIdentityKey()]?.uri == image.uri) {
+                                restorable += image
+                            }
+                        }
                         RestoreDecision.DROP_MISSING -> missing += image
                         RestoreDecision.KEEP_UNKNOWN -> keptUnknown++
                     }
                 }
                 // 单一记录事务：只移除核验通过的条目；未知项原样保留。
-                if (restorable.isNotEmpty()) recycleBinManager.removeAllFromRecycleBin(restorable)
-                if (missing.isNotEmpty()) recycleBinManager.removeAllFromRecycleBin(missing, permanentlyRemoved = true)
+                val restored: List<ImageFile>
+                val dropped: List<ImageFile>
+                val alreadyRestored: Int
+                if (undo != null) {
+                    val result = recycleBinManager.removeBatchRecords(restorable, missing)
+                    restored = result.restored
+                    dropped = result.missing
+                    alreadyRestored = result.alreadyRestored
+                } else {
+                    if (restorable.isNotEmpty()) recycleBinManager.removeAllFromRecycleBin(restorable)
+                    if (missing.isNotEmpty()) recycleBinManager.removeAllFromRecycleBin(missing, permanentlyRemoved = true)
+                    restored = restorable
+                    dropped = missing
+                    alreadyRestored = 0
+                }
                 // T03：内存态与持久层同口径——按媒体身份移除/回插，跨卷同数值
                 // ID 记录互不影响。
-                val removed = restorable + missing
-                deletedImages =
-                    deletedImages.filterNot { row -> removed.any { it.matchesSameMediaIdentity(row) } }
-                restorable.forEach { image ->
+                val removed = restored + dropped
+                deletedImages = deletedImages.filterNot { row ->
+                    removed.any {
+                        if (undo != null) it.isSameRecycleRecord(row) else it.matchesSameMediaIdentity(row)
+                    }
+                }
+                val restoredImages = if (undo != null) {
+                    restored.map { visibleByIdentity.getValue(it.mediaIdentityKey()) }
+                } else restored
+                restoredImages.forEach { image ->
                     if (allImages.none { it.matchesSameMediaIdentity(image) }) allImages = allImages + image
                     val isInTabulaAlbum = albums.any { album ->
                         album.systemAlbumPath?.trimEnd('/')?.substringAfterLast('/') == image.bucketDisplayName
@@ -1502,9 +1548,43 @@ fun TabulaApp(
                     }
                 }
                 // 恢复改变软删除集合，推荐派生集合同步失效（与移除路径对称）。
-                if (restorable.isNotEmpty()) recommendationEngine.invalidateSimilarGroupCache()
+                if (restored.isNotEmpty()) recommendationEngine.invalidateSimilarGroupCache()
                 // 重新查询媒体与持久回收站，统一刷新照片、相册数量和封面。
-                if (restorable.isNotEmpty()) recycleBinLoadRevision++
+                if (restored.isNotEmpty() || (undo != null && dropped.isNotEmpty())) recycleBinLoadRevision++
+                if (undo != null) {
+                    if (restored.isNotEmpty()) {
+                        when (currentScreen) {
+                            AppScreen.INTENT_BATCH, AppScreen.STAGED_CLEANUP -> {
+                                recomputeStagedCleanupSelection()
+                                if (currentScreen == AppScreen.INTENT_BATCH) rebuildIntentBatch()
+                            }
+                            AppScreen.BURST_SELECTION -> {
+                                val original = burstOriginalGroup
+                                val active = burstSelectionGroup
+                                if (original != null && original.id == undo.groupId && active != null) {
+                                    val activeByIdentity = (active.images + restoredImages)
+                                        .associateBy { it.mediaIdentityKey() }
+                                    val merged = original.images.mapNotNull { activeByIdentity[it.mediaIdentityKey()] }
+                                    burstKeptKeys = burstKeptKeys + restoredImages.map { it.mediaIdentityKey() }
+                                    burstSelectionGroup = active.copy(
+                                        images = merged,
+                                        startTime = merged.minOf { it.dateModified },
+                                        endTime = merged.maxOf { it.dateModified }
+                                    )
+                                }
+                            }
+                            else -> Unit
+                        }
+                    }
+                    val failed = images.size - restored.size - alreadyRestored
+                    val message = listOfNotNull(
+                        restored.size.takeIf { it > 0 }?.let { "已恢复 $it 张" },
+                        alreadyRestored.takeIf { it > 0 }?.let { "$it 张已在图库中" },
+                        failed.takeIf { it > 0 }?.let { "$it 张未能恢复" }
+                    ).joinToString("，")
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    return@launch
+                }
                 val message = buildString {
                     if (restorable.isNotEmpty()) append("已恢复 ${restorable.size} 张")
                     if (missing.isNotEmpty()) append(if (isEmpty()) "${missing.size} 张已不在媒体库" else "，${missing.size} 张已不在媒体库")
@@ -1521,7 +1601,11 @@ fun TabulaApp(
                 throw e
             } catch (e: Exception) {
                 Log.e("TabulaApp", "Could not restore recycle bin record", e)
-                Toast.makeText(context, "未能保存恢复记录，照片仍保留在回收站", Toast.LENGTH_LONG).show()
+                val message = if (undo != null) "未能撤销，可在回收站重试"
+                    else "未能保存恢复记录，照片仍保留在回收站"
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            } finally {
+                if (undo != null) batchUndoInFlight = false
             }
         }
     }
@@ -2784,7 +2868,7 @@ fun TabulaApp(
                 }
             },
             onConfirm = {
-                if (intentBatchSaving) return@IntentBatchContent
+                if (intentBatchSaving || batchUndoInFlight) return@IntentBatchContent
                 // 选中项 = 当前批次里被勾上的那些（按完整媒体身份筛选）
                 val selectedImages = currentBatch.allCandidates()
                     .filter { intentIdentityOf(it) in intentBatchSelectedKeys }
@@ -2832,20 +2916,15 @@ fun TabulaApp(
                         }
 
                         // ---------- 2. 只写通过复核的那些 ----------
-                        recycleBinManager.addAllToRecycleBin(report.eligible)
-                        val persisted = recycleBinManager.loadRecycleBin()
-                        val persistedIds = persisted.map { cleanupIdentityKey(it) }.toSet()
+                        val addition = recycleBinManager.addBatchToRecycleBin(report.eligible)
 
-                        // ---------- 3. 按「实际确认新入站」的身份更新状态 ----------
-                        // 不用 report.eligible.size 冒充成功数：以回收站记录为准，
-                        // 这样部分成功时统计与提示都是真的。
-                        val confirmed = report.eligible.filter { cleanupIdentityKey(it) in persistedIds }
-                        val notConfirmed = report.eligible.filterNot { cleanupIdentityKey(it) in persistedIds }
-
+                        // ---------- 3. 按本次实际新增的记录更新状态 ----------
+                        val confirmed = addition.added
                         val confirmedKeys = confirmed.map { cleanupIdentityKey(it) }.toSet()
+                        val notConfirmed = report.eligible.count { cleanupIdentityKey(it) !in confirmedKeys }
                         allImages = allImages.filterNot { cleanupIdentityKey(it) in confirmedKeys }
                         imagesForSorting = imagesForSorting.filterNot { cleanupIdentityKey(it) in confirmedKeys }
-                        deletedImages = persisted
+                        deletedImages = addition.records
                         preferences.totalReviewedCount += confirmed.size
                         preferences.totalDeletedCount += confirmed.size
                         recommendationEngine.invalidateSimilarGroupCache()
@@ -2856,15 +2935,16 @@ fun TabulaApp(
                         rebuildIntentBatch()
 
                         // ---------- 4. 部分成功分别说明 ----------
-                        val message = buildString {
-                            append("${confirmed.size} 张已移入回收站，可在回收站恢复")
-                            val skippedText = report.describe()
-                            if (skippedText.isNotEmpty()) append("；跳过 ${report.skipped.size} 张：$skippedText")
-                            if (notConfirmed.isNotEmpty()) {
-                                append("；${notConfirmed.size} 张未确认写入，请重试")
-                            }
+                        val skippedText = report.describe()
+                        val message = listOfNotNull(
+                            notConfirmed.takeIf { it > 0 }?.let { "$it 张未能移入回收站" },
+                            skippedText.takeIf { it.isNotEmpty() }?.let { "跳过 ${report.skipped.size} 张：$it" }
+                        ).joinToString("，")
+                        if (confirmed.isNotEmpty() && currentScreen == AppScreen.INTENT_BATCH) {
+                            pendingBatchUndos = pendingBatchUndos + BatchRecycleUndo(confirmed, AppScreen.INTENT_BATCH, report = message)
+                        } else if (message.isNotEmpty()) {
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                         }
-                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -2947,7 +3027,7 @@ fun TabulaApp(
                     currentScreen = AppScreen.DECK
                 },
                 onConfirm = {
-                    if (burstCommitting) return@BurstSelectionScreen
+                    if (burstCommitting || batchUndoInFlight) return@BurstSelectionScreen
                     val resolved = BurstSelectionRules.resolve(group, burstKeptKeys)
                     val decision = (resolved as? BurstSelectionRules.Result.Valid)?.decision
                     // 审计修复（#87 二轮）：这里**不能**再用
@@ -3014,11 +3094,8 @@ fun TabulaApp(
                             } else {
                                 toDiscard
                             }
-                            if (toWrite.isNotEmpty()) {
-                                recycleBinManager.addAllToRecycleBin(toWrite)
-                            }
-                            val persisted = recycleBinManager.loadRecycleBin()
-                            val movedKeys = persisted.map { it.mediaIdentityKey() }.toSet()
+                            val addition = recycleBinManager.addBatchToRecycleBin(toWrite)
+                            val movedKeys = addition.added.map { it.mediaIdentityKey() }.toSet()
                             val result = BurstCommit.result(toDiscard, movedKeys)
 
                             // 部分成功：同步真实回收站状态，不声称整组未提交，
@@ -3027,7 +3104,7 @@ fun TabulaApp(
                                 val okKeys = result.succeeded.map { it.mediaIdentityKey() }.toSet()
                                 allImages = allImages.filterNot { it.mediaIdentityKey() in okKeys }
                                 imagesForSorting = imagesForSorting.filterNot { it.mediaIdentityKey() in okKeys }
-                                deletedImages = persisted
+                                deletedImages = addition.records
                                 preferences.totalReviewedCount += result.succeeded.size
                                 preferences.totalDeletedCount += result.succeeded.size
                             }
@@ -3042,14 +3119,18 @@ fun TabulaApp(
                                 recommendationEngine.invalidateSimilarGroupCache()
                             }
 
-                            val message = when {
-                                result.isComplete ->
-                                    "保留 ${decision.keepCount} 张，${result.succeeded.size} 张已移入回收站"
-                                result.isPartial ->
-                                    "${result.succeeded.size} 张已移入回收站，${result.failed.size} 张未能写入，可重试"
-                                else -> "未能写入回收站，标记已保留"
+                            val failureMessage = if (result.isComplete) "" else
+                                "${result.failed.size} 张未能移入回收站，可重试"
+                            if (addition.added.isNotEmpty()) {
+                                pendingBatchUndos = pendingBatchUndos + BatchRecycleUndo(
+                                    addition.added,
+                                    AppScreen.BURST_SELECTION,
+                                    (burstOriginalGroup ?: group).id,
+                                    report = failureMessage
+                                )
+                            } else if (failureMessage.isNotEmpty()) {
+                                Toast.makeText(context, failureMessage, Toast.LENGTH_LONG).show()
                             }
-                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                             // 失败的部分留在组里；全部完成才离开选片页。
                             if (result.isComplete) {
                                 burstSelectionGroup = null
@@ -3252,6 +3333,33 @@ fun TabulaApp(
             foregroundContent = foregroundContent ?: {}
         )
         
+        LaunchedEffect(currentScreen) {
+            pendingBatchUndos = pendingBatchUndos.filter { it.canShowOn(currentScreen) }
+        }
+        val undo = pendingBatchUndos.firstOrNull { it.canShowOn(currentScreen) }
+        if (undo != null && !batchUndoInFlight) {
+            key(undo) {
+                UndoSnackbar(
+                    visible = true,
+                    message = buildString {
+                        append("已移入回收站 ${undo.records.size} 张")
+                        if (undo.report.isNotEmpty()) append("\n${undo.report}")
+                    },
+                    onUndo = {
+                        if (undo in pendingBatchUndos && undo.canShowOn(currentScreen) &&
+                            !batchUndoInFlight && !isDeletingRecycleBin && !deletePermissionInFlight &&
+                            !intentBatchSaving && !burstCommitting
+                        ) {
+                            pendingBatchUndos = pendingBatchUndos - undo
+                            restoreImagesInOneTransaction(undo.records, undo)
+                        }
+                    },
+                    onDismiss = { pendingBatchUndos = pendingBatchUndos - undo },
+                    modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+                )
+            }
+        }
+
         // ========== 原图删除提醒对话框 ==========
         if (showSourceImageDeletionDialog) {
             SourceImageDeletionDialog(

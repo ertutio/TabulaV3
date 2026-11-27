@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -121,6 +122,7 @@ fun IntentBatchContent(
     val warn = Color(0xFFFF9500)
     val imageLoader = remember(context) { CoilSetup.getImageLoader(context) }
     // 「开启前确认」对话框：每次进页面回到 false，不跨批次记住。
+    val listState = rememberLazyListState()
     var showAssistNotice by remember { mutableStateOf(false) }
     // 「切换服务会撤销本批授权」的提示条：切完显示一次，用户下次操作即消失。
     var serviceSwitchNotice by remember { mutableStateOf(false) }
@@ -345,6 +347,7 @@ fun IntentBatchContent(
             }
             else -> {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -356,7 +359,7 @@ fun IntentBatchContent(
                             fontSize = 11.sp
                         )
                     }
-                    items(batch.ordered, key = { "rec_${it.image.volumeName}|${it.image.id}" }) { candidate ->
+                    items(batch.ordered, key = { intentIdentity(it) }) { candidate ->
                         IntentCandidateRow(
                             candidate = candidate,
                             checked = intentIdentity(candidate) in selectedIdentityKeys,
@@ -377,7 +380,7 @@ fun IntentBatchContent(
                                 modifier = Modifier.padding(top = 8.dp)
                             )
                         }
-                        items(batch.uncertain, key = { "unc_${it.image.volumeName}|${it.image.id}" }) { candidate ->
+                        items(batch.uncertain, key = { intentIdentity(it) }) { candidate ->
                             IntentCandidateRow(
                                 candidate = candidate,
                                 checked = intentIdentity(candidate) in selectedIdentityKeys,
