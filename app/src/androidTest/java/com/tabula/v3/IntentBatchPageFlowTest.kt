@@ -677,24 +677,30 @@ class IntentBatchPageFlowTest {
             assertEquals("撤销只应撤回本次新增的回收站记录",
                 binUris - coupon, bin.loadRecycleBin().map { it.uri }.toSet())
 
+            waitForTextContaining("复用缓存 2 张", timeout = 8000)
             val lastCandidate = "intent-keep-$fixtureId.png"
-            fun lastCandidateVisible() =
-                intentListThumbNodes(lastCandidate).any { (_, row) -> row.isVisibleToUser }
+            fun candidateVisible() = intentListThumbNodes(lastCandidate).any { (thumbnail, row) ->
+                val thumbBounds = android.graphics.Rect().also(thumbnail::getBoundsInScreen)
+                row.isVisibleToUser && thumbnail.isVisibleToUser && !thumbBounds.isEmpty
+            }
 
-            val hint = "按「为什么值得清」排序：有可核对截止时间的在前，越新越靠前。"
-            val visibleListLabel = sequenceOf(hint, thumbName, "优惠截图，但没写可核对的截止时间")
-                .filterNotNull()
-                .mapNotNull(::find)
-                .firstOrNull { node ->
-                    node.isVisibleToUser && generateSequence(node) { it.parent }.any { it.isScrollable }
-                }
-            val list = generateSequence(visibleListLabel) { it.parent }.firstOrNull { it.isScrollable }
-            val findLastDeadline = now() + 7000
-            while (!lastCandidateVisible() && now() < findLastDeadline) {
-                if (list?.refresh() == true) list.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
+            val keyStatus = screenTexts().single { it.contains("未配置 Key") }
+            val listTop = android.graphics.Rect().also(requireNotNull(find(keyStatus))::getBoundsInScreen).bottom
+            val footer = android.graphics.Rect().also(requireNotNull(find("长期保留"))::getBoundsInScreen)
+            val inset = (12 * ctx.resources.displayMetrics.density).toInt()
+            val startY = footer.top - inset * 2
+            val endY = listTop + inset
+            val x = ctx.resources.displayMetrics.widthPixels / 2
+            assertTrue("前景候选列表必须有可滑动高度：$listTop..${footer.top}", startY > endY + inset)
+            for (attempt in 1..3) {
+                if (candidateVisible()) break
+                shell("input swipe $x $startY $x $endY 400")
                 android.os.SystemClock.sleep(250)
             }
-            assertTrue("最后一张候选应可滚动到（${screenTexts()}）", lastCandidateVisible())
+            assertTrue("最后一张候选的缩略图应可见（${screenTexts()}）", candidateVisible())
+            assertTrue("最后一张候选应可点选（${screenTexts()}）",
+                tapIntentThumb(lastCandidate, expectedSelected = 1))
+            captureBatchUndoEvidence(ins, ctx, "intent-last-candidate")
         } else {
             restoreFromRecycleBinScreen(coupon)
         }
