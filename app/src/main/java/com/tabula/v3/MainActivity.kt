@@ -178,6 +178,7 @@ import com.tabula.v3.data.intent.InvalidatableTextAssist
 import com.tabula.v3.data.intent.OpenCodeGoTextAssist
 import com.tabula.v3.data.intent.IntentBatch
 import com.tabula.v3.data.intent.IntentBatchAnalyzer
+import com.tabula.v3.data.intent.IntentBatchProgress
 import com.tabula.v3.data.intent.IntentTesseractFactory
 import com.tabula.v3.data.intent.IntentVerdictCache
 import com.tabula.v3.data.intent.IntentAssistAuthorization
@@ -641,7 +642,7 @@ fun TabulaApp(
     // 最后一项默认 false，且只对当前这批生效，离开页面不复用。
     var intentBatch by remember { mutableStateOf<IntentBatch?>(null) }
     var intentBatchSelectedKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var intentBatchAnalyzing by remember { mutableStateOf(false) }
+    var intentBatchProgress by remember { mutableStateOf<IntentBatchProgress?>(null) }
     var intentBatchSaving by remember { mutableStateOf(false) }
     var intentBatchEngineNote by remember { mutableStateOf<String?>(null) }
     var intentBatchStatus by remember { mutableStateOf("") }
@@ -1101,14 +1102,14 @@ fun TabulaApp(
      * 3. 让共用的文字辅助失效 → 它的 classify 之后一律返回空/过期建议。
      */
     fun invalidateIntentBatch() {
-        intentBatchGeneration.incrementAndGet()
+        synchronized(intentVerdictCache) { intentBatchGeneration.incrementAndGet() }
         intentBatchJob?.cancel()
         intentBatchJob = null
         intentBatchAssistant?.invalidate()
         // 离开页面 = 这次授权结束
         intentAssistAuth.onRebuild()
         intentAssistRevision++
-        intentBatchAnalyzing = false
+        intentBatchProgress = null
     }
 
     /**
@@ -1161,8 +1162,8 @@ fun TabulaApp(
      */
     fun runIntentBatchAnalysis(revokeAssist: Boolean) {
         // 任何一轮开始都先作废上一轮的在途任务与辅助实例（旧结果不得覆盖新结果）
+        synchronized(intentVerdictCache) { intentBatchGeneration.incrementAndGet() }
         intentBatchJob?.cancel()
-        intentBatchGeneration.incrementAndGet()
         intentBatchAssistant?.invalidate()
         intentBatchAssistant = null
         if (revokeAssist) {
@@ -1172,8 +1173,9 @@ fun TabulaApp(
             intentAssistRevision++
         }
 
-        intentBatchAnalyzing = true
+        intentBatchProgress = IntentBatchProgress.Preparing
         intentBatchEngineNote = null
+        intentBatchStatus = ""
         val generationAtStart = intentBatchGeneration.get()
 
         // 文字辅助：默认关闭；只有用户在本批次主动打开且 Key 存在时才创建，
@@ -1229,8 +1231,15 @@ fun TabulaApp(
                     batchLimit = MAX_INTENT_BATCH,
                     nowMillis = System.currentTimeMillis(),
                     retainedIdentityKeys = preferences.stagedCleanupRetainedIdentityKeys,
-                    allowTextAssist = allowAssist
-                )
+                    allowTextAssist = allowAssist,
+                    startedGeneration = generationAtStart
+                ) { progress ->
+                    withContext(Dispatchers.Main.immediate) {
+                        if (intentBatchGeneration.get() == generationAtStart) {
+                            intentBatchProgress = progress
+                        }
+                    }
+                }
                 // 代际不符 = 用户已经换了批/关了开关/离开了页面：**丢弃**，不写界面
                 if (analysis.stale || intentBatchGeneration.get() != generationAtStart) {
                     return@launch
@@ -1259,7 +1268,7 @@ fun TabulaApp(
                 }
             } finally {
                 if (intentBatchGeneration.get() == generationAtStart) {
-                    intentBatchAnalyzing = false
+                    intentBatchProgress = null
                 }
             }
         }
@@ -2872,7 +2881,7 @@ fun TabulaApp(
             title = "按整理目的凑一批",
             batch = currentBatch,
             selectedIdentityKeys = intentBatchSelectedKeys,
-            isAnalyzing = intentBatchAnalyzing,
+            analysisProgress = intentBatchProgress,
             isSaving = intentBatchSaving,
             engineNote = intentBatchEngineNote,
             statusLine = intentBatchStatus,
@@ -3014,6 +3023,12 @@ fun TabulaApp(
                 }
             },
             onAnalyze = { rebuildIntentBatch() },
+            onStopAnalysis = {
+                invalidateIntentBatch()
+                intentBatch = null
+                intentBatchSelectedKeys = emptySet()
+                intentBatchProgress = IntentBatchProgress.Stopped
+            },
             onNavigateBack = {
                 // 与系统返回手势走**同一个**流程
                 leaveIntentBatch()

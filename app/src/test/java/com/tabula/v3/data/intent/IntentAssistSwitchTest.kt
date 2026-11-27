@@ -256,6 +256,49 @@ class IntentAssistSwitchTest {
     }
 
     @Test
+    fun progressCountsCacheHitsAndUnreadableImages() = runBlocking {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val prefs = context.getSharedPreferences("intent_batch_progress_test", android.content.Context.MODE_PRIVATE)
+        val cache = IntentVerdictCache(prefs).apply { clear() }
+        val cached = photo(1)
+        val unreadable = photo(2).copy(uri = Uri.fromFile(File(context.cacheDir, "missing-progress.jpg")))
+        var nativeCalls = 0
+        val recognizer = object : TextRecognizer {
+            override val isAvailable = true
+            override val engineId = "fake-progress-v1"
+            override suspend fun recognize(bitmap: android.graphics.Bitmap): OcrResult {
+                nativeCalls++
+                return OcrResult.Empty
+            }
+            override fun close() = Unit
+        }
+        cache.write(
+            IntentBatchBuilder.cleanupIdentity(cached),
+            IntentRules.classify(emptyList(), cached.dateAdded, now, 0f),
+            IntentVerdictCache.mediaFingerprint(cached.volumeName, cached.id, cached.size, cached.dateModified),
+            recognizer.engineId,
+            "assist-off"
+        )
+        val progress = mutableListOf<IntentBatchProgress>()
+        val analysis = IntentBatchAnalyzer(context, recognizer, cache).analyze(
+            images = listOf(cached, unreadable), batchLimit = 5, nowMillis = now
+        ) { update -> progress += update }
+
+        assertEquals(1, analysis.usedCacheCount)
+        assertEquals(1, analysis.ocrAttemptCount)
+        assertEquals(0, nativeCalls)
+        assertEquals(
+            listOf(
+                IntentBatchProgress.Checking(0, 2),
+                IntentBatchProgress.Checking(1, 2),
+                IntentBatchProgress.Checking(2, 2),
+                IntentBatchProgress.Organizing
+            ),
+            progress
+        )
+    }
+
+    @Test
     fun freshAnalysisIsNotStale() = runBlocking {
         val cachePrefs = org.robolectric.RuntimeEnvironment.getApplication()
             .getSharedPreferences("intent_switch_test2", android.content.Context.MODE_PRIVATE)

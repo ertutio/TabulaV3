@@ -66,6 +66,7 @@ import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.tabula.v3.data.intent.IntentAssistService
 import com.tabula.v3.data.intent.IntentBatch
+import com.tabula.v3.data.intent.IntentBatchProgress
 import com.tabula.v3.data.intent.IntentCandidate
 import com.tabula.v3.data.intent.IntentCategory
 import com.tabula.v3.data.intent.IntentRecommendation
@@ -90,7 +91,7 @@ fun IntentBatchContent(
     title: String,
     batch: IntentBatch?,
     selectedIdentityKeys: Set<String>,
-    isAnalyzing: Boolean,
+    analysisProgress: IntentBatchProgress?,
     isSaving: Boolean,
     engineNote: String?,
     statusLine: String,
@@ -124,6 +125,7 @@ fun IntentBatchContent(
     onRetainSelected: () -> Unit,
     onConfirm: () -> Unit,
     onAnalyze: () -> Unit,
+    onStopAnalysis: () -> Unit,
     onNavigateBack: () -> Unit,
     batchUndo: @Composable (Modifier) -> Unit = {}
 ) {
@@ -304,7 +306,8 @@ fun IntentBatchContent(
         // 照片列表是页面主体，只在真正有候选时才换成列表。
         val settleState: IntentBatchSettleState? = when {
             engineNote != null -> IntentBatchSettleState.Failure(engineNote)
-            isAnalyzing -> IntentBatchSettleState.Loading
+            analysisProgress == IntentBatchProgress.Stopped -> IntentBatchSettleState.Stopped
+            analysisProgress != null -> IntentBatchSettleState.Loading(analysisProgress)
             batch == null || batch.isEmpty -> IntentBatchSettleState.Empty
             else -> null
         }
@@ -322,7 +325,8 @@ fun IntentBatchContent(
                 state = settleState,
                 accent = accent,
                 secondary = secondary,
-                onAnalyze = onAnalyze
+                onAnalyze = onAnalyze,
+                onStopAnalysis = onStopAnalysis
             )
             batchUndo(Modifier.navigationBarsPadding())
         }
@@ -494,8 +498,9 @@ fun IntentBatchContent(
  * 切换状态时不会看到文字上下跳。
  */
 private sealed interface IntentBatchSettleState {
-    /** 正在本地识别文字。 */
-    data object Loading : IntentBatchSettleState
+    data class Loading(val progress: IntentBatchProgress) : IntentBatchSettleState
+
+    data object Stopped : IntentBatchSettleState
 
     /** 这批范围里没有足够明确的候选。 */
     data object Empty : IntentBatchSettleState
@@ -515,26 +520,32 @@ private fun ColumnScope.IntentBatchSettlePlaceholder(
     state: IntentBatchSettleState,
     accent: Color,
     secondary: Color,
-    onAnalyze: () -> Unit
+    onAnalyze: () -> Unit,
+    onStopAnalysis: () -> Unit
 ) {
     val title: String
-    val detail: String
-    val showAnalyze: Boolean
+    val detail: String?
     when (state) {
-        IntentBatchSettleState.Loading -> {
-            title = "正在本地识别文字…"
+        is IntentBatchSettleState.Loading -> {
+            title = when (val progress = state.progress) {
+                IntentBatchProgress.Preparing -> "正在准备"
+                is IntentBatchProgress.Checking -> "已检查 ${progress.checked} / ${progress.total} 张"
+                IntentBatchProgress.Organizing -> "正在整理结果"
+                IntentBatchProgress.Stopped -> error("停止状态不能渲染为加载中")
+            }
             detail = "只在本机识别，不上传照片"
-            showAnalyze = false
+        }
+        IntentBatchSettleState.Stopped -> {
+            title = "已停止检查"
+            detail = null
         }
         IntentBatchSettleState.Empty -> {
             title = "这批范围里没有找到足够明确的候选。"
             detail = "换个来源，或过几天再试。"
-            showAnalyze = true
         }
         is IntentBatchSettleState.Failure -> {
             title = state.note
             detail = "本地规则仍可用；可以重试，或换一批来源"
-            showAnalyze = true
         }
     }
 
@@ -553,8 +564,10 @@ private fun ColumnScope.IntentBatchSettlePlaceholder(
                 CircularProgressIndicator(color = accent, modifier = Modifier.size(28.dp))
             }
             Text(title, color = secondary, fontSize = 14.sp)
-            Text(detail, color = secondary, fontSize = 12.sp)
-            if (showAnalyze) {
+            if (detail != null) Text(detail, color = secondary, fontSize = 12.sp)
+            if (state is IntentBatchSettleState.Loading) {
+                TextButton(onClick = onStopAnalysis) { Text("停止") }
+            } else {
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = onAnalyze) { Text("重新分析") }
             }

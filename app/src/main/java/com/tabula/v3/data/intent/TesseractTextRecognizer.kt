@@ -8,6 +8,7 @@ import com.googlecode.tesseract.android.TessBaseAPI
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 /**
@@ -82,10 +83,18 @@ class TesseractTextRecognizer(
     }
 
     override suspend fun recognize(bitmap: Bitmap): OcrResult = withContext(Dispatchers.Default) {
-        val api = ensureEngine() ?: return@withContext OcrResult.Unavailable(
+        synchronized(this@TesseractTextRecognizer) {
+            // A cancelled caller may have been waiting for a previous native call to finish.
+            ensureActive()
+            recognizeLocked(bitmap)
+        }
+    }
+
+    private fun recognizeLocked(bitmap: Bitmap): OcrResult {
+        val api = ensureEngine() ?: return OcrResult.Unavailable(
             initFailure ?: "OCR 引擎不可用"
         )
-        try {
+        return try {
             api.setImage(bitmap)
             val raw = api.getUTF8Text().orEmpty()
             val confidence = (api.meanConfidence().coerceIn(0, 100)) / 100f
