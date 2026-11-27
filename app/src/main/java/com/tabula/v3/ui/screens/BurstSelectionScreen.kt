@@ -58,6 +58,7 @@ import com.tabula.v3.ui.util.HapticFeedback
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.tabula.v3.ui.components.SubPageHeader
 
 /**
  * 连拍选片（路线图 #83 第 4 项）。
@@ -104,41 +105,25 @@ fun BurstSelectionScreen(
             .statusBarsPadding()
     ) {
         // ========== 顶部栏 ==========
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = {
-                HapticFeedback.lightTap(context)
-                onCancel()
-            }) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "返回（不提交）",
-                    tint = textColor,
-                    modifier = Modifier.size(24.dp)
-                )
+        SubPageHeader(
+            title = "连拍选片",
+            subtitle = "${group.size} 张 · ${formatSpan(group)}",
+            textColor = textColor,
+            secondaryTextColor = secondaryTextColor,
+            onNavigateBack = onCancel,
+            backContentDescription = "返回（不提交）",
+            trailing = {
+                TextButton(
+                    onClick = {
+                        HapticFeedback.lightTap(context)
+                        onKeepAll()
+                    },
+                    enabled = !isCommitting
+                ) {
+                    Text("这组都留", color = accentColor, fontSize = 13.sp)
+                }
             }
-            Column(Modifier.weight(1f)) {
-                Text("连拍选片", color = textColor, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    text = "${group.size} 张 · ${formatSpan(group)}",
-                    color = secondaryTextColor,
-                    fontSize = 13.sp
-                )
-            }
-            TextButton(
-                onClick = {
-                    HapticFeedback.lightTap(context)
-                    onKeepAll()
-                },
-                enabled = !isCommitting
-            ) {
-                Text("这组都留", color = accentColor, fontSize = 13.sp)
-            }
-        }
+        )
 
         Text(
             text = "点一下勾选要保留的，其余会被移入回收站。至少保留一张。",

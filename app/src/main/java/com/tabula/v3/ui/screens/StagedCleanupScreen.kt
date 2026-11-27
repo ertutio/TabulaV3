@@ -56,6 +56,7 @@ import com.tabula.v3.data.cleanup.StagedCleanupSource
 import com.tabula.v3.data.cleanup.cleanupIdentityKey
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.di.CoilSetup
+import com.tabula.v3.ui.components.SubPageHeader
 import com.tabula.v3.ui.theme.LocalIsDarkTheme
 import com.tabula.v3.ui.util.HapticFeedback
 import java.text.SimpleDateFormat
@@ -295,24 +296,39 @@ fun StagedCleanupCandidateContent(
         }
 
         if (onOpenIntentBatch != null) {
+            // 收短成一个列表项：整行是点击目标，副文案只说「先排序，再由你选择处理」。
+            //
+            // 之前是一行小字 + 右侧独立的「看看」按钮：两个可点目标争同一行空间，
+            // 窄屏/大字体下标题会被挤成两行、按钮还可能被挤到换行。现在整行可点，
+            // 目标更大、文案更短，也不再需要一个单独的按钮占位。
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .clickable {
+                        HapticFeedback.lightTap(context)
+                        onOpenIntentBatch()
+                    }
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "按整理目的凑一批：先看最值得清的（只排序，不自动删）",
-                    color = accentColor,
-                    fontSize = 12.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = {
-                    HapticFeedback.lightTap(context)
-                    onOpenIntentBatch()
-                }) {
-                    Text("看看", color = accentColor, fontSize = 12.sp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "按整理目的凑一批",
+                        color = textColor,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "先排序，再由你选择处理",
+                        color = secondaryTextColor,
+                        fontSize = 12.sp
+                    )
                 }
+                Text(
+                    text = "›",
+                    color = secondaryTextColor,
+                    fontSize = 20.sp
+                )
             }
         }
 
@@ -563,29 +579,15 @@ private fun StagedCleanupHeader(
     secondaryTextColor: Color,
     onNavigateBack: () -> Unit
 ) {
-    val context = LocalContext.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = {
-            HapticFeedback.lightTap(context)
-            onNavigateBack()
-        }) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                contentDescription = "返回",
-                tint = textColor,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-        Column(Modifier.weight(1f)) {
-            Text(title, color = textColor, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = secondaryTextColor, fontSize = 13.sp)
-        }
-    }
+    // 三个子页（暂存清理 / 分享待清 / 连拍选片）共用同一份头部：
+    // 返回按钮尺寸、标题层级与左右边距只维护一处。
+    SubPageHeader(
+        title = title,
+        subtitle = subtitle,
+        textColor = textColor,
+        secondaryTextColor = secondaryTextColor,
+        onNavigateBack = onNavigateBack
+    )
 }
 
 @Composable
