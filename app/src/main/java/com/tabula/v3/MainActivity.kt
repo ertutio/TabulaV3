@@ -2919,7 +2919,13 @@ fun TabulaApp(
                         rebuildIntentBatch()
                     }
                 },
-                onDismiss = { showIntentAssistKeyDialog = false }
+                onDismiss = { showIntentAssistKeyDialog = false },
+                // 「使用此服务」：这是**切换外发对象**的唯一界面入口。
+                // 与「编辑 Key」分开：编辑只影响文件，这里才改这一批用谁。
+                // 走 selectIntentAssistService（吊销本批授权 + 作废在途 + 关闭态重算），
+                // 因此切换后必须由用户主动重新开启。
+                activeService = intentAssistService,
+                onUseService = { service -> selectIntentAssistService(service) }
             )
         }
     }

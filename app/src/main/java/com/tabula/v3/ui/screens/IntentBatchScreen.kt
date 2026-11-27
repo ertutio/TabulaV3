@@ -655,7 +655,25 @@ fun IntentAssistKeyDialog(
     /** 逐服务保存；提供时优先于 [onSave]。 */
     onSaveForService: ((IntentAssistService, String) -> Unit)? = null,
     /** 逐服务删除；提供时优先于 [onDelete]。 */
-    onDeleteForService: ((IntentAssistService) -> Unit)? = null
+    onDeleteForService: ((IntentAssistService) -> Unit)? = null,
+    /**
+     * 当前批次**实际在使用**的服务（不是正在编辑哪一个）。
+     *
+     * 与 [service] / `editing` 分工：
+     * - [service]：打开弹层时选中的编辑对象；
+     * - `editing`：弹层内正在编辑哪套 Key；
+     * - [activeService]：当前批真正会外发的服务。
+     *
+     * 三者必须分开，否则「看 Key」这个动作会顺带改外发对象——那是一次授权变更。
+     */
+    activeService: IntentAssistService = service,
+    /**
+     * 用户确认「使用此服务」。
+     *
+     * 传 null 时弹层退化为「只管理 Key」的旧语义（没有切换服务的入口）。
+     * 实现方负责吊销本批授权并按关闭态重跑本地分析（见 `MainActivity`）。
+     */
+    onUseService: ((IntentAssistService) -> Unit)? = null
 ) {
     var input by remember { mutableStateOf("") }
     // 对话框内可切换编辑哪一家的 Key——不必先回页面切服务。
@@ -679,9 +697,20 @@ fun IntentAssistKeyDialog(
                 )
                 Spacer(Modifier.height(8.dp))
                 if (serviceStates.isNotEmpty()) {
+                    // 服务选择：**两种含义必须分开**
+                    // - 点服务名 = 编辑它的 Key（不影响外发对象）；
+                    // - 下面的「使用此服务」= 真的把这一批切到它（会吊销本批授权）。
+                    // 上一版只有第一种，于是页面上没有任何入口能改外发对象。
+                    Text(
+                        "选择要管理的服务",
+                        color = secondary,
+                        fontSize = 11.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IntentAssistService.entries.forEach { candidate ->
                             val isEditing = candidate == editing
+                            val hasKey = serviceStates[candidate]?.let { it != "未配置" } ?: false
                             Text(
                                 candidate.displayName,
                                 color = if (isEditing) accent else secondary,
@@ -699,6 +728,10 @@ fun IntentAssistKeyDialog(
                                     }
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                             )
+                            if (hasKey) {
+                                // 已配置 Key 的服务补一个点，便于一眼区分
+                                Text("·", color = accent, fontSize = 12.sp)
+                            }
                         }
                     }
                     Spacer(Modifier.height(6.dp))
@@ -708,6 +741,45 @@ fun IntentAssistKeyDialog(
                     color = textColor,
                     fontSize = 12.sp
                 )
+                // 「使用此服务」：明确的**切换外发对象**操作。
+                // 与上面的「选服务」分开：那个只是切编辑对象，这个才会改这一批用谁。
+                if (onUseService != null && editing != activeService) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(accent.copy(alpha = 0.10f))
+                            .clickable {
+                                onUseService(editing)
+                                input = ""
+                                onDismiss()
+                            }
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "使用 ${editing.displayName}",
+                                color = accent,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                "切换会撤销本批授权，需要重新开启",
+                                color = secondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                } else if (onUseService != null && editing == activeService) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "本批正在使用 ${activeService.displayName}",
+                        color = secondary,
+                        fontSize = 11.sp
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = input,
