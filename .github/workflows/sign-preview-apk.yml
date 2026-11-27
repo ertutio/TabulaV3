@@ -3,25 +3,24 @@ name: Sign Tabula preview APK
 on:
   workflow_dispatch:
     inputs:
+      validate_only:
+        description: Verify the configured private key and certificate without building an APK
+        type: boolean
+        default: true
       build_run_id:
         description: Run ID of the verified preview build
-        required: true
         type: string
       source_sha:
         description: Full SHA of the preview release commit
-        required: true
         type: string
       version_name:
         description: APK version name, for example 4.0.1-preview
-        required: true
         type: string
       version_code:
         description: Android version code, for example 8
-        required: true
         type: string
       unsigned_sha256:
         description: SHA-256 of the verified unsigned APK
-        required: true
         type: string
 
 permissions:
@@ -35,6 +34,9 @@ jobs:
     environment: release-signing
     timeout-minutes: 15
     env:
+      VALIDATE_ONLY: ${{ inputs.validate_only }}
+      # Certificate of the published V4.0-preview APK.
+      EXPECTED_CERTIFICATE: d483b29a8f509b6f9d70d48f459da319a0395a59ba8cf451c155cef46f0e301b
       BUILD_RUN_ID: ${{ inputs.build_run_id }}
       SOURCE_SHA: ${{ inputs.source_sha }}
       PREVIEW_VERSION: ${{ inputs.version_name }}
@@ -46,8 +48,10 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Install Android signing tools
+        if: ${{ !inputs.validate_only }}
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;35.0.0"'
       - name: Check and download the unsigned release build
+        if: ${{ !inputs.validate_only }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -87,7 +91,7 @@ jobs:
             echo 'The preview APK is debuggable.' >&2
             exit 1
           fi
-      - name: Sign and check the published certificate
+      - name: Verify the signing key or sign and check the APK
         env:
           TABULA_KEYSTORE_BASE64: ${{ secrets.TABULA_KEYSTORE_BASE64 }}
           TABULA_STORE_PASSWORD: ${{ secrets.TABULA_STORE_PASSWORD }}
@@ -100,10 +104,40 @@ jobs:
           : "${TABULA_KEY_ALIAS:?Missing TABULA_KEY_ALIAS}"
           : "${TABULA_KEY_PASSWORD:?Missing TABULA_KEY_PASSWORD}"
           umask 077
-          keystore=$(mktemp "$RUNNER_TEMP/tabula-keystore.XXXXXX")
-          trap 'rm -f "$keystore"' EXIT
+          signing_dir=$(mktemp -d "$RUNNER_TEMP/tabula-keystore.XXXXXX")
+          trap 'rm -rf "$signing_dir"' EXIT
+          keystore="$signing_dir/keystore"
           printf '%s' "$TABULA_KEYSTORE_BASE64" | base64 --decode > "$keystore"
           unset TABULA_KEYSTORE_BASE64
+
+          if [[ "$VALIDATE_ONLY" == true ]]; then
+            cat > "$signing_dir/VerifySigningKey.java" <<'EOF'
+          import java.io.File;
+          import java.security.KeyStore;
+          import java.security.MessageDigest;
+          import java.security.PrivateKey;
+          import java.util.HexFormat;
+
+          class VerifySigningKey {
+              public static void main(String[] args) throws Exception {
+                  var store = KeyStore.getInstance(new File(args[0]),
+                          System.getenv("TABULA_STORE_PASSWORD").toCharArray());
+                  var alias = System.getenv("TABULA_KEY_ALIAS");
+                  if (!(store.getKey(alias, System.getenv("TABULA_KEY_PASSWORD").toCharArray()) instanceof PrivateKey)) {
+                      throw new IllegalStateException("The configured alias has no private signing key");
+                  }
+                  var certificate = store.getCertificate(alias).getEncoded();
+                  var fingerprint = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(certificate));
+                  if (!fingerprint.equals(System.getenv("EXPECTED_CERTIFICATE"))) {
+                      throw new IllegalStateException("Certificate differs from the published preview");
+                  }
+                  System.out.println("Release private key and published certificate verified.");
+              }
+          }
+          EOF
+            java "$signing_dir/VerifySigningKey.java" "$keystore"
+            exit 0
+          fi
 
           output="$RUNNER_TEMP/signed-preview"
           mkdir "$output"
@@ -115,12 +149,12 @@ jobs:
 
           cd "$output"
           certificate=$("$apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
-          # Certificate of the published V4.0-preview APK.
-          test "$certificate" = d483b29a8f509b6f9d70d48f459da319a0395a59ba8cf451c155cef46f0e301b
+          test "$certificate" = "$EXPECTED_CERTIFICATE"
           sha256sum "$apk" > SHA256SUMS-preview.txt
           printf 'Source SHA: %s\nBuild run: %s\nUnsigned SHA-256: %s\nCertificate SHA-256: %s\n' \
             "$SOURCE_SHA" "$BUILD_RUN_ID" "$UNSIGNED_SHA256" "$certificate" > BUILD.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ !inputs.validate_only }}
         with:
           name: TabulaV3-${{ inputs.version_name }}-signed
           path: ${{ runner.temp }}/signed-preview/
