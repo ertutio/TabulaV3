@@ -628,7 +628,10 @@ class IntentBatchPageFlowTest {
             afterBin.size > selectedBefore
         )
         val binUris = afterBin.map { it.uri }.toSet()
-        if (useUndo) tap("撤销", timeout = 2500)
+        if (useUndo) {
+            captureBatchUndoEvidence(ins, ctx, "intent-undo")
+            tap("撤销", timeout = 2500)
+        }
         val libraryUris = com.tabula.v3.data.repository.LocalImageRepository(ctx)
             .loadAllData().allImages.map { it.uri }.toSet()
         assertTrue("所选图必须出现在回收站里（$coupon）", coupon in binUris)

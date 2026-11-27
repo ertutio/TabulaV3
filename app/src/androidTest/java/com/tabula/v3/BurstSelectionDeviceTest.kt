@@ -11,6 +11,7 @@ import com.tabula.v3.data.burst.BurstCommit
 import com.tabula.v3.data.burst.BurstSelectionRules
 import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.data.preferences.AppPreferences
+import com.tabula.v3.data.repository.FileOperationManager
 import com.tabula.v3.data.repository.RecycleBinManager
 import com.tabula.v3.data.repository.mediaIdentityKey
 import kotlinx.coroutines.runBlocking
@@ -825,10 +826,94 @@ class BurstSelectionDeviceTest {
 
     @Test
     fun snackbarUndoRestoresOnlyTheDiscardedBurstPhoto() = runBlocking {
-        val fixtures = (1..3).map { insertIdenticalPhoto() }.toSet()
+        val mine = openPickerWithOnlyFixtures(3)
+        tap("这组都留")
+        waitForTextContaining("回收 0 张", timeout = 10000)
+        val discarded = mine.sortedBy { it.dateModified }[1]
+        tap(discarded.displayName)
+        waitForTextContaining("回收 1 张", timeout = 10000)
+        val bin = RecycleBinManager.getInstance(ctx)
+        val before = bin.loadRecycleBin().map { it.uri }.toSet()
+
+        tap("确认：回收 1 张")
+        waitForTextContaining("已移入回收站 1 张", timeout = 20000)
+        assertEquals(before + discarded.uri, bin.loadRecycleBin().map { it.uri }.toSet())
+        captureBatchUndoEvidence(ins, ctx, "burst-undo")
+        tap("撤销", timeout = 2500)
+
+        val deadline = now() + 10000
+        while (now() < deadline && bin.loadRecycleBin().any { it.uri == discarded.uri }) {
+            android.os.SystemClock.sleep(100)
+        }
+        assertEquals(before, bin.loadRecycleBin().map { it.uri }.toSet())
+        assertTrue("撤销后应仍在卡片页", screenTexts().contains("回收站") &&
+            !screenTexts().contains("连拍选片"))
+    }
+
+    @Test
+    fun twoBurstSubmissionsKeepIndependentUndoActions() = runBlocking {
+        val mine = openPickerWithOnlyFixtures(3)
+        val discard = mine.drop(1)
+        val bin = RecycleBinManager.getInstance(ctx)
+        val before = bin.loadRecycleBin().map { it.uri }.toSet()
+        tap("这组都留")
+        waitForTextContaining("回收 0 张")
+        discard.forEach { tap(it.displayName) }
+        waitForTextContaining("回收 2 张")
+
+        BurstCommitTestHook.armPartialWrite(1)
+        tap("确认：回收 2 张")
+        waitForTextContaining("1 张未能移入回收站，可重试")
+        val afterFirst = bin.loadRecycleBin().map { it.uri }.toSet()
+        val first = (afterFirst - before).single()
+        assertTrue(first in discard.map { it.uri })
+        val second = discard.single { it.uri != first }.uri
+
+        tap("确认：回收 1 张", timeout = 2500)
+        waitFor("回收站", timeout = 2500)
+        assertEquals(before + first + second, bin.loadRecycleBin().map { it.uri }.toSet())
+        // The partial-write detail identifies which of the two active receipts is shown.
+        waitForTextContaining("1 张未能移入回收站，可重试", timeout = 1500)
+        tap("撤销", timeout = 1500)
+        waitForBinUris(bin, before + second)
+
+        waitForTextContaining("已移入回收站 1 张", timeout = 2500)
+        tap("撤销", timeout = 1500)
+        waitForBinUris(bin, before)
+    }
+
+    @Test
+    fun burstUndoRestoresVerifiedPhotoAndRetainsUnknownRecord() = runBlocking {
+        val mine = openPickerWithOnlyFixtures(3)
+        val (verified, unknown) = mine.drop(1)
+        val bin = RecycleBinManager.getInstance(ctx)
+        val before = bin.loadRecycleBin().map { it.uri }.toSet()
+        tap("这组都留")
+        waitForTextContaining("回收 0 张")
+        listOf(verified, unknown).forEach { tap(it.displayName) }
+        waitForTextContaining("回收 2 张")
+        tap("确认：回收 2 张")
+        waitForTextContaining("已移入回收站 2 张")
+        assertEquals(before + verified.uri + unknown.uri, bin.loadRecycleBin().map { it.uri }.toSet())
+
+        FileOperationManager.debugForceUnknownUris = setOf(unknown.uri.toString())
+        try {
+            tap("撤销", timeout = 1500)
+            waitForBinUris(bin, before + unknown.uri)
+            assertEquals(
+                setOf(verified.uri, unknown.uri),
+                library().map { it.uri }.toSet().intersect(setOf(verified.uri, unknown.uri))
+            )
+        } finally {
+            FileOperationManager.debugForceUnknownUris = emptySet()
+        }
+    }
+
+    private suspend fun openPickerWithOnlyFixtures(count: Int): List<ImageFile> {
+        val fixtures = (1..count).map { insertIdenticalPhoto() }.toSet()
         val photos = library()
         val mine = photos.filter { it.uri in fixtures }
-        assertEquals("三张测试照都必须在媒体库里", fixtures, mine.map { it.uri }.toSet())
+        assertEquals("测试照都必须在媒体库里", fixtures, mine.map { it.uri }.toSet())
         prefs.recommendMode = com.tabula.v3.data.preferences.RecommendMode.SIMILAR
         val engine = com.tabula.v3.data.repository.RecommendationEngine.getInstance(ctx)
         ctx.getSharedPreferences("tabula_similar_groups", Context.MODE_PRIVATE)
@@ -842,26 +927,15 @@ class BurstSelectionDeviceTest {
         tap("去选片")
         waitFor("连拍选片", timeout = 20000)
         mine.forEach { waitFor(it.displayName, timeout = 5000) }
-        tap("这组都留")
-        waitForTextContaining("回收 0 张", timeout = 10000)
-        val discarded = mine.sortedBy { it.dateModified }[1]
-        tap(discarded.displayName)
-        waitForTextContaining("回收 1 张", timeout = 10000)
-        val bin = RecycleBinManager.getInstance(ctx)
-        val before = bin.loadRecycleBin().map { it.uri }.toSet()
+        return mine
+    }
 
-        tap("确认：回收 1 张")
-        waitForTextContaining("已移入回收站 1 张", timeout = 20000)
-        assertEquals(before + discarded.uri, bin.loadRecycleBin().map { it.uri }.toSet())
-        tap("撤销", timeout = 2500)
-
-        val deadline = now() + 10000
-        while (now() < deadline && bin.loadRecycleBin().any { it.uri == discarded.uri }) {
+    private suspend fun waitForBinUris(bin: RecycleBinManager, expected: Set<Uri>) {
+        val deadline = now() + 8000
+        while (now() < deadline && bin.loadRecycleBin().map { it.uri }.toSet() != expected) {
             android.os.SystemClock.sleep(100)
         }
-        assertEquals(before, bin.loadRecycleBin().map { it.uri }.toSet())
-        assertTrue("撤销后应仍在卡片页", screenTexts().contains("回收站") &&
-            !screenTexts().contains("连拍选片"))
+        assertEquals(expected, bin.loadRecycleBin().map { it.uri }.toSet())
     }
 
     private fun groupToSimilar(images: List<ImageFile>) =
