@@ -38,7 +38,18 @@ data class LiquidGlassBackdropSpec(
      * 非 null 时由 [planBackdropSample] 在翻页/放大/拖动状态直接回退，
      * 避免继续显示错位采样。
      */
-    val viewerSync: ViewerBackdropSync? = null
+    val viewerSync: ViewerBackdropSync? = null,
+    /**
+     * 屏幕上**照片实际占据的矩形**（宿主坐标，像素）。
+     *
+     * 采样层必须按这个矩形摆照片，而不是把宿主整个按 Fit 一次。
+     * 普通查看器把照片缩到容器的 95%×90% 居中显示；回收站查看器是满屏。
+     * 若采样层按整个宿主做 Fit，按钮下方本该是黑边的区域会采到照片——
+     * 玻璃边缘的颜色与屏幕上真实存在的像素对不上，看起来像"折射算错了"。
+     *
+     * null = 调用方不声明（回收站查看器等满屏场景），沿用"整个宿主按 Fit"。
+     */
+    val photoRectPx: PhotoDisplayRect? = null
 ) {
     companion object {
         val Default = LiquidGlassBackdropSpec()
@@ -118,3 +129,35 @@ fun shouldSampleCompactControl(
 ): Boolean = liquidGlassEnabled &&
     sdkInt >= LIQUID_GLASS_BACKDROP_MIN_SDK &&
     hasBackdropSource
+
+/**
+ * 照片在宿主坐标系里实际占据的矩形（像素）。
+ *
+ * 与 [fitInsideRect] 的区别：那个算的是"把照片放进某个盒子"，中心永远在盒子中心；
+ * 这个直接描述**屏幕上量到的位置**，允许非居中、允许任意宽高比。
+ * 普通查看器的照片会随入场动画从卡片位置移动到居中位置，只有量出来才知道在哪。
+ */
+@Immutable
+data class PhotoDisplayRect(
+    val left: Float,
+    val top: Float,
+    val width: Float,
+    val height: Float
+) {
+    val right: Float get() = left + width
+    val bottom: Float get() = top + height
+
+    /** 尺寸非法（镜头还没测量、照片未就绪）时为 false——此时必须回退。 */
+    val isValid: Boolean
+        get() = width > 0.5f && height > 0.5f &&
+            left.isFinite() && top.isFinite()
+
+    companion object {
+        /** 由 Compose 的 `Rect`（宿主角落像素）构造。 */
+        fun of(rect: androidx.compose.ui.geometry.Rect?): PhotoDisplayRect? {
+            if (rect == null) return null
+            val out = PhotoDisplayRect(rect.left, rect.top, rect.width, rect.height)
+            return if (out.isValid) out else null
+        }
+    }
+}

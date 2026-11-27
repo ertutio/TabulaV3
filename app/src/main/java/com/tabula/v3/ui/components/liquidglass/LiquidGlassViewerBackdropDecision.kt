@@ -27,24 +27,49 @@ package com.tabula.v3.ui.components.liquidglass
  */
 data class ViewerBackdropDecision(
     val attachGateReason: BackdropFallbackReason,
-    val syncReason: BackdropFallbackReason? = null
+    val syncReason: BackdropFallbackReason? = null,
+    /**
+     * 采样层此刻使用的照片矩形（设备测试出口）。
+     *
+     * 与 [sampling] 一起构成"真的按这个矩形采样了"的证据：
+     * 只有 `sampling=true` **且** `photoRect` 非空，才说明玻璃采的是照片矩形内的
+     * 真实像素；`photoRect=null` 而 `sampling=true` 只可能出现在
+     * "调用方没有声明矩形"的满屏场景（回收站查看器）。
+     */
+    val photoRect: PhotoDisplayRect? = null,
+    val requirePhotoRect: Boolean = false
 ) {
     /** 顶栏是否真的走玻璃（采样）路径。**这一个值同时决定 UI 分支与审计行**。 */
     val sampling: Boolean
-        get() = attachGateReason == BackdropFallbackReason.NONE &&
-            (syncReason == null || syncReason == BackdropFallbackReason.NONE)
+        get() = reason == BackdropFallbackReason.NONE
 
     /** 不采样时的原因；采样时为 [BackdropFallbackReason.NONE]。 */
     val reason: BackdropFallbackReason
         get() = when {
             attachGateReason != BackdropFallbackReason.NONE -> attachGateReason
-            syncReason != null -> syncReason
+            syncReason != null && syncReason != BackdropFallbackReason.NONE -> syncReason
+            requirePhotoRect && photoRect?.isValid != true -> BackdropFallbackReason.NO_COORDINATES
             else -> BackdropFallbackReason.NONE
         }
 
     /** 审计行里的路径标记，供设备测试确认按钮**确实**走了回退分支。 */
     val path: String
         get() = if (sampling) "glass" else "fallback"
+
+    /**
+     * **试点是否处于开启范围**——决定"要不要显示新增的关闭按钮"。
+     *
+     * 与 [sampling] 是两个量，必须分开：
+     * - [pilotActive] false → 按钮**不存在**，回到试点前的操作（点背景退出 + 分享）；
+     * - [pilotActive] true 但 [sampling] false → 按钮**存在**，只是走实色样式
+     *   （照片未就绪、放大拖动中、矩形无效）。
+     *
+     * 把两者混成一个布尔，会出现"照片没加载好就连退出按钮都没了"，
+     * 用户被卡在查看器里只能点背景——那不是试点该改变的行为。
+     */
+    val pilotActive: Boolean
+        get() = attachGateReason != BackdropFallbackReason.DISABLED &&
+            attachGateReason != BackdropFallbackReason.UNSUPPORTED_API
 
     companion object {
         /** 由查看器的两层输入构造。 */

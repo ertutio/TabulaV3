@@ -44,9 +44,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
@@ -56,11 +58,27 @@ import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.di.CoilSetup
 import com.tabula.v3.ui.util.deckViewerThumbnailRequest
 import com.tabula.v3.data.repository.mediaIdentityKey
+import com.tabula.v3.ui.util.gridThumbnailCacheKey
 import com.tabula.v3.ui.util.viewerHdRequest
 import com.tabula.v3.ui.util.findActivity
 import com.tabula.v3.ui.util.rememberImageFeatures
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.tabula.v3.ui.components.liquidglass.LiquidGlassPhotoBackdropViewer
+import com.tabula.v3.ui.components.liquidglass.LiquidGlassBackdropSpec
+import com.tabula.v3.ui.components.liquidglass.ViewerBackdropSync
+import com.tabula.v3.ui.components.liquidglass.ViewerBackdropDecision
+import com.tabula.v3.ui.components.liquidglass.rememberLiquidGlassBackdropState
+import com.tabula.v3.ui.components.liquidglass.PhotoDisplayRect
+import com.tabula.v3.ui.components.liquidglass.ViewerBackdropAuditLine
+import com.tabula.v3.ui.components.liquidglass.rememberViewerBackdropWiring
+import com.tabula.v3.ui.components.ActionIconButton
+import com.tabula.v3.ui.components.LocalLiquidGlassEnabled
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.foundation.layout.statusBars
 
 /**
  * 查看器覆盖层状态
@@ -115,6 +133,7 @@ fun ViewerOverlay(
     // 源位置信息 - 使用remember保存初始值，确保退出动画时使用正确的位置
     val initialSourceRect = remember { viewerState.sourceRect }
     val image = viewerState.image
+    val photoIdentity = image.mediaIdentityKey()
     val sharePhoto = rememberPhotoShareAction()
     
     // 检查源位置是否有效（宽高大于0）
@@ -148,7 +167,7 @@ fun ViewerOverlay(
     val pressDelayMs = 80L
     
     // 高清图加载状态
-    var isHdImageLoaded by remember { mutableStateOf(false) }
+    var isHdImageLoaded by remember(photoIdentity, image.dateModified) { mutableStateOf(false) }
     
     // 超高清图加载状态（用于放大时）
     var isUltraHdLoaded by remember { mutableStateOf(false) }
@@ -375,230 +394,367 @@ fun ViewerOverlay(
         }
     }
 
-    BoxWithConstraints(
-        modifier = modifier
-            .fillMaxSize()
-            .semantics { contentDescription = "viewer_overlay:${image.mediaIdentityKey()}" }
-            .background(Color.Black.copy(alpha = backgroundAlpha))
-            .pointerInput(Unit) {
-                // 点击背景退出
-                detectTapGestures(onTap = { exitViewer() })
-            },
-        contentAlignment = Alignment.TopStart
-    ) {
-        // 获取实际容器尺寸（在整个屏幕内居中）
-        val actualWidth = constraints.maxWidth.toFloat()
-        val actualHeight = constraints.maxHeight.toFloat()
-        
-        // 更新容器尺寸
-        LaunchedEffect(actualWidth, actualHeight) {
-            containerWidthPx = actualWidth
-            containerHeightPx = actualHeight
+    // ========== 液态玻璃试点：退出控件的背景采样（本轮 PR B） ==========
+    //
+    // 采样接线的共用部分（门控 → 加载 → 遮罩高度）走 `ViewerBackdropWiring`，
+    // 与回收站查看器是同一段代码。**门控在加载之前**：开关关着或系统不支持时，
+    // 不会把 data 交给 Coil，图片请求根本不会发出（有单测钉住这个顺序）。
+    //
+    // 采样能否与屏幕照片一致由 `ViewerBackdropSync` 判定——放大、拖动时都不可采，
+    // 必须回退普通按钮。普通查看器用同一个门控等待进出场动画结束。
+    val liquidGlassEnabled = LocalLiquidGlassEnabled.current
+    val statusBarInsetPxLocal: Float = WindowInsets.statusBars
+        .asPaddingValues()
+        .calculateTopPadding()
+        .value * density.density
+    val viewerBackdrop = rememberViewerBackdropWiring(
+        liquidGlassEnabled = liquidGlassEnabled,
+        currentPhotoData = image.uri,
+        statusBarInsetPx = statusBarInsetPxLocal,
+        photoCacheKey = gridThumbnailCacheKey("viewer_backdrop_", image)
+    )
+    val viewerTransitionSettled = !isExiting && !animProgress.isRunning && progress == 1f
+    val viewerSync = ViewerBackdropSync(
+        pagerSettled = viewerTransitionSettled,
+        scale = animScale,
+        panX = animOffsetX,
+        panY = animOffsetY
+    )
+    // Use the measured size only once it matches the final layout. The image and
+    // sampling host share an origin, so these are the same translations as graphicsLayer.
+    val hasSettledPhotoLayout = isHdImageLoaded && viewerSync.canSample &&
+        targetWidth > 0f && targetHeight > 0f &&
+        with(density) {
+            contentSize.width == currentWidthDp.roundToPx().toFloat() &&
+                contentSize.height == currentHeightDp.roundToPx().toFloat()
         }
-        
-        // 图片容器
-        Box(
+    val settledPhotoRect = if (hasSettledPhotoLayout) {
+        PhotoDisplayRect.of(
+            Rect(currentX, currentY, currentX + contentSize.width, currentY + contentSize.height)
+        )
+    } else {
+        null
+    }
+    val backdropSpec = remember(viewerSync, settledPhotoRect) {
+        LiquidGlassBackdropSpec.Default.copy(
+            viewerSync = viewerSync,
+            photoRectPx = settledPhotoRect
+        )
+    }
+    val viewerBackdropState = rememberLiquidGlassBackdropState()
+
+    LiquidGlassPhotoBackdropViewer(
+        photo = viewerBackdrop.photo,
+        liquidGlassEnabled = liquidGlassEnabled,
+        scrimHeightPx = viewerBackdrop.scrimHeightPx,
+        modifier = modifier.fillMaxSize(),
+        backdropSpec = backdropSpec,
+        requirePhotoRect = true,
+        state = viewerBackdropState,
+        background = Color.Black,
+        topBar = { decision ->
+            ViewerBackdropAuditLine(
+                decision = decision,
+                state = viewerBackdropState,
+                viewerSync = viewerSync,
+                page = 1,
+                photoIdentity = photoIdentity,
+                sampleBitmapSize = viewerBackdrop.photo?.let { IntSize(it.width, it.height) }
+            )
+            if (decision.pilotActive) {
+                ExitButtonWithBackdrop(decision, isExiting, ::exitViewer)
+            }
+        },
+        content = {
+        BoxWithConstraints(
+            // 外层玻璃层已 fillMaxSize，这里只承载语义与手势
             modifier = Modifier
-                .graphicsLayer {
-                    // 直接使用 Animatable 值，避免同步延迟
-                    translationX = currentX + animOffsetX
-                    translationY = currentY + animOffsetY
-                    scaleX = animScale
-                    scaleY = animScale
-                    transformOrigin = TransformOrigin(0.5f, 0.5f)
-                }
-                .size(currentWidthDp, currentHeightDp)
-                .onSizeChanged { size ->
-                    contentSize = Size(size.width.toFloat(), size.height.toFloat())
-                }
-                .clip(RoundedCornerShape(currentCornerRadius.dp))
-                .background(Color.Black)
+                .fillMaxSize()
+                .semantics { contentDescription = "viewer_overlay:$photoIdentity" }
+                .background(Color.Black.copy(alpha = backgroundAlpha))
                 .pointerInput(Unit) {
-                    detectTransformGestures { centroid, pan, zoom, _ ->
-                        // 记录缩放/拖动时间，防止误触发单击退出
-                        lastTransformTime = SystemClock.uptimeMillis()
-                        
-                        val size = contentSize
-                        // 获取当前最新的 Animatable 值
-                        val currentAnimScale = animatedUserScale.value
-                        val currentAnimOffset = Offset(animatedUserOffsetX.value, animatedUserOffsetY.value)
-                        
-                        val newScale = (currentAnimScale * zoom).coerceIn(minScale, maxScale)
-                        if (size.width <= 0f || size.height <= 0f) {
-                            // 使用 snapTo 保证即时响应
-                            scope.launch {
-                                animatedUserScale.snapTo(newScale)
-                                animatedUserOffsetX.snapTo(0f)
-                                animatedUserOffsetY.snapTo(0f)
-                            }
-                            return@detectTransformGestures
-                        }
-                        val center = Offset(size.width / 2f, size.height / 2f)
-                        val scaleChange = if (currentAnimScale == 0f) 1f else newScale / currentAnimScale
-                        // 拖动倍率与缩放比例成正比，放大越多拖动越快
-                        val panMultiplier = currentAnimScale.coerceIn(1f, maxScale)
-                        val adjustedPan = Offset(pan.x * panMultiplier, pan.y * panMultiplier)
-                        val newOffset = (currentAnimOffset + adjustedPan) + (centroid - center) * (1 - scaleChange)
-                        val clampedOffset = clampOffset(newOffset, newScale, size)
-                        
-                        // 使用 snapTo 保证缩放手势即时响应
-                        scope.launch {
-                            animatedUserScale.snapTo(newScale)
-                            if (newScale <= minScale) {
-                                animatedUserOffsetX.snapTo(0f)
-                                animatedUserOffsetY.snapTo(0f)
-                            } else {
-                                animatedUserOffsetX.snapTo(clampedOffset.x)
-                                animatedUserOffsetY.snapTo(clampedOffset.y)
-                            }
-                        }
+                    // 点击背景退出
+                    detectTapGestures(onTap = { exitViewer() })
+                },
+            contentAlignment = Alignment.TopStart
+        ) {
+            // 获取实际容器尺寸（在整个屏幕内居中）
+            val actualWidth = constraints.maxWidth.toFloat()
+            val actualHeight = constraints.maxHeight.toFloat()
+        
+            // 更新容器尺寸
+            LaunchedEffect(actualWidth, actualHeight) {
+                containerWidthPx = actualWidth
+                containerHeightPx = actualHeight
+            }
+        
+            // 图片容器
+            Box(
+                modifier = Modifier
+                    .graphicsLayer {
+                        // 直接使用 Animatable 值，避免同步延迟
+                        translationX = currentX + animOffsetX
+                        translationY = currentY + animOffsetY
+                        scaleX = animScale
+                        scaleY = animScale
+                        transformOrigin = TransformOrigin(0.5f, 0.5f)
                     }
-                }
-                .pointerInput(isHdr, motionInfo) {
-                    detectTapGestures(
-                        onTap = {
-                            // 长按后释放不触发单击
-                            if (wasLongPressing) {
-                                wasLongPressing = false
-                                return@detectTapGestures
-                            }
-                            // 防止缩放/拖动刚结束时误触发
-                            val timeSinceTransform = SystemClock.uptimeMillis() - lastTransformTime
-                            if (timeSinceTransform > 300) {
-                                // 使用动画的目标值判断，避免动画过程中的不确定性
-                                val targetScale = animatedUserScale.targetValue
-                                if (targetScale > 1.05f) {
-                                    // 放大状态：动画恢复原比例
-                                    animateToOriginalScale()
-                                } else {
-                                    // 原比例：退出大图
-                                    exitViewer()
-                                }
-                            }
-                        },
-                        onDoubleTap = { tapOffset ->
-                            // 双击缩放（使用动画）
+                    .size(currentWidthDp, currentHeightDp)
+                    .onSizeChanged { size ->
+                        contentSize = Size(size.width.toFloat(), size.height.toFloat())
+                    }
+                    .clip(RoundedCornerShape(currentCornerRadius.dp))
+                    .background(Color.Black)
+                    .pointerInput(Unit) {
+                        detectTransformGestures { centroid, pan, zoom, _ ->
+                            // 记录缩放/拖动时间，防止误触发单击退出
+                            lastTransformTime = SystemClock.uptimeMillis()
+                        
+                            val size = contentSize
+                            // 获取当前最新的 Animatable 值
                             val currentAnimScale = animatedUserScale.value
                             val currentAnimOffset = Offset(animatedUserOffsetX.value, animatedUserOffsetY.value)
-                            val targetScale = if (currentAnimScale > 1.2f) minScale else doubleTapScale
-                            val size = contentSize
+                        
+                            val newScale = (currentAnimScale * zoom).coerceIn(minScale, maxScale)
                             if (size.width <= 0f || size.height <= 0f) {
+                                // 使用 snapTo 保证即时响应
                                 scope.launch {
-                                    animatedUserScale.animateTo(targetScale, spring(dampingRatio = 0.8f, stiffness = 400f))
+                                    animatedUserScale.snapTo(newScale)
                                     animatedUserOffsetX.snapTo(0f)
                                     animatedUserOffsetY.snapTo(0f)
                                 }
-                                return@detectTapGestures
+                                return@detectTransformGestures
                             }
-                            if (targetScale <= minScale) {
-                                // 恢复原比例
-                                animateToOriginalScale()
-                            } else {
-                                // 放大到点击位置
-                                val center = Offset(size.width / 2f, size.height / 2f)
-                                val scaleChange = if (currentAnimScale == 0f) 1f else targetScale / currentAnimScale
-                                val newOffset = (currentAnimOffset + (tapOffset - center) * (1 - scaleChange))
-                                val clampedOffset = clampOffset(newOffset, targetScale, size)
-                                scope.launch {
-                                    launch {
-                                        animatedUserScale.animateTo(targetScale, spring(dampingRatio = 0.8f, stiffness = 400f))
-                                    }
-                                    launch {
-                                        animatedUserOffsetX.animateTo(clampedOffset.x, spring(dampingRatio = 0.8f, stiffness = 400f))
-                                    }
-                                    launch {
-                                        animatedUserOffsetY.animateTo(clampedOffset.y, spring(dampingRatio = 0.8f, stiffness = 400f))
-                                    }
+                            val center = Offset(size.width / 2f, size.height / 2f)
+                            val scaleChange = if (currentAnimScale == 0f) 1f else newScale / currentAnimScale
+                            // 拖动倍率与缩放比例成正比，放大越多拖动越快
+                            val panMultiplier = currentAnimScale.coerceIn(1f, maxScale)
+                            val adjustedPan = Offset(pan.x * panMultiplier, pan.y * panMultiplier)
+                            val newOffset = (currentAnimOffset + adjustedPan) + (centroid - center) * (1 - scaleChange)
+                            val clampedOffset = clampOffset(newOffset, newScale, size)
+                        
+                            // 使用 snapTo 保证缩放手势即时响应
+                            scope.launch {
+                                animatedUserScale.snapTo(newScale)
+                                if (newScale <= minScale) {
+                                    animatedUserOffsetX.snapTo(0f)
+                                    animatedUserOffsetY.snapTo(0f)
+                                } else {
+                                    animatedUserOffsetX.snapTo(clampedOffset.x)
+                                    animatedUserOffsetY.snapTo(clampedOffset.y)
                                 }
-                            }
-                        },
-                        onLongPress = {
-                            // 长按用于 HDR 对比和 Live Photo 触发
-                            pressStartedAt = SystemClock.uptimeMillis()
-                            wasLongPressing = true
-                            isPressing = true
-                        },
-                        onPress = {
-                            // 任何触摸开始时记录
-                            pressStartedAt = SystemClock.uptimeMillis()
-                            tryAwaitRelease()
-                            // 如果触发了长按功能，标记防止后续单击
-                            if (isHdrComparePressed || isLivePressed) {
-                                wasLongPressing = true
-                            }
-                            // 释放时结束 HDR/Live 播放
-                            isPressing = false
-                        }
-                    )
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            // 底层：缩略图（立即可见，避免黑屏）
-            // 请求构造统一走 deckViewerThumbnailRequest（ui.util）
-            AsyncImage(
-                model = deckViewerThumbnailRequest(context, image),
-                contentDescription = null,
-                imageLoader = imageLoader,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize()
-            )
-            
-            // 上层：高清图片 (ARGB_8888)，加载完成后淡入覆盖
-            // 计算高清图目标尺寸：根据用户缩放比例动态调整，确保放大时不模糊
-            // 关键：graphicsLayer 的 scale 是对已渲染像素进行缩放，所以需要加载 scale 倍的分辨率
-            val hdTargetSize = run {
-                val baseSize = maxOf(containerWidthPx, containerHeightPx)
-                // 根据缩放比例计算所需尺寸：baseSize * scale，确保放大时有足够分辨率
-                val scaledSize = (baseSize * animScale).toInt()
-                // 同时考虑图片原始尺寸作为上限（避免请求超过原图分辨率）
-                val imageDim = maxOf(image.actualWidth, image.actualHeight)
-                val maxAllowed = if (imageDim > 0) imageDim.coerceAtMost(4096) else 4096
-                // 最终尺寸：在 1 到 maxAllowed 之间
-                val targetDim = scaledSize.coerceIn(1, maxAllowed)
-                coil.size.Size(targetDim, targetDim)
-            }
-            // 上层：高清图片
-            // 注意：只有在长按播放 Live Photo 时才渲染 MotionPhotoPlayer
-            // 否则 TextureView 会覆盖底层的 HDR 图片，导致 HDR 效果消失
-            Box(modifier = Modifier.fillMaxSize()) {
-                AsyncImage(
-                    model = viewerHdRequest(context, image, hdTargetSize),
-                    contentDescription = image.displayName,
-                    imageLoader = imageLoader,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
-                    onState = { state ->
-                        if (state is AsyncImagePainter.State.Success) {
-                            isHdImageLoaded = true
-                            if (shouldLoadUltraHd) {
-                                isUltraHdLoaded = true
                             }
                         }
                     }
+                    .pointerInput(isHdr, motionInfo) {
+                        detectTapGestures(
+                            onTap = {
+                                // 长按后释放不触发单击
+                                if (wasLongPressing) {
+                                    wasLongPressing = false
+                                    return@detectTapGestures
+                                }
+                                // 防止缩放/拖动刚结束时误触发
+                                val timeSinceTransform = SystemClock.uptimeMillis() - lastTransformTime
+                                if (timeSinceTransform > 300) {
+                                    // 使用动画的目标值判断，避免动画过程中的不确定性
+                                    val targetScale = animatedUserScale.targetValue
+                                    if (targetScale > 1.05f) {
+                                        // 放大状态：动画恢复原比例
+                                        animateToOriginalScale()
+                                    } else {
+                                        // 原比例：退出大图
+                                        exitViewer()
+                                    }
+                                }
+                            },
+                            onDoubleTap = { tapOffset ->
+                                // 双击缩放（使用动画）
+                                val currentAnimScale = animatedUserScale.value
+                                val currentAnimOffset = Offset(animatedUserOffsetX.value, animatedUserOffsetY.value)
+                                val targetScale = if (currentAnimScale > 1.2f) minScale else doubleTapScale
+                                val size = contentSize
+                                if (size.width <= 0f || size.height <= 0f) {
+                                    scope.launch {
+                                        animatedUserScale.animateTo(targetScale, spring(dampingRatio = 0.8f, stiffness = 400f))
+                                        animatedUserOffsetX.snapTo(0f)
+                                        animatedUserOffsetY.snapTo(0f)
+                                    }
+                                    return@detectTapGestures
+                                }
+                                if (targetScale <= minScale) {
+                                    // 恢复原比例
+                                    animateToOriginalScale()
+                                } else {
+                                    // 放大到点击位置
+                                    val center = Offset(size.width / 2f, size.height / 2f)
+                                    val scaleChange = if (currentAnimScale == 0f) 1f else targetScale / currentAnimScale
+                                    val newOffset = (currentAnimOffset + (tapOffset - center) * (1 - scaleChange))
+                                    val clampedOffset = clampOffset(newOffset, targetScale, size)
+                                    scope.launch {
+                                        launch {
+                                            animatedUserScale.animateTo(targetScale, spring(dampingRatio = 0.8f, stiffness = 400f))
+                                        }
+                                        launch {
+                                            animatedUserOffsetX.animateTo(clampedOffset.x, spring(dampingRatio = 0.8f, stiffness = 400f))
+                                        }
+                                        launch {
+                                            animatedUserOffsetY.animateTo(clampedOffset.y, spring(dampingRatio = 0.8f, stiffness = 400f))
+                                        }
+                                    }
+                                }
+                            },
+                            onLongPress = {
+                                // 长按用于 HDR 对比和 Live Photo 触发
+                                pressStartedAt = SystemClock.uptimeMillis()
+                                wasLongPressing = true
+                                isPressing = true
+                            },
+                            onPress = {
+                                // 任何触摸开始时记录
+                                pressStartedAt = SystemClock.uptimeMillis()
+                                tryAwaitRelease()
+                                // 如果触发了长按功能，标记防止后续单击
+                                if (isHdrComparePressed || isLivePressed) {
+                                    wasLongPressing = true
+                                }
+                                // 释放时结束 HDR/Live 播放
+                                isPressing = false
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                // 底层：缩略图（立即可见，避免黑屏）
+                // 请求构造统一走 deckViewerThumbnailRequest（ui.util）
+                AsyncImage(
+                    model = deckViewerThumbnailRequest(context, image),
+                    contentDescription = null,
+                    imageLoader = imageLoader,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize()
                 )
-                
-                // 只有在长按时才显示 MotionPhotoPlayer，避免 TextureView 覆盖 HDR 图片
-                if (motionInfo != null && isLivePressed) {
-                    MotionPhotoPlayer(
-                        imageUri = image.uri,
-                        motionInfo = motionInfo,
+            
+                // 上层：高清图片 (ARGB_8888)，加载完成后淡入覆盖
+                // 计算高清图目标尺寸：根据用户缩放比例动态调整，确保放大时不模糊
+                // 关键：graphicsLayer 的 scale 是对已渲染像素进行缩放，所以需要加载 scale 倍的分辨率
+                val hdTargetSize = run {
+                    val baseSize = maxOf(containerWidthPx, containerHeightPx)
+                    // 根据缩放比例计算所需尺寸：baseSize * scale，确保放大时有足够分辨率
+                    val scaledSize = (baseSize * animScale).toInt()
+                    // 同时考虑图片原始尺寸作为上限（避免请求超过原图分辨率）
+                    val imageDim = maxOf(image.actualWidth, image.actualHeight)
+                    val maxAllowed = if (imageDim > 0) imageDim.coerceAtMost(4096) else 4096
+                    // 最终尺寸：在 1 到 maxAllowed 之间
+                    val targetDim = scaledSize.coerceIn(1, maxAllowed)
+                    coil.size.Size(targetDim, targetDim)
+                }
+                // 上层：高清图片
+                // 注意：只有在长按播放 Live Photo 时才渲染 MotionPhotoPlayer
+                // 否则 TextureView 会覆盖底层的 HDR 图片，导致 HDR 效果消失
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AsyncImage(
+                        model = viewerHdRequest(context, image, hdTargetSize),
+                        contentDescription = image.displayName,
+                        imageLoader = imageLoader,
+                        contentScale = ContentScale.Fit,
                         modifier = Modifier.fillMaxSize(),
-                        playWhen = true,
-                        playAudio = playMotionSound,
-                        volumePercent = motionSoundVolume
+                        onState = { state ->
+                            if (state is AsyncImagePainter.State.Success) {
+                                isHdImageLoaded = true
+                                if (shouldLoadUltraHd) {
+                                    isUltraHdLoaded = true
+                                }
+                            }
+                        }
                     )
+                
+                    // 只有在长按时才显示 MotionPhotoPlayer，避免 TextureView 覆盖 HDR 图片
+                    if (motionInfo != null && isLivePressed) {
+                        MotionPhotoPlayer(
+                            imageUri = image.uri,
+                            motionInfo = motionInfo,
+                            modifier = Modifier.fillMaxSize(),
+                            playWhen = true,
+                            playAudio = playMotionSound,
+                            volumePercent = motionSoundVolume
+                        )
+                    }
                 }
             }
+            IconButton(
+                onClick = { sharePhoto(image) },
+                enabled = !isExiting && !animProgress.isRunning,
+                modifier = Modifier.align(Alignment.TopEnd)
+                    .statusBarsPadding().padding(top = ViewerControlInset, end = ViewerControlInset)
+                    .size(ViewerControlSize).clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF2C2C2E))
+            ) {
+                Icon(Icons.Outlined.Share, contentDescription = "分享当前照片", tint = Color.White)
+            }
         }
+        }
+    )
+}
+
+private val ViewerControlSize = 48.dp
+private val ViewerControlInset = 12.dp
+private val ViewerControlGap = 12.dp
+
+// Keep the close control in the sampling scope and align it with Share.
+@Composable
+private fun BoxScope.ExitButtonWithBackdrop(
+    decision: ViewerBackdropDecision,
+    isExiting: Boolean,
+    onExit: () -> Unit
+) {
+    val sampled = decision.sampling
+    ViewerExitButton(
+        onClick = onExit,
+        enabled = !isExiting,
+        sampled = sampled,
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .statusBarsPadding()
+            .padding(
+                top = ViewerControlInset,
+                end = ViewerControlInset + ViewerControlSize + ViewerControlGap
+            )
+            .size(ViewerControlSize)
+    )
+}
+
+/**
+ * 退出按钮本体：同一份触控范围与语义，两种外观。
+ *
+ * @param sampled true = 玻璃样式（背景来自采样层）；false = 普通实色样式
+ */
+@Composable
+private fun ViewerExitButton(
+    onClick: () -> Unit,
+    enabled: Boolean,
+    sampled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (sampled) {
+        ActionIconButton(
+            icon = Icons.Outlined.Close,
+            contentDescription = "关闭",
+            onClick = onClick,
+            backgroundColor = Color.Transparent,
+            iconColor = Color.White,
+            enabled = enabled,
+            modifier = modifier
+        )
+    } else {
         IconButton(
-            onClick = { sharePhoto(image) },
-            enabled = !isExiting && !animProgress.isRunning,
-            modifier = Modifier.align(Alignment.TopEnd)
-                .statusBarsPadding().padding(12.dp)
-                .size(48.dp).clip(RoundedCornerShape(12.dp))
+            onClick = onClick,
+            enabled = enabled,
+            modifier = modifier
+                .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xFF2C2C2E))
         ) {
-            Icon(Icons.Outlined.Share, contentDescription = "分享当前照片", tint = Color.White)
+            Icon(Icons.Outlined.Close, contentDescription = "关闭", tint = Color.White)
         }
     }
 }

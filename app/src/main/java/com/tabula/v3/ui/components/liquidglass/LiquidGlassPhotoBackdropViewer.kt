@@ -45,6 +45,7 @@ fun LiquidGlassPhotoBackdropViewer(
      * `viewerSync`，由采样层据此回退，而不是继续显示与屏幕错位的采样。
      */
     backdropSpec: LiquidGlassBackdropSpec = LiquidGlassBackdropSpec.Default,
+    requirePhotoRect: Boolean = false,
     state: LiquidGlassBackdropState = rememberLiquidGlassBackdropState(),
     content: @Composable BoxScope.() -> Unit,
     topBar: @Composable BoxScope.(decision: ViewerBackdropDecision) -> Unit
@@ -59,11 +60,11 @@ fun LiquidGlassPhotoBackdropViewer(
         sdkInt = Build.VERSION.SDK_INT,
         hasPhoto = photo != null,
         viewerSync = backdropSpec.viewerSync
-    )
-    val sampled = decision.attachGateReason == BackdropFallbackReason.NONE
-    // 查看器在翻页/放大/拖动时也要"不采样"：这与 attach 门控是两个层次
-    // ——那个决定"要不要接背景"，这个决定"此刻能不能采"。
-    val viewerCanSample = decision.syncReason?.let { it == BackdropFallbackReason.NONE } ?: true
+    ).copy(photoRect = backdropSpec.photoRectPx, requirePhotoRect = requirePhotoRect)
+    // Full-screen viewers retain their host across gesture fallback. The ordinary
+    // viewer only mounts its host with valid, settled photo geometry.
+    val attachHost = decision.attachGateReason == BackdropFallbackReason.NONE &&
+        (!requirePhotoRect || decision.sampling)
 
     // 照片换了（翻页 / 重新解码）必须让采样层重画：只改绘制内容不改几何时，
     // 这是唯一会触发重画的信号。
@@ -78,18 +79,27 @@ fun LiquidGlassPhotoBackdropViewer(
         state.invalidateContent()
     }
 
-    val drawing: DrawScope.() -> Unit = remember(photo, scrimHeightPx, background) {
+    // 照片矩形变化同样必须重画。这与 `scrimHeightPx` 是同一类问题：
+    // lambda 里用到 photoRectPx，但只改 lambda 捕获的值不会让它换身份，
+    // 采样层会继续显示旧位置的采样结果（比如入场动画结束后还停在中途位置）。
+    val photoRectPx = backdropSpec.photoRectPx
+    LaunchedEffect(photoRectPx) {
+        if (photoRectPx != null) state.invalidateContent()
+    }
+
+    val drawing: DrawScope.() -> Unit = remember(photo, scrimHeightPx, background, photoRectPx) {
         {
             drawPhotoBackdrop(
                 bitmap = photo,
                 background = background,
-                topScrimHeightPx = scrimHeightPx
+                topScrimHeightPx = scrimHeightPx,
+                photoRectPx = photoRectPx
             )
         }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        if (sampled) {
+        if (attachHost) {
             LiquidGlassBackdropHost(
                 state = state,
                 modifier = Modifier.fillMaxSize(),
@@ -97,7 +107,7 @@ fun LiquidGlassPhotoBackdropViewer(
             )
         }
         content()
-        if (sampled) {
+        if (attachHost) {
             CompositionLocalProvider(LocalLiquidGlassBackdrop provides state) {
                 // 翻页/缩放/拖动期间采样层会按 viewerSync 回退，顶栏按钮也必须
                 // 同步回到原始材质——否则按钮还挂着背景来源，会显示"采到旧照片"
