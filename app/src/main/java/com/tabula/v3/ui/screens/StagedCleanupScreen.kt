@@ -136,7 +136,7 @@ fun StagedCleanupSourcePickerContent(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "没有找到截图或下载目录。可能相册权限未开启，或者这台设备没有这些目录。",
+                        text = "没有找到可访问的照片来源。请检查相册权限，或确认设备上有照片。",
                         color = secondaryTextColor,
                         fontSize = 14.sp
                     )

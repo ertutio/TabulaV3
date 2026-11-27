@@ -270,7 +270,7 @@ fun IntentBatchContent(
                     Column {
                         Text(
                             "开启后，仅当本地规则判断证据不足时，才会向 ${assistService.displayName} 发送" +
-                                "**必要的脱敏 OCR 文字片段**（已掩掉验证码、提取码、链接、手机号、订单号）。",
+                                "必要的脱敏 OCR 文字片段（已掩掉验证码、提取码、链接、手机号、订单号）。",
                             fontSize = 13.sp
                         )
                         Spacer(Modifier.height(8.dp))
@@ -334,7 +334,7 @@ fun IntentBatchContent(
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "证据不足时我们不会硬凑一批；可以换来源，或过几天再来。",
+                            "可以换个来源，或过几天再试。",
                             color = secondary,
                             fontSize = 12.sp
                         )
@@ -408,7 +408,7 @@ fun IntentBatchContent(
                             }
                             if (batch.shortOfLimit) {
                                 Text(
-                                    "只找到 ${batch.ordered.size} 张足够明确的候选，没有为了凑满批次硬塞。",
+                                    "只找到 ${batch.ordered.size} 张符合条件的照片。",
                                     color = secondary,
                                     fontSize = 11.sp
                                 )

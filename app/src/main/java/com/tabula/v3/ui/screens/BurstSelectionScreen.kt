@@ -141,7 +141,7 @@ fun BurstSelectionScreen(
         }
 
         Text(
-            text = "点一下勾选要保留的，其余会被移入回收站。至少保留一张。",
+            text = "勾选要保留的照片，其余移入回收站。至少保留一张。",
             color = secondaryTextColor,
             fontSize = 12.sp,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
