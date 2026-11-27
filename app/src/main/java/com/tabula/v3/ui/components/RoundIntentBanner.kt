@@ -79,4 +79,4 @@ fun RoundIntentBanner(
             }
         }
     }
-}\n
+}
