@@ -10,8 +10,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -43,13 +47,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.tabula.v3.data.intent.IntentAssistService
 import com.tabula.v3.data.intent.IntentBatch
@@ -642,6 +651,9 @@ internal fun categoryLabel(category: IntentCategory): String = when (category) {
  * 参数保持向后兼容：不传 [services] / [onSaveForService] 时退化成单服务语义
  * （#95 的调用点行为不变）。
  */
+// FlowRow 仍是 experimental（compose-foundation 1.7.x）。
+// 用它是因为服务名在 1.5× 字体下必须能换行——Row 会把两个服务名挤在一起。
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun IntentAssistKeyDialog(
     currentState: String,
@@ -678,146 +690,236 @@ fun IntentAssistKeyDialog(
     var input by remember { mutableStateOf("") }
     // 对话框内可切换编辑哪一家的 Key——不必先回页面切服务。
     var editing by remember(service) { mutableStateOf(service) }
+    // 输入框聚焦态：键盘弹出后正文可滚，底栏固定；这里只用来选标题文案。
+    val focusRequester = remember { FocusRequester() }
     val isDark = LocalIsDarkTheme.current
     val textColor = if (isDark) Color.White else Color.Black
     val secondary = Color(0xFF8E8E93)
     val accent = Color(0xFF007AFF)
+    val danger = Color(0xFFFF3B30)
+    val cardColor = if (isDark) Color(0xFF1C1C1E) else Color.White
     val stateForEditing = serviceStates[editing] ?: currentState
 
-    AlertDialog(
+    /**
+     * 弹层用自绘 `Dialog` 而不是 `AlertDialog`。
+     *
+     * `AlertDialog` 把 `confirmButton` / `dismissButton` 排成一行 `FlowRow`，
+     * 字体 1.5× 时「删除 DeepSeek 的 Key」与「关闭」同一行放不下、换行后
+     * 「关闭」被挤出弹层（本轮复现的直接原因）。它也不给正文加滚动，
+     * 键盘弹出后可用高度再缩一截，正文和按钮一起被顶出去。
+     *
+     * 这里固定三段结构：
+     *   标题（不滚） / 正文（可滚，`LazyColumn`） / 底栏（不滚，永远可见）
+     * 底栏只有「保存」和「关闭」两个短动作；删除属于**当前服务的配置**，
+     * 放进正文的服务区，长文案不再和关闭按钮争同一行。
+     */
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text("文字辅助 API Key") },
-        text = {
-            Column {
+        properties = DialogProperties(
+            // 自绘宽度，才能在窄屏/大字体下自己决定内边距
+            usePlatformDefaultWidth = false,
+            // 键盘弹出时不让系统把对话框整体推走：我们在内部用 imePadding 处理
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                // 键盘：把可用高度让给输入框与其下方的底栏
+                .imePadding()
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(cardColor)
+                    // 撑满可用高度但不超过：正文超高时自己滚，底栏不下移
+                    .heightIn(max = Dp.Infinity)
+            ) {
+                // ===== 标题：不滚动 =====
+                Text(
+                    text = "文字辅助 API Key",
+                    color = textColor,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 4.dp)
+                )
                 Text(
                     "Key 只保存在 App 私有目录（不参与备份与迁移），不写入日志或导出。" +
                         "不配置也能用本地规则；失效时自动回退本地结果。",
                     color = secondary,
-                    fontSize = 12.sp
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 20.dp)
                 )
-                Spacer(Modifier.height(8.dp))
-                if (serviceStates.isNotEmpty()) {
-                    // 服务选择：**两种含义必须分开**
-                    // - 点服务名 = 编辑它的 Key（不影响外发对象）；
-                    // - 下面的「使用此服务」= 真的把这一批切到它（会吊销本批授权）。
-                    // 上一版只有第一种，于是页面上没有任何入口能改外发对象。
-                    Text(
-                        "选择要管理的服务",
-                        color = secondary,
-                        fontSize = 11.sp
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IntentAssistService.entries.forEach { candidate ->
-                            val isEditing = candidate == editing
-                            val hasKey = serviceStates[candidate]?.let { it != "未配置" } ?: false
-                            Text(
-                                candidate.displayName,
-                                color = if (isEditing) accent else secondary,
-                                fontSize = 12.sp,
-                                fontWeight = if (isEditing) FontWeight.SemiBold else FontWeight.Normal,
-                                modifier = Modifier
-                                    .padding(end = 10.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(
-                                        if (isEditing) accent.copy(alpha = 0.12f) else Color.Transparent
-                                    )
-                                    .clickable {
-                                        editing = candidate
-                                        input = ""
+
+                // ===== 正文：可滚动 =====
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                ) {
+                    // ---- 服务选择 ----
+                    if (serviceStates.isNotEmpty()) {
+                        item(key = "service_label") {
+                            // 两种含义必须分开：
+                            //   点服务名 = 编辑它的 Key（不影响外发对象）
+                            //   「使用此服务」= 真的把这一批切到它（会吊销本批授权）
+                            Text("选择要管理的服务", color = secondary, fontSize = 11.sp)
+                            Spacer(Modifier.height(6.dp))
+                            // 用 FlowRow：1.5× 字体下两个服务名放不下就换行，
+                            // 不会再互相挤压或被裁掉
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                IntentAssistService.entries.forEach { candidate ->
+                                    val isEditing = candidate == editing
+                                    val hasKey = serviceStates[candidate]?.let { it != "未配置" } ?: false
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(
+                                                if (isEditing) accent.copy(alpha = 0.12f)
+                                                else Color.Transparent
+                                            )
+                                            .clickable {
+                                                editing = candidate
+                                                input = ""
+                                            }
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            candidate.displayName,
+                                            color = if (isEditing) accent else secondary,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isEditing) FontWeight.SemiBold
+                                            else FontWeight.Normal
+                                        )
+                                        if (hasKey) {
+                                            Text(" ·", color = accent, fontSize = 12.sp)
+                                        }
                                     }
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                            if (hasKey) {
-                                // 已配置 Key 的服务补一个点，便于一眼区分
-                                Text("·", color = accent, fontSize = 12.sp)
+                                }
                             }
+                            Spacer(Modifier.height(10.dp))
                         }
                     }
-                    Spacer(Modifier.height(6.dp))
-                }
-                Text(
-                    "${editing.displayName} 当前：$stateForEditing",
-                    color = textColor,
-                    fontSize = 12.sp
-                )
-                // 「使用此服务」：明确的**切换外发对象**操作。
-                // 与上面的「选服务」分开：那个只是切编辑对象，这个才会改这一批用谁。
-                if (onUseService != null && editing != activeService) {
-                    Spacer(Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(accent.copy(alpha = 0.10f))
-                            .clickable {
-                                onUseService(editing)
-                                input = ""
-                                onDismiss()
+
+                    // ---- 当前服务的配置区（含删除） ----
+                    item(key = "service_config") {
+                        Text(
+                            "${editing.displayName} 当前：$stateForEditing",
+                            color = textColor,
+                            fontSize = 12.sp
+                        )
+                        // 「使用此服务」：明确的**切换外发对象**操作
+                        if (onUseService != null && editing != activeService) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(accent.copy(alpha = 0.10f))
+                                    .clickable {
+                                        onUseService(editing)
+                                        input = ""
+                                        onDismiss()
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "使用 ${editing.displayName}",
+                                        color = accent,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        "切换会撤销本批授权，需要重新开启",
+                                        color = secondary,
+                                        fontSize = 11.sp
+                                    )
+                                }
                             }
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        } else if (onUseService != null && editing == activeService) {
+                            Spacer(Modifier.height(8.dp))
                             Text(
-                                "使用 ${editing.displayName}",
-                                color = accent,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                "切换会撤销本批授权，需要重新开启",
+                                "本批正在使用 ${activeService.displayName}",
                                 color = secondary,
                                 fontSize = 11.sp
                             )
                         }
+
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = input,
+                            onValueChange = { input = it },
+                            label = { Text("粘贴新的 Key（${editing.keyHint}，留空表示不修改）") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focusRequester)
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "两个服务的 Key 分开存放：在这里更换或删除只影响 ${editing.displayName}。",
+                            color = secondary,
+                            fontSize = 11.sp
+                        )
+
+                        // 「删除」放在**当前服务**这一块：它是一次针对该服务的破坏性动作，
+                        // 与「保存/关闭」不是同一层。放底栏会和关闭争同一行（1.5× 时被挤走）。
+                        if (stateForEditing != "未配置") {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "删除 ${editing.displayName} 的 Key",
+                                color = danger,
+                                fontSize = 12.sp,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable {
+                                        val deleteForService = onDeleteForService
+                                        if (deleteForService != null) deleteForService(editing)
+                                        else onDelete()
+                                        input = ""
+                                    }
+                                    .padding(vertical = 6.dp, horizontal = 2.dp)
+                            )
+                        }
                     }
-                } else if (onUseService != null && editing == activeService) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "本批正在使用 ${activeService.displayName}",
-                        color = secondary,
-                        fontSize = 11.sp
-                    )
                 }
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    label = { Text("粘贴新的 Key（${editing.keyHint}，留空表示不修改）") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "两个服务的 Key 分开存放：在这里更换或删除只影响 ${editing.displayName}。",
-                    color = secondary,
-                    fontSize = 11.sp
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                if (input.isNotBlank()) {
-                    val saveForService = onSaveForService
-                    if (saveForService != null) saveForService(editing, input) else onSave(input)
+
+                // ===== 底栏：不滚动，永远可见 =====
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("关闭", color = secondary, fontSize = 14.sp)
+                    }
+                    Spacer(Modifier.width(4.dp))
+                    TextButton(onClick = {
+                        if (input.isNotBlank()) {
+                            val saveForService = onSaveForService
+                            if (saveForService != null) saveForService(editing, input) else onSave(input)
+                        }
+                        input = ""
+                        onDismiss()
+                    }) {
+                        Text("保存", color = accent, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    }
                 }
-                input = ""
-                onDismiss()
-            }) { Text("保存") }
-        },
-        dismissButton = {
-            Row {
-                TextButton(onClick = {
-                    val deleteForService = onDeleteForService
-                    if (deleteForService != null) deleteForService(editing) else onDelete()
-                    input = ""
-                    onDismiss()
-                }) { Text("删除 ${editing.displayName} 的 Key", color = Color(0xFFFF3B30)) }
-                TextButton(onClick = onDismiss) { Text("关闭") }
             }
         }
-    )
+    }
 }
 
 /** 小号提示条：用于「OCR 不可用」这类**必须让用户知道**的降级说明。 */

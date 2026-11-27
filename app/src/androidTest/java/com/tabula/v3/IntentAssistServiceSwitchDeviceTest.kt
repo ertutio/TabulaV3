@@ -445,6 +445,90 @@ class IntentAssistServiceSwitchDeviceTest {
         )
     }
 
+    /**
+     * **两套 Key 都已配置**时切换：仍然撤销本批授权、仍然回到关闭态。
+     *
+     * 为什么必须单列：`switchingServiceRevokesBatchAuthorization` 里
+     * 目标服务（OpenCode Go）是**未配置 Key** 的。那种情况下"回页面后开关是关闭的"
+     * 有一个退化解——`Switch` 的 `enabled = serviceKeyConfigured`，没 Key 时它
+     * 本来就不可能是开启态。于是那条用例只证明了"无 Key 所以开不了"，
+     * **没有证明"授权被撤销"**。
+     *
+     * 本条把两家 Key 都写好，让开关在切换前后都处于可用状态：
+     * 切完仍是关闭态，才只能由 `revokeForServiceChange` → `onRebuild` 解释。
+     */
+    @Test
+    fun switchingServiceWithBothKeysConfiguredStillRevokesAuthorization() {
+        // 两套合成 Key 都写：切换前后开关都可用，排除了"没 Key 所以开不了"
+        deepSeekStore().write("sk-synthetic-both-0001")
+        openCodeGoStore().write("oc_sk_synthetic_both_0001")
+        assertEquals("前置：DeepSeek 必须已配置", "sk-synthetic-both-0001", deepSeekStore().read())
+        assertEquals(
+            "前置：OpenCode Go 必须已配置",
+            "oc_sk_synthetic_both_0001", openCodeGoStore().read()
+        )
+
+        insertCoupon("svc-switch-" + UUID.randomUUID().toString().take(6) + ".png")
+        android.os.SystemClock.sleep(1500)
+        startApp()
+        openCandidates()
+        openIntentBatch()
+
+        // 1) 在本批主动开启（此时两家都有 Key，开关可用）
+        assertTrue("必须能点到开关", tapAssistSwitch())
+        if (texts().any { it.contains("开启前请确认") }) {
+            assertTrue(tap("明白，本批次开启", timeout = 10000))
+            android.os.SystemClock.sleep(2000)
+        }
+        assertTrue("开启后必须显示已启用", waitText("本批次已启用", 60000))
+
+        // 2) 弹层里切到另一家（目标服务已配置 Key）
+        openServiceDialog()
+        assertTrue(tap(IntentAssistService.OPENCODE_GO.displayName))
+        android.os.SystemClock.sleep(800)
+        assertTrue(
+            "必须能切换（目标服务已配置 Key）",
+            tap("使用 ${IntentAssistService.OPENCODE_GO.displayName}", timeout = 10000)
+        )
+        android.os.SystemClock.sleep(3000)
+
+        // 3) 回页面：仍必须是关闭态
+        val deadline = android.os.SystemClock.uptimeMillis() + 30000
+        var after = texts()
+        while (android.os.SystemClock.uptimeMillis() < deadline) {
+            after = texts()
+            if (after.none { it.contains("本批次已启用") }) break
+            android.os.SystemClock.sleep(300)
+        }
+        assertFalse(
+            "目标服务已配置 Key 时切换，仍不得保持已启用（屏幕：$after）",
+            after.any { it.contains("本批次已启用") }
+        )
+        // 关键区分：这条路径下文案不会是「未配置 Key」——两家都有 Key。
+        assertTrue(
+            "切换后应回到「默认关闭」而不是「未配置 Key」（屏幕：$after）",
+            after.any { it.contains("默认关闭") }
+        )
+        assertFalse(
+            "不得把撤销结果伪装成缺少 Key（屏幕：$after）",
+            after.any { it.contains("未配置 Key") }
+        )
+        assertEquals(
+            "服务本身必须真的切过去了",
+            IntentAssistService.OPENCODE_GO, currentServiceFromPrefs()
+        )
+    }
+
+    private fun deepSeekStore() = IntentAssistKeyStore(
+        java.io.File(ctx.noBackupFilesDir, IntentAssistService.DEEPSEEK.keyFileName),
+        IntentAssistService.DEEPSEEK
+    )
+
+    private fun openCodeGoStore() = IntentAssistKeyStore(
+        java.io.File(ctx.noBackupFilesDir, IntentAssistService.OPENCODE_GO.keyFileName),
+        IntentAssistService.OPENCODE_GO
+    )
+
     /** 开关点击（Compose Switch 在无障碍树上是 checkable）。 */
     private fun tapAssistSwitch(): Boolean {
         repeat(6) {
