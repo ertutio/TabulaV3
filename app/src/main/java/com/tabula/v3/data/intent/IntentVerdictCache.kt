@@ -15,6 +15,7 @@ import android.content.SharedPreferences
  * 3. 引擎/模型版本变化：`engineId`（换 OCR 引擎或换语言包）；
  * 4. 文字辅助开关变化：开/关 DeepSeek 辅助会算出不同结果，用 `assistTag` 区分；
  * 5. 权限撤回：移除该条目，下次读取时重新判定。
+ * 6. 原判定仍有效且有明确截止时间：该时间已到时重新判定。
  */
 class IntentVerdictCache(
     private val prefs: SharedPreferences,
@@ -48,11 +49,14 @@ class IntentVerdictCache(
         identityKey: String,
         mediaFingerprint: String,
         engineId: String,
-        assistTag: String
+        assistTag: String,
+        nowMillis: Long = System.currentTimeMillis()
     ): IntentVerdict? {
         val raw = prefs.getString(keyOf(identityKey), null) ?: return null
         val cached = decode(raw) ?: return null
-        val fresh = cached.mediaFingerprint == mediaFingerprint &&
+        val deadlineHasPassed = cached.expiry == ExpiryState.STILL_VALID &&
+            cached.deadlineMillis != null && cached.deadlineMillis <= nowMillis
+        val fresh = !deadlineHasPassed && cached.mediaFingerprint == mediaFingerprint &&
             cached.rulesVersion == IntentRules.RULES_VERSION &&
             cached.engineId == engineId &&
             cached.assistTag == assistTag

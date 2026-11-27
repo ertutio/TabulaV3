@@ -159,7 +159,7 @@ class IntentBatchAnalyzer(
             val fingerprint = IntentVerdictCache.mediaFingerprint(
                 image.volumeName, image.id, image.size, image.dateModified
             )
-            val cached = cache.read(identity, fingerprint, recognizer.engineId, assistTag)
+            val cached = cache.read(identity, fingerprint, recognizer.engineId, assistTag, nowMillis)
             if (cached != null) {
                 cachedCount++
                 inputs += IntentCandidateInput(
