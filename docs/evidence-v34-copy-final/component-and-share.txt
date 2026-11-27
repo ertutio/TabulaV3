@@ -1,0 +1,104 @@
+INSTRUMENTATION_STATUS: class=com.tabula.v3.V34CopyVisualFixtureTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=
+com.tabula.v3.V34CopyVisualFixtureTest:
+INSTRUMENTATION_STATUS: test=burst
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.tabula.v3.V34CopyVisualFixtureTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=burst
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.tabula.v3.V34CopyVisualFixtureTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=relay
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.tabula.v3.V34CopyVisualFixtureTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=relay
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.tabula.v3.V34CopyVisualFixtureTest
+INSTRUMENTATION_STATUS: current=3
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=stagedEmpty
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.tabula.v3.V34CopyVisualFixtureTest
+INSTRUMENTATION_STATUS: current=3
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=stagedEmpty
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.tabula.v3.V34CopyVisualFixtureTest
+INSTRUMENTATION_STATUS: current=4
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=consent
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.tabula.v3.V34CopyVisualFixtureTest
+INSTRUMENTATION_STATUS: current=4
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=consent
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.tabula.v3.V34RealShareDialogTest
+INSTRUMENTATION_STATUS: current=5
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stream=
+com.tabula.v3.V34RealShareDialogTest:
+INSTRUMENTATION_STATUS: test=systemShareRefreshesAlreadyOpenStagedCleanup
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=com.tabula.v3.V34RealShareDialogTest
+INSTRUMENTATION_STATUS: current=5
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=5
+INSTRUMENTATION_STATUS: stack=java.lang.IllegalStateException: timed out waiting for 撤销标记
+	at com.tabula.v3.PartialSelectionUi.await(PartialSelectionUi.kt:218)
+	at com.tabula.v3.PartialSelectionUi.await$default(PartialSelectionUi.kt:210)
+	at com.tabula.v3.V34RealShareDialogTest.click(V34RealShareDialogTest.kt:188)
+	at com.tabula.v3.V34RealShareDialogTest.verifySystemShare(V34RealShareDialogTest.kt:98)
+	at com.tabula.v3.V34RealShareDialogTest.systemShareRefreshesAlreadyOpenStagedCleanup(V34RealShareDialogTest.kt:28)
+
+INSTRUMENTATION_STATUS: stream=
+Error in systemShareRefreshesAlreadyOpenStagedCleanup(com.tabula.v3.V34RealShareDialogTest):
+java.lang.IllegalStateException: timed out waiting for 撤销标记
+	at com.tabula.v3.PartialSelectionUi.await(PartialSelectionUi.kt:218)
+	at com.tabula.v3.PartialSelectionUi.await$default(PartialSelectionUi.kt:210)
+	at com.tabula.v3.V34RealShareDialogTest.click(V34RealShareDialogTest.kt:188)
+	at com.tabula.v3.V34RealShareDialogTest.verifySystemShare(V34RealShareDialogTest.kt:98)
+	at com.tabula.v3.V34RealShareDialogTest.systemShareRefreshesAlreadyOpenStagedCleanup(V34RealShareDialogTest.kt:28)
+
+INSTRUMENTATION_STATUS: test=systemShareRefreshesAlreadyOpenStagedCleanup
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_RESULT: stream=
+
+Time: 56.878
+There was 1 failure:
+1) systemShareRefreshesAlreadyOpenStagedCleanup(com.tabula.v3.V34RealShareDialogTest)
+java.lang.IllegalStateException: timed out waiting for 撤销标记
+	at com.tabula.v3.PartialSelectionUi.await(PartialSelectionUi.kt:218)
+	at com.tabula.v3.PartialSelectionUi.await$default(PartialSelectionUi.kt:210)
+	at com.tabula.v3.V34RealShareDialogTest.click(V34RealShareDialogTest.kt:188)
+	at com.tabula.v3.V34RealShareDialogTest.verifySystemShare(V34RealShareDialogTest.kt:98)
+	at com.tabula.v3.V34RealShareDialogTest.systemShareRefreshesAlreadyOpenStagedCleanup(V34RealShareDialogTest.kt:28)
+
+FAILURES!!!
+Tests run: 5,  Failures: 1
+
+
+INSTRUMENTATION_CODE: -1

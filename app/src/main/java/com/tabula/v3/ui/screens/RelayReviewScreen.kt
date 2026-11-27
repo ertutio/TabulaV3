@@ -341,9 +341,9 @@ private fun ConfirmCandidateDialog(
                 )
                 Text(
                     text = if (sourceReadable) {
-                        "来源 URI 当前可读，但内容可能已被系统更新，无法确认与所选照片一致"
+                        "分享来源仍可读取，但内容可能已被系统更新，无法确认与所选照片一致"
                     } else {
-                        "来源 URI 不可再读取（临时授权已失效），无法核对内容"
+                        "分享来源已无法读取（临时授权已失效），无法核对内容"
                     },
                     color = Color(0xFFFF9500), fontSize = 11.sp,
                     modifier = Modifier.padding(top = 2.dp)

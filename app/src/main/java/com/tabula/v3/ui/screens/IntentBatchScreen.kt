@@ -400,7 +400,7 @@ fun IntentBatchContent(
                             }
                             if (visibleBatch.shortOfLimit) {
                                 Text(
-                                    "只找到 ${visibleBatch.ordered.size} 张足够明确的候选，没有为了凑满批次硬塞。",
+                                    "只找到 ${visibleBatch.ordered.size} 张符合条件的照片。",
                                     color = secondary,
                                     fontSize = 11.sp
                                 )
