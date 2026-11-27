@@ -1,4 +1,4 @@
-name: Capture Tabula settings UI
+name: Verify glass checks on AOSP emulator images
 
 on:
   workflow_dispatch:
@@ -12,8 +12,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        theme: [light, dark]
-    name: API 35 settings (${{ matrix.theme }})
+        include:
+          - api: 35
+            mode: viewer
+          - api: 33
+            mode: probe
+          - api: 35
+            mode: probe
+    name: AOSP API ${{ matrix.api }} ${{ matrix.mode }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -32,6 +38,7 @@ jobs:
             --name Tabula-liquid-glass-8063998e8f55f20688e83af4b15592599786f356 --dir input/
           mkdir -p app/build/outputs/apk/debug app/build/outputs/apk/androidTest/debug device-results
           cp input/artifacts/TabulaV3-liquid-glass-debug.apk app/build/outputs/apk/debug/app-debug.apk
+          cp input/artifacts/TabulaV3-liquid-glass-androidTest.apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
           sha256sum app/build/outputs/apk/debug/app-debug.apk
       - name: Enable KVM and sample host memory
         run: |
@@ -46,19 +53,21 @@ jobs:
             sleep 3
           done' > device-results/host-samples.txt 2>&1 </dev/null &
           echo "$!" > device-results/host-sampler.pid
-      - name: Open settings and capture scrolling
+      - name: Install preview probe dependencies
+        run: python -m pip install --disable-pip-version-check Pillow==10.4.0
+      - name: Run the existing glass assertions
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
-          api-level: 35
-          target: google_apis
+          api-level: ${{ matrix.api }}
+          target: default
           arch: x86_64
           profile: pixel_6
           cores: 2
           ram-size: 3072M
           disk-size: 8G
-          emulator-options: -no-window -gpu swiftshader -feature -Vulkan -no-snapshot -noaudio -no-boot-anim -no-metrics
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
           disable-animations: true
-          script: TABULA_SMOKE_THEME=${{ matrix.theme }} python3 tools/capture-settings-smoke.py
+          script: API_LEVEL=${{ matrix.api }} MODE=${{ matrix.mode }} bash tools/run-emulator-evidence.sh
       - name: Check host kernel for emulator exits
         if: always()
         run: |
@@ -69,7 +78,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: glass-settings-smoke-${{ matrix.theme }}
+          name: glass-aosp-${{ matrix.api }}-${{ matrix.mode }}
           path: device-results/
           if-no-files-found: warn
           retention-days: 7
