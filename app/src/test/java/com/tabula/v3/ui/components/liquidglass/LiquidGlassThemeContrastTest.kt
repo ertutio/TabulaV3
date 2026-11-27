@@ -3,7 +3,7 @@ package com.tabula.v3.ui.components.liquidglass
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
-import com.tabula.v3.ui.components.PhysicalLiquidGlassConfig
+import com.tabula.v3.ui.components.compactActionGlassConfig
 import com.tabula.v3.ui.theme.liquidGlassColorScheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -22,14 +22,19 @@ class LiquidGlassThemeContrastTest {
 
     @Test
     fun compactGlassKeepsItsShapedEdgeWithoutStraightHighlightStrips() {
-        val button = PhysicalLiquidGlassConfig.Button
-        assertEquals(0f, button.primarySpecularIntensity, 0f)
-        assertEquals(0f, button.topRimLightAlpha, 0f)
-        assertEquals(0f, button.topInnerDarkAlpha, 0f)
-        assertEquals(0.dp, button.bottomSeparatorHeight)
-        assertEquals(0f, button.bottomInnerHighlightAlpha, 0f)
-        assertTrue(button.borderAlpha > 0f)
-        assertTrue(button.refractionEdgePeak > 0f)
+        val light = compactActionGlassConfig(darkSurface = false)
+        val dark = compactActionGlassConfig(darkSurface = true)
+        for (button in listOf(light, dark)) {
+            assertEquals(0f, button.primarySpecularIntensity, 0f)
+            assertEquals(0f, button.topRimLightAlpha, 0f)
+            assertEquals(0f, button.topInnerDarkAlpha, 0f)
+            assertEquals(0.dp, button.bottomSeparatorHeight)
+            assertEquals(0f, button.bottomInnerHighlightAlpha, 0f)
+            assertTrue(button.borderAlpha > 0f)
+            assertTrue(button.refractionEdgePeak > 0f)
+        }
+        assertTrue(light.borderColor.luminance() < dark.borderColor.luminance())
+        assertTrue(light.edgeGlowIntensity < dark.edgeGlowIntensity)
     }
 
     private fun assertReadableSettings(darkTheme: Boolean) {

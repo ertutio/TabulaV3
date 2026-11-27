@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.boundsInRoot
@@ -321,14 +322,29 @@ fun ActionIconButton(
     
     // 当需要特殊高亮背景时，不使用液态玻璃模式
     if (isLiquidGlassEnabled && !forceNormalStyle) {
-        // 液态玻璃模式：使用玻璃按钮
+        // The photo viewers place these controls over a dark scrim.
+        val darkSurface = LocalIsDarkTheme.current || sampleBackdrop
+        val config = remember(darkSurface) { compactActionGlassConfig(darkSurface) }
+        val shape = RoundedCornerShape(config.cornerRadius)
+        val fallbackFill = if (sampleBackdrop) {
+            Modifier
+        } else {
+            val brush = remember(darkSurface, config.tintColor) {
+                val center = if (darkSurface) config.tintColor.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.55f)
+                val edge = config.tintColor.copy(alpha = if (darkSurface) 0.12f else 0.16f)
+                Brush.radialGradient(listOf(center, edge))
+            }
+            Modifier.background(brush, shape)
+        }
         PhysicalLiquidGlassBox(
             modifier = modifier
                 .size(48.dp)
                 .alpha(if (enabled) 1f else 0.38f)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(shape)
+                .then(fallbackFill)
                 .clickable(enabled = enabled, onClick = onClick),
-            config = PhysicalLiquidGlassConfig.Button.copy(cornerRadius = 12.dp),
+            shape = shape,
+            config = config,
             // 采样层只影响玻璃下方的背景；高光/边缘/内阴影/噪点仍来自上面的 config
             backdropState = if (sampleBackdrop) backdropState else null,
             backdropSpec = backdropSpec,
