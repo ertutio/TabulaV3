@@ -1,6 +1,7 @@
 package com.tabula.v3
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Rect
@@ -88,6 +89,7 @@ class RecycleBinViewerBackdropDeviceTest {
 
     private val seeded = mutableListOf<String>()
     private var originalLiquidGlassLabEnabled: Boolean? = null
+    private var activity: Activity? = null
 
     /** 生产门控是否会在本机启用液态玻璃（与 MainActivity 同一判据）。 */
     private fun productionGlassEnabled(): Boolean =
@@ -142,6 +144,10 @@ class RecycleBinViewerBackdropDeviceTest {
 
     @After
     fun cleanup() {
+        activity?.let { app ->
+            ins.runOnMainSync { app.finish() }
+            ins.waitForIdleSync()
+        }
         kotlinx.coroutines.runBlocking {
             runCatching {
                 val manager = RecycleBinManager.getInstance(ctx)
@@ -200,7 +206,10 @@ class RecycleBinViewerBackdropDeviceTest {
             val rows = LocalImageRepository(ctx).loadAllData().allImages
                 .filter { row -> binNames.any { row.displayName == it } }
             assertEquals("前置：3 张夹具照片都要能被图库读到", 3, rows.size)
-            RecycleBinManager.getInstance(ctx).addAllToRecycleBin(rows)
+            val manager = RecycleBinManager.getInstance(ctx)
+            manager.addAllToRecycleBin(rows)
+            val persisted = manager.loadRecycleBin().map { it.mediaIdentityKey() }.toSet()
+            assertTrue("Recycle bin must contain all fixture photos", rows.all { it.mediaIdentityKey() in persisted })
 
             // ===== 实验室开关：必须在**首次启动之前**设好 =====
             //
@@ -223,10 +232,11 @@ class RecycleBinViewerBackdropDeviceTest {
             assertTrue("启动前必须读到开启的液态玻璃偏好", AppPreferences(ctx).liquidGlassLabEnabled)
 
             // 走真实入口：图库 → 回收站 → 点开照片 → 全屏查看器
-            ui.launch()
-            ui.waitFor("回收站", timeoutMs = 45000)
-            ui.tap("回收站")
-            ui.waitFor(BIN_COUNT_ANCHOR, timeoutMs = 45000)
+            activity = ins.startActivitySync(
+                Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+            ui.waitFor("设置", timeoutMs = 45000)
+            openRecycleBin()
             openFirstPhoto()
 
             if (!productionGlassEnabled()) {
@@ -417,6 +427,23 @@ class RecycleBinViewerBackdropDeviceTest {
 
     // ==================== 真实 UI 驱动 ====================
 
+    private fun openRecycleBin() {
+        var entry: AccessibilityNodeInfo? = null
+        ui.await("enabled Deck recycle-bin control", {
+            val label = ui.find(ins.uiAutomation.rootInActiveWindow, "回收站")
+            entry = generateSequence(label) { it.parent }
+                .firstOrNull { it.isClickable }?.takeIf { it.isEnabled && it.isVisibleToUser }
+            entry != null
+        }, timeoutMs = 45_000)
+        ui.clickNode(requireNotNull(entry), "deck recycle bin")
+        try {
+            ui.waitFor(BIN_COUNT_ANCHOR, timeoutMs = 15_000)
+        } catch (failure: IllegalStateException) {
+            saveEvidence("recycle-bin-entry")
+            throw failure
+        }
+    }
+
     private fun openFirstPhoto() {
         val node = ui.waitFor(seeded.first(), timeoutMs = 30000)
         val bounds = Rect().also { node.getBoundsInScreen(it) }
@@ -450,8 +477,15 @@ class RecycleBinViewerBackdropDeviceTest {
      * 审计行，抓到 `sampled=false` 就立刻返回。
      */
     private fun swipeAndReadMidScroll(): Map<String, String>? {
+        val viewport = requireNotNull(activity).windowManager.currentWindowMetrics.bounds
+        val pageCount = findText(PAGE_ANCHOR)?.text?.toString()?.substringAfterLast(' ')?.toIntOrNull()
+            ?: error("Page count missing before swipe")
+        val left = viewport.left + viewport.width() / 6
+        val right = viewport.right - viewport.width() / 6
+        val y = viewport.centerY()
+        val (start, end) = if (currentPageNumber() < pageCount) right to left else left to right
         val swiper = Thread {
-            ui.shell("input swipe 900 1200 180 1200 220")
+            ui.shell("input swipe $start $y $end $y 420")
         }
         swiper.start()
         val deadline = SystemClock.uptimeMillis() + 4000
@@ -500,11 +534,8 @@ class RecycleBinViewerBackdropDeviceTest {
     }
 
     private fun screenCenter(): Pair<Int, Int> {
-        val out = ui.shell("wm size")
-        val match = Regex("(\\d+)x(\\d+)").find(out)
-        val w = match?.groupValues?.get(1)?.toInt() ?: 1080
-        val h = match?.groupValues?.get(2)?.toInt() ?: 2400
-        return (w / 2) to (h / 2)
+        val viewport = requireNotNull(activity).windowManager.currentWindowMetrics.bounds
+        return viewport.centerX() to viewport.centerY()
     }
 
     // ==================== 审计行读取 ====================

@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import com.tabula.v3.BuildConfig
 import kotlinx.coroutines.delay
@@ -45,14 +46,16 @@ fun ViewerBackdropAuditLine(
     state: LiquidGlassBackdropState,
     viewerSync: ViewerBackdropSync?,
     page: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    photoIdentity: String? = null,
+    sampleBitmapSize: IntSize? = null
 ) {
     if (!BuildConfig.DEBUG) return
 
     // Draw counters are deliberately non-observable. Refresh this debug-only node
     // briefly after each transition, without making drawing trigger recomposition.
     var tick by remember { mutableIntStateOf(0) }
-    LaunchedEffect(decision.sampling, state.revision, state.primaryDrawKey, page) {
+    LaunchedEffect(decision.sampling, state.revision, state.primaryDrawKey, page, photoIdentity) {
         if (decision.sampling) repeat(30) { delay(100); tick++ }
     }
     @Suppress("UNUSED_VARIABLE") val auditTick = tick
@@ -61,6 +64,7 @@ fun ViewerBackdropAuditLine(
         append(" reason=").append(decision.reason.name)
         append(" path=").append(decision.path)
         append(" page=").append(page)
+        if (photoIdentity != null) append(" photo=").append(photoIdentity)
 
         if (decision.sampling) {
             // 玻璃分支：计划与绘制可能仍在等待布局或首帧。
@@ -70,6 +74,7 @@ fun ViewerBackdropAuditLine(
                 state.primaryEffectHealth == BackdropEffectHealth.Ok && state.primaryLayerDrawCount > 0 &&
                 state.primaryHasDrawnCurrentPlan &&
                 state.primaryLastLayerDrawRevision == state.revision
+            sampleBitmapSize?.let { append(" bitmap=").append(it.width).append('x').append(it.height) }
             append(" ready=").append(ready)
             append(" plan=").append(plan.status.name)
             append(" planreason=").append(plan.reason.name)
@@ -89,6 +94,14 @@ fun ViewerBackdropAuditLine(
             append(" ready=false plan=- planreason=- glass=- layer=- host=- hostdraw=- layerdraw=- buttondraw=- drawrev=- rev=-")
             append(" effect=- drawplan=-")
         }
+
+        // 照片矩形的实测值：坐标对齐是本轮修的缺陷，必须能在设备上读到，
+        // 否则"采样层按整宿主 Fit"这种错误只能靠看图猜。
+        append(" photorect=").append(
+            decision.photoRect?.let { r ->
+                "%.0f,%.0f,%.0fx%.0f".format(r.left, r.top, r.width, r.height)
+            } ?: "-"
+        )
 
         if (viewerSync != null) {
             append(" sync=").append(if (viewerSync.canSample) "ok" else "blocked")
