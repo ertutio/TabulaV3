@@ -47,7 +47,7 @@ fun RoundIntentBanner(
             .padding(horizontal = 14.dp, vertical = 10.dp)
     ) {
         Text(
-            text = "下一批优先看这个来源？",
+            text = "下一批优先选择这个来源？",
             color = if (isDark) Color.White else Color.Black,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium
@@ -60,7 +60,7 @@ fun RoundIntentBanner(
             overflow = TextOverflow.Ellipsis
         )
         Text(
-            text = "只影响下一批",
+            text = "仅对下一批生效",
             color = Color(0xFF8E8E93),
             fontSize = 11.sp
         )

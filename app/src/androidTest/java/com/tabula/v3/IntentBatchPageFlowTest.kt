@@ -467,16 +467,21 @@ class IntentBatchPageFlowTest {
         )
     }
 
-    /** 候选页 → 点「看看」进「按整理目的凑一批」。 */
+    /**
+     * 候选页 → 点列表项「按整理目的凑一批」。
+     *
+     * UI 改版后入口是**整行可点的列表项**（原来是小字 + 右侧独立的「看看」按钮）。
+     * 定位方式随之改为点这一行的标题文字——行本身是点击目标，点文字即可命中，
+     * 不需要再找那个已被移除的按钮。
+     *
+     * 进入判据必须是**只在凑一批页存在**的文案：不能用 contains("只排序")，
+     * 因为候选页的入口副文案是「先排序，再由你选择处理」，语义相近但文字不同；
+     * 这里仍用凑一批页头的副标题作判据，避免点失败时误判已进入。
+     */
     private fun openIntentBatch() {
         waitForTextContaining("按整理目的凑一批", timeout = 20000)
-        val opened = tapByBounds("看看")
-        assertTrue("「按整理目的凑一批」入口必须可点", opened)
-        // 进入判据必须是**只在凑一批页存在**的文案。
-        // 不能用 contains("只排序")：暂存清理入口那一行是
-        // 「按整理目的凑一批：先看最值得清的（只排序，不自动删）」，也含这四个字，
-        // 于是点击失败时这条等待会立刻返回，后续断言就都打在了暂存清理页上
-        // （设备实测：断言里读到的是「换来源」「存放超过 7 天」这些候选页文案）。
+        val opened = tapByBounds("按整理目的凑一批")
+        assertTrue("「按整理目的凑一批」列表项必须可点", opened)
         val deadline = now() + 30000
         while (now() < deadline) {
             if (screenTexts().any { it.contains("只排序，不会自动删除；仍由你决定保留或移入回收站") }) return
@@ -750,10 +755,12 @@ class IntentBatchPageFlowTest {
         fun walk(n: AccessibilityNodeInfo?, depth: Int) {
             if (n == null || depth > 24) return
             val text = n.text?.toString().orEmpty()
-            // 只认按钮自身的两条文案：「选择要移入回收站的照片」与「移入回收站（N 张）」。
+            // 只认按钮自身的两条文案：禁用态「选择照片后可移入回收站」与
+            // 可用态「移入回收站（N 张）」。禁用语在 PR A 里改过（原「选择要移入回收站的照片」），
+            // 这里同步更新——**断言强度不变**，仍然只匹配按钮自己的文案。
             // 不能用 contains("移入回收站")：页头副标题「…仍由你决定保留或移入回收站」
             // 也含这四个字，会被当成按钮，于是 enabled 判定取的是副标题的祖先链。
-            if (text == "选择要移入回收站的照片" || Regex("^移入回收站（\\d+ 张）$").matches(text)) {
+            if (text == "选择照片后可移入回收站" || Regex("^移入回收站（\\d+ 张）$").matches(text)) {
                 matches += n
             }
             for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
