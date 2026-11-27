@@ -124,7 +124,8 @@ class IntentBatchPageFlowTest {
     /** 插入一张「看起来像过期优惠截图」的合成图（真实可被 OCR 读出文字）。 */
     private fun insertCouponScreenshot(
         name: String,
-        relativePath: String = "DCIM/Screenshots/"
+        relativePath: String = "DCIM/Screenshots/",
+        daysAgo: Long = 10
     ): Uri {
         val bitmap = Bitmap.createBitmap(720, 1280, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -161,7 +162,7 @@ class IntentBatchPageFlowTest {
         ctx.contentResolver.openOutputStream(uri)!!.use { out ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
-        val old = (System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000) / 1000
+        val old = (System.currentTimeMillis() - daysAgo * 24 * 60 * 60 * 1000) / 1000
         check(
             ctx.contentResolver.update(
                 uri,
@@ -573,8 +574,9 @@ class IntentBatchPageFlowTest {
         val fixtureId = UUID.randomUUID().toString().take(8)
         val couponName = "intent-flow-$fixtureId.png"
         val sourcePath = if (useUndo) "DCIM/BatchUndo-$fixtureId/" else "DCIM/Screenshots/"
-        val coupon = insertCouponScreenshot(couponName, relativePath = sourcePath)
         val other = insertCouponScreenshot("intent-keep-$fixtureId.png", relativePath = sourcePath)
+        // The newer candidate sorts first, so its exact thumbnail is reachable in the narrow viewport.
+        val coupon = insertCouponScreenshot(couponName, relativePath = sourcePath, daysAgo = 9)
         if (useUndo) {
             prefs.hasStagedCleanupSourceChoice = true
             prefs.stagedCleanupSourceKeys = setOf("external_primary|${sourcePath.trimEnd('/').lowercase()}")
@@ -585,7 +587,7 @@ class IntentBatchPageFlowTest {
         startApp()
         openStagedCleanupCandidates(hasSelectedSource = useUndo)
         openIntentBatch()
-        waitForAnalysisSettled()
+        if (!useUndo) waitForAnalysisSettled()
 
         // 1) 未选任何图时，提交按钮必须是禁用态
         val submitBefore = submitButtonState()
@@ -614,6 +616,11 @@ class IntentBatchPageFlowTest {
         val submitAfter = waitForEnabledSubmit()
         assertNotNull("选中后提交按钮必须存在", submitAfter)
         assertTrue("选中 1 张后提交按钮必须变为可用", submitAfter!!.enabled)
+        if (useUndo) {
+            val retainAction = find("长期保留")
+            assertTrue("选中 1 张后长期保留按钮必须可用",
+                retainAction?.isEnabled == true && retainAction.isClickable)
+        }
 
         // 4) 点提交
         val clickTarget = submitAfter.clickable
@@ -662,8 +669,12 @@ class IntentBatchPageFlowTest {
         )
 
         if (useUndo) {
-            waitForAnalysisSettled()
-            waitForTextContaining(thumbName, timeout = 20000)
+            waitForTextContaining("复用缓存 2 张", timeout = 20000)
+            // The restored row can be outside the anchor-preserving viewport on a narrow screen.
+            val configuration = ctx.resources.configuration
+            if (configuration.screenWidthDp >= 360 || configuration.fontScale < 1.5f) {
+                waitForTextContaining(thumbName, timeout = 4000)
+            }
             assertTrue(
                 "撤销只应撤回本次新增的回收站记录",
                 bin.loadRecycleBin().map { it.uri }.toSet() == binUris - coupon

@@ -450,7 +450,7 @@ fun IntentBatchContent(
                             disabledContainerColor = warn.copy(alpha = 0.3f)
                         ),
                         shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                     ) {
                         when {
                             isSaving -> CircularProgressIndicator(
