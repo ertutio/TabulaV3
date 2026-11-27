@@ -172,15 +172,16 @@ fun topScrimHeightPx(
 @Composable
 fun rememberBackdropPhoto(
     data: Any?,
-    maxWidthPx: Int
+    maxWidthPx: Int,
+    photoCacheKey: String? = null
 ): Bitmap? {
     val context = LocalContext.current
-    var bitmap by remember(data, maxWidthPx) { mutableStateOf<Bitmap?>(null) }
+    var bitmap by remember(data, maxWidthPx, photoCacheKey) { mutableStateOf<Bitmap?>(null) }
 
-    LaunchedEffect(data, maxWidthPx) {
+    LaunchedEffect(data, maxWidthPx, photoCacheKey) {
         bitmap = null
         if (data == null || maxWidthPx <= 0) return@LaunchedEffect
-        bitmap = loadBackdropBitmap(context, data, maxWidthPx)
+        bitmap = loadBackdropBitmap(context, data, maxWidthPx, photoCacheKey)
     }
     return bitmap
 }
@@ -189,12 +190,20 @@ fun rememberBackdropPhoto(
 suspend fun loadBackdropBitmap(
     context: Context,
     data: Any,
-    maxWidthPx: Int
+    maxWidthPx: Int,
+    photoCacheKey: String? = null
 ): Bitmap? {
     val request = ImageRequest.Builder(context)
         .data(data)
         .size(maxWidthPx.coerceAtLeast(1))
         .allowHardware(false)
+        .apply {
+            photoCacheKey?.let {
+                // Keep both the MediaStore content revision and the decode size in the cache key.
+                memoryCacheKey("$it@$maxWidthPx")
+                diskCacheKey(it)
+            }
+        }
         .build()
     val result = runCatching { context.imageLoader.execute(request) }.getOrNull()
     val drawable = (result as? SuccessResult)?.drawable ?: return null

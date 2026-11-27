@@ -36,18 +36,19 @@ data class ViewerBackdropDecision(
      * 真实像素；`photoRect=null` 而 `sampling=true` 只可能出现在
      * "调用方没有声明矩形"的满屏场景（回收站查看器）。
      */
-    val photoRect: PhotoDisplayRect? = null
+    val photoRect: PhotoDisplayRect? = null,
+    val requirePhotoRect: Boolean = false
 ) {
     /** 顶栏是否真的走玻璃（采样）路径。**这一个值同时决定 UI 分支与审计行**。 */
     val sampling: Boolean
-        get() = attachGateReason == BackdropFallbackReason.NONE &&
-            (syncReason == null || syncReason == BackdropFallbackReason.NONE)
+        get() = reason == BackdropFallbackReason.NONE
 
     /** 不采样时的原因；采样时为 [BackdropFallbackReason.NONE]。 */
     val reason: BackdropFallbackReason
         get() = when {
             attachGateReason != BackdropFallbackReason.NONE -> attachGateReason
-            syncReason != null -> syncReason
+            syncReason != null && syncReason != BackdropFallbackReason.NONE -> syncReason
+            requirePhotoRect && photoRect?.isValid != true -> BackdropFallbackReason.NO_COORDINATES
             else -> BackdropFallbackReason.NONE
         }
 

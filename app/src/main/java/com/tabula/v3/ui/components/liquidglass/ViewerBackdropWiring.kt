@@ -59,7 +59,8 @@ object ViewerBackdropWiring {
 @Composable
 fun rememberViewerBackdropPhoto(
     gateOpen: Boolean,
-    data: Any?
+    data: Any?,
+    photoCacheKey: String? = null
 ): android.graphics.Bitmap? {
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
@@ -70,7 +71,8 @@ fun rememberViewerBackdropPhoto(
     }
     return rememberBackdropPhoto(
         data = if (gateOpen) data else null,
-        maxWidthPx = maxWidthPx
+        maxWidthPx = maxWidthPx,
+        photoCacheKey = photoCacheKey
     )
 }
 
@@ -113,13 +115,18 @@ fun rememberViewerBackdropWiring(
     liquidGlassEnabled: Boolean,
     currentPhotoData: Any?,
     statusBarInsetPx: Float,
-    sdkInt: Int = Build.VERSION.SDK_INT
+    sdkInt: Int = Build.VERSION.SDK_INT,
+    photoCacheKey: String? = null
 ): ViewerBackdropWiringResult {
     val gateOpen = ViewerBackdropWiring.shouldLoadBackdropPhoto(
         liquidGlassEnabled = liquidGlassEnabled,
         sdkInt = sdkInt
     )
-    val photo = rememberViewerBackdropPhoto(gateOpen = gateOpen, data = currentPhotoData)
+    val photo = rememberViewerBackdropPhoto(
+        gateOpen = gateOpen,
+        data = currentPhotoData,
+        photoCacheKey = photoCacheKey
+    )
     val scrimHeightPx = viewerBackdropScrimHeightPx(statusBarInsetPx = statusBarInsetPx)
     return ViewerBackdropWiringResult(
         gateOpen = gateOpen,

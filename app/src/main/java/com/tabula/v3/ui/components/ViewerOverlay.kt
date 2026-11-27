@@ -45,11 +45,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
@@ -59,6 +58,7 @@ import com.tabula.v3.data.model.ImageFile
 import com.tabula.v3.di.CoilSetup
 import com.tabula.v3.ui.util.deckViewerThumbnailRequest
 import com.tabula.v3.data.repository.mediaIdentityKey
+import com.tabula.v3.ui.util.gridThumbnailCacheKey
 import com.tabula.v3.ui.util.viewerHdRequest
 import com.tabula.v3.ui.util.findActivity
 import com.tabula.v3.ui.util.rememberImageFeatures
@@ -128,17 +128,12 @@ fun ViewerOverlay(
 
     // 容器尺寸（由 BoxWithConstraints 提供，在下方计算）
     var containerWidthPx by remember { mutableFloatStateOf(0f) }
-    // 照片在宿主坐标系里**实际渲染**的矩形。用 onGloballyPositioned 量：
-    // 它拿到的是经过 graphicsLayer（translation + scale）之后的最终位置，
-    // 而这正是采样层需要对齐的东西。自己用 targetWidth/currentWidth 推算
-    // 只能得到"逻辑尺寸"，一旦有缩放或平移就对不上。
-    var photoRectInHost by remember { mutableStateOf<Rect?>(null) }
-
     var containerHeightPx by remember { mutableFloatStateOf(0f) }
 
     // 源位置信息 - 使用remember保存初始值，确保退出动画时使用正确的位置
     val initialSourceRect = remember { viewerState.sourceRect }
     val image = viewerState.image
+    val photoIdentity = image.mediaIdentityKey()
     val sharePhoto = rememberPhotoShareAction()
     
     // 检查源位置是否有效（宽高大于0）
@@ -172,7 +167,7 @@ fun ViewerOverlay(
     val pressDelayMs = 80L
     
     // 高清图加载状态
-    var isHdImageLoaded by remember { mutableStateOf(false) }
+    var isHdImageLoaded by remember(photoIdentity, image.dateModified) { mutableStateOf(false) }
     
     // 超高清图加载状态（用于放大时）
     var isUltraHdLoaded by remember { mutableStateOf(false) }
@@ -406,7 +401,7 @@ fun ViewerOverlay(
     // 不会把 data 交给 Coil，图片请求根本不会发出（有单测钉住这个顺序）。
     //
     // 采样能否与屏幕照片一致由 `ViewerBackdropSync` 判定——放大、拖动时都不可采，
-    // 必须回退普通按钮。普通查看器是单图（没有 Pager），因此 `pagerSettled` 恒为 true。
+    // 必须回退普通按钮。普通查看器用同一个门控等待进出场动画结束。
     val liquidGlassEnabled = LocalLiquidGlassEnabled.current
     val statusBarInsetPxLocal: Float = WindowInsets.statusBars
         .asPaddingValues()
@@ -415,34 +410,34 @@ fun ViewerOverlay(
     val viewerBackdrop = rememberViewerBackdropWiring(
         liquidGlassEnabled = liquidGlassEnabled,
         currentPhotoData = image.uri,
-        statusBarInsetPx = statusBarInsetPxLocal
+        statusBarInsetPx = statusBarInsetPxLocal,
+        photoCacheKey = gridThumbnailCacheKey("viewer_backdrop_", image)
     )
-    // 照片在宿主里的真实矩形（像素）。入场动画期间照片从卡片位置移到居中位置，
-    // 采样层若按"整个宿主 Fit"来摆照片，两端都会错位——照片被放大、多出的部分
-    // 顶到按钮下方，而屏幕上那个位置是黑边。
-    //
-    // 只在**停稳且原比例原位置**时才交给采样层：
-    //   · 动画没结束（animProgress != 1）→ 位置还在动，量到的矩形下一帧就失效；
-    //   · 放大或平移过 → 屏幕上的画面与"原图 Fit"不是同一幅，必须回退；
-    //   · 矩形无效（照片未就绪 / 尺寸为 0）→ 没有可信来源，回退。
-    // 三者任一成立就传 null，采样层回到实色按钮（由 viewerSync 的 fallback 决定）。
+    val viewerTransitionSettled = !isExiting && !animProgress.isRunning && progress == 1f
     val viewerSync = ViewerBackdropSync(
-        pagerSettled = true,
+        pagerSettled = viewerTransitionSettled,
         scale = animScale,
         panX = animOffsetX,
         panY = animOffsetY
     )
-    val settledPhotoRect = run {
-        if (animProgress.value < 0.999f) return@run null
-        if (!viewerSync.canSample) return@run null
-        // 矩形本身就是"照片已渲染"的证据：没渲染过就不会被量到。
-        PhotoDisplayRect.of(photoRectInHost)
+    // Use the measured size only once it matches the final layout. The image and
+    // sampling host share an origin, so these are the same translations as graphicsLayer.
+    val hasSettledPhotoLayout = isHdImageLoaded && viewerSync.canSample &&
+        targetWidth > 0f && targetHeight > 0f &&
+        with(density) {
+            contentSize.width == currentWidthDp.roundToPx().toFloat() &&
+                contentSize.height == currentHeightDp.roundToPx().toFloat()
+        }
+    val settledPhotoRect = if (hasSettledPhotoLayout) {
+        PhotoDisplayRect.of(
+            Rect(currentX, currentY, currentX + contentSize.width, currentY + contentSize.height)
+        )
+    } else {
+        null
     }
     val backdropSpec = remember(viewerSync, settledPhotoRect) {
         LiquidGlassBackdropSpec.Default.copy(
             viewerSync = viewerSync,
-            // 未就绪/变换中/无效 → null：采样层按整宿主 Fit 之外，还要求
-            // canSample 为真才真的采样，因此这里 null 与 fallback 是同一件事的两面。
             photoRectPx = settledPhotoRect
         )
     }
@@ -454,21 +449,17 @@ fun ViewerOverlay(
         scrimHeightPx = viewerBackdrop.scrimHeightPx,
         modifier = modifier.fillMaxSize(),
         backdropSpec = backdropSpec,
+        requirePhotoRect = true,
         state = viewerBackdropState,
         background = Color.Black,
-        // **新增的关闭按钮只在试点内存在。**
-        // 开关关闭 / 系统不支持（SDK < 33）/ 本机判定不采样时，这里什么都不画：
-        // 回到试点前的操作方式——点背景退出，分享按钮照旧在右上角。
-        // 采样暂不可用但试点开着时，按钮仍在，只是走实色样式（见 ViewerExitButton）。
         topBar = { decision ->
-            // **渲染证据出口**（只 debug 变体渲染）：审计行与 decision 同源，
-            // 而 decision 同时决定下面画哪条分支，因此"读数说在采样、屏幕在回退"
-            // 不可能发生。设备测试靠它拿到 sampled / reason / ready / photorect。
             ViewerBackdropAuditLine(
                 decision = decision,
                 state = viewerBackdropState,
                 viewerSync = viewerSync,
-                page = 1
+                page = 1,
+                photoIdentity = photoIdentity,
+                sampleBitmapSize = viewerBackdrop.photo?.let { IntSize(it.width, it.height) }
             )
             if (decision.pilotActive) {
                 ExitButtonWithBackdrop(decision, isExiting, ::exitViewer)
@@ -479,7 +470,7 @@ fun ViewerOverlay(
             // 外层玻璃层已 fillMaxSize，这里只承载语义与手势
             modifier = Modifier
                 .fillMaxSize()
-                .semantics { contentDescription = "viewer_overlay:${image.mediaIdentityKey()}" }
+                .semantics { contentDescription = "viewer_overlay:$photoIdentity" }
                 .background(Color.Black.copy(alpha = backgroundAlpha))
                 .pointerInput(Unit) {
                     // 点击背景退出
@@ -511,11 +502,6 @@ fun ViewerOverlay(
                     .size(currentWidthDp, currentHeightDp)
                     .onSizeChanged { size ->
                         contentSize = Size(size.width.toFloat(), size.height.toFloat())
-                    }
-                    .onGloballyPositioned { coords ->
-                        // 宿主角落 → 采样层用的像素坐标是同一个（都是整屏像素）。
-                        val r = coords.boundsInRoot()
-                        photoRectInHost = if (r.width > 0.5f && r.height > 0.5f) r else null
                     }
                     .clip(RoundedCornerShape(currentCornerRadius.dp))
                     .background(Color.Black)
@@ -700,8 +686,8 @@ fun ViewerOverlay(
                 onClick = { sharePhoto(image) },
                 enabled = !isExiting && !animProgress.isRunning,
                 modifier = Modifier.align(Alignment.TopEnd)
-                    .statusBarsPadding().padding(12.dp)
-                    .size(48.dp).clip(RoundedCornerShape(12.dp))
+                    .statusBarsPadding().padding(top = ViewerControlInset, end = ViewerControlInset)
+                    .size(ViewerControlSize).clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF2C2C2E))
             ) {
                 Icon(Icons.Outlined.Share, contentDescription = "分享当前照片", tint = Color.White)
@@ -711,26 +697,11 @@ fun ViewerOverlay(
     )
 }
 
-/**
- * 普通照片查看器的**退出按钮**（液态玻璃试点，PR B）。
- *
- * ## 为什么这里必须新增一个按钮
- *
- * 试点前的普通查看器**没有独立的退出控件**：退出唯一方式是点背景
- * （`detectTapGestures(onTap = exitViewer)`），右上角只有「分享」。
- * 「把退出按钮做成玻璃」这件事就没有承载物，所以试点必须补一个可见的退出按钮。
- * 它放在右上角、分享按钮的左边，触控尺寸 48dp、语义描述为「关闭」，
- * 与回收站查看器的关闭按钮保持一致的操作手感。
- *
- * ## 玻璃从哪里来
- *
- * 按钮放在 `LiquidGlassPhotoBackdropViewer` 的 `topBar` 里——只有这个槽位拿得到
- * `LocalLiquidGlassBackdrop`（采样来源）。`content` 里的控件在采样层之外，
- * 就算写成玻璃也采不到照片。
- *
- * `decision` 由采样层给出：开关关闭 / 系统不支持 / 照片未就绪 / 放大拖动中
- * 都会走 `sampled=false`，此时按钮自己回落到实色样式（[ViewerExitButton] 里判断）。
- */
+private val ViewerControlSize = 48.dp
+private val ViewerControlInset = 12.dp
+private val ViewerControlGap = 12.dp
+
+// Keep the close control in the sampling scope and align it with Share.
 @Composable
 private fun BoxScope.ExitButtonWithBackdrop(
     decision: ViewerBackdropDecision,
@@ -745,8 +716,11 @@ private fun BoxScope.ExitButtonWithBackdrop(
         modifier = Modifier
             .align(Alignment.TopEnd)
             .statusBarsPadding()
-            .padding(top = 12.dp, end = 72.dp)
-            .size(48.dp)
+            .padding(
+                top = ViewerControlInset,
+                end = ViewerControlInset + ViewerControlSize + ViewerControlGap
+            )
+            .size(ViewerControlSize)
     )
 }
 

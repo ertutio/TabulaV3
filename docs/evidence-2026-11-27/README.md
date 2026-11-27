@@ -50,19 +50,9 @@ AUDIT sampled=true reason=NONE path=glass page=1 ready=true
 
 ## 回收站用例的定向对比
 
-CI 上 `emulator-viewer-evidence (35)` 报 `timed out waiting for 项待处理`。
-本轮在同一台设备（API 36）、同一启动参数
-（`-e allowSyntheticMediaProbe true -e class ...RecycleBinViewerBackdropDeviceTest`）下：
+历史本地对照中，master `9f28927` 与旧版 #99 各通过 1 项。新版 #99 及同设备 master 复跑均在进入查看器前等待「项待处理」超时。本轮未取得回收站查看器行为的复跑结论。
 
-| 代码版本 | 结果 |
-| --- | --- |
-| master `9f28927` | **OK (1 test)** |
-| #99 HEAD | **OK (1 test)** |
-
-两边都通过，说明这条用例在本机**没有稳定复现**，CI 上的失败更可能是
-API 35 模拟器上「进入回收站后计数行没渲染出来」的环境性抖动
-（同一条用例在 CI 的 API 33 上一直通过）。本轮没有据此改动该用例。
-
+[上一版 CI](https://github.com/ertutio/TabulaV3/actions/runs/46004965155) 的 verify 和 API 31 预览探针通过。API 33、35 预览探针因设备断连未完成。回收站 API 33 的最终产物记录等待「回收站」超时（exit 1），API 35 最终产物记录设备断连（exit 2）。
 ## 复现命令
 
 ```bash

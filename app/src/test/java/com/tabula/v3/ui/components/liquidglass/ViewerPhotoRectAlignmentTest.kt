@@ -90,6 +90,29 @@ class ViewerPhotoRectAlignmentTest {
     }
 
     @Test
+    fun `ordinary viewer with missing or invalid geometry uses the solid button`() {
+        val base = ViewerBackdropDecision(
+            attachGateReason = BackdropFallbackReason.NONE,
+            requirePhotoRect = true
+        )
+
+        assertFalse(base.sampling)
+        assertTrue(base.pilotActive)
+        assertEquals(BackdropFallbackReason.NO_COORDINATES, base.reason)
+        assertFalse(base.copy(photoRect = PhotoDisplayRect(0f, 0f, 0f, 3f)).sampling)
+        assertTrue(base.copy(photoRect = viewerPhotoRect()).sampling)
+        assertFalse(base.copy(
+            photoRect = viewerPhotoRect(),
+            syncReason = BackdropFallbackReason.VIEWER_TRANSFORMED
+        ).sampling)
+    }
+
+    @Test
+    fun `fullscreen viewer may sample without an explicit photo rectangle`() {
+        assertTrue(ViewerBackdropDecision(BackdropFallbackReason.NONE).sampling)
+    }
+
+    @Test
     fun `pilotActive is false only when the pilot itself is off`() {
         // 开关关闭：按钮不存在，回到点背景退出
         assertFalse(
