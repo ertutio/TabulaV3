@@ -15,7 +15,7 @@ import android.content.SharedPreferences
  * 3. 引擎/模型版本变化：`engineId`（换 OCR 引擎或换语言包）；
  * 4. 文字辅助开关变化：开/关 DeepSeek 辅助会算出不同结果，用 `assistTag` 区分；
  * 5. 权限撤回：移除该条目，下次读取时重新判定。
- * 6. 原判定仍有效且有明确截止时间：该时间已到时重新判定。
+ * 6. 原判定仍有效且有明确截止时间，或本地规则的重判时间已到：重新判定。
  */
 class IntentVerdictCache(
     private val prefs: SharedPreferences,
@@ -42,7 +42,8 @@ class IntentVerdictCache(
         val mediaFingerprint: String,
         val rulesVersion: Int,
         val engineId: String,
-        val assistTag: String
+        val assistTag: String,
+        val recheckAtMillis: Long?
     )
 
     fun read(
@@ -56,7 +57,8 @@ class IntentVerdictCache(
         val cached = decode(raw) ?: return null
         val deadlineHasPassed = cached.expiry == ExpiryState.STILL_VALID &&
             cached.deadlineMillis != null && cached.deadlineMillis <= nowMillis
-        val fresh = !deadlineHasPassed && cached.mediaFingerprint == mediaFingerprint &&
+        val recheckIsDue = cached.recheckAtMillis != null && cached.recheckAtMillis <= nowMillis
+        val fresh = !deadlineHasPassed && !recheckIsDue && cached.mediaFingerprint == mediaFingerprint &&
             cached.rulesVersion == IntentRules.RULES_VERSION &&
             cached.engineId == engineId &&
             cached.assistTag == assistTag
@@ -69,7 +71,8 @@ class IntentVerdictCache(
                 signals = cached.signals,
                 ocrConfidence = cached.ocrConfidence,
                 deadlineMillis = cached.deadlineMillis,
-                assistantUsed = cached.assistantUsed
+                assistantUsed = cached.assistantUsed,
+                recheckAtMillis = cached.recheckAtMillis
             )
         } else {
             null
@@ -122,7 +125,8 @@ class IntentVerdictCache(
                 mediaFingerprint = write.mediaFingerprint,
                 rulesVersion = IntentRules.RULES_VERSION,
                 engineId = engineId,
-                assistTag = assistTag
+                assistTag = assistTag,
+                recheckAtMillis = verdict.recheckAtMillis
             )
             editor.putString(key, encode(entry, writtenAt))
         }
@@ -166,12 +170,13 @@ class IntentVerdictCache(
         e.mediaFingerprint,
         e.rulesVersion.toString(),
         e.engineId,
-        e.assistTag
+        e.assistTag,
+        e.recheckAtMillis?.toString() ?: ""
     ).joinToString(SEP)
 
     private fun decode(raw: String): IntentCachedVerdict? {
         val parts = raw.split(SEP)
-        if (parts.size != 13) return null
+        if (parts.size !in 13..14) return null
         return try {
             IntentCachedVerdict(
                 category = IntentCategory.valueOf(parts[1]),
@@ -186,7 +191,8 @@ class IntentVerdictCache(
                 mediaFingerprint = parts[9],
                 rulesVersion = parts[10].toIntOrNull() ?: -1,
                 engineId = parts[11],
-                assistTag = parts[12]
+                assistTag = parts[12],
+                recheckAtMillis = parts.getOrNull(13)?.toLongOrNull()
             )
         } catch (e: IllegalArgumentException) {
             null

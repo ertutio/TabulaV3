@@ -125,6 +125,7 @@ enum class IntentSignal(val label: String) {
  * @param ocrConfidence OCR 置信度（0~1），0 表示没读出可用文字
  * @param deadlineMillis 可核对的截止时间（毫秒）；没有依据时为 null
  * @param assistantUsed 是否使用了可选的文字辅助（DeepSeek）
+ * @param recheckAtMillis 本地规则需要重新判定的时间（毫秒），与图上截止时间独立
  */
 data class IntentVerdict(
     val category: IntentCategory,
@@ -134,7 +135,8 @@ data class IntentVerdict(
     val signals: Set<IntentSignal> = emptySet(),
     val ocrConfidence: Float = 0f,
     val deadlineMillis: Long? = null,
-    val assistantUsed: Boolean = false
+    val assistantUsed: Boolean = false,
+    val recheckAtMillis: Long? = null
 ) {
     /** 纳入批次时是否计为「排除」而不是「清理推荐」。 */
     val isProtectionExclusion: Boolean

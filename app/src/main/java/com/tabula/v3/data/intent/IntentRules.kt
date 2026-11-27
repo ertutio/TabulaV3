@@ -37,6 +37,7 @@ object IntentRules {
 
     /** 即时快讯需要存够这么多天，才当作「内容已经过期」。 */
     const val EPHEMERAL_NEWS_STALE_DAYS = 7
+    private const val MILLIS_PER_DAY = 86_400_000L
 
     /** 短期临时码的窗口：图上写的有效期不超过这么久，才算「短期」。 */
     const val SHORT_LIVED_WINDOW_MS = 24 * 3_600_000L
@@ -327,7 +328,14 @@ object IntentRules {
         val (recommendation, reason) = decide(
             category, expiry, matched, dateNote, savedAtMillis, nowMillis, shortLived, ephemeral
         )
-        return finish(category, recommendation, expiry, matched, reason, ocrConfidence, deadlineMillis)
+        val recheckAtMillis = if (category == IntentCategory.STALE_NEWS && ephemeral &&
+            recommendation == IntentRecommendation.LOWER_PRIORITY && savedAtMillis in 1..nowMillis
+        ) {
+            (savedAtMillis + EPHEMERAL_NEWS_STALE_DAYS * MILLIS_PER_DAY).takeIf { it > nowMillis }
+        } else {
+            null
+        }
+        return finish(category, recommendation, expiry, matched, reason, ocrConfidence, deadlineMillis, recheckAtMillis)
     }
 
     private fun finish(
@@ -337,7 +345,8 @@ object IntentRules {
         signals: Set<IntentSignal>,
         reason: String,
         ocrConfidence: Float,
-        deadlineMillis: Long?
+        deadlineMillis: Long?,
+        recheckAtMillis: Long?
     ) = IntentVerdict(
         category = category,
         recommendation = recommendation,
@@ -345,7 +354,8 @@ object IntentRules {
         reason = IntentTextSanitizer.sanitizeReason(reason),
         signals = signals,
         ocrConfidence = ocrConfidence,
-        deadlineMillis = deadlineMillis
+        deadlineMillis = deadlineMillis,
+        recheckAtMillis = recheckAtMillis
     )
 
     private fun protectedVerdict(
@@ -380,7 +390,7 @@ object IntentRules {
         shortLived: Boolean,
         ephemeral: Boolean
     ): Pair<IntentRecommendation, String> {
-        val ageDays = if (savedAtMillis > 0) ((nowMillis - savedAtMillis) / 86_400_000L).toInt() else -1
+        val ageDays = if (savedAtMillis > 0) ((nowMillis - savedAtMillis) / MILLIS_PER_DAY).toInt() else -1
         return when (category) {
             IntentCategory.EXPIRED_COUPON -> when (expiry) {
                 ExpiryState.EXPIRED -> IntentRecommendation.RECOMMEND to
