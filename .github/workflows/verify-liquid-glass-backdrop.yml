@@ -13,10 +13,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: current
-            emulator_build: ''
-          - label: previously-pinned
-            emulator_build: '16740729'
+          - label: swiftshader-no-guest-vulkan
+            gpu_options: '-gpu swiftshader -feature -Vulkan'
+          - label: swangle-no-guest-vulkan
+            gpu_options: '-gpu swangle -feature -Vulkan'
     name: API 35 viewer (${{ matrix.label }})
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -61,8 +61,7 @@ jobs:
           cores: 2
           ram-size: 3072M
           disk-size: 8G
-          emulator-build: ${{ matrix.emulator_build }}
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
+          emulator-options: -no-window ${{ matrix.gpu_options }} -no-snapshot -noaudio -no-boot-anim -no-metrics
           disable-animations: true
           script: API_LEVEL=35 MODE=viewer VIEWER_ATTEMPTS=1 bash tools/run-emulator-evidence.sh
       - name: Check host kernel for emulator exits
