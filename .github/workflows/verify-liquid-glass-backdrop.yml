@@ -47,7 +47,7 @@ jobs:
       #
       # 只"跑一次预热测试"不够：预热本身也走同一条网络，失败后依旧没缓存。
       # 因此这里直接把 jar 下到 Robolectric 的本地仓库目录，多镜像 + 重试，
-      # 预置好了后续测试就完全离线。
+      # Robolectric 可以复用预置的 jar，Gradle 构建依赖仍按仓库配置解析。
       - name: Prefetch Robolectric android-all
         continue-on-error: true
         run: |
@@ -92,11 +92,11 @@ jobs:
           if [ -s "$DEST/android-all-instrumented-$VERSION.jar" ] && \
              [ -s "$DEST/android-all-instrumented-$VERSION.pom" ]; then
             OFFLINE_FLAGS="-Drobolectric.offline=true"
-            echo "android-all 已预置，本次以 offline 运行（不再联网）"
+            echo "android-all 已预置，设置 Robolectric offline 参数"
           else
             echo '::warning::android-all 未预置成功，本次允许联网（可能因网络抖动失败）'
           fi
-          bash ./gradlew --no-daemon --stacktrace $OFFLINE_FLAGS \
+          bash tools/run-ci-gradle.sh --no-daemon --stacktrace $OFFLINE_FLAGS \
             :app:testDebugUnitTest :app:testReleaseUnitTest
 
       - name: Assert backdrop prototype tests actually ran
@@ -177,7 +177,7 @@ jobs:
           sh -n tools/run-emulator-evidence.sh
 
       - name: Assemble debug and release
-        run: bash ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:assembleRelease
+        run: bash tools/run-ci-gradle.sh --no-daemon --stacktrace :app:assembleDebug :app:assembleRelease
 
       # 真实查看器设备测试（RecycleBinViewerBackdropDeviceTest）需要 androidTest APK。
       # 之前这个 workflow 完全不跑 androidTest——新增的测试写了但没有任何 CI 覆盖。
@@ -190,7 +190,7 @@ jobs:
         run: python3 tools/check_androidtest_signatures.py
 
       - name: Assemble instrumented APK
-        run: bash ./gradlew --no-daemon --stacktrace :app:assembleDebugAndroidTest
+        run: bash tools/run-ci-gradle.sh --no-daemon --stacktrace :app:assembleDebugAndroidTest
 
       - name: Verify the debug preview entry exists only in debug
         run: |
