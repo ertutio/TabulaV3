@@ -2,7 +2,10 @@ name: Verify duplicate versions on emulator
 
 on:
   push:
-    branches: [feature/duplicate-versions-2026-11-23]
+    branches:
+      - feature/duplicate-versions-2026-11-23
+      # #105：副本扫描性能测量与设备复核都在本分支上验
+      - perf/duplicate-scan-identity-105
   workflow_dispatch:
 
 permissions:
@@ -51,6 +54,14 @@ jobs:
               e += int(r.get('errors', 0)); s += int(r.get('skipped', 0))
           print(f"classes={len(files)} tests={t} failures={f} errors={e} skipped={s}")
           PY
+          # #105：把副本扫描的测量行单独抽出来，方便直接贴进 PR。
+          # 数据源是 DuplicateScanMeasurementTest 的 system-out，不是手抄。
+          # XML 里这行以 `<system-out><![CDATA[` 开头、可能以 `]]>` 结尾，
+          # 两头都要去掉，否则贴进 PR 的是带 XML 外壳的文本。
+          grep -h 'DUP-SCAN' app/build/test-results/testDebugUnitTest/*.xml \
+            | sed -e 's/^.*CDATA\[//' -e 's/]]>.*$//' -e 's/[[:space:]]*$//' \
+            > artifacts/duplicate-scan-measurements.txt || true
+          cat artifacts/duplicate-scan-measurements.txt
           sha256sum device-apks/*.apk >> artifacts/SHA256SUMS.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
@@ -126,7 +137,9 @@ jobs:
             # 精确断言：不接受任意 "OK (N tests)"。
             # hint 类是真实回收站页面链路，此前漏跑；它依赖系统删除确认框
             # （MediaStore.createDeleteRequest），用例内已处理。
-            grep -Fx 'OK (6 tests)' device-results/instrumentation-dup.txt
+            # #105：dup 类新增 3 条（跨卷同数值 ID、回收站成员不算留存证据、
+            # 永久删除前用新算摘要复核），6 → 9。
+            grep -Fx 'OK (9 tests)' device-results/instrumentation-dup.txt
             grep -Fx 'OK (4 tests)' device-results/instrumentation-gate.txt
             grep -Fx 'OK (4 tests)' device-results/instrumentation-hint.txt
       - name: Summarise
