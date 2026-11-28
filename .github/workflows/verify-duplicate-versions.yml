@@ -152,7 +152,8 @@ jobs:
             cat device-results/display.txt 2>/dev/null || true
             cat device-results/summary.txt 2>/dev/null || cat device-results/instrumentation-dup.txt 2>/dev/null || echo "no instrumentation output"
             echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: RecentAlbums-device-${{ matrix.profile }}
