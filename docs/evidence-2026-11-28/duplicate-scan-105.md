@@ -83,7 +83,21 @@ image.size > 0L && image.size in recycleSizes &&
 次字符串拼接加临时 Set 分配。新实现在循环外构建一次，代价是
 `库内张数 + 回收站张数`，实测已接近常数（0.24 → 1.69 ms 主要是遍历本身的成本）。
 
-三轮独立运行的原始数字（同一份输入，`--rerun-tasks`）：
+### 3.1 CI（ubuntu-24.04，run 46162495300，`10cd001`）
+
+CI 的绝对耗时比本机高（共享 runner、JIT 更冷），但**比例更干净**：
+
+| 库内张数 | 旧 (ms) | 新 (ms) | 倍数 |
+|---|---|---|---|
+| 2,000 | 6.24 | 0.54 | 11.6× |
+| 10,000 | 31.88 | 0.50 | 63.8× |
+| 20,000 | 62.73 | 0.98 | 64.1× |
+| 50,000 | 155.21 | 2.49 | 62.4× |
+
+旧实现从 2k 到 50k 增长 24.9×（线性），新实现增长 4.6×（主要是缓存与遍历开销）。
+`duplicate-scan-measurements.txt` 产物里就是这些行，由 CI 从测试 XML 抽出。
+
+三轮独立运行的原始数字（本机，同一份输入，`--rerun-tasks`）：
 
 ```
 run1  2000: 4.30/0.22   10000: 16.78/0.31   20000: 32.06/1.06   50000: 85.37/1.65
@@ -164,10 +178,15 @@ run3  2000: 4.62/0.34   10000: 16.86/0.29   20000: 32.44/0.63   50000: 81.76/1.6
 | 项 | 命令 / 工作流 | 结果 |
 |---|---|---|
 | 副本相关 JVM 单测 | `:app:testDebugUnitTest --tests "com.tabula.v3.data.duplicate.*"` | 5 类 49 条全通过 |
-| 全量 JVM 单测 | `:app:testDebugUnitTest` | 142 类 1,225 条，0 失败 0 错误 0 跳过 |
+| 全量 JVM 单测（本机） | `:app:testDebugUnitTest` | 142 类 1,225 条，0 失败 0 错误 0 跳过 |
+| 全量 JVM 单测（CI） | `verify-duplicate-versions.yml` build job | `classes=142 tests=1225 failures=0 errors=0 skipped=0` |
 | androidTest 编译 | `:app:compileDebugAndroidTestKotlin` | 通过 |
 | APK 构建 | `:app:assembleDebug :app:assembleDebugAndroidTest` | 通过 |
-| 设备验证 | `verify-duplicate-versions.yml`（pixel_6 + pixel_4） | 见 PR 的 CI 结果 |
+| 设备验证 pixel_6 | run 46162495300 device (pixel_6)，1080x2400 @420，night | dup `OK (9 tests)` / gate `OK (4 tests)` / hint `OK (4 tests)` |
+| 设备验证 pixel_4 | run 46162495300 device (pixel_4)，1080x2280 @440，night | dup `OK (9 tests)` / gate `OK (4 tests)` / hint `OK (4 tests)` |
+
+CI run：<https://github.com/ertutio/TabulaV3/actions/runs/46162495300>
+（commit `10cd001`，build 15:56:58Z→16:01:04Z，两个 device job 均 success）
 
 设备侧新增三条（`DuplicateVersionsDeviceTest`，6 → 9）：
 

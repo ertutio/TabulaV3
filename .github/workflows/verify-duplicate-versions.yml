@@ -56,8 +56,11 @@ jobs:
           PY
           # #105：把副本扫描的测量行单独抽出来，方便直接贴进 PR。
           # 数据源是 DuplicateScanMeasurementTest 的 system-out，不是手抄。
+          # XML 里这行以 `<system-out><![CDATA[` 开头、可能以 `]]>` 结尾，
+          # 两头都要去掉，否则贴进 PR 的是带 XML 外壳的文本。
           grep -h 'DUP-SCAN' app/build/test-results/testDebugUnitTest/*.xml \
-            | sed -e 's/^ *//' -e 's/]]>.*$//' > artifacts/duplicate-scan-measurements.txt || true
+            | sed -e 's/^.*CDATA\[//' -e 's/]]>.*$//' -e 's/[[:space:]]*$//' \
+            > artifacts/duplicate-scan-measurements.txt || true
           cat artifacts/duplicate-scan-measurements.txt
           sha256sum device-apks/*.apk >> artifacts/SHA256SUMS.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
