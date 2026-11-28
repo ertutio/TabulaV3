@@ -446,7 +446,14 @@ class DuplicateVersionsDeviceTest {
             ctx.contentResolver.openOutputStream(copyUri, "wt")!!.use {
                 it.write(ByteArray(2048) { i -> ((0x0BADF00D shr ((i % 4) * 8)) xor i).toByte() })
             }
-            val changed = calc.digestAll(listOf(inBin, awaitImageOf(copyUri)))
+            // 用**同一个 ImageFile 实例**重算：digest 读的是 URI 当前内容，
+            // 所以这里拿到的是改后的摘要。换成重新查库得到的实例会让
+            // digestOf 的 map 键对不上，测试会因为"取不到摘要"而假通过。
+            val changed = calc.digestAll(listOf(inBin, copy))
+            assertFalse(
+                "改写后副本摘要必须与主图不同（否则下面的拦截断言没有意义）",
+                changed[copy]?.sha256 == changed[inBin]?.sha256
+            )
             val blocked = DuplicateReverify.verifyAll(
                 toDelete = listOf(inBin),
                 details = details,
