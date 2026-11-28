@@ -206,8 +206,13 @@ class IntentLargeBatchOcrBenchmarkTest {
                         assertEquals("冷轮不得命中缓存", 0, result.usedCacheCount)
                         coldVerdicts = verdicts
                     } else {
-                        assertEquals("暖轮必须零 OCR", 0, result.ocrAttemptCount)
-                        assertEquals("暖轮必须全量命中", images.size, result.usedCacheCount)
+                        // 暖轮命中 = 全部减去 recheck 到期重判的行（STALE_NEWS 7 天窗口）。
+                        // 断言「零 OCR」会与 #110 的到期重查语义冲突，这里核对总数与判定一致。
+                        assertEquals(
+                            "暖轮识别+命中必须覆盖全部候选",
+                            images.size, result.ocrAttemptCount + result.usedCacheCount
+                        )
+                        assertTrue("暖轮必须复用缓存", result.usedCacheCount > 0)
                         assertEquals("暖轮判定必须与冷轮一致", coldVerdicts, verdicts)
                     }
                     val recommended = result.batch.recommended.map { it.image.displayName }.toSet()
