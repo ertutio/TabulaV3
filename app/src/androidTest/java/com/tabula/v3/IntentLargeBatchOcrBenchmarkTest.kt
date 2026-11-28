@@ -2,6 +2,7 @@ package com.tabula.v3
 
 import android.content.ContentValues
 import android.content.ContentUris
+import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.MediaStore
