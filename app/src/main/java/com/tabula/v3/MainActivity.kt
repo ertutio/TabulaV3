@@ -157,6 +157,7 @@ import com.tabula.v3.data.repository.resolveImagesByIdentitySelection
 import com.tabula.v3.data.duplicate.ContentDigestCalculator
 import com.tabula.v3.data.duplicate.DuplicateReverify
 import com.tabula.v3.data.duplicate.DuplicateRules
+import com.tabula.v3.data.duplicate.DuplicateScanCandidates
 import com.tabula.v3.data.burst.BurstCommit
 import com.tabula.v3.data.burst.BurstSelectionRules
 import com.tabula.v3.data.repository.SimilarGroup
@@ -999,11 +1000,14 @@ fun TabulaApp(
         // 1. 按文件大小分组：只有大小相同的才可能字节相同
         // 2. 只对这些大小分组里的照片算全文摘要，且回收站里的这些照片本身
         //    也要参与（它们是被删除的一方，不参与就无法判断"还剩一份"）
-        val recycleSizes = deletedImages.map { it.size }.filter { it > 0L }.toSet()
-        val libraryCandidates = allImages.filter { image ->
-            image.size > 0L && image.size in recycleSizes &&
-                image.mediaIdentityKey() !in deletedImages.map { it.mediaIdentityKey() }.toSet()
-        }
+        //
+        // #105：筛选逻辑抽到 DuplicateScanCandidates 里，原因有两个——
+        // 三段（筛选/摘要/分组）各自可计时，且原实现在 filter 的 lambda 里
+        // 重建"回收站身份集合"，对全库每张照片执行一次 map+toSet。
+        val libraryCandidates = DuplicateScanCandidates.selectLibraryCandidates(
+            allImages = allImages,
+            deletedImages = deletedImages
+        )
         if (libraryCandidates.isEmpty()) {
             // 图库里没有任何同尺寸候选 —— 不确定，但不声称"还留有副本"
             duplicateCounts = emptyMap()
