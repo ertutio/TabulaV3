@@ -5,6 +5,7 @@ on:
     branches:
       - feature/intent-batch-ocr-2026-11-25
       - feature/intent-opencode-go-2026-11-25
+      - perf/ocr-large-batch-baseline
   workflow_dispatch:
 
 permissions:
@@ -136,7 +137,7 @@ jobs:
   device:
     needs: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -206,6 +207,17 @@ jobs:
             grep -Fx 'OK (11 tests)' device-results/instrumentation-page.txt
             grep -F '[ocr-ui-benchmark] ' device-results/stdout-page.txt > device-results/ocr-ui-benchmark.txt
             test "$(wc -l < device-results/ocr-ui-benchmark.txt)" -eq 2
+            # #105 大批量 OCR 基线（96 张夹具 + 410 张容量边界）：独立测试类，单独跑
+            adb logcat -c || true
+            timeout 2400s adb shell am instrument -w -r -e class com.tabula.v3.IntentLargeBatchOcrBenchmarkTest com.tabula.v3.recyclebin.test.test/androidx.test.runner.AndroidJUnitRunner > device-results/instrumentation-large.txt 2>&1 || true
+            cat device-results/instrumentation-large.txt
+            adb logcat -d -s System.out > device-results/stdout-large.txt || true
+            grep -E 'INSTRUMENTATION_STATUS: (class|numtests|test=)|OK \(|FAILURES' device-results/instrumentation-large.txt > device-results/summary-large.txt || true
+            cat device-results/summary-large.txt
+            grep -Fx 'OK (2 tests)' device-results/instrumentation-large.txt
+            grep -F '[ocr-large-benchmark] ' device-results/stdout-large.txt > device-results/ocr-large-benchmark.txt
+            # 3 rounds x (cold+warm) + setup + capacity = 8 lines
+            test "$(wc -l < device-results/ocr-large-benchmark.txt)" -eq 8
       - name: Summarise
         if: always()
         run: |
@@ -228,6 +240,11 @@ jobs:
             echo "### Page flow"
             echo '```'
             cat device-results/summary-page.txt 2>/dev/null || echo "no page flow output"
+            echo '```'
+            echo ""
+            echo "### OCR large batch (#105)"
+            echo '```'
+            cat device-results/ocr-large-benchmark.txt 2>/dev/null || echo "no large batch output"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
